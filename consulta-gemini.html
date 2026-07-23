@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Consulta · Assistido por IA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper:#F6F8F6;
+    --ink:#16211D;
+    --teal:#1F4E4A;
+    --teal-dark:#123331;
+    --sage:#6E8C82;
+    --sage-soft:#DDE7E3;
+    --amber:#C97B3D;
+    --hair:#D7DEDA;
+    --white:#FFFFFF;
+    --danger:#B4463C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  a{color:var(--teal);}
+
+  .app{display:flex;flex-direction:column;min-height:100vh;}
+
+  header{
+    padding:20px 24px 16px;
+    border-bottom:1px solid var(--hair);
+    background:var(--white);
+    position:sticky;top:0;z-index:10;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--sage);margin-bottom:6px;display:flex;align-items:center;gap:8px;
+  }
+  .eyebrow .tick{display:inline-flex;gap:2px;align-items:flex-end;height:10px;}
+  .eyebrow .tick i{width:2px;background:var(--sage);display:block;}
+  header h1{font-size:22px;color:var(--teal-dark);}
+  header p.sub{margin:4px 0 0;font-size:13.5px;color:#526460;max-width:560px;line-height:1.5;}
+
+  main{flex:1;display:grid;grid-template-columns:340px 1fr;gap:0;}
+  @media (max-width:860px){ main{grid-template-columns:1fr;} }
+
+  .panel-left{
+    border-right:1px solid var(--hair);
+    padding:24px;
+    background:var(--white);
+    display:flex;flex-direction:column;gap:20px;
+  }
+  @media (max-width:860px){ .panel-left{border-right:none;border-bottom:1px solid var(--hair);} }
+
+  .card{
+    border:1px solid var(--hair);
+    border-radius:4px;
+    padding:16px;
+    background:var(--paper);
+  }
+  .card h3{font-size:13px;color:var(--teal-dark);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Sans',sans-serif;font-weight:600;}
+
+  label{display:block;font-size:12.5px;color:#3E4C48;margin:10px 0 4px;font-weight:500;}
+  input[type=text], input[type=password], select{
+    width:100%;padding:9px 10px;border:1px solid var(--hair);border-radius:3px;
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--white);color:var(--ink);
+  }
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--teal);outline-offset:1px;}
+
+  .consent-row{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:12.5px;color:#3E4C48;line-height:1.5;}
+  .consent-row input{width:auto;margin-top:3px;}
+
+  .rec-zone{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 4px;}
+  .rec-btn{
+    width:76px;height:76px;border-radius:50%;border:2px solid var(--teal);
+    background:var(--teal);color:var(--white);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s ease, background .2s ease;
+  }
+  .rec-btn:hover:not(:disabled){transform:scale(1.04);}
+  .rec-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .rec-btn.recording{background:var(--danger);border-color:var(--danger);animation:pulse 1.6s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(180,70,60,.35);}
+    70%{box-shadow:0 0 0 14px rgba(180,70,60,0);}
+    100%{box-shadow:0 0 0 0 rgba(180,70,60,0);}
+  }
+  .rec-btn svg{width:26px;height:26px;}
+
+  .timer{font-family:'IBM Plex Mono',monospace;font-size:22px;color:var(--teal-dark);letter-spacing:.02em;}
+  .status{font-size:12px;color:var(--sage);text-align:center;min-height:16px;}
+
+  canvas#wave{width:100%;height:56px;display:block;border-radius:3px;background:var(--white);border:1px solid var(--hair);}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:10px 14px;border-radius:3px;border:1px solid var(--teal);
+    background:var(--teal);color:var(--white);font-size:13px;font-weight:500;
+    cursor:pointer;font-family:'IBM Plex Sans',sans-serif;width:100%;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.secondary{background:transparent;color:var(--teal-dark);}
+  .btn.ghost{background:transparent;color:#3E4C48;border-color:var(--hair);}
+
+  .panel-right{padding:24px 28px 60px;overflow-y:auto;}
+  .field{
+    margin-bottom:18px;border-left:3px solid var(--sage-soft);padding-left:16px;
+    transition:border-color .3s ease;
+  }
+  .field.filled{border-left-color:var(--teal);}
+  .field label{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--teal-dark);margin-bottom:6px;
+  }
+  .field textarea{
+    width:100%;min-height:64px;resize:vertical;border:1px solid var(--hair);
+    border-radius:3px;padding:10px 12px;font-family:'IBM Plex Sans',sans-serif;
+    font-size:14px;line-height:1.55;color:var(--ink);background:var(--white);
+  }
+  .field.diag textarea{min-height:44px;}
+
+  .toolbar{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
+  .toolbar .btn{width:auto;padding:9px 16px;}
+
+  .empty-note{
+    font-size:13px;color:#7C8B86;border:1px dashed var(--hair);border-radius:4px;
+    padding:16px;text-align:center;margin-bottom:20px;
+  }
+
+  .banner{
+    font-size:12.5px;padding:10px 14px;border-radius:3px;margin-bottom:16px;
+    border:1px solid var(--hair);background:var(--sage-soft);color:#2C3B37;line-height:1.5;
+  }
+  .banner.error{background:#F6E4E1;border-color:#E3B7AE;color:#7A2E24;}
+
+  footer{padding:14px 24px;border-top:1px solid var(--hair);font-size:11.5px;color:#87938F;text-align:center;background:var(--white);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="eyebrow"><span class="tick"><i style="height:4px"></i><i style="height:8px"></i><i style="height:3px"></i><i style="height:7px"></i></span> registro clínico assistido</div>
+    <h1>Consulta → Prontuário estruturado</h1>
+    <p class="sub">Grava o áudio da consulta, transcreve e organiza automaticamente no modelo da clínica. Revise sempre antes de salvar — o rascunho é gerado por IA.</p>
+  </header>
+
+  <main>
+    <section class="panel-left">
+
+      <div class="card">
+        <h3>Conexão com o Gemini</h3>
+        <label for="apiKey">Chave de API (Google AI Studio)</label>
+        <input type="password" id="apiKey" placeholder="AIza...">
+        <label for="modelName">Modelo</label>
+        <input type="text" id="modelName" value="gemini-2.5-flash">
+        <div class="banner" style="margin-top:12px;margin-bottom:0;">
+          A chave fica só na memória desta aba — nada é salvo. Para uso em produção, mova essa chamada para um backend seu; nunca deixe a chave exposta no navegador em produção.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Consentimento</h3>
+        <div class="consent-row">
+          <input type="checkbox" id="consent">
+          <span>Confirmo que o paciente foi informado e consentiu com a gravação de áudio da consulta para fins de registro clínico, conforme a LGPD.</span>
+        </div>
+      </div>
+
+      <div class="card rec-zone">
+        <button class="rec-btn" id="recBtn" disabled title="Marque o consentimento para habilitar">
+          <svg viewBox="0 0 24 24" fill="none" id="recIcon"><rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor" id="stopShape" style="display:none"/><circle cx="12" cy="12" r="7" fill="currentColor" id="circleShape"/></svg>
+        </button>
+        <div class="timer mono" id="timer">00:00</div>
+        <canvas id="wave" width="280" height="56"></canvas>
+        <div class="status" id="status">Aguardando início da gravação</div>
+      </div>
+
+      <button class="btn secondary" id="processBtn" disabled>Transcrever e estruturar</button>
+      <button class="btn ghost" id="resetBtn">Limpar e começar nova consulta</button>
+
+    </section>
+
+    <section class="panel-right">
+      <div class="toolbar">
+        <button class="btn ghost ex" id="copyBtn" style="width:auto;">Copiar prontuário</button>
+        <button class="btn ghost ex" id="downloadBtn" style="width:auto;">Baixar .txt</button>
+      </div>
+
+      <div id="bannerArea"></div>
+
+      <div class="field" data-key="queixa_principal">
+        <label>Queixa principal</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="hda">
+        <label>História da doença atual</label>
+        <textarea style="min-height:110px" placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="comorbidades">
+        <label>Comorbidades</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="medicacoes">
+        <label>Medicações em uso</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="alergias">
+        <label>Alergias</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field diag" data-key="hipotese_diagnostica">
+        <label>Hipótese diagnóstica</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>Protótipo — rascunho gerado por IA. Sempre revisado e validado por profissional habilitado antes de compor o prontuário oficial.</footer>
+</div>
+
+<script>
+(function(){
+  const consent = document.getElementById('consent');
+  const recBtn = document.getElementById('recBtn');
+  const circleShape = document.getElementById('circleShape');
+  const stopShape = document.getElementById('stopShape');
+  const timerEl = document.getElementById('timer');
+  const statusEl = document.getElementById('status');
+  const processBtn = document.getElementById('processBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const bannerArea = document.getElementById('bannerArea');
+  const apiKeyInput = document.getElementById('apiKey');
+  const modelInput = document.getElementById('modelName');
+  const canvas = document.getElementById('wave');
+  const ctx2d = canvas.getContext('2d');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  const fieldKeys = ['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica'];
+  const fieldLabels = {
+    queixa_principal:'QUEIXA PRINCIPAL',
+    hda:'HISTÓRIA DA DOENÇA ATUAL',
+    comorbidades:'COMORBIDADES',
+    medicacoes:'MEDICAÇÕES EM USO',
+    alergias:'ALERGIAS',
+    hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA'
+  };
+
+  let mediaRecorder, chunks = [], audioBlob = null;
+  let recording = false, seconds = 0, timerInt = null;
+  let audioCtx, analyser, dataArray, rafId, stream;
+
+  consent.addEventListener('change', () => {
+    recBtn.disabled = !consent.checked;
+    recBtn.title = consent.checked ? 'Iniciar gravação' : 'Marque o consentimento para habilitar';
+  });
+
+  function showBanner(msg, isError){
+    bannerArea.innerHTML = `<div class="banner ${isError?'error':''}">${msg}</div>`;
+  }
+  function clearBanner(){ bannerArea.innerHTML = ''; }
+
+  function formatTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const ss = (s%60).toString().padStart(2,'0');
+    return `${m}:${ss}`;
+  }
+
+  function drawWave(){
+    if(!analyser) return;
+    analyser.getByteTimeDomainData(dataArray);
+    ctx2d.clearRect(0,0,canvas.width,canvas.height);
+    ctx2d.lineWidth = 2;
+    ctx2d.strokeStyle = '#B4463C';
+    ctx2d.beginPath();
+    const slice = canvas.width / dataArray.length;
+    let x = 0;
+    for(let i=0;i<dataArray.length;i++){
+      const v = dataArray[i]/128.0;
+      const y = (v * canvas.height)/2;
+      if(i===0) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
+      x += slice;
+    }
+    ctx2d.stroke();
+    rafId = requestAnimationFrame(drawWave);
+  }
+
+  function flatline(){
+    cancelAnimationFrame(rafId);
+    ctx2d.clearRect(0,0,canvas.width,canvas.height);
+    ctx2d.lineWidth = 1.5;
+    ctx2d.strokeStyle = '#D7DEDA';
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, canvas.height/2);
+    ctx2d.lineTo(canvas.width, canvas.height/2);
+    ctx2d.stroke();
+  }
+
+  async function startRecording(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    }catch(e){
+      showBanner('Não foi possível acessar o microfone. Verifique as permissões do navegador.', true);
+      return;
+    }
+    chunks = [];
+    audioBlob = null;
+    processBtn.disabled = true;
+    clearBanner();
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWave();
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, {mimeType});
+    mediaRecorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(chunks, {type:mimeType});
+      processBtn.disabled = false;
+      statusEl.textContent = `Gravação concluída · ${formatTime(seconds)} · pronta para transcrever`;
+      flatline();
+    };
+    mediaRecorder.start();
+
+    recording = true;
+    seconds = 0;
+    timerEl.textContent = formatTime(seconds);
+    timerInt = setInterval(()=>{ seconds++; timerEl.textContent = formatTime(seconds); }, 1000);
+
+    recBtn.classList.add('recording');
+    circleShape.style.display = 'none';
+    stopShape.style.display = 'block';
+    statusEl.textContent = 'Gravando consulta...';
+  }
+
+  function stopRecording(){
+    recording = false;
+    clearInterval(timerInt);
+    recBtn.classList.remove('recording');
+    circleShape.style.display = 'block';
+    stopShape.style.display = 'none';
+    if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx) audioCtx.close();
+  }
+
+  recBtn.addEventListener('click', () => {
+    if(!consent.checked) return;
+    if(!recording) startRecording(); else stopRecording();
+  });
+
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function setFieldsLoading(){
+    fieldKeys.forEach(k=>{
+      const el = document.querySelector(`.field[data-key="${k}"] textarea`);
+      el.value = '';
+      document.querySelector(`.field[data-key="${k}"]`).classList.remove('filled');
+    });
+  }
+
+  function fillFields(data){
+    fieldKeys.forEach(k=>{
+      const wrap = document.querySelector(`.field[data-key="${k}"]`);
+      const el = wrap.querySelector('textarea');
+      el.value = data[k] || '';
+      if(data[k]) wrap.classList.add('filled');
+    });
+  }
+
+  async function processAudio(){
+    const apiKey = apiKeyInput.value.trim();
+    const model = modelInput.value.trim() || 'gemini-2.5-flash';
+    if(!apiKey){ showBanner('Informe sua chave de API do Gemini antes de transcrever.', true); return; }
+    if(!audioBlob){ showBanner('Grave uma consulta antes de transcrever.', true); return; }
+
+    processBtn.disabled = true;
+    processBtn.textContent = 'Transcrevendo e estruturando...';
+    setFieldsLoading();
+    clearBanner();
+
+    try{
+      const base64Audio = await blobToBase64(audioBlob);
+      const prompt = `Você é um assistente de documentação clínica. Ouça o áudio desta consulta médico-paciente em português e produza um resumo estruturado, objetivo e fiel ao que foi dito, preenchendo exatamente estes campos:
+- queixa_principal: motivo principal da consulta, em poucas frases.
+- hda: história da doença atual, evolução cronológica dos sintomas.
+- comorbidades: doenças prévias/crônicas mencionadas. Se nada foi dito, escreva "Não relatado na consulta".
+- medicacoes: medicações em uso mencionadas, com dose/frequência se citadas. Se nada foi dito, escreva "Não relatado na consulta".
+- alergias: alergias mencionadas. Se nada foi dito, escreva "Nega alergias" apenas se isso foi dito explicitamente, caso contrário "Não relatado na consulta".
+- hipotese_diagnostica: hipótese(s) diagnóstica(s) levantada(s) pelo médico durante a consulta, se mencionada(s). Se o médico não verbalizou uma hipótese, escreva "Não verbalizada na consulta".
+Não invente informações que não estejam no áudio. Responda apenas com o JSON.`;
+
+      const body = {
+        contents: [{
+          role: 'user',
+          parts: [
+            {text: prompt},
+            {inlineData: {mimeType: 'audio/webm', data: base64Audio}}
+          ]
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              queixa_principal: {type:'STRING'},
+              hda: {type:'STRING'},
+              comorbidades: {type:'STRING'},
+              medicacoes: {type:'STRING'},
+              alergias: {type:'STRING'},
+              hipotese_diagnostica: {type:'STRING'}
+            },
+            required: fieldKeys
+          }
+        }
+      };
+
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'x-goog-api-key': apiKey},
+        body: JSON.stringify(body)
+      });
+
+      if(!resp.ok){
+        const errText = await resp.text();
+        throw new Error(`Erro da API Gemini (${resp.status}): ${errText.slice(0,300)}`);
+      }
+
+      const data = await resp.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text) throw new Error('Resposta do Gemini veio vazia ou em formato inesperado.');
+      const parsed = JSON.parse(text);
+      fillFields(parsed);
+      showBanner('Rascunho gerado. Revise cada campo com atenção antes de salvar no prontuário oficial.', false);
+
+    }catch(err){
+      showBanner(err.message || 'Falha ao processar o áudio.', true);
+    }finally{
+      processBtn.disabled = false;
+      processBtn.textContent = 'Transcrever e estruturar';
+    }
+  }
+
+  processBtn.addEventListener('click', processAudio);
+
+  resetBtn.addEventListener('click', () => {
+    audioBlob = null;
+    chunks = [];
+    seconds = 0;
+    timerEl.textContent = '00:00';
+    statusEl.textContent = 'Aguardando início da gravação';
+    processBtn.disabled = true;
+    setFieldsLoading();
+    clearBanner();
+    flatline();
+  });
+
+  function buildNoteText(){
+    return fieldKeys.map(k => {
+      const el = document.querySelector(`.field[data-key="${k}"] textarea`);
+      return `${fieldLabels[k]}:\n${el.value || ''}`;
+    }).join('\n\n');
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(buildNoteText());
+      copyBtn.textContent = 'Copiado!';
+      setTimeout(()=>copyBtn.textContent='Copiar prontuário', 1500);
+    }catch(e){
+      showBanner('Não foi possível copiar automaticamente. Selecione o texto manualmente.', true);
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([buildNoteText()], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `consulta-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  flatline();
+})();
+</script>
+</body>
+</html>
