@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -137,6 +138,28 @@
   .banner.error{background:#F6E4E1;border-color:#E3B7AE;color:#7A2E24;}
 
   footer{padding:14px 24px;border-top:1px solid var(--hair);font-size:11.5px;color:#87938F;text-align:center;background:var(--white);}
+
+  .style-card{border:1px solid var(--hair);border-radius:4px;background:var(--white);margin-bottom:22px;}
+  .style-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;}
+  .style-head h3{font-size:13px;color:var(--teal-dark);text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Sans',sans-serif;font-weight:600;}
+  .style-head .count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);}
+  .style-body{padding:0 16px 16px;display:none;}
+  .style-body.open{display:block;}
+  .style-toggle-row{display:flex;gap:8px;align-items:center;font-size:12.5px;color:#3E4C48;margin-bottom:14px;}
+  .style-toggle-row input{width:auto;}
+
+  .example-item{border:1px solid var(--hair);border-radius:3px;padding:10px 12px;margin-bottom:8px;background:var(--paper);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .example-item .ex-title{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:2px;}
+  .example-item .ex-preview{font-size:12px;color:#6B7975;line-height:1.4;}
+  .example-item button{border:none;background:transparent;color:var(--danger);font-size:11.5px;cursor:pointer;padding:2px 4px;flex-shrink:0;}
+
+  .example-form{border:1px dashed var(--hair);border-radius:3px;padding:14px;margin-top:10px;background:var(--paper);}
+  .example-form label{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--teal-dark);font-family:'IBM Plex Mono',monospace;}
+  .example-form textarea{width:100%;min-height:52px;margin-bottom:8px;border:1px solid var(--hair);border-radius:3px;padding:8px 10px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;line-height:1.5;}
+  .example-form input[type=text]{font-family:'IBM Plex Sans',sans-serif;margin-bottom:10px;}
+  .example-form-actions{display:flex;gap:8px;}
+  .example-form-actions .btn{width:auto;padding:8px 14px;font-size:12.5px;}
+  .empty-examples{font-size:12.5px;color:#8A9793;padding:8px 0;}
 </style>
 </head>
 <body>
@@ -156,7 +179,7 @@
         <label for="apiKey">Chave de API (Google AI Studio)</label>
         <input type="password" id="apiKey" placeholder="AIza...">
         <label for="modelName">Modelo</label>
-        <input type="text" id="modelName" value="gemini-2.5-flash">
+        <input type="text" id="modelName" value="gemini-3.6-flash">
         <div class="banner" style="margin-top:12px;margin-bottom:0;">
           A chave fica só na memória desta aba — nada é salvo. Para uso em produção, mova essa chamada para um backend seu; nunca deixe a chave exposta no navegador em produção.
         </div>
@@ -185,6 +208,43 @@
     </section>
 
     <section class="panel-right">
+
+      <div class="style-card">
+        <div class="style-head" id="styleHead">
+          <h3>Exemplos de escrita anteriores</h3>
+          <span class="count mono" id="exampleCount">0 salvos ▾</span>
+        </div>
+        <div class="style-body" id="styleBody">
+          <div class="style-toggle-row">
+            <input type="checkbox" id="useExamples" checked>
+            <label style="margin:0" for="useExamples">Usar estes exemplos como referência de estilo ao gerar o próximo prontuário</label>
+          </div>
+          <div id="exampleList"></div>
+          <button class="btn ghost" id="addExampleBtn" style="margin-top:6px;">+ Adicionar exemplo de consulta anterior</button>
+
+          <div class="example-form" id="exampleForm" style="display:none;">
+            <label for="exTitle">Nome do exemplo (opcional)</label>
+            <input type="text" id="exTitle" placeholder="Ex.: Retorno cardiologia">
+            <label>Queixa principal</label>
+            <textarea id="ex_queixa_principal"></textarea>
+            <label>História da doença atual</label>
+            <textarea id="ex_hda" style="min-height:80px"></textarea>
+            <label>Comorbidades</label>
+            <textarea id="ex_comorbidades"></textarea>
+            <label>Medicações em uso</label>
+            <textarea id="ex_medicacoes"></textarea>
+            <label>Alergias</label>
+            <textarea id="ex_alergias"></textarea>
+            <label>Hipótese diagnóstica</label>
+            <textarea id="ex_hipotese_diagnostica"></textarea>
+            <div class="example-form-actions">
+              <button class="btn" id="saveExampleBtn">Salvar exemplo</button>
+              <button class="btn ghost" id="cancelExampleBtn">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="toolbar">
         <button class="btn ghost ex" id="copyBtn" style="width:auto;">Copiar prontuário</button>
         <button class="btn ghost ex" id="downloadBtn" style="width:auto;">Baixar .txt</button>
@@ -241,6 +301,18 @@
   const copyBtn = document.getElementById('copyBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
+  const styleHead = document.getElementById('styleHead');
+  const styleBody = document.getElementById('styleBody');
+  const exampleCount = document.getElementById('exampleCount');
+  const exampleList = document.getElementById('exampleList');
+  const addExampleBtn = document.getElementById('addExampleBtn');
+  const exampleForm = document.getElementById('exampleForm');
+  const saveExampleBtn = document.getElementById('saveExampleBtn');
+  const cancelExampleBtn = document.getElementById('cancelExampleBtn');
+  const exTitle = document.getElementById('exTitle');
+  const useExamples = document.getElementById('useExamples');
+  let styleExamples = [];
+
   const fieldKeys = ['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica'];
   const fieldLabels = {
     queixa_principal:'QUEIXA PRINCIPAL',
@@ -254,6 +326,94 @@
   let mediaRecorder, chunks = [], audioBlob = null;
   let recording = false, seconds = 0, timerInt = null;
   let audioCtx, analyser, dataArray, rafId, stream;
+
+  async function loadExamples(){
+    try{
+      const res = await window.storage.get('style-examples', false);
+      styleExamples = res ? JSON.parse(res.value) : [];
+    }catch(e){
+      styleExamples = [];
+    }
+    renderExamples();
+  }
+
+  async function persistExamples(){
+    try{
+      await window.storage.set('style-examples', JSON.stringify(styleExamples), false);
+    }catch(e){
+      showBanner('Não foi possível salvar o exemplo neste navegador. Ele vale só para esta sessão.', true);
+    }
+  }
+
+  function renderExamples(){
+    exampleCount.textContent = `${styleExamples.length} salvo${styleExamples.length===1?'':'s'} ▾`;
+    if(styleExamples.length === 0){
+      exampleList.innerHTML = '<div class="empty-examples">Nenhum exemplo salvo ainda. Adicione uma consulta já escrita para o Gemini seguir o mesmo estilo e nível de detalhe.</div>';
+      return;
+    }
+    exampleList.innerHTML = styleExamples.map((ex, i) => `
+      <div class="example-item">
+        <div>
+          <div class="ex-title">${ex.title || 'Exemplo ' + (i+1)}</div>
+          <div class="ex-preview">${(ex.queixa_principal || '').slice(0,90)}${(ex.queixa_principal||'').length>90?'...':''}</div>
+        </div>
+        <button data-idx="${i}" class="del-ex">remover</button>
+      </div>
+    `).join('');
+    exampleList.querySelectorAll('.del-ex').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        styleExamples.splice(Number(btn.dataset.idx), 1);
+        await persistExamples();
+        renderExamples();
+      });
+    });
+  }
+
+  styleHead.addEventListener('click', () => {
+    styleBody.classList.toggle('open');
+  });
+
+  addExampleBtn.addEventListener('click', () => {
+    exampleForm.style.display = exampleForm.style.display === 'none' ? 'block' : 'none';
+  });
+
+  cancelExampleBtn.addEventListener('click', () => {
+    exampleForm.style.display = 'none';
+    exTitle.value = '';
+    fieldKeys.forEach(k => document.getElementById('ex_' + k).value = '');
+  });
+
+  saveExampleBtn.addEventListener('click', async () => {
+    const ex = { title: exTitle.value.trim() };
+    let hasContent = false;
+    fieldKeys.forEach(k => {
+      const v = document.getElementById('ex_' + k).value.trim();
+      ex[k] = v;
+      if(v) hasContent = true;
+    });
+    if(!hasContent){
+      showBanner('Preencha pelo menos um campo do exemplo antes de salvar.', true);
+      return;
+    }
+    styleExamples.push(ex);
+    await persistExamples();
+    renderExamples();
+    exampleForm.style.display = 'none';
+    exTitle.value = '';
+    fieldKeys.forEach(k => document.getElementById('ex_' + k).value = '');
+  });
+
+  function buildExamplesPromptBlock(){
+    if(!useExamples.checked || styleExamples.length === 0) return '';
+    const recent = styleExamples.slice(-3);
+    const blocks = recent.map((ex,i) => {
+      return `Exemplo ${i+1}${ex.title ? ' - ' + ex.title : ''}:\n` +
+        fieldKeys.map(k => `${fieldLabels[k]}: ${ex[k] || ''}`).join('\n');
+    }).join('\n\n');
+    return `\n\nEstes são exemplos de prontuários já escritos por este médico. Siga o MESMO estilo de redação, vocabulário, nível de detalhe e forma de organizar as frases — mas preencha apenas com informações que realmente estão no áudio desta nova consulta, nunca copie o conteúdo clínico dos exemplos:\n\n${blocks}`;
+  }
+
+  loadExamples();
 
   consent.addEventListener('change', () => {
     recBtn.disabled = !consent.checked;
@@ -387,7 +547,7 @@
 
   async function processAudio(){
     const apiKey = apiKeyInput.value.trim();
-    const model = modelInput.value.trim() || 'gemini-2.5-flash';
+    const model = modelInput.value.trim() || 'gemini-3.6-flash';
     if(!apiKey){ showBanner('Informe sua chave de API do Gemini antes de transcrever.', true); return; }
     if(!audioBlob){ showBanner('Grave uma consulta antes de transcrever.', true); return; }
 
@@ -405,7 +565,7 @@
 - medicacoes: medicações em uso mencionadas, com dose/frequência se citadas. Se nada foi dito, escreva "Não relatado na consulta".
 - alergias: alergias mencionadas. Se nada foi dito, escreva "Nega alergias" apenas se isso foi dito explicitamente, caso contrário "Não relatado na consulta".
 - hipotese_diagnostica: hipótese(s) diagnóstica(s) levantada(s) pelo médico durante a consulta, se mencionada(s). Se o médico não verbalizou uma hipótese, escreva "Não verbalizada na consulta".
-Não invente informações que não estejam no áudio. Responda apenas com o JSON.`;
+Não invente informações que não estejam no áudio. Responda apenas com o JSON.${buildExamplesPromptBlock()}`;
 
       const body = {
         contents: [{
