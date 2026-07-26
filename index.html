@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro de Consulta · Assistido por IA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -361,38 +362,11 @@
 
 <script>
 (function(){
-  // Adaptador de armazenamento: usa window.storage dentro do Claude (sincroniza por conta,
-  // entre dispositivos) e cai para localStorage quando hospedado fora (ex.: GitHub Pages),
-  // onde a persistência fica só neste navegador.
-  const storage = (window.storage) ? window.storage : {
-    async get(key, shared){
-      const raw = localStorage.getItem('cg::' + key);
-      if(raw === null) throw new Error('not found');
-      return { key, value: raw, shared: !!shared };
-    },
-    async set(key, value, shared){
-      localStorage.setItem('cg::' + key, value);
-      return { key, value, shared: !!shared };
-    },
-    async delete(key, shared){
-      localStorage.removeItem('cg::' + key);
-      return { key, deleted: true, shared: !!shared };
-    },
-    async list(prefix, shared){
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('cg::' + (prefix||''))).map(k => k.slice(4));
-      return { keys, prefix, shared: !!shared };
-    }
-  };
-  const usingCloudSync = !!window.storage;
-
-  const loginHintEl0 = document.getElementById('loginHint');
-  if(loginHintEl0 && !usingCloudSync){
-    loginHintEl0.textContent = 'Cada profissional tem seus próprios exemplos e histórico. Atenção: fora do Claude, isso fica salvo apenas neste navegador (não sincroniza entre dispositivos).';
-  }
-  const historySyncNoteEl0 = document.getElementById('historySyncNote');
-  if(historySyncNoteEl0 && !usingCloudSync){
-    historySyncNoteEl0.textContent = 'Salvo apenas neste navegador — para sincronizar entre dispositivos, hospede com um backend próprio.';
-  }
+  // Armazenamento: Supabase (sincroniza entre dispositivos, por profissional).
+  const SUPABASE_URL = 'https://fmkrcieubrlltiggyauc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const usingCloudSync = true;
 
   const consent = document.getElementById('consent');
   const recBtn = document.getElementById('recBtn');
@@ -466,23 +440,29 @@
 
   async function loadProfessionals(){
     try{
-      const res = await storage.get('professionals', false);
-      professionals = res ? JSON.parse(res.value) : [];
+      const { data, error } = await sb.from('professionals').select('id,name,pin_hash').order('created_at');
+      if(error) throw error;
+      professionals = (data || []).map(p => ({ id: p.id, name: p.name, pinHash: p.pin_hash }));
     }catch(e){
       professionals = [];
+      showLoginBanner('Não foi possível carregar os profissionais do Supabase. Verifique a conexão.', true);
     }
     if(professionals.length === 0){
       const defaultPinHash = await sha256Hex('peri-default:1234');
-      professionals = [{ id: 'peri-default', name: 'Peri', pinHash: defaultPinHash }];
-      await persistProfessionals();
-      showLoginBanner('Perfil "Peri" já vem pré-cadastrado. PIN inicial: 1234 — recomendamos criar um PIN próprio depois.', false);
+      const defaultProf = { id: 'peri-default', name: 'Peri', pinHash: defaultPinHash };
+      const ok = await createProfessionalRow(defaultProf);
+      if(ok){
+        professionals = [defaultProf];
+        showLoginBanner('Perfil "Peri" já vem pré-cadastrado. PIN inicial: 1234 — recomendamos criar um PIN próprio depois.', false);
+      }
     }
     renderProfList();
   }
 
-  async function persistProfessionals(){
+  async function createProfessionalRow(p){
     try{
-      await storage.set('professionals', JSON.stringify(professionals), false);
+      const { error } = await sb.from('professionals').insert({ id: p.id, name: p.name, pin_hash: p.pinHash });
+      if(error) throw error;
       return true;
     }catch(e){
       showLoginBanner('Não foi possível salvar o cadastro agora. Tente novamente.', true);
@@ -545,18 +525,14 @@
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') + '-' + Math.random().toString(36).slice(2,6);
     const pinHash = await sha256Hex(id + ':' + pin);
     const newProf = { id, name, pinHash };
-    professionals.push(newProf);
-    const ok = await persistProfessionals();
+    const ok = await createProfessionalRow(newProf);
     if(!ok) return;
+    professionals.push(newProf);
     renderProfList();
     newProfName.value = ''; newProfPin.value = ''; newProfPinConfirm.value = '';
     newProfForm.style.display = 'none';
     await enterApp(newProf);
   });
-
-  function profKey(baseKey){
-    return `${baseKey}::${currentProf.id}`;
-  }
 
   async function enterApp(prof){
     currentProf = prof;
@@ -565,18 +541,20 @@
     loggedProfName.textContent = `Dr(a). ${prof.name}`;
     await Promise.all([loadExamples(), loadHistory()]);
     if(syncIntervalId) clearInterval(syncIntervalId);
-    if(usingCloudSync){
-      syncIntervalId = setInterval(async () => {
-        try{
-          const res = await storage.get(profKey('consultation-history'), false);
-          const remote = res ? JSON.parse(res.value) : [];
-          if(remote.length !== consultationHistory.length){
-            consultationHistory = remote;
-            renderHistory();
-          }
-        }catch(e){ /* silencioso */ }
-      }, 8000);
-    }
+    syncIntervalId = setInterval(async () => {
+      try{
+        const { data, error } = await sb.from('consultation_history')
+          .select('id,fields,created_at')
+          .eq('professional_id', currentProf.id)
+          .order('created_at', {ascending:false});
+        if(error) throw error;
+        const remote = (data || []).map(r => ({ id: r.id, timestamp: r.created_at, fields: r.fields }));
+        if(remote.length !== consultationHistory.length){
+          consultationHistory = remote;
+          renderHistory();
+        }
+      }catch(e){ /* silencioso */ }
+    }, 8000);
   }
 
   logoutBtn.addEventListener('click', () => {
@@ -688,20 +666,17 @@
 
   async function loadHistory(){
     try{
-      const res = await storage.get(profKey('consultation-history'), false);
-      consultationHistory = res ? JSON.parse(res.value) : [];
+      const { data, error } = await sb.from('consultation_history')
+        .select('id,fields,created_at')
+        .eq('professional_id', currentProf.id)
+        .order('created_at', {ascending:false});
+      if(error) throw error;
+      consultationHistory = (data || []).map(r => ({ id: r.id, timestamp: r.created_at, fields: r.fields }));
     }catch(e){
       consultationHistory = [];
+      showBanner('Não foi possível carregar o histórico do Supabase agora.', true);
     }
     renderHistory();
-  }
-
-  async function persistHistory(){
-    try{
-      await storage.set(profKey('consultation-history'), JSON.stringify(consultationHistory), false);
-    }catch(e){
-      showBanner('Não foi possível sincronizar o histórico agora. O resultado continua aqui na tela.', true);
-    }
   }
 
   function formatDateTime(iso){
@@ -734,8 +709,14 @@
     historyList.querySelectorAll('.del-history').forEach(btn => {
       btn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
+        try{
+          const { error } = await sb.from('consultation_history').delete().eq('id', btn.dataset.id);
+          if(error) throw error;
+        }catch(e){
+          showBanner('Não foi possível remover este registro no Supabase.', true);
+          return;
+        }
         consultationHistory = consultationHistory.filter(e => e.id !== btn.dataset.id);
-        await persistHistory();
         renderHistory();
       });
     });
@@ -743,8 +724,15 @@
 
   async function saveToHistory(fields){
     const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), timestamp: new Date().toISOString(), fields };
+    try{
+      const { error } = await sb.from('consultation_history').insert({
+        id: entry.id, professional_id: currentProf.id, fields, created_at: entry.timestamp
+      });
+      if(error) throw error;
+    }catch(e){
+      showBanner('Não foi possível sincronizar este registro no Supabase. Ele fica só nesta tela por enquanto.', true);
+    }
     consultationHistory.push(entry);
-    await persistHistory();
     renderHistory();
   }
 
@@ -760,23 +748,35 @@
 
   async function loadExamples(){
     try{
-      const res = await storage.get(profKey('style-examples'), false);
-      styleExamples = res ? JSON.parse(res.value) : [];
+      const { data, error } = await sb.from('style_examples')
+        .select('id,title,fields,created_at')
+        .eq('professional_id', currentProf.id)
+        .order('created_at');
+      if(error) throw error;
+      styleExamples = (data || []).map(r => ({ id: r.id, title: r.title, ...r.fields }));
     }catch(e){
       styleExamples = [];
+      showBanner('Não foi possível carregar os exemplos do Supabase.', true);
     }
     if(styleExamples.length === 0 && currentProf && currentProf.name.trim().toLowerCase().includes('peri')){
-      styleExamples = SEED_EXAMPLES.slice();
-      await persistExamples();
+      for(const ex of SEED_EXAMPLES){ await insertExampleRow(ex); }
+      styleExamples = SEED_EXAMPLES.map((ex, i) => ({ id: 'seed-' + i, ...ex }));
     }
     renderExamples();
   }
 
-  async function persistExamples(){
+  async function insertExampleRow(ex){
+    const { title, ...fields } = ex;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
     try{
-      await storage.set(profKey('style-examples'), JSON.stringify(styleExamples), false);
+      const { error } = await sb.from('style_examples').insert({
+        id, professional_id: currentProf.id, title: title || null, fields
+      });
+      if(error) throw error;
+      return id;
     }catch(e){
-      showBanner('Não foi possível salvar o exemplo neste navegador. Ele vale só para esta sessão.', true);
+      showBanner('Não foi possível salvar o exemplo no Supabase. Ele vale só para esta sessão.', true);
+      return id;
     }
   }
 
@@ -797,8 +797,16 @@
     `).join('');
     exampleList.querySelectorAll('.del-ex').forEach(btn => {
       btn.addEventListener('click', async () => {
-        styleExamples.splice(Number(btn.dataset.idx), 1);
-        await persistExamples();
+        const idx = Number(btn.dataset.idx);
+        const ex = styleExamples[idx];
+        try{
+          const { error } = await sb.from('style_examples').delete().eq('id', ex.id);
+          if(error) throw error;
+        }catch(e){
+          showBanner('Não foi possível remover este exemplo no Supabase.', true);
+          return;
+        }
+        styleExamples.splice(idx, 1);
         renderExamples();
       });
     });
@@ -830,8 +838,8 @@
       showBanner('Preencha pelo menos um campo do exemplo antes de salvar.', true);
       return;
     }
-    styleExamples.push(ex);
-    await persistExamples();
+    const id = await insertExampleRow(ex);
+    styleExamples.push({ id, ...ex });
     renderExamples();
     exampleForm.style.display = 'none';
     exTitle.value = '';
@@ -1098,3 +1106,4 @@ Não invente sintomas, achados ou dados que não estejam no áudio — a única 
 </script>
 </body>
 </html>
+
