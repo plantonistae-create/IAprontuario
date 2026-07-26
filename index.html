@@ -967,7 +967,7 @@
     fieldKeys.forEach(k=>{
       const wrap = document.querySelector(`.field[data-key="${k}"]`);
       const el = wrap.querySelector('textarea');
-      el.value = data[k] || '';
+      el.value = (data[k] || '').toUpperCase();
       if(data[k]) wrap.classList.add('filled');
     });
   }
@@ -985,14 +985,14 @@
 
     try{
       const base64Audio = await blobToBase64(audioBlob);
-      const prompt = `Você é um assistente de documentação clínica. Ouça o áudio desta consulta médico-paciente em português e produza um resumo estruturado, objetivo e fiel ao que foi dito, preenchendo exatamente estes campos:
+      const prompt = `Você é um assistente de documentação clínica. Ouça o áudio desta consulta médico-paciente em português e produza um resumo estruturado, objetivo e fiel ao que foi dito, preenchendo exatamente estes campos. TODO O TEXTO DE SAÍDA DEVE SER ESCRITO EM LETRAS MAIÚSCULAS, EM TODOS OS CAMPOS, SEM EXCEÇÃO.
 - queixa_principal: motivo principal da consulta, em poucas frases.
 - hda: história da doença atual, evolução cronológica dos sintomas.
-- comorbidades: doenças prévias/crônicas mencionadas. Se nada foi dito, escreva "Não relatado na consulta".
-- medicacoes: medicações em uso mencionadas, com dose/frequência se citadas. Se nada foi dito, escreva "Não relatado na consulta".
-- alergias: alergias mencionadas. Se nada foi dito, escreva "Nega alergias" apenas se isso foi dito explicitamente, caso contrário "Não relatado na consulta".
-- hipotese_diagnostica: hipótese(s) diagnóstica(s) levantada(s) pelo médico durante a consulta, se mencionada(s). Se o médico não verbalizou uma hipótese, escreva "Não verbalizada na consulta".
-Não invente informações que não estejam no áudio. Responda apenas com o JSON.${buildExamplesPromptBlock()}`;
+- comorbidades: doenças prévias/crônicas mencionadas. Se nada foi dito, escreva "NÃO RELATADO NA CONSULTA".
+- medicacoes: medicações em uso mencionadas, com dose/frequência se citadas. Se nada foi dito, escreva "NÃO RELATADO NA CONSULTA".
+- alergias: alergias mencionadas. Se nada foi dito, escreva "NEGA ALERGIAS" apenas se isso foi dito explicitamente, caso contrário "NÃO RELATADO NA CONSULTA".
+- hipotese_diagnostica: com base em todo o quadro clínico relatado no áudio (sintomas, tempo de evolução, comorbidades), formule você mesmo a hipótese diagnóstica mais provável, mesmo que o médico não a tenha verbalizado, e inclua o código CID-10 correspondente entre parênteses ao final. Se o quadro for inespecífico demais para uma hipótese razoável, escreva "QUADRO INESPECÍFICO, HIPÓTESE A ESCLARECER (R69)".
+Não invente sintomas, achados ou dados que não estejam no áudio — a única informação que você pode inferir é a hipótese diagnóstica e seu CID, a partir do quadro relatado. Responda apenas com o JSON, com todos os valores em maiúsculas.${buildExamplesPromptBlock()}`;
 
       const body = {
         contents: [{
