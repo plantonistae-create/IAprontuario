@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -160,12 +159,75 @@
   .example-form-actions{display:flex;gap:8px;}
   .example-form-actions .btn{width:auto;padding:8px 14px;font-size:12.5px;}
   .empty-examples{font-size:12.5px;color:#8A9793;padding:8px 0;}
+
+  #loginGate{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--paper);padding:24px;
+  }
+  .login-box{
+    width:100%;max-width:380px;background:var(--white);border:1px solid var(--hair);
+    border-radius:6px;padding:28px;
+  }
+  .login-box h2{font-size:19px;color:var(--teal-dark);margin-bottom:6px;}
+  .login-box p.hint{font-size:12.5px;color:#5C6D68;margin:0 0 18px;line-height:1.5;}
+  .prof-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .prof-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 12px;border:1px solid var(--hair);border-radius:3px;cursor:pointer;
+    font-size:13.5px;background:var(--paper);
+  }
+  .prof-item:hover, .prof-item.selected{border-color:var(--teal);background:var(--sage-soft);}
+  .login-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#9AA6A2;font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .login-divider::before, .login-divider::after{content:'';flex:1;height:1px;background:var(--hair);}
+  .header-user{display:flex;align-items:center;gap:12px;position:absolute;right:24px;top:20px;font-size:12.5px;color:#3E4C48;}
+  .header-user button{border:none;background:transparent;color:var(--teal);cursor:pointer;font-size:12.5px;text-decoration:underline;}
+  @media (max-width:860px){
+    .header-user{position:static;justify-content:flex-end;margin-top:10px;}
+  }
 </style>
 </head>
 <body>
-<div class="app">
+
+<div id="loginGate">
+  <div class="login-box">
+    <h2>Identifique-se</h2>
+    <p class="hint" id="loginHint">Cada profissional tem seus próprios exemplos de estilo e histórico de consultas, mesmo usando o mesmo aparelho ou a mesma conta.</p>
+
+    <div class="prof-list" id="profList"></div>
+
+    <div id="pinArea" style="display:none;">
+      <label for="pinInput" id="pinLabel">PIN de <span id="pinProfName"></span></label>
+      <input type="password" id="pinInput" inputmode="numeric" placeholder="4 a 6 dígitos" maxlength="6">
+      <button class="btn" id="loginBtn" style="margin-top:10px;">Entrar</button>
+      <button class="btn ghost" id="backToListBtn" style="margin-top:8px;">Voltar</button>
+    </div>
+
+    <div class="login-divider">ou</div>
+
+    <div id="newProfArea">
+      <button class="btn secondary" id="showNewProfBtn">+ Cadastrar novo profissional</button>
+      <div id="newProfForm" style="display:none;margin-top:10px;">
+        <label for="newProfName">Nome</label>
+        <input type="text" id="newProfName" placeholder="Dr(a). Nome Sobrenome">
+        <label for="newProfPin">Criar PIN (4 a 6 dígitos)</label>
+        <input type="password" id="newProfPin" inputmode="numeric" maxlength="6">
+        <label for="newProfPinConfirm">Confirmar PIN</label>
+        <input type="password" id="newProfPinConfirm" inputmode="numeric" maxlength="6">
+        <button class="btn" id="createProfBtn" style="margin-top:10px;">Cadastrar e entrar</button>
+      </div>
+    </div>
+
+    <div id="loginBanner"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
 
   <header>
+    <div class="header-user" id="headerUser">
+      <span id="loggedProfName"></span>
+      <button id="logoutBtn">Sair</button>
+    </div>
     <div class="eyebrow"><span class="tick"><i style="height:4px"></i><i style="height:8px"></i><i style="height:3px"></i><i style="height:7px"></i></span> registro clínico assistido</div>
     <h1>Consulta → Prontuário estruturado</h1>
     <p class="sub">Grava o áudio da consulta, transcreve e organiza automaticamente no modelo da clínica. Revise sempre antes de salvar — o rascunho é gerado por IA.</p>
@@ -245,6 +307,20 @@
         </div>
       </div>
 
+      <div class="style-card">
+        <div class="style-head" id="historyHead">
+          <h3>Histórico de consultas (sincronizado)</h3>
+          <span class="count mono" id="historyCount">0 registros ▾</span>
+        </div>
+        <div class="style-body" id="historyBody">
+          <div class="style-toggle-row" style="justify-content:space-between;">
+            <span id="historySyncNote">Salvo na sua conta — abra em qualquer dispositivo logado para ver o mesmo histórico.</span>
+            <button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex-shrink:0;">Atualizar</button>
+          </div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
       <div class="toolbar">
         <button class="btn ghost ex" id="copyBtn" style="width:auto;">Copiar prontuário</button>
         <button class="btn ghost ex" id="downloadBtn" style="width:auto;">Baixar .txt</button>
@@ -285,6 +361,39 @@
 
 <script>
 (function(){
+  // Adaptador de armazenamento: usa window.storage dentro do Claude (sincroniza por conta,
+  // entre dispositivos) e cai para localStorage quando hospedado fora (ex.: GitHub Pages),
+  // onde a persistência fica só neste navegador.
+  const storage = (window.storage) ? window.storage : {
+    async get(key, shared){
+      const raw = localStorage.getItem('cg::' + key);
+      if(raw === null) throw new Error('not found');
+      return { key, value: raw, shared: !!shared };
+    },
+    async set(key, value, shared){
+      localStorage.setItem('cg::' + key, value);
+      return { key, value, shared: !!shared };
+    },
+    async delete(key, shared){
+      localStorage.removeItem('cg::' + key);
+      return { key, deleted: true, shared: !!shared };
+    },
+    async list(prefix, shared){
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('cg::' + (prefix||''))).map(k => k.slice(4));
+      return { keys, prefix, shared: !!shared };
+    }
+  };
+  const usingCloudSync = !!window.storage;
+
+  const loginHintEl0 = document.getElementById('loginHint');
+  if(loginHintEl0 && !usingCloudSync){
+    loginHintEl0.textContent = 'Cada profissional tem seus próprios exemplos e histórico. Atenção: fora do Claude, isso fica salvo apenas neste navegador (não sincroniza entre dispositivos).';
+  }
+  const historySyncNoteEl0 = document.getElementById('historySyncNote');
+  if(historySyncNoteEl0 && !usingCloudSync){
+    historySyncNoteEl0.textContent = 'Salvo apenas neste navegador — para sincronizar entre dispositivos, hospede com um backend próprio.';
+  }
+
   const consent = document.getElementById('consent');
   const recBtn = document.getElementById('recBtn');
   const circleShape = document.getElementById('circleShape');
@@ -313,6 +422,175 @@
   const useExamples = document.getElementById('useExamples');
   let styleExamples = [];
 
+  const historyHead = document.getElementById('historyHead');
+  const historyBody = document.getElementById('historyBody');
+  const historyCount = document.getElementById('historyCount');
+  const historyList = document.getElementById('historyList');
+  const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+  let consultationHistory = [];
+
+  // ---------- Login por profissional ----------
+  const loginGate = document.getElementById('loginGate');
+  const mainApp = document.getElementById('mainApp');
+  const profList = document.getElementById('profList');
+  const pinArea = document.getElementById('pinArea');
+  const pinInput = document.getElementById('pinInput');
+  const pinProfName = document.getElementById('pinProfName');
+  const loginBtn = document.getElementById('loginBtn');
+  const backToListBtn = document.getElementById('backToListBtn');
+  const showNewProfBtn = document.getElementById('showNewProfBtn');
+  const newProfForm = document.getElementById('newProfForm');
+  const newProfName = document.getElementById('newProfName');
+  const newProfPin = document.getElementById('newProfPin');
+  const newProfPinConfirm = document.getElementById('newProfPinConfirm');
+  const createProfBtn = document.getElementById('createProfBtn');
+  const loginBanner = document.getElementById('loginBanner');
+  const headerUser = document.getElementById('headerUser');
+  const loggedProfName = document.getElementById('loggedProfName');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  let professionals = [];
+  let currentProf = null;
+  let selectedProfId = null;
+  let syncIntervalId = null;
+
+  function showLoginBanner(msg, isError){
+    loginBanner.innerHTML = `<div class="banner ${isError?'error':''}" style="margin-top:14px;margin-bottom:0;">${msg}</div>`;
+  }
+
+  async function sha256Hex(text){
+    const enc = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function loadProfessionals(){
+    try{
+      const res = await storage.get('professionals', false);
+      professionals = res ? JSON.parse(res.value) : [];
+    }catch(e){
+      professionals = [];
+    }
+    renderProfList();
+  }
+
+  async function persistProfessionals(){
+    try{
+      await storage.set('professionals', JSON.stringify(professionals), false);
+      return true;
+    }catch(e){
+      showLoginBanner('Não foi possível salvar o cadastro agora. Tente novamente.', true);
+      return false;
+    }
+  }
+
+  function renderProfList(){
+    if(professionals.length === 0){
+      profList.innerHTML = '<div class="empty-examples">Nenhum profissional cadastrado ainda nesta conta.</div>';
+      return;
+    }
+    profList.innerHTML = professionals.map(p => `<div class="prof-item" data-id="${p.id}">${p.name}</div>`).join('');
+    profList.querySelectorAll('.prof-item').forEach(el => {
+      el.addEventListener('click', () => selectProfessional(el.dataset.id));
+    });
+  }
+
+  function selectProfessional(id){
+    selectedProfId = id;
+    const p = professionals.find(x => x.id === id);
+    if(!p) return;
+    pinProfName.textContent = p.name;
+    pinArea.style.display = 'block';
+    newProfArea.style.display = 'none';
+    pinInput.value = '';
+    pinInput.focus();
+    loginBanner.innerHTML = '';
+  }
+
+  backToListBtn.addEventListener('click', () => {
+    pinArea.style.display = 'none';
+    newProfArea.style.display = 'block';
+    selectedProfId = null;
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    const p = professionals.find(x => x.id === selectedProfId);
+    if(!p) return;
+    const pin = pinInput.value.trim();
+    if(!pin){ showLoginBanner('Digite o PIN.', true); return; }
+    const hash = await sha256Hex(p.id + ':' + pin);
+    if(hash !== p.pinHash){ showLoginBanner('PIN incorreto.', true); return; }
+    await enterApp(p);
+  });
+
+  pinInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') loginBtn.click(); });
+
+  showNewProfBtn.addEventListener('click', () => {
+    newProfForm.style.display = newProfForm.style.display === 'none' ? 'block' : 'none';
+  });
+
+  createProfBtn.addEventListener('click', async () => {
+    const name = newProfName.value.trim();
+    const pin = newProfPin.value.trim();
+    const confirm = newProfPinConfirm.value.trim();
+    if(!name){ showLoginBanner('Informe o nome do profissional.', true); return; }
+    if(!/^\d{4,6}$/.test(pin)){ showLoginBanner('O PIN deve ter de 4 a 6 dígitos numéricos.', true); return; }
+    if(pin !== confirm){ showLoginBanner('Os PINs não coincidem.', true); return; }
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') + '-' + Math.random().toString(36).slice(2,6);
+    const pinHash = await sha256Hex(id + ':' + pin);
+    const newProf = { id, name, pinHash };
+    professionals.push(newProf);
+    const ok = await persistProfessionals();
+    if(!ok) return;
+    renderProfList();
+    newProfName.value = ''; newProfPin.value = ''; newProfPinConfirm.value = '';
+    newProfForm.style.display = 'none';
+    await enterApp(newProf);
+  });
+
+  function profKey(baseKey){
+    return `${baseKey}::${currentProf.id}`;
+  }
+
+  async function enterApp(prof){
+    currentProf = prof;
+    loginGate.style.display = 'none';
+    mainApp.style.display = 'flex';
+    loggedProfName.textContent = `Dr(a). ${prof.name}`;
+    await Promise.all([loadExamples(), loadHistory()]);
+    if(syncIntervalId) clearInterval(syncIntervalId);
+    if(usingCloudSync){
+      syncIntervalId = setInterval(async () => {
+        try{
+          const res = await storage.get(profKey('consultation-history'), false);
+          const remote = res ? JSON.parse(res.value) : [];
+          if(remote.length !== consultationHistory.length){
+            consultationHistory = remote;
+            renderHistory();
+          }
+        }catch(e){ /* silencioso */ }
+      }, 8000);
+    }
+  }
+
+  logoutBtn.addEventListener('click', () => {
+    if(syncIntervalId) clearInterval(syncIntervalId);
+    currentProf = null;
+    styleExamples = [];
+    consultationHistory = [];
+    setFieldsLoading();
+    apiKeyInput.value = '';
+    mainApp.style.display = 'none';
+    loginGate.style.display = 'flex';
+    pinArea.style.display = 'none';
+    newProfArea.style.display = 'block';
+    pinInput.value = '';
+  });
+
+  const newProfArea = document.getElementById('newProfArea');
+  loadProfessionals();
+  // ---------- fim login ----------
+
   const fieldKeys = ['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica'];
   const fieldLabels = {
     queixa_principal:'QUEIXA PRINCIPAL',
@@ -327,19 +605,170 @@
   let recording = false, seconds = 0, timerInt = null;
   let audioCtx, analyser, dataArray, rafId, stream;
 
+  const SEED_EXAMPLES = [
+    {
+      title: 'Dor torácica / SCA a esclarecer',
+      queixa_principal: 'Dispneia e dor torácica em região de peitoral à esquerda, com início há 12 horas.',
+      hda: 'Paciente refere quadro iniciado há 12 horas, caracterizado por dispneia e dor torácica em peitoral à esquerda, associado a pico pressórico, palpitação e náuseas. Nega demais queixas.',
+      comorbidades: 'HAS e DM2.',
+      medicacoes: 'Losartana 50mg 1x/dia (manhã); Metformina 500mg 1x/dia.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Síndrome coronariana aguda a esclarecer (I24.9) — dor torácica associada a dispneia, palpitação e náuseas em paciente hipertenso e diabético, com pico pressórico recente. Sugere-se correlação com ECG e marcadores de necrose miocárdica.'
+    },
+    {
+      title: 'Entorse de tornozelo',
+      queixa_principal: 'Entorse de tornozelo esquerdo há 7 horas.',
+      hda: 'Paciente refere entorse de tornozelo esquerdo há 7 horas, evoluindo com dor de forte intensidade e limitação de movimentação. Sem demais queixas.',
+      comorbidades: 'HAS.',
+      medicacoes: 'Atenolol; Hidroclorotiazida.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Entorse de tornozelo (S93.4) — sugere-se correlação com exame físico e radiografia para descartar fratura associada.'
+    },
+    {
+      title: 'IVAS / síndrome gripal',
+      queixa_principal: 'Tosse, coriza e odinofagia há 4 dias, com piora há 1 dia.',
+      hda: 'Paciente refere tosse, coriza e odinofagia de início há 4 dias, com piora há 1 dia. Refere também febre e calafrios, além de 1 episódio de êmese há 1 dia. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Infecção aguda de vias aéreas superiores (J06.9) — quadro compatível com etiologia viral, sugere-se correlação clínica.'
+    },
+    {
+      title: 'Dor lombar / ITU a esclarecer',
+      queixa_principal: 'Dor lombar à esquerda há 1 semana, com piora intensa hoje.',
+      hda: 'Paciente refere dor lombar à esquerda há 1 semana, com piora intensa hoje. Refere urina de coloração mais escura, sem demais alterações urinárias. Refere também edema de membros inferiores há alguns dias, presente ao acordar, sem melhora ou piora. Sem demais queixas.',
+      comorbidades: 'HAS e DM2.',
+      medicacoes: 'Enalapril 10mg 2x/dia (manhã e noite); Anlodipino 5mg 1x/dia (noite); Metformina 500mg 2x/dia (manhã e tarde); Carbamazepina 2x/dia (manhã e tarde).',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Infecção do trato urinário alta / pielonefrite a esclarecer (N39.0) — considerar também nefropatia associada a DM2 dado o edema de MMII; sugere-se correlação com exame de urina, função renal e imagem.'
+    },
+    {
+      title: 'Unha encravada infectada',
+      queixa_principal: 'Unha encravada em hálux esquerdo há 8 dias, com secreção há 1 dia.',
+      hda: 'Paciente refere unha encravada em hálux esquerdo há 8 dias, associado a saída de secreção há 1 dia e dor latejante. Nega febre ou calafrios. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Penicilina.',
+      hipotese_diagnostica: 'Onicocriptose infectada (L60.0) — atenção à alergia a penicilina na escolha do antibiótico, se indicado.'
+    },
+    {
+      title: 'Odinofagia prolongada / suspeita COVID',
+      queixa_principal: 'Odinofagia há 3 semanas, com piora progressiva.',
+      hda: 'Paciente refere odinofagia há 3 semanas, evoluindo com piora da dor, febre, anosmia e hipogeusia. Refere também coriza. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Síndrome gripal / suspeita de COVID-19 (U07.1) — anosmia e hipogeusia associadas sugerem etiologia viral específica; sugere-se teste confirmatório, considerando também a duração atípica de 3 semanas.'
+    },
+    {
+      title: 'Gastroenterite aguda',
+      queixa_principal: 'Diarreia há 3 dias, sem sangue, pus ou muco.',
+      hda: 'Paciente refere diarreia sem sangue, pus ou muco há 3 dias, associada a náuseas e dor abdominal, em uso de bromoprida, buscopan e loperamida. Refere também crise álgica em coluna lombar devido a patologia prévia que já aguarda cirurgia. Nega febre, porém refere calafrios. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega (em uso pontual de bromoprida, buscopan e loperamida para os sintomas atuais).',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Gastroenterite aguda presumivelmente infecciosa (A09) — considerar também exacerbação álgica de patologia lombar prévia como queixa concomitante.'
+    },
+    {
+      title: 'Conjuntivite aguda',
+      queixa_principal: 'Hiperemia ocular com edema de pálpebras há 1 dia.',
+      hda: 'Paciente refere hiperemia ocular, associada a edema de pálpebras, dor local e secreção, de início há 1 dia. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Conjuntivite aguda, provável etiologia bacteriana (H10.3) — atentar para blefarite/celulite periorbitária associada dado o edema palpebral.'
+    }
+  ];
+
+  async function loadHistory(){
+    try{
+      const res = await storage.get(profKey('consultation-history'), false);
+      consultationHistory = res ? JSON.parse(res.value) : [];
+    }catch(e){
+      consultationHistory = [];
+    }
+    renderHistory();
+  }
+
+  async function persistHistory(){
+    try{
+      await storage.set(profKey('consultation-history'), JSON.stringify(consultationHistory), false);
+    }catch(e){
+      showBanner('Não foi possível sincronizar o histórico agora. O resultado continua aqui na tela.', true);
+    }
+  }
+
+  function formatDateTime(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderHistory(){
+    historyCount.textContent = `${consultationHistory.length} registro${consultationHistory.length===1?'':'s'} ▾`;
+    if(consultationHistory.length === 0){
+      historyList.innerHTML = '<div class="empty-examples">Nenhuma consulta processada ainda. Assim que você transcrever uma, ela aparece aqui — em qualquer dispositivo logado nesta conta.</div>';
+      return;
+    }
+    const sorted = [...consultationHistory].sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+    historyList.innerHTML = sorted.map(entry => `
+      <div class="example-item">
+        <div style="cursor:pointer;flex:1;" class="load-history" data-id="${entry.id}">
+          <div class="ex-title">${formatDateTime(entry.timestamp)}</div>
+          <div class="ex-preview">${(entry.fields.queixa_principal || '').slice(0,90)}${(entry.fields.queixa_principal||'').length>90?'...':''}</div>
+        </div>
+        <button data-id="${entry.id}" class="del-history">remover</button>
+      </div>
+    `).join('');
+    historyList.querySelectorAll('.load-history').forEach(el => {
+      el.addEventListener('click', () => {
+        const entry = consultationHistory.find(e => e.id === el.dataset.id);
+        if(entry){ fillFields(entry.fields); showBanner('Registro carregado do histórico. Revise antes de usar.', false); }
+      });
+    });
+    historyList.querySelectorAll('.del-history').forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        consultationHistory = consultationHistory.filter(e => e.id !== btn.dataset.id);
+        await persistHistory();
+        renderHistory();
+      });
+    });
+  }
+
+  async function saveToHistory(fields){
+    const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), timestamp: new Date().toISOString(), fields };
+    consultationHistory.push(entry);
+    await persistHistory();
+    renderHistory();
+  }
+
+  historyHead.addEventListener('click', () => {
+    historyBody.classList.toggle('open');
+  });
+
+  refreshHistoryBtn.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    await loadHistory();
+    showBanner('Histórico atualizado.', false);
+  });
+
   async function loadExamples(){
     try{
-      const res = await window.storage.get('style-examples', false);
+      const res = await storage.get(profKey('style-examples'), false);
       styleExamples = res ? JSON.parse(res.value) : [];
     }catch(e){
       styleExamples = [];
+    }
+    if(styleExamples.length === 0 && currentProf && currentProf.name.trim().toLowerCase().includes('peri')){
+      styleExamples = SEED_EXAMPLES.slice();
+      await persistExamples();
     }
     renderExamples();
   }
 
   async function persistExamples(){
     try{
-      await window.storage.set('style-examples', JSON.stringify(styleExamples), false);
+      await storage.set(profKey('style-examples'), JSON.stringify(styleExamples), false);
     }catch(e){
       showBanner('Não foi possível salvar o exemplo neste navegador. Ele vale só para esta sessão.', true);
     }
@@ -405,15 +834,13 @@
 
   function buildExamplesPromptBlock(){
     if(!useExamples.checked || styleExamples.length === 0) return '';
-    const recent = styleExamples.slice(-3);
+    const recent = styleExamples.slice(-5);
     const blocks = recent.map((ex,i) => {
       return `Exemplo ${i+1}${ex.title ? ' - ' + ex.title : ''}:\n` +
         fieldKeys.map(k => `${fieldLabels[k]}: ${ex[k] || ''}`).join('\n');
     }).join('\n\n');
     return `\n\nEstes são exemplos de prontuários já escritos por este médico. Siga o MESMO estilo de redação, vocabulário, nível de detalhe e forma de organizar as frases — mas preencha apenas com informações que realmente estão no áudio desta nova consulta, nunca copie o conteúdo clínico dos exemplos:\n\n${blocks}`;
   }
-
-  loadExamples();
 
   consent.addEventListener('change', () => {
     recBtn.disabled = !consent.checked;
@@ -608,7 +1035,8 @@ Não invente informações que não estejam no áudio. Responda apenas com o JSO
       if(!text) throw new Error('Resposta do Gemini veio vazia ou em formato inesperado.');
       const parsed = JSON.parse(text);
       fillFields(parsed);
-      showBanner('Rascunho gerado. Revise cada campo com atenção antes de salvar no prontuário oficial.', false);
+      await saveToHistory(parsed);
+      showBanner('Rascunho gerado e sincronizado no histórico. Revise cada campo com atenção antes de salvar no prontuário oficial.', false);
 
     }catch(err){
       showBanner(err.message || 'Falha ao processar o áudio.', true);
