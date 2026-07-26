@@ -471,6 +471,12 @@
     }catch(e){
       professionals = [];
     }
+    if(professionals.length === 0){
+      const defaultPinHash = await sha256Hex('peri-default:1234');
+      professionals = [{ id: 'peri-default', name: 'Peri', pinHash: defaultPinHash }];
+      await persistProfessionals();
+      showLoginBanner('Perfil "Peri" já vem pré-cadastrado. PIN inicial: 1234 — recomendamos criar um PIN próprio depois.', false);
+    }
     renderProfList();
   }
 
