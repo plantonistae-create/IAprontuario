@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://fmkrcieubrlltiggyauc.supabase.co wss://fmkrcieubrlltiggyauc.supabase.co; media-src 'self' blob:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
+<title>Registro de Consulta · Assistido por IA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div id="loginGate">
+  <div class="login-box">
+    <h2>Identifique-se</h2>
+    <p class="hint">Acesso individual com Supabase Auth. O banco autoriza cada registro pelo usuário autenticado — não por um PIN decidido no navegador.</p>
+
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="signInTab">Entrar</button>
+      <button type="button" class="auth-tab" id="signUpTab">Criar conta</button>
+    </div>
+
+    <div id="authForm">
+      <label for="authName" id="authNameLabel" style="display:none;">Nome profissional</label>
+      <input type="text" id="authName" placeholder="Dr(a). Nome Sobrenome" style="display:none;">
+      <label for="authEmail">E-mail</label>
+      <input type="text" id="authEmail" inputmode="email" autocomplete="email" placeholder="voce@clinica.com.br">
+      <label for="authPassword">Senha</label>
+      <input type="password" id="authPassword" autocomplete="current-password" minlength="8" placeholder="mínimo de 8 caracteres">
+      <button class="btn" id="authSubmitBtn" style="margin-top:12px;">Entrar</button>
+      <button class="btn ghost" id="forgotPasswordBtn" style="margin-top:8px;">Esqueci minha senha</button>
+    </div>
+
+    <div id="loginBanner"></div>
+    <p class="hint" style="margin-top:16px;margin-bottom:0;">Para produção, desative cadastro público depois de criar os profissionais autorizados e configure as URLs de redirecionamento no Supabase Auth.</p>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+
+  <header>
+    <div class="header-user" id="headerUser">
+      <span id="loggedProfName"></span>
+      <button id="changeNameBtn">Trocar nome</button>
+      <button id="changePasswordBtn">Trocar senha</button>
+      <button id="logoutBtn">Sair</button>
+    </div>
+    <div id="changeNameBox" style="display:none;position:absolute;right:24px;top:56px;width:260px;background:var(--white);border:1px solid var(--hair);border-radius:6px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:20;">
+      <label for="newNameInput">Novo nome</label>
+      <input type="text" id="newNameInput" placeholder="Dr(a). Nome Sobrenome">
+      <div id="changeNameBanner"></div>
+      <button class="btn" id="saveNameBtn" style="margin-top:10px;">Salvar novo nome</button>
+      <button class="btn ghost" id="cancelNameBtn" style="margin-top:8px;">Cancelar</button>
+    </div>
+    <div id="changePasswordBox" style="display:none;position:absolute;right:24px;top:56px;width:290px;background:var(--white);border:1px solid var(--hair);border-radius:6px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:20;">
+      <div class="auth-email" id="loggedProfEmail"></div>
+      <label for="currentPasswordInput">Senha atual</label>
+      <input type="password" id="currentPasswordInput" autocomplete="current-password">
+      <label for="newPasswordInput">Nova senha</label>
+      <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
+      <label for="newPasswordConfirmInput">Confirmar nova senha</label>
+      <input type="password" id="newPasswordConfirmInput" autocomplete="new-password" minlength="8">
+      <div id="changePasswordBanner"></div>
+      <button class="btn" id="savePasswordBtn" style="margin-top:10px;">Salvar nova senha</button>
+      <button class="btn ghost" id="cancelPasswordBtn" style="margin-top:8px;">Cancelar</button>
+    </div>
+    <div class="eyebrow"><span class="tick"><i style="height:4px"></i><i style="height:8px"></i><i style="height:3px"></i><i style="height:7px"></i></span> registro clínico assistido</div>
+    <h1>Consulta → Prontuário estruturado</h1>
+    <p class="sub">Grava o áudio da consulta, transcreve e organiza automaticamente no modelo da clínica. Revise sempre antes de salvar — o rascunho é gerado por IA.</p>
+  </header>
+
+  <main>
+    <section class="panel-left">
+
+      <div class="card">
+        <h3>IA clínica · backend seguro</h3>
+        <div class="secure-note">
+          O áudio é enviado para uma função autenticada do backend. As chaves da OpenAI/Gemini ficam somente nos segredos do servidor e nunca aparecem neste navegador.
+        </div>
+        <div class="banner" style="margin-top:12px;margin-bottom:0;">
+          Provedor e modelos são configurados no backend. Esta tela não armazena chaves de API.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Consentimento</h3>
+        <div class="consent-row">
+          <input type="checkbox" id="consent">
+          <span>Confirmo que o paciente foi informado sobre a gravação de áudio e autorizou seu uso para documentação desta consulta. A base legal, política de privacidade e prazo de retenção devem ser definidos pela instituição.</span>
+        </div>
+      </div>
+
+      <div class="card rec-zone">
+        <button class="rec-btn" id="recBtn" disabled title="Marque o consentimento para habilitar">
+          <svg viewBox="0 0 24 24" fill="none" id="recIcon"><rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor" id="stopShape" style="display:none"/><circle cx="12" cy="12" r="7" fill="currentColor" id="circleShape"/></svg>
+        </button>
+        <div class="timer mono" id="timer">00:00</div>
+        <canvas id="wave" width="280" height="56"></canvas>
+        <div class="status" id="status">Aguardando início da gravação</div>
+      </div>
+
+      <div class="case-mode" style="margin:14px 0 4px;">
+        <label style="display:block;">Formato do texto gerado</label>
+        <label class="exam-check"><input type="radio" name="caseMode" value="upper" checked><span>Tudo em LETRAS MAIÚSCULAS</span></label>
+        <label class="exam-check"><input type="radio" name="caseMode" value="normal"><span>Escrita normal (maiúsculas e minúsculas)</span></label>
+      </div>
+
+      <button class="btn secondary" id="processBtn" disabled>Transcrever e estruturar</button>
+      <button class="btn danger" id="resetBtn" style="margin-top:22px;">⚠️ Limpar e começar nova consulta</button>
+
+    </section>
+
+    <section class="panel-right">
+
+      <div class="style-card">
+        <div class="style-head" id="styleHead">
+          <h3>Exemplos de escrita anteriores</h3>
+          <span class="count mono" id="exampleCount">0 salvos ▾</span>
+        </div>
+        <div class="style-body" id="styleBody">
+          <div class="style-toggle-row">
+            <input type="checkbox" id="useExamples" checked>
+            <label style="margin:0" for="useExamples">Usar estes exemplos como referência de estilo ao gerar o próximo prontuário</label>
+          </div>
+          <div id="exampleList"></div>
+          <button class="btn ghost" id="addExampleBtn" style="margin-top:6px;">+ Adicionar exemplo de consulta anterior</button>
+
+          <div class="example-form" id="exampleForm" style="display:none;">
+            <label for="exTitle">Nome do exemplo (opcional)</label>
+            <input type="text" id="exTitle" placeholder="Ex.: Retorno cardiologia">
+            <label>Queixa principal</label>
+            <textarea id="ex_queixa_principal"></textarea>
+            <label>História da doença atual</label>
+            <textarea id="ex_hda" style="min-height:80px"></textarea>
+            <label>Comorbidades</label>
+            <textarea id="ex_comorbidades"></textarea>
+            <label>Medicações em uso</label>
+            <textarea id="ex_medicacoes"></textarea>
+            <label>Alergias</label>
+            <textarea id="ex_alergias"></textarea>
+            <label>Hipótese diagnóstica</label>
+            <textarea id="ex_hipotese_diagnostica"></textarea>
+            <div class="example-form-actions">
+              <button class="btn" id="saveExampleBtn">Salvar exemplo</button>
+              <button class="btn ghost" id="cancelExampleBtn">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <div class="style-head" id="historyHead">
+          <h3>Histórico de rascunhos revisáveis</h3>
+          <span class="count mono" id="historyCount">0 registros ▾</span>
+        </div>
+        <div class="style-body" id="historyBody">
+          <div class="style-toggle-row" style="justify-content:space-between;">
+            <span id="historySyncNote">Rascunhos salvos na sua conta autenticada. O processamento da IA não salva automaticamente.</span>
+            <button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex-shrink:0;">Atualizar</button>
+          </div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn ghost ex" id="copyBtn" style="width:auto;">Copiar prontuário</button>
+        <button class="btn ghost ex" id="downloadBtn" style="width:auto;">Baixar .txt</button>
+        <button class="btn ghost ex" id="copyHdaBtn" style="width:auto;">Copiar HDA + antecedentes</button>
+        <button class="btn ghost ex" id="copyExamBtn" style="width:auto;">Copiar exame físico</button>
+        <button class="btn ghost ex" id="updateHistoryBtn" style="width:auto;">Salvar rascunho no histórico</button>
+        <span class="save-state unsaved" id="saveState">não salvo</span>
+      </div>
+
+      <div id="bannerArea"></div>
+
+      <div class="field" data-key="queixa_principal">
+        <label>Queixa principal</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="hda">
+        <label>História da doença atual</label>
+        <textarea style="min-height:110px" placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="comorbidades">
+        <label>Comorbidades</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="medicacoes">
+        <label>Medicações em uso</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="alergias">
+        <label>Alergias</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field diag suggestions-field" data-key="hipotese_diagnostica" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Hipótese diagnóstica sugerida <span style="font-weight:400;font-size:11px;color:#8a7340;">(assistência clínica por IA)</span></label>
+        <textarea placeholder="Sugestão gerada separadamente da documentação clínica..."></textarea>
+        <div class="style-toggle-row" style="margin:8px 0 0;">
+          <input type="checkbox" id="includeDiagnosis">
+          <label for="includeDiagnosis" style="margin:0;">Revisei esta hipótese e quero incluí-la no prontuário copiado/baixado.</label>
+        </div>
+      </div>
+
+      <div class="field" data-key="exame_fisico">
+        <label>Exame físico <span style="font-weight:400;font-size:11px;color:#7a8c86;">(inserido manualmente por modelo — não é transcrito do áudio)</span></label>
+        <div class="exam-type-tabs" id="examTypeTabs">
+          <button type="button" class="exam-type-btn" data-type="HOMEM">Homem</button>
+          <button type="button" class="exam-type-btn" data-type="MULHER">Mulher</button>
+          <button type="button" class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button>
+          <button type="button" class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button>
+        </div>
+        <div class="exam-systems" id="examSystems">
+          <div class="empty-examples" style="padding:8px 0;">Selecione um perfil acima para ver os sistemas disponíveis.</div>
+        </div>
+        <button type="button" class="btn ghost" id="insertExamBtn" style="margin:8px 0 10px;">Inserir sistemas selecionados no campo abaixo</button>
+        <textarea placeholder="Selecione o perfil e os sistemas acima, ou digite/edite manualmente aqui..."></textarea>
+      </div>
+      <div class="field suggestions-field" data-key="orientacoes_alta" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Orientações para alta <span style="font-weight:400;font-size:11px;color:#8a7340;">(gerado por IA — não entra no "Copiar prontuário" nem no .txt)</span></label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+
+      <div class="field suggestions-field" data-key="sugestoes_perguntas" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Sugestões de perguntas não feitas <span style="font-weight:400;font-size:11px;color:#8a7340;">(gerado por IA — não entra no "Copiar prontuário" nem no .txt)</span></label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>V2 — rascunho gerado por IA. Autenticação individual, RLS e salvamento explícito. Sempre revise e valide antes de compor o prontuário oficial.</footer>
+</div>
+
+<script src="./app.js" defer></script>
+</body>
+</html>
