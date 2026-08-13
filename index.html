@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YK6h0+m7sYwg2dcJCpzQr/TtyohFCffs33N3wFdD9E4=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://fmkrcieubrlltiggyauc.supabase.co wss://fmkrcieubrlltiggyauc.supabase.co; media-src 'self' blob:; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>Registro de Consulta · Assistido por IA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#f4f7f6;
+  --white:#ffffff;
+  --ink:#18312b;
+  --muted:#6f817c;
+  --hair:#d9e2df;
+  --accent:#176b58;
+  --accent-dark:#105345;
+  --soft:#eaf3f0;
+  --danger:#a33b3b;
+  --danger-soft:#fff0f0;
+  --warn:#8a7340;
+  --shadow:0 8px 30px rgba(23,55,47,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+body{line-height:1.45}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+input,textarea{
+  width:100%;border:1px solid var(--hair);border-radius:7px;background:#fff;color:var(--ink);
+  padding:10px 11px;outline:none;transition:border-color .15s,box-shadow .15s
+}
+input:focus,textarea:focus{border-color:#73a99b;box-shadow:0 0 0 3px rgba(23,107,88,.09)}
+textarea{resize:vertical;min-height:64px}
+label{display:block;font-size:12px;font-weight:700;margin:10px 0 5px;color:#405c54}
+
+#loginGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-box{
+  width:min(440px,100%);background:var(--white);border:1px solid var(--hair);border-radius:12px;
+  padding:28px;box-shadow:var(--shadow)
+}
+.login-box h2{margin:0 0 7px;font-size:25px}
+.hint{font-size:12.5px;color:var(--muted)}
+.auth-tabs{display:flex;gap:7px;margin:20px 0 14px}
+.auth-tab{
+  flex:1;border:1px solid var(--hair);background:#fff;border-radius:7px;padding:9px;color:var(--muted);font-weight:700
+}
+.auth-tab.active{background:var(--soft);border-color:#a9c8c0;color:var(--accent)}
+.auth-email{font-size:12px;color:var(--muted);margin-bottom:8px}
+
+.app{min-height:100vh;display:flex;flex-direction:column}
+header{
+  position:relative;background:#fff;border-bottom:1px solid var(--hair);
+  padding:28px max(24px,calc((100vw - 1280px)/2))
+}
+header h1{font-size:28px;margin:5px 0}
+.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:800;color:var(--accent)}
+.sub{margin:0;color:var(--muted);max-width:800px;font-size:13px}
+.tick{display:inline-flex;gap:2px;align-items:end;margin-right:5px}
+.tick i{display:block;width:2px;background:var(--accent)}
+.header-user{position:absolute;right:24px;top:18px;display:flex;align-items:center;gap:8px;font-size:12px}
+.header-user button{border:0;background:transparent;color:var(--accent);font-size:11px;padding:4px}
+
+main{width:min(1280px,100%);margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:22px;align-items:start}
+.panel-left{position:sticky;top:18px}
+.panel-right{min-width:0}
+.card,.style-card{
+  background:#fff;border:1px solid var(--hair);border-radius:10px;padding:17px;margin-bottom:14px;box-shadow:0 2px 12px rgba(23,55,47,.025)
+}
+.card h3,.style-card h3{margin:0;font-size:14px}
+.secure-note{font-size:12.5px;color:var(--muted);margin-top:9px}
+.banner{
+  border:1px solid #cfe0db;background:#f2f8f6;border-radius:7px;padding:10px 12px;
+  font-size:12px;color:#42655b;margin-bottom:10px
+}
+.banner.error{background:var(--danger-soft);border-color:#e5bcbc;color:#8d3030}
+
+.btn{
+  width:100%;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;
+  padding:10px 14px;font-weight:750;font-size:13px;transition:opacity .15s,background .15s
+}
+.btn:hover{background:var(--accent-dark)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--accent);border-color:#b7cdc7}
+.btn.ghost:hover{background:var(--soft)}
+.btn.secondary{margin-top:14px}
+.btn.danger{background:#fff;color:var(--danger);border-color:#d9aaaa}
+.btn.danger:hover{background:var(--danger-soft)}
+
+.consent-row,.style-toggle-row{display:flex;gap:9px;align-items:flex-start}
+.consent-row input,.style-toggle-row input,.exam-check input{width:auto;margin-top:3px;accent-color:var(--accent)}
+.consent-row span,.style-toggle-row label,.style-toggle-row span{font-size:12px;color:var(--muted)}
+
+.rec-zone{text-align:center;padding:22px}
+.rec-btn{
+  width:70px;height:70px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;margin:0 auto 12px;
+  box-shadow:0 5px 18px rgba(23,107,88,.22)
+}
+.rec-btn:disabled{opacity:.35}
+.rec-btn svg{width:31px;height:31px}
+.timer{font-size:22px;font-weight:800;margin:3px 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#wave{max-width:100%;height:56px}
+.status{font-size:12px;color:var(--muted);margin-top:4px}
+.case-mode{background:#fff;border:1px solid var(--hair);padding:13px;border-radius:9px}
+.exam-check{display:flex;gap:8px;align-items:flex-start;font-weight:500;margin:6px 0}
+
+.style-head{display:flex;justify-content:space-between;align-items:center;gap:15px;cursor:pointer}
+.count{font-size:11px;color:var(--muted)}
+.style-body{margin-top:13px}
+#exampleList,#historyList{display:grid;gap:8px;margin:10px 0}
+.empty-examples{font-size:12px;color:var(--muted)}
+.example-form{border-top:1px solid var(--hair);margin-top:12px;padding-top:10px}
+.example-form-actions{display:flex;gap:8px;margin-top:10px}
+
+.toolbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fff;border:1px solid var(--hair);
+  border-radius:10px;padding:10px;margin-bottom:14px
+}
+.toolbar .btn{font-size:11.5px;padding:7px 10px}
+.save-state{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;margin-left:auto}
+.save-state.unsaved{background:#f2eee4;color:#806c42}
+.save-state.saved{background:#e8f4ef;color:#276a57}
+.save-state.error{background:#fbeaea;color:#973b3b}
+
+.field{
+  background:#fff;border:1px solid var(--hair);border-radius:9px;padding:13px 14px;margin-bottom:10px
+}
+.field>label{margin:0 0 7px;text-transform:uppercase;letter-spacing:.035em;font-size:11px}
+.field textarea{border:0;border-top:1px solid #edf1ef;border-radius:0;padding:10px 2px 2px;box-shadow:none}
+.suggestions-field textarea{background:transparent}
+
+.exam-type-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}
+.exam-type-btn{
+  border:1px solid #c9d8d4;background:#fff;color:#49665e;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700
+}
+.exam-type-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.exam-systems{border:1px solid #e3eae8;border-radius:7px;padding:8px 10px;margin-bottom:8px}
+.exam-systems label{display:flex;align-items:flex-start;gap:8px;text-transform:none;font-weight:500;margin:5px 0}
+.exam-systems input{width:auto;margin-top:3px}
+
+footer{margin-top:auto;padding:20px 24px;text-align:center;color:var(--muted);font-size:11px}
+
+@media(max-width:900px){
+  header{padding:22px 18px 72px}
+  .header-user{left:14px;right:14px;top:auto;bottom:12px;flex-wrap:wrap}
+  main{grid-template-columns:1fr;padding:14px}
+  .panel-left{position:static}
+}
+@media(max-width:560px){
+  .login-box{padding:20px}
+  header h1{font-size:23px}
+  .toolbar{align-items:stretch}
+  .toolbar .btn{width:100%!important}
+  .save-state{margin-left:0}
+  .example-form-actions{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<div id="loginGate">
+  <div class="login-box">
+    <h2>Identifique-se</h2>
+    <p class="hint">Acesso individual com Supabase Auth. O banco autoriza cada registro pelo usuário autenticado — não por um PIN decidido no navegador.</p>
+
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="signInTab">Entrar</button>
+      <button type="button" class="auth-tab" id="signUpTab">Criar conta</button>
+    </div>
+
+    <div id="authForm">
+      <label for="authName" id="authNameLabel" style="display:none;">Nome profissional</label>
+      <input type="text" id="authName" placeholder="Dr(a). Nome Sobrenome" style="display:none;">
+      <label for="authEmail">E-mail</label>
+      <input type="text" id="authEmail" inputmode="email" autocomplete="email" placeholder="voce@clinica.com.br">
+      <label for="authPassword">Senha</label>
+      <input type="password" id="authPassword" autocomplete="current-password" minlength="8" placeholder="mínimo de 8 caracteres">
+      <button class="btn" id="authSubmitBtn" style="margin-top:12px;">Entrar</button>
+      <button class="btn ghost" id="forgotPasswordBtn" style="margin-top:8px;">Esqueci minha senha</button>
+    </div>
+
+    <div id="loginBanner"></div>
+    <p class="hint" style="margin-top:16px;margin-bottom:0;">Para produção, desative cadastro público depois de criar os profissionais autorizados e configure as URLs de redirecionamento no Supabase Auth.</p>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+
+  <header>
+    <div class="header-user" id="headerUser">
+      <span id="loggedProfName"></span>
+      <button id="changeNameBtn">Trocar nome</button>
+      <button id="changePasswordBtn">Trocar senha</button>
+      <button id="logoutBtn">Sair</button>
+    </div>
+    <div id="changeNameBox" style="display:none;position:absolute;right:24px;top:56px;width:260px;background:var(--white);border:1px solid var(--hair);border-radius:6px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:20;">
+      <label for="newNameInput">Novo nome</label>
+      <input type="text" id="newNameInput" placeholder="Dr(a). Nome Sobrenome">
+      <div id="changeNameBanner"></div>
+      <button class="btn" id="saveNameBtn" style="margin-top:10px;">Salvar novo nome</button>
+      <button class="btn ghost" id="cancelNameBtn" style="margin-top:8px;">Cancelar</button>
+    </div>
+    <div id="changePasswordBox" style="display:none;position:absolute;right:24px;top:56px;width:290px;background:var(--white);border:1px solid var(--hair);border-radius:6px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:20;">
+      <div class="auth-email" id="loggedProfEmail"></div>
+      <label for="currentPasswordInput">Senha atual</label>
+      <input type="password" id="currentPasswordInput" autocomplete="current-password">
+      <label for="newPasswordInput">Nova senha</label>
+      <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
+      <label for="newPasswordConfirmInput">Confirmar nova senha</label>
+      <input type="password" id="newPasswordConfirmInput" autocomplete="new-password" minlength="8">
+      <div id="changePasswordBanner"></div>
+      <button class="btn" id="savePasswordBtn" style="margin-top:10px;">Salvar nova senha</button>
+      <button class="btn ghost" id="cancelPasswordBtn" style="margin-top:8px;">Cancelar</button>
+    </div>
+    <div class="eyebrow"><span class="tick"><i style="height:4px"></i><i style="height:8px"></i><i style="height:3px"></i><i style="height:7px"></i></span> registro clínico assistido</div>
+    <h1>Consulta → Prontuário estruturado</h1>
+    <p class="sub">Grava o áudio da consulta, transcreve e organiza automaticamente no modelo da clínica. Revise sempre antes de salvar — o rascunho é gerado por IA.</p>
+  </header>
+
+  <main>
+    <section class="panel-left">
+
+      <div class="card">
+        <h3>IA clínica · backend seguro</h3>
+        <div class="secure-note">
+          O áudio é enviado para uma função autenticada do backend. As chaves da OpenAI/Gemini ficam somente nos segredos do servidor e nunca aparecem neste navegador.
+        </div>
+        <div class="banner" style="margin-top:12px;margin-bottom:0;">
+          Provedor e modelos são configurados no backend. Esta tela não armazena chaves de API.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Consentimento</h3>
+        <div class="consent-row">
+          <input type="checkbox" id="consent">
+          <span>Confirmo que o paciente foi informado sobre a gravação de áudio e autorizou seu uso para documentação desta consulta. A base legal, política de privacidade e prazo de retenção devem ser definidos pela instituição.</span>
+        </div>
+      </div>
+
+      <div class="card rec-zone">
+        <button class="rec-btn" id="recBtn" disabled title="Marque o consentimento para habilitar">
+          <svg viewBox="0 0 24 24" fill="none" id="recIcon"><rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor" id="stopShape" style="display:none"/><circle cx="12" cy="12" r="7" fill="currentColor" id="circleShape"/></svg>
+        </button>
+        <div class="timer mono" id="timer">00:00</div>
+        <canvas id="wave" width="280" height="56"></canvas>
+        <div class="status" id="status">Aguardando início da gravação</div>
+      </div>
+
+      <div class="case-mode" style="margin:14px 0 4px;">
+        <label style="display:block;">Formato do texto gerado</label>
+        <label class="exam-check"><input type="radio" name="caseMode" value="upper" checked><span>Tudo em LETRAS MAIÚSCULAS</span></label>
+        <label class="exam-check"><input type="radio" name="caseMode" value="normal"><span>Escrita normal (maiúsculas e minúsculas)</span></label>
+      </div>
+
+      <button class="btn secondary" id="processBtn" disabled>Transcrever e estruturar</button>
+      <button class="btn danger" id="resetBtn" style="margin-top:22px;">⚠️ Limpar e começar nova consulta</button>
+
+    </section>
+
+    <section class="panel-right">
+
+      <div class="style-card">
+        <div class="style-head" id="styleHead">
+          <h3>Exemplos de escrita anteriores</h3>
+          <span class="count mono" id="exampleCount">0 salvos ▾</span>
+        </div>
+        <div class="style-body" id="styleBody">
+          <div class="style-toggle-row">
+            <input type="checkbox" id="useExamples" checked>
+            <label style="margin:0" for="useExamples">Usar estes exemplos como referência de estilo ao gerar o próximo prontuário</label>
+          </div>
+          <div id="exampleList"></div>
+          <button class="btn ghost" id="addExampleBtn" style="margin-top:6px;">+ Adicionar exemplo de consulta anterior</button>
+
+          <div class="example-form" id="exampleForm" style="display:none;">
+            <label for="exTitle">Nome do exemplo (opcional)</label>
+            <input type="text" id="exTitle" placeholder="Ex.: Retorno cardiologia">
+            <label>Queixa principal</label>
+            <textarea id="ex_queixa_principal"></textarea>
+            <label>História da doença atual</label>
+            <textarea id="ex_hda" style="min-height:80px"></textarea>
+            <label>Comorbidades</label>
+            <textarea id="ex_comorbidades"></textarea>
+            <label>Medicações em uso</label>
+            <textarea id="ex_medicacoes"></textarea>
+            <label>Alergias</label>
+            <textarea id="ex_alergias"></textarea>
+            <label>Hipótese diagnóstica</label>
+            <textarea id="ex_hipotese_diagnostica"></textarea>
+            <div class="example-form-actions">
+              <button class="btn" id="saveExampleBtn">Salvar exemplo</button>
+              <button class="btn ghost" id="cancelExampleBtn">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <div class="style-head" id="historyHead">
+          <h3>Histórico de rascunhos revisáveis</h3>
+          <span class="count mono" id="historyCount">0 registros ▾</span>
+        </div>
+        <div class="style-body" id="historyBody">
+          <div class="style-toggle-row" style="justify-content:space-between;">
+            <span id="historySyncNote">Rascunhos salvos na sua conta autenticada. O processamento da IA não salva automaticamente.</span>
+            <button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex-shrink:0;">Atualizar</button>
+          </div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn ghost ex" id="copyBtn" style="width:auto;">Copiar prontuário</button>
+        <button class="btn ghost ex" id="downloadBtn" style="width:auto;">Baixar .txt</button>
+        <button class="btn ghost ex" id="copyHdaBtn" style="width:auto;">Copiar HDA + antecedentes</button>
+        <button class="btn ghost ex" id="copyExamBtn" style="width:auto;">Copiar exame físico</button>
+        <button class="btn ghost ex" id="updateHistoryBtn" style="width:auto;">Salvar rascunho no histórico</button>
+        <span class="save-state unsaved" id="saveState">não salvo</span>
+      </div>
+
+      <div id="bannerArea"></div>
+
+      <div class="field" data-key="queixa_principal">
+        <label>Queixa principal</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="hda">
+        <label>História da doença atual</label>
+        <textarea style="min-height:110px" placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="comorbidades">
+        <label>Comorbidades</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="medicacoes">
+        <label>Medicações em uso</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field" data-key="alergias">
+        <label>Alergias</label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+      <div class="field diag suggestions-field" data-key="hipotese_diagnostica" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Hipótese diagnóstica sugerida <span style="font-weight:400;font-size:11px;color:#8a7340;">(assistência clínica por IA)</span></label>
+        <textarea placeholder="Sugestão gerada separadamente da documentação clínica..."></textarea>
+        <div class="style-toggle-row" style="margin:8px 0 0;">
+          <input type="checkbox" id="includeDiagnosis">
+          <label for="includeDiagnosis" style="margin:0;">Revisei esta hipótese e quero incluí-la no prontuário copiado/baixado.</label>
+        </div>
+      </div>
+
+      <div class="field" data-key="exame_fisico">
+        <label>Exame físico <span style="font-weight:400;font-size:11px;color:#7a8c86;">(inserido manualmente por modelo — não é transcrito do áudio)</span></label>
+        <div class="exam-type-tabs" id="examTypeTabs">
+          <button type="button" class="exam-type-btn" data-type="HOMEM">Homem</button>
+          <button type="button" class="exam-type-btn" data-type="MULHER">Mulher</button>
+          <button type="button" class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button>
+          <button type="button" class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button>
+        </div>
+        <div class="exam-systems" id="examSystems">
+          <div class="empty-examples" style="padding:8px 0;">Selecione um perfil acima para ver os sistemas disponíveis.</div>
+        </div>
+        <button type="button" class="btn ghost" id="insertExamBtn" style="margin:8px 0 10px;">Inserir sistemas selecionados no campo abaixo</button>
+        <textarea placeholder="Selecione o perfil e os sistemas acima, ou digite/edite manualmente aqui..."></textarea>
+      </div>
+      <div class="field suggestions-field" data-key="orientacoes_alta" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Orientações para alta <span style="font-weight:400;font-size:11px;color:#8a7340;">(gerado por IA — não entra no "Copiar prontuário" nem no .txt)</span></label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+
+      <div class="field suggestions-field" data-key="sugestoes_perguntas" style="background:#FFF8E6;border:1px dashed #D8B65A;">
+        <label>Sugestões de perguntas não feitas <span style="font-weight:400;font-size:11px;color:#8a7340;">(gerado por IA — não entra no "Copiar prontuário" nem no .txt)</span></label>
+        <textarea placeholder="Preenchido automaticamente após a transcrição..."></textarea>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>V2 — rascunho gerado por IA. Autenticação individual, RLS e salvamento explícito. Sempre revise e valide antes de compor o prontuário oficial.</footer>
+</div>
+
+<script>
+'use strict';
+(async function(){
+  // Supabase: a chave publishable/anon pode estar no frontend; a autorização real é feita
+  // por Supabase Auth + RLS (auth.uid()). NUNCA use service_role no navegador.
+  const SUPABASE_URL = 'https://fmkrcieubrlltiggyauc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
+
+  function fatalLoginError(message){
+    const box = document.getElementById('loginBanner');
+    if(!box) return;
+    box.replaceChildren();
+    const div = document.createElement('div');
+    div.className = 'banner error';
+    div.style.marginTop = '10px';
+    div.textContent = message;
+    box.appendChild(div);
+  }
+
+  async function ensureSupabase(){
+    if(window.supabase?.createClient) return;
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-supabase-fallback]');
+      if(existing){
+        existing.addEventListener('load', resolve, {once:true});
+        existing.addEventListener('error', reject, {once:true});
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      script.defer = true;
+      script.dataset.supabaseFallback = '1';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Falha ao carregar a biblioteca do Supabase.'));
+      document.head.appendChild(script);
+    });
+    if(!window.supabase?.createClient) throw new Error('Supabase não ficou disponível no navegador.');
+  }
+
+  try{
+    await ensureSupabase();
+  }catch(e){
+    console.error(e);
+    fatalLoginError('Não foi possível carregar o módulo de autenticação. Atualize a página. Se persistir, verifique o arquivo app.js e o acesso ao CDN.');
+    return;
+  }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const usingCloudSync = true;
+
+  const consent = document.getElementById('consent');
+  const recBtn = document.getElementById('recBtn');
+  const circleShape = document.getElementById('circleShape');
+  const stopShape = document.getElementById('stopShape');
+  const timerEl = document.getElementById('timer');
+  const statusEl = document.getElementById('status');
+  const processBtn = document.getElementById('processBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const bannerArea = document.getElementById('bannerArea');
+
+  const canvas = document.getElementById('wave');
+  const ctx2d = canvas.getContext('2d');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const updateHistoryBtn = document.getElementById('updateHistoryBtn');
+  const copyHdaBtn = document.getElementById('copyHdaBtn');
+  const copyExamBtn = document.getElementById('copyExamBtn');
+
+  const styleHead = document.getElementById('styleHead');
+  const styleBody = document.getElementById('styleBody');
+  const exampleCount = document.getElementById('exampleCount');
+  const exampleList = document.getElementById('exampleList');
+  const addExampleBtn = document.getElementById('addExampleBtn');
+  const exampleForm = document.getElementById('exampleForm');
+  const saveExampleBtn = document.getElementById('saveExampleBtn');
+  const cancelExampleBtn = document.getElementById('cancelExampleBtn');
+  const exTitle = document.getElementById('exTitle');
+  const useExamples = document.getElementById('useExamples');
+  let styleExamples = [];
+
+  const historyHead = document.getElementById('historyHead');
+  const historyBody = document.getElementById('historyBody');
+  const historyCount = document.getElementById('historyCount');
+  const historyList = document.getElementById('historyList');
+  const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+  let consultationHistory = [];
+
+  // ---------- Autenticação real: Supabase Auth + profiles ----------
+  const loginGate = document.getElementById('loginGate');
+  const mainApp = document.getElementById('mainApp');
+  const loginBanner = document.getElementById('loginBanner');
+  const loggedProfName = document.getElementById('loggedProfName');
+  const loggedProfEmail = document.getElementById('loggedProfEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const signInTab = document.getElementById('signInTab');
+  const signUpTab = document.getElementById('signUpTab');
+  const authName = document.getElementById('authName');
+  const authNameLabel = document.getElementById('authNameLabel');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authSubmitBtn = document.getElementById('authSubmitBtn');
+  const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+
+  let currentProf = null;
+  let authMode = 'signin';
+  let passwordRecoveryMode = false;
+  let syncIntervalId = null;
+
+  function setTextBanner(container, msg, isError){
+    container.replaceChildren();
+    if(!msg) return;
+    const div = document.createElement('div');
+    div.className = `banner ${isError ? 'error' : ''}`;
+    div.style.marginTop = '10px';
+    div.style.marginBottom = '0';
+    div.textContent = msg;
+    container.appendChild(div);
+  }
+
+  function showLoginBanner(msg, isError){ setTextBanner(loginBanner, msg, isError); }
+
+  function setAuthMode(mode){
+    authMode = mode;
+    const signup = mode === 'signup';
+    signInTab.classList.toggle('active', !signup);
+    signUpTab.classList.toggle('active', signup);
+    authName.style.display = signup ? 'block' : 'none';
+    authNameLabel.style.display = signup ? 'block' : 'none';
+    authPassword.autocomplete = signup ? 'new-password' : 'current-password';
+    authSubmitBtn.textContent = signup ? 'Criar conta' : 'Entrar';
+    forgotPasswordBtn.style.display = signup ? 'none' : 'inline-flex';
+    showLoginBanner('', false);
+  }
+
+  signInTab.addEventListener('click', () => setAuthMode('signin'));
+  signUpTab.addEventListener('click', () => setAuthMode('signup'));
+
+  async function getOrCreateProfile(user){
+    let { data, error } = await sb.from('profiles').select('id,display_name').eq('id', user.id).maybeSingle();
+    if(error) throw error;
+    if(!data){
+      const displayName = (user.user_metadata?.display_name || user.email?.split('@')[0] || 'Profissional').trim();
+      const inserted = await sb.from('profiles').insert({ id:user.id, display_name:displayName }).select('id,display_name').single();
+      if(inserted.error) throw inserted.error;
+      data = inserted.data;
+    }
+    return { id:user.id, name:data.display_name, email:user.email || '' };
+  }
+
+  async function enterAppFromSession(session){
+    if(!session?.user) return;
+    try{
+      currentProf = await getOrCreateProfile(session.user);
+    }catch(e){
+      showLoginBanner('Conta autenticada, mas não foi possível carregar o perfil. Aplique a migration SQL da V2.', true);
+      await sb.auth.signOut();
+      return;
+    }
+    loginGate.style.display = 'none';
+    mainApp.style.display = 'flex';
+    loggedProfName.textContent = currentProf.name;
+    loggedProfEmail.textContent = currentProf.email;
+    await Promise.all([loadExamples(), loadHistory()]);
+    if(syncIntervalId) clearInterval(syncIntervalId);
+    syncIntervalId = setInterval(async () => {
+      if(!currentProf) return;
+      try{
+        const { data, error } = await sb.from('consultation_history')
+          .select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta')
+          .eq('user_id', currentProf.id)
+          .order('created_at', {ascending:false});
+        if(error) throw error;
+        const remote = (data || []).map(r => ({
+          id:r.id, timestamp:r.created_at, updatedAt:r.updated_at, status:r.status,
+          consentRecordedAt:r.consent_recorded_at, processingMeta:r.processing_meta || {}, fields:r.fields
+        }));
+        const localSignature = consultationHistory.map(x => `${x.id}:${x.updatedAt || x.timestamp}`).join('|');
+        const remoteSignature = remote.map(x => `${x.id}:${x.updatedAt || x.timestamp}`).join('|');
+        if(remoteSignature !== localSignature){ consultationHistory = remote; renderHistory(); }
+      }catch(e){ /* sincronização passiva: mantém tela utilizável */ }
+    }, 15000);
+  }
+
+  async function submitAuth(){
+    const email = authEmail.value.trim().toLowerCase();
+    const password = authPassword.value;
+    if(!email || !email.includes('@')){ showLoginBanner('Informe um e-mail válido.', true); authEmail.focus(); return; }
+    if(password.length < 8){ showLoginBanner('Use uma senha com pelo menos 8 caracteres.', true); authPassword.focus(); return; }
+
+    const originalLabel = authMode === 'signup' ? 'Criar conta' : 'Entrar';
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.textContent = authMode === 'signup' ? 'Criando conta…' : 'Conectando…';
+    showLoginBanner(authMode === 'signup' ? 'Criando conta no Supabase…' : 'Validando e-mail e senha…', false);
+
+    try{
+      if(authMode === 'signup'){
+        const displayName = authName.value.trim();
+        if(displayName.length < 2){ showLoginBanner('Informe o nome do profissional.', true); authName.focus(); return; }
+        const { data, error } = await sb.auth.signUp({
+          email, password,
+          options: { data: { display_name: displayName }, emailRedirectTo: window.location.href.split('#')[0] }
+        });
+        if(error) throw error;
+        if(!data.session){
+          showLoginBanner('Conta criada. Confirme o e-mail para entrar.', false);
+          return;
+        }
+        showLoginBanner('Conta criada. Abrindo o prontuário…', false);
+        await enterAppFromSession(data.session);
+      }else{
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if(error) throw error;
+        if(!data?.session) throw new Error('O Supabase não retornou uma sessão de usuário.');
+        showLoginBanner('Login confirmado. Abrindo o prontuário…', false);
+        await enterAppFromSession(data.session);
+      }
+    }catch(e){
+      console.error('Falha no login:', e);
+      let message = e?.message || 'Falha na autenticação.';
+      if(/invalid login credentials/i.test(message)) message = 'E-mail ou senha incorretos.';
+      if(/email not confirmed/i.test(message)) message = 'Seu e-mail ainda não foi confirmado no Supabase.';
+      showLoginBanner(message, true);
+    }finally{
+      authSubmitBtn.disabled = false;
+      authSubmitBtn.textContent = originalLabel;
+    }
+  }
+
+  // Handler explícito: se este arquivo carregou, o botão sempre produz feedback visual.
+  authSubmitBtn.onclick = (event) => { event.preventDefault(); submitAuth(); };
+
+  authPassword.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submitAuth(); } });
+
+  forgotPasswordBtn.addEventListener('click', async () => {
+    const email = authEmail.value.trim().toLowerCase();
+    if(!email || !email.includes('@')){ showLoginBanner('Digite seu e-mail primeiro.', true); return; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+    showLoginBanner(error ? (error.message || 'Não foi possível enviar o e-mail.') : 'E-mail de redefinição enviado.', !!error);
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    if(syncIntervalId) clearInterval(syncIntervalId);
+    syncIntervalId = null;
+    currentProf = null;
+    styleExamples = [];
+    consultationHistory = [];
+    activeHistoryEntryId = null;
+    setFieldsLoading();
+    await sb.auth.signOut();
+  });
+
+  // ---------- Trocar nome ----------
+  const changeNameBtn = document.getElementById('changeNameBtn');
+  const changeNameBox = document.getElementById('changeNameBox');
+  const newNameInput = document.getElementById('newNameInput');
+  const changeNameBanner = document.getElementById('changeNameBanner');
+  const saveNameBtn = document.getElementById('saveNameBtn');
+  const cancelNameBtn = document.getElementById('cancelNameBtn');
+
+  changeNameBtn.addEventListener('click', () => {
+    const opening = changeNameBox.style.display === 'none';
+    changeNameBox.style.display = opening ? 'block' : 'none';
+    setTextBanner(changeNameBanner, '', false);
+    newNameInput.value = opening && currentProf ? currentProf.name : '';
+  });
+  cancelNameBtn.addEventListener('click', () => { changeNameBox.style.display = 'none'; });
+  saveNameBtn.addEventListener('click', async () => {
+    const name = newNameInput.value.trim();
+    if(name.length < 2){ setTextBanner(changeNameBanner, 'Digite um nome válido.', true); return; }
+    saveNameBtn.disabled = true;
+    try{
+      const { error } = await sb.from('profiles').update({ display_name:name, updated_at:new Date().toISOString() }).eq('id', currentProf.id);
+      if(error) throw error;
+      await sb.auth.updateUser({ data:{ display_name:name } });
+      currentProf.name = name;
+      loggedProfName.textContent = name;
+      setTextBanner(changeNameBanner, 'Nome atualizado.', false);
+    }catch(e){ setTextBanner(changeNameBanner, 'Não foi possível atualizar o nome.', true); }
+    finally{ saveNameBtn.disabled = false; }
+  });
+
+  // ---------- Trocar senha ----------
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  const changePasswordBox = document.getElementById('changePasswordBox');
+  const currentPasswordInput = document.getElementById('currentPasswordInput');
+  const newPasswordInput = document.getElementById('newPasswordInput');
+  const newPasswordConfirmInput = document.getElementById('newPasswordConfirmInput');
+  const changePasswordBanner = document.getElementById('changePasswordBanner');
+  const savePasswordBtn = document.getElementById('savePasswordBtn');
+  const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
+
+  changePasswordBtn.addEventListener('click', () => {
+    const opening = changePasswordBox.style.display === 'none';
+    changePasswordBox.style.display = opening ? 'block' : 'none';
+    currentPasswordInput.value = ''; newPasswordInput.value = ''; newPasswordConfirmInput.value = '';
+    setTextBanner(changePasswordBanner, '', false);
+  });
+  cancelPasswordBtn.addEventListener('click', async () => {
+    changePasswordBox.style.display = 'none';
+    if(passwordRecoveryMode){ passwordRecoveryMode = false; await sb.auth.signOut(); }
+  });
+  savePasswordBtn.addEventListener('click', async () => {
+    const oldPassword = currentPasswordInput.value;
+    const nextPassword = newPasswordInput.value;
+    if(nextPassword.length < 8){ setTextBanner(changePasswordBanner, 'A nova senha deve ter pelo menos 8 caracteres.', true); return; }
+    if(nextPassword !== newPasswordConfirmInput.value){ setTextBanner(changePasswordBanner, 'As senhas não coincidem.', true); return; }
+    savePasswordBtn.disabled = true;
+    try{
+      if(!passwordRecoveryMode){
+        const { error:reauthError } = await sb.auth.signInWithPassword({ email:currentProf.email, password:oldPassword });
+        if(reauthError) throw new Error('Senha atual incorreta.');
+      }
+      const { error } = await sb.auth.updateUser({ password:nextPassword });
+      if(error) throw error;
+      passwordRecoveryMode = false;
+      currentPasswordInput.style.display = '';
+      const currentPasswordLabel = changePasswordBox.querySelector('label[for="currentPasswordInput"]');
+      if(currentPasswordLabel) currentPasswordLabel.style.display = '';
+      setTextBanner(changePasswordBanner, 'Senha atualizada.', false);
+    }catch(e){ setTextBanner(changePasswordBanner, e.message || 'Não foi possível atualizar a senha.', true); }
+    finally{ savePasswordBtn.disabled = false; }
+  });
+
+  // Restaura sessão existente e acompanha login/logout.
+  sb.auth.getSession().then(({data}) => {
+    if(data.session) enterAppFromSession(data.session);
+    else { loginGate.style.display = 'flex'; mainApp.style.display = 'none'; }
+  });
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN' && session) enterAppFromSession(session);
+    if(event === 'PASSWORD_RECOVERY' && session){
+      passwordRecoveryMode = true;
+      enterAppFromSession(session).then(() => {
+        changePasswordBox.style.display = 'block';
+        currentPasswordInput.style.display = 'none';
+        const currentPasswordLabel = changePasswordBox.querySelector('label[for="currentPasswordInput"]');
+        if(currentPasswordLabel) currentPasswordLabel.style.display = 'none';
+        setTextBanner(changePasswordBanner, 'Defina uma nova senha para concluir a recuperação.', false);
+      });
+    }
+    if(event === 'SIGNED_OUT'){
+      loginGate.style.display = 'flex'; mainApp.style.display = 'none';
+      authPassword.value = ''; passwordRecoveryMode = false;
+    }
+  });
+  // ---------- fim autenticação ----------
+
+  const fieldKeys = ['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica'];
+  const fieldLabels = {
+    queixa_principal:'QUEIXA PRINCIPAL',
+    hda:'HISTÓRIA DA DOENÇA ATUAL',
+    comorbidades:'COMORBIDADES',
+    medicacoes:'MEDICAÇÕES EM USO',
+    alergias:'ALERGIAS',
+    hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA'
+  };
+  // Campos auxiliares gerados pela IA e salvos no histórico, mas não copiados automaticamente.
+  const SIDE_KEYS = ['orientacoes_alta', 'sugestoes_perguntas'];
+  const sideLabels = {
+    orientacoes_alta: 'ORIENTAÇÕES PARA ALTA',
+    sugestoes_perguntas: 'SUGESTÕES DE PERGUNTAS NÃO FEITAS'
+  };
+  // Campo preenchido manualmente por modelo (não pela IA), mas que ENTRA na cópia/download
+  // do prontuário — ao contrário de SIDE_KEYS. Fica fora de fieldKeys para não aparecer
+  // nem no schema enviado ao Gemini, nem no formulário de "exemplos de estilo".
+  const MANUAL_KEYS = ['exame_fisico'];
+  fieldLabels.exame_fisico = 'EXAME FÍSICO';
+  // A hipótese diagnóstica também é auxiliar: só entra na cópia após aprovação explícita.
+
+  // Templates guardados em capitalização normal; applyCase() converte para MAIÚSCULAS
+  // automaticamente quando esse modo estiver selecionado. Siglas ficam sempre em caixa alta.
+  const EXAM_TEMPLATES = {
+    HOMEM: {
+      'Sinais vitais': 'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C',
+      'Estado geral': 'BEG, LOTE, normocorado, afebril, acianótico, anictérico, eupneico e hidratado.',
+      'Neurológico': 'Neuro: Glasgow 15/15 (AO: 4 // RV: 5 // RM: 6). Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.',
+      'Aparelho respiratório': 'AR: MVUA sem RA.',
+      'Aparelho cardiovascular': 'ACV: RCR, em 2T, sem sopros. TEC < 2s.',
+      'Abdome': 'Abd: plano, RHA+, normotimpânico, não palpo massas ou visceromegalias, indolor à palpação, DB-, Murphy-, Blumberg-',
+      'Membros inferiores': 'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.',
+      'Oroscopia': 'Oroscopia: cavidade oral normal, sem secreções e sem sinais inflamatórios ou infecciosos.',
+      'Exame oftalmológico': 'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas anictéricas e sem sinais de irritação.',
+      'Otoscopia': 'Otoscopia: ausência de secreção e sinais inflamatórios no pavilhão auricular; ausência de dor à movimentação do pavilhão auditivo. Membrana timpânica translúcida e sem sinais de infecção.',
+      'Toque retal': 'Toque retal: esfíncter anal com tônus preservado (normotônico), sem lesões cutâneas, fissuras, fístulas ou mamas hemorroidárias externas. Ampola retal livre de massas, abaulamentos ou áreas endurecidas, com mucosa lisa e íntegra.',
+      'Exame do estado mental': 'Exame estado mental: paciente apresenta-se com cuidados pessoais e higiene preservados, vestes adequadas ao clima e à situação. Atitude colaborativa e participativa durante a entrevista, mantendo contato visual adequado. Lúcido, orientado autopsiquicamente e alopsiquicamente (no tempo e no espaço). Normoprosexico (atenção mantida e focalizada normalmente). Memórias de fixação, recente e de evocação preservadas. Sensopercepção sem alterações (ausência de alucinações ou ilusões). Pensamento com curso de velocidade normal, forma lógica e com nexo, conteúdo sem ideias delirantes, obsessivas ou ideação suicida/homicida. Linguagem clara, coerente e fluida, com tom de voz e velocidade adequados. Humor eutímico, com afeto em congruência, ressonante e bem modulado. Volição e pragmatismo preservados. Psicomotricidade normal, sem agitação, lentificação, tiques ou tremores. Juízo crítico (insight) preservado em relação à sua condição atual.'
+    },
+    MULHER: {
+      'Sinais vitais': 'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C',
+      'Estado geral': 'BEG, LOTE, normocorada, afebril, acianótica, anictérica, eupneica e hidratada.',
+      'Neurológico': 'Neuro: Glasgow 15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.',
+      'Aparelho respiratório': 'AR: MVUA sem RA.',
+      'Aparelho cardiovascular': 'ACV: RCR, em 2T, sem sopros. TEC < 2s.',
+      'Abdome': 'Abd: plano, RHA+, não palpo massas ou visceromegalias, indolor à palpação, DB-, Murphy-, Blumberg-',
+      'Membros inferiores': 'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.',
+      'Oroscopia': 'Oroscopia: cavidade oral normal, sem secreções e sem sinais inflamatórios ou infecciosos.',
+      'Exame oftalmológico': 'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas anictéricas e sem sinais de irritação.',
+      'Otoscopia': 'Otoscopia: ausência de secreção e sinais inflamatórios no pavilhão auricular; ausência de dor à movimentação do pavilhão auditivo. Membrana timpânica translúcida e sem sinais de infecção.',
+      'Toque retal': 'Toque retal: esfíncter anal com tônus preservado (normotônico), sem lesões cutâneas, fissuras, fístulas ou mamas hemorroidárias externas. Ampola retal livre de massas, abaulamentos ou áreas endurecidas, com mucosa lisa e íntegra.',
+      'Exame do estado mental': 'Exame estado mental: paciente apresenta-se com cuidados pessoais e higiene preservados, vestes adequadas ao clima e à situação. Atitude colaborativa e participativa durante a entrevista, mantendo contato visual adequado. Lúcida, orientada autopsiquicamente e alopsiquicamente (no tempo e no espaço). Normoprosexica (atenção mantida e focalizada normalmente). Memórias de fixação, recente e de evocação preservadas. Sensopercepção sem alterações (ausência de alucinações ou ilusões). Pensamento com curso de velocidade normal, forma lógica e com nexo, conteúdo sem ideias delirantes, obsessivas ou ideação suicida/homicida. Linguagem clara, coerente e fluida, com tom de voz e velocidade adequados. Humor eutímico, com afeto em congruência, ressonante e bem modulado. Volição e pragmatismo preservados. Psicomotricidade normal, sem agitação, lentificação, tiques ou tremores. Juízo crítico (insight) preservado em relação à sua condição atual.'
+    },
+    LACTENTE_MENINO: {
+      'Sinais vitais': 'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C',
+      'Estado geral': 'Ativo e reativo, hidratado, afebril, acianótico, eupneico',
+      'Aparelho respiratório': 'AR: MV+ s/RA, sem esforço respiratório',
+      'Aparelho cardiovascular': 'AC: BNRNF2T SS',
+      'Abdome': 'Abd: plano, RHA+, normotimpânico, não palpo massas ou visceromegalias, indolor à palpação, DB-, Murphy-, Blumberg-',
+      'Oroscopia': 'Oro: hiperemia, sem placas, amígdalas sem alterações',
+      'Otoscopia': 'Oto: meato acústico externo sem hiperemia, presença de cerúmen, sem secreções. MP íntegra, reflexo luminoso presente, sem abaulamento ou opacidade',
+      'Neurológico': 'Neuro: ativo e reativo, PICFR, sem sinais meníngeos',
+      'Pele': 'Pele: perfusão preservada (TEC < 3seg), sem edema, sem sinais flogísticos, sem petéquias, máculas e demais lesões exantemáticas'
+    },
+    LACTENTE_MENINA: {
+      'Sinais vitais': 'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C',
+      'Estado geral': 'Ativa e reativa, hidratada, afebril, acianótica, eupneica',
+      'Aparelho respiratório': 'AR: MV+ s/RA, sem esforço respiratório',
+      'Aparelho cardiovascular': 'AC: BNRNF2T SS',
+      'Abdome': 'Abd: plano, RHA+, normotimpânico, não palpo massas ou visceromegalias, indolor à palpação, DB-, Murphy-, Blumberg-',
+      'Oroscopia': 'Oro: hiperemia, sem placas, amígdalas sem alterações',
+      'Otoscopia': 'Oto: meato acústico externo sem hiperemia, presença de cerúmen, sem secreções. MP íntegra, reflexo luminoso presente, sem abaulamento ou opacidade',
+      'Neurológico': 'Neuro: ativa e reativa, PICFR, sem sinais meníngeos',
+      'Pele': 'Pele: perfusão preservada (TEC < 3seg), sem edema, sem sinais flogísticos, sem petéquias, máculas e demais lesões exantemáticas'
+    }
+  };
+
+  let mediaRecorder, chunks = [], audioBlob = null;
+  let recording = false, seconds = 0, timerInt = null;
+  let audioCtx, analyser, dataArray, rafId, stream;
+
+  const SEED_EXAMPLES = [
+    {
+      title: 'Dor torácica / SCA a esclarecer',
+      queixa_principal: 'Dispneia e dor torácica em região de peitoral à esquerda, com início há 12 horas.',
+      hda: 'Paciente refere quadro iniciado há 12 horas, caracterizado por dispneia e dor torácica em peitoral à esquerda, associado a pico pressórico, palpitação e náuseas. Nega demais queixas.',
+      comorbidades: 'HAS e DM2.',
+      medicacoes: 'Losartana 50mg 1x/dia (manhã); Metformina 500mg 1x/dia.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Síndrome coronariana aguda a esclarecer (I24.9) — dor torácica associada a dispneia, palpitação e náuseas em paciente hipertenso e diabético, com pico pressórico recente. Sugere-se correlação com ECG e marcadores de necrose miocárdica.'
+    },
+    {
+      title: 'Entorse de tornozelo',
+      queixa_principal: 'Entorse de tornozelo esquerdo há 7 horas.',
+      hda: 'Paciente refere entorse de tornozelo esquerdo há 7 horas, evoluindo com dor de forte intensidade e limitação de movimentação. Sem demais queixas.',
+      comorbidades: 'HAS.',
+      medicacoes: 'Atenolol; Hidroclorotiazida.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Entorse de tornozelo (S93.4) — sugere-se correlação com exame físico e radiografia para descartar fratura associada.'
+    },
+    {
+      title: 'IVAS / síndrome gripal',
+      queixa_principal: 'Tosse, coriza e odinofagia há 4 dias, com piora há 1 dia.',
+      hda: 'Paciente refere tosse, coriza e odinofagia de início há 4 dias, com piora há 1 dia. Refere também febre e calafrios, além de 1 episódio de êmese há 1 dia. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Infecção aguda de vias aéreas superiores (J06.9) — quadro compatível com etiologia viral, sugere-se correlação clínica.'
+    },
+    {
+      title: 'Dor lombar / ITU a esclarecer',
+      queixa_principal: 'Dor lombar à esquerda há 1 semana, com piora intensa hoje.',
+      hda: 'Paciente refere dor lombar à esquerda há 1 semana, com piora intensa hoje. Refere urina de coloração mais escura, sem demais alterações urinárias. Refere também edema de membros inferiores há alguns dias, presente ao acordar, sem melhora ou piora. Sem demais queixas.',
+      comorbidades: 'HAS e DM2.',
+      medicacoes: 'Enalapril 10mg 2x/dia (manhã e noite); Anlodipino 5mg 1x/dia (noite); Metformina 500mg 2x/dia (manhã e tarde); Carbamazepina 2x/dia (manhã e tarde).',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Infecção do trato urinário alta / pielonefrite a esclarecer (N39.0) — considerar também nefropatia associada a DM2 dado o edema de MMII; sugere-se correlação com exame de urina, função renal e imagem.'
+    },
+    {
+      title: 'Unha encravada infectada',
+      queixa_principal: 'Unha encravada em hálux esquerdo há 8 dias, com secreção há 1 dia.',
+      hda: 'Paciente refere unha encravada em hálux esquerdo há 8 dias, associado a saída de secreção há 1 dia e dor latejante. Nega febre ou calafrios. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Penicilina.',
+      hipotese_diagnostica: 'Onicocriptose infectada (L60.0) — atenção à alergia a penicilina na escolha do antibiótico, se indicado.'
+    },
+    {
+      title: 'Odinofagia prolongada / suspeita COVID',
+      queixa_principal: 'Odinofagia há 3 semanas, com piora progressiva.',
+      hda: 'Paciente refere odinofagia há 3 semanas, evoluindo com piora da dor, febre, anosmia e hipogeusia. Refere também coriza. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Síndrome gripal / suspeita de COVID-19 (U07.1) — anosmia e hipogeusia associadas sugerem etiologia viral específica; sugere-se teste confirmatório, considerando também a duração atípica de 3 semanas.'
+    },
+    {
+      title: 'Gastroenterite aguda',
+      queixa_principal: 'Diarreia há 3 dias, sem sangue, pus ou muco.',
+      hda: 'Paciente refere diarreia sem sangue, pus ou muco há 3 dias, associada a náuseas e dor abdominal, em uso de bromoprida, buscopan e loperamida. Refere também crise álgica em coluna lombar devido a patologia prévia que já aguarda cirurgia. Nega febre, porém refere calafrios. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega (em uso pontual de bromoprida, buscopan e loperamida para os sintomas atuais).',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Gastroenterite aguda presumivelmente infecciosa (A09) — considerar também exacerbação álgica de patologia lombar prévia como queixa concomitante.'
+    },
+    {
+      title: 'Conjuntivite aguda',
+      queixa_principal: 'Hiperemia ocular com edema de pálpebras há 1 dia.',
+      hda: 'Paciente refere hiperemia ocular, associada a edema de pálpebras, dor local e secreção, de início há 1 dia. Sem demais queixas.',
+      comorbidades: 'Nega.',
+      medicacoes: 'Nega.',
+      alergias: 'Nega.',
+      hipotese_diagnostica: 'Conjuntivite aguda, provável etiologia bacteriana (H10.3) — atentar para blefarite/celulite periorbitária associada dado o edema palpebral.'
+    }
+  ];
+
+  const saveStateEl = document.getElementById('saveState');
+  const includeDiagnosis = document.getElementById('includeDiagnosis');
+  let activeHistoryEntryId = null;
+  let lastProcessedMeta = null;
+
+  function setSaveState(kind, text){
+    saveStateEl.className = `save-state ${kind}`;
+    saveStateEl.textContent = text;
+  }
+
+  async function loadHistory(){
+    if(!currentProf) return;
+    try{
+      const { data, error } = await sb.from('consultation_history')
+        .select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta')
+        .eq('user_id', currentProf.id)
+        .order('created_at', {ascending:false});
+      if(error) throw error;
+      consultationHistory = (data || []).map(r => ({
+        id:r.id, timestamp:r.created_at, updatedAt:r.updated_at, status:r.status,
+        consentRecordedAt:r.consent_recorded_at, processingMeta:r.processing_meta || {}, fields:r.fields
+      }));
+    }catch(e){
+      consultationHistory = [];
+      showBanner('Não foi possível carregar o histórico protegido. Verifique a migration/RLS.', true);
+    }
+    renderHistory();
+  }
+
+  function formatDateTime(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function emptyMessage(container, text){
+    container.replaceChildren();
+    const div = document.createElement('div');
+    div.className = 'empty-examples';
+    div.textContent = text;
+    container.appendChild(div);
+  }
+
+  function renderHistory(){
+    historyCount.textContent = `${consultationHistory.length} registro${consultationHistory.length===1?'':'s'} ▾`;
+    historyList.replaceChildren();
+    if(consultationHistory.length === 0){
+      emptyMessage(historyList, 'Nenhum rascunho salvo. A IA preenche a tela primeiro; você decide quando salvar.');
+      return;
+    }
+    const sorted = [...consultationHistory].sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+    for(const entry of sorted){
+      const row = document.createElement('div'); row.className = 'example-item';
+      const load = document.createElement('div'); load.style.cursor = 'pointer'; load.style.flex = '1';
+      const title = document.createElement('div'); title.className = 'ex-title'; title.textContent = formatDateTime(entry.timestamp);
+      const preview = document.createElement('div'); preview.className = 'ex-preview';
+      const q = entry.fields?.queixa_principal || '';
+      preview.textContent = q.slice(0,90) + (q.length > 90 ? '...' : '');
+      load.append(title, preview);
+      load.addEventListener('click', () => {
+        fillFields(entry.fields || {});
+        // COMPORTAMENTO DO EXAME FÍSICO PRESERVADO: registros antigos podem regenerá-lo por CID.
+        if(!entry.fields?.exame_fisico) sugerirExameFisico(entry.fields || {});
+        activeHistoryEntryId = entry.id;
+        lastProcessedMeta = entry.processingMeta || { consentRecordedAt: entry.consentRecordedAt || null };
+        (async () => { try{ await sb.rpc('log_consultation_view', { p_consultation_id: entry.id }); }catch(e){} })();
+        setSaveState('saved', 'salvo');
+        showBanner('Rascunho carregado. As próximas edições serão salvas neste registro.', false);
+      });
+      const del = document.createElement('button'); del.textContent = 'remover';
+      del.addEventListener('click', async ev => {
+        ev.stopPropagation();
+        if(!confirm('Remover este rascunho do histórico?')) return;
+        try{
+          const { error } = await sb.from('consultation_history').delete().eq('id', entry.id).eq('user_id', currentProf.id);
+          if(error) throw error;
+          consultationHistory = consultationHistory.filter(e => e.id !== entry.id);
+          if(activeHistoryEntryId === entry.id){ activeHistoryEntryId = null; setSaveState('unsaved','não salvo'); }
+          renderHistory();
+        }catch(e){ showBanner('Não foi possível remover este registro.', true); }
+      });
+      row.append(load, del); historyList.appendChild(row);
+    }
+  }
+
+  function collectAllFieldValues(){
+    const out = {};
+    [...fieldKeys, ...SIDE_KEYS, ...MANUAL_KEYS].forEach(k=>{
+      const wrap = document.querySelector(`.field[data-key="${k}"]`);
+      out[k] = wrap.querySelector('textarea').value || '';
+    });
+    out._include_hipotese = includeDiagnosis.checked === true;
+    return out;
+  }
+
+  async function saveCurrentHistoryEntry(){
+    if(!currentProf){ showBanner('Sua sessão expirou. Entre novamente.', true); return; }
+    const fields = collectAllFieldValues();
+    const hasContent = [...fieldKeys, ...SIDE_KEYS, ...MANUAL_KEYS].some(k => String(fields[k] || '').trim());
+    if(!hasContent){ showBanner('Não há conteúdo para salvar.', true); return; }
+    const now = new Date().toISOString();
+    updateHistoryBtn.disabled = true;
+    setSaveState('unsaved','salvando…');
+    try{
+      if(activeHistoryEntryId){
+        const { data, error } = await sb.from('consultation_history')
+          .update({ fields, updated_at:now, status:'draft', processing_meta:lastProcessedMeta || {} })
+          .eq('id', activeHistoryEntryId).eq('user_id', currentProf.id)
+          .select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').single();
+        if(error) throw error;
+        const idx = consultationHistory.findIndex(e => e.id === activeHistoryEntryId);
+        if(idx >= 0) consultationHistory[idx] = {
+          id:data.id, fields:data.fields, timestamp:data.created_at, updatedAt:data.updated_at,
+          status:data.status, consentRecordedAt:data.consent_recorded_at, processingMeta:data.processing_meta || {}
+        };
+      }else{
+        const entryId = crypto.randomUUID();
+        const consentRecordedAt = lastProcessedMeta?.consentRecordedAt || (consent.checked ? now : null);
+        const { data, error } = await sb.from('consultation_history').insert({
+          id:entryId, user_id:currentProf.id, fields, status:'draft',
+          consent_recorded_at:consentRecordedAt, processing_meta:lastProcessedMeta || {}, created_at:now, updated_at:now
+        }).select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').single();
+        if(error) throw error;
+        activeHistoryEntryId = data.id;
+        consultationHistory.unshift({
+          id:data.id, fields:data.fields, timestamp:data.created_at, updatedAt:data.updated_at,
+          status:data.status, consentRecordedAt:data.consent_recorded_at, processingMeta:data.processing_meta || {}
+        });
+      }
+      renderHistory();
+      setSaveState('saved','salvo');
+      showBanner('Rascunho salvo no histórico protegido.', false);
+    }catch(e){
+      setSaveState('error','erro ao salvar');
+      showBanner('Falha ao salvar. Nada foi marcado como sincronizado.', true);
+    }finally{ updateHistoryBtn.disabled = false; }
+  }
+
+  historyHead.addEventListener('click', () => { historyBody.classList.toggle('open'); });
+  refreshHistoryBtn.addEventListener('click', async ev => { ev.stopPropagation(); await loadHistory(); showBanner('Histórico atualizado.', false); });
+
+  async function loadExamples(){
+    if(!currentProf) return;
+    try{
+      const { data, error } = await sb.from('style_examples')
+        .select('id,title,fields,created_at')
+        .eq('user_id', currentProf.id)
+        .order('created_at');
+      if(error) throw error;
+      styleExamples = (data || []).map(r => ({ id:r.id, title:r.title, ...r.fields }));
+    }catch(e){ styleExamples = []; showBanner('Não foi possível carregar os exemplos protegidos.', true); }
+    renderExamples();
+  }
+
+  async function insertExampleRow(ex){
+    const { title, ...fields } = ex;
+    const id = crypto.randomUUID();
+    const { error } = await sb.from('style_examples').insert({ id, user_id:currentProf.id, title:title || null, fields });
+    if(error) throw error;
+    return id;
+  }
+
+  function renderExamples(){
+    exampleCount.textContent = `${styleExamples.length} salvo${styleExamples.length===1?'':'s'} ▾`;
+    exampleList.replaceChildren();
+    if(styleExamples.length === 0){
+      emptyMessage(exampleList, 'Nenhum exemplo salvo. Adicione um texto já revisado para orientar apenas o estilo de redação.');
+      return;
+    }
+    styleExamples.forEach((ex, i) => {
+      const row = document.createElement('div'); row.className = 'example-item';
+      const body = document.createElement('div');
+      const title = document.createElement('div'); title.className = 'ex-title'; title.textContent = ex.title || `Exemplo ${i+1}`;
+      const preview = document.createElement('div'); preview.className = 'ex-preview';
+      const q = ex.queixa_principal || ''; preview.textContent = q.slice(0,90) + (q.length > 90 ? '...' : '');
+      body.append(title, preview);
+      const del = document.createElement('button'); del.textContent = 'remover';
+      del.addEventListener('click', async () => {
+        try{
+          const { error } = await sb.from('style_examples').delete().eq('id', ex.id).eq('user_id', currentProf.id);
+          if(error) throw error;
+          styleExamples.splice(i,1); renderExamples();
+        }catch(e){ showBanner('Não foi possível remover este exemplo.', true); }
+      });
+      row.append(body,del); exampleList.appendChild(row);
+    });
+  }
+  includeDiagnosis.addEventListener('change', () => setSaveState('unsaved','não salvo'));
+
+  styleHead.addEventListener('click', () => {
+    styleBody.classList.toggle('open');
+  });
+
+  addExampleBtn.addEventListener('click', () => {
+    exampleForm.style.display = exampleForm.style.display === 'none' ? 'block' : 'none';
+  });
+
+  cancelExampleBtn.addEventListener('click', () => {
+    exampleForm.style.display = 'none';
+    exTitle.value = '';
+    fieldKeys.forEach(k => document.getElementById('ex_' + k).value = '');
+  });
+
+  saveExampleBtn.addEventListener('click', async () => {
+    const ex = { title: exTitle.value.trim() };
+    let hasContent = false;
+    fieldKeys.forEach(k => {
+      const v = document.getElementById('ex_' + k).value.trim();
+      ex[k] = v; if(v) hasContent = true;
+    });
+    if(!hasContent){ showBanner('Preencha pelo menos um campo do exemplo antes de salvar.', true); return; }
+    saveExampleBtn.disabled = true;
+    try{
+      const id = await insertExampleRow(ex);
+      styleExamples.push({ id, ...ex });
+      renderExamples(); exampleForm.style.display = 'none'; exTitle.value = '';
+      fieldKeys.forEach(k => document.getElementById('ex_' + k).value = '');
+      showBanner('Exemplo de estilo salvo.', false);
+    }catch(e){ showBanner('Não foi possível salvar o exemplo.', true); }
+    finally{ saveExampleBtn.disabled = false; }
+  });
+
+  function buildExamplesPromptBlock(){
+    if(!useExamples.checked || styleExamples.length === 0) return '';
+    const recent = styleExamples.slice(-5);
+    const blocks = recent.map((ex,i) => {
+      return `Exemplo ${i+1}${ex.title ? ' - ' + ex.title : ''}:\n` +
+        fieldKeys.map(k => `${fieldLabels[k]}: ${ex[k] || ''}`).join('\n');
+    }).join('\n\n');
+    return `\n\nEstes são exemplos de prontuários já escritos por este médico. Siga o MESMO estilo de redação, vocabulário, nível de detalhe e forma de organizar as frases — mas preencha apenas com informações que realmente estão no áudio desta nova consulta, nunca copie o conteúdo clínico dos exemplos:\n\n${blocks}`;
+  }
+
+  consent.addEventListener('change', () => {
+    recBtn.disabled = !consent.checked;
+    recBtn.title = consent.checked ? 'Iniciar gravação' : 'Marque o consentimento para habilitar';
+  });
+
+  function showBanner(msg, isError){ setTextBanner(bannerArea, String(msg || ''), !!isError); }
+  function clearBanner(){ bannerArea.replaceChildren(); }
+
+  function formatTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const ss = (s%60).toString().padStart(2,'0');
+    return `${m}:${ss}`;
+  }
+
+  function drawWave(){
+    if(!analyser) return;
+    analyser.getByteTimeDomainData(dataArray);
+    ctx2d.clearRect(0,0,canvas.width,canvas.height);
+    ctx2d.lineWidth = 2;
+    ctx2d.strokeStyle = '#B4463C';
+    ctx2d.beginPath();
+    const slice = canvas.width / dataArray.length;
+    let x = 0;
+    for(let i=0;i<dataArray.length;i++){
+      const v = dataArray[i]/128.0;
+      const y = (v * canvas.height)/2;
+      if(i===0) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
+      x += slice;
+    }
+    ctx2d.stroke();
+    rafId = requestAnimationFrame(drawWave);
+  }
+
+  function flatline(){
+    cancelAnimationFrame(rafId);
+    ctx2d.clearRect(0,0,canvas.width,canvas.height);
+    ctx2d.lineWidth = 1.5;
+    ctx2d.strokeStyle = '#D7DEDA';
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, canvas.height/2);
+    ctx2d.lineTo(canvas.width, canvas.height/2);
+    ctx2d.stroke();
+  }
+
+  async function startRecording(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    }catch(e){
+      showBanner('Não foi possível acessar o microfone. Verifique as permissões do navegador.', true);
+      return;
+    }
+    chunks = [];
+    audioBlob = null;
+    processBtn.disabled = true;
+    clearBanner();
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWave();
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, {mimeType});
+    mediaRecorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(chunks, {type:mimeType});
+      processBtn.disabled = false;
+      statusEl.textContent = `Gravação concluída · ${formatTime(seconds)} · pronta para transcrever`;
+      flatline();
+    };
+    mediaRecorder.start();
+
+    recording = true;
+    seconds = 0;
+    timerEl.textContent = formatTime(seconds);
+    timerInt = setInterval(()=>{ seconds++; timerEl.textContent = formatTime(seconds); }, 1000);
+
+    recBtn.classList.add('recording');
+    circleShape.style.display = 'none';
+    stopShape.style.display = 'block';
+    statusEl.textContent = 'Gravando consulta...';
+  }
+
+  function stopRecording(){
+    recording = false;
+    clearInterval(timerInt);
+    recBtn.classList.remove('recording');
+    circleShape.style.display = 'block';
+    stopShape.style.display = 'none';
+    if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx) audioCtx.close();
+  }
+
+  recBtn.addEventListener('click', () => {
+    if(!consent.checked) return;
+    if(!recording) startRecording(); else stopRecording();
+  });
+
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function setFieldsLoading(){
+    fieldKeys.forEach(k=>{
+      const el = document.querySelector(`.field[data-key="${k}"] textarea`);
+      el.value = '';
+      document.querySelector(`.field[data-key="${k}"]`).classList.remove('filled');
+    });
+    [...SIDE_KEYS, ...MANUAL_KEYS].forEach(k=>{
+      const wrap = document.querySelector(`.field[data-key="${k}"]`);
+      wrap.querySelector('textarea').value = '';
+      wrap.classList.remove('filled');
+    });
+  }
+
+  // Formato escolhido pelo usuário antes de transcrever: 'upper' (tudo maiúsculo) ou 'normal'.
+  function getCaseMode(){
+    const checked = document.querySelector('input[name="caseMode"]:checked');
+    return checked ? checked.value : 'upper';
+  }
+
+  function applyCase(text){
+    return getCaseMode() === 'upper' ? (text || '').toUpperCase() : (text || '');
+  }
+
+  function fillFields(data){
+    fieldKeys.forEach(k=>{
+      const wrap = document.querySelector(`.field[data-key="${k}"]`);
+      const el = wrap.querySelector('textarea');
+      el.value = applyCase(data[k]);
+      if(data[k]) wrap.classList.add('filled');
+    });
+    [...SIDE_KEYS, ...MANUAL_KEYS].forEach(k=>{
+      const wrap = document.querySelector(`.field[data-key="${k}"]`);
+      wrap.querySelector('textarea').value = applyCase(data[k]);
+      if(data[k]) wrap.classList.add('filled');
+    });
+    includeDiagnosis.checked = data._include_hipotese === true;
+  }
+
+  async function invokeClinicalBackend(audioBlob, caseMode, examples){
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+    const form = new FormData();
+    form.append('audio', audioBlob, 'consulta.webm');
+    form.append('case_mode', caseMode);
+    form.append('style_examples', JSON.stringify(examples.slice(-5)));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000);
+    try{
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/process-consultation`, {
+        method:'POST',
+        headers:{ 'Authorization':`Bearer ${session.access_token}`, 'apikey':SUPABASE_ANON_KEY },
+        body:form,
+        signal:controller.signal
+      });
+      const payload = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(payload.error || `Falha no backend (${resp.status}).`);
+      return payload;
+    }finally{ clearTimeout(timeout); }
+  }
+
+  async function processAudio(){
+    if(!currentProf){ showBanner('Entre na sua conta antes de processar.', true); return; }
+    if(!audioBlob){ showBanner('Grave uma consulta antes de transcrever.', true); return; }
+    if(!consent.checked){ showBanner('Confirme a autorização de gravação antes de processar.', true); return; }
+
+    processBtn.disabled = true;
+    processBtn.textContent = 'Transcrevendo e estruturando...';
+    setFieldsLoading(); clearBanner();
+    activeHistoryEntryId = null;
+    setSaveState('unsaved','não salvo');
+
+    try{
+      const consentRecordedAt = new Date().toISOString();
+      const payload = await invokeClinicalBackend(audioBlob, getCaseMode(), useExamples.checked ? styleExamples : []);
+      const parsed = payload.fields || payload;
+      fillFields(parsed);
+      // EXAME FÍSICO: lógica original preservada por solicitação do usuário.
+      const exameGerado = sugerirExameFisico(parsed);
+      if(exameGerado) parsed.exame_fisico = exameGerado;
+      lastProcessedMeta = {
+        consentRecordedAt,
+        provider:payload.provider || null,
+        model:payload.model || null,
+        stages:Array.isArray(payload.stages) ? payload.stages : [],
+        pipelineVersion:payload.pipeline_version || '2026-08-13-v2',
+        appVersion:'2.0.0'
+      };
+      // Minimização: depois de processado com sucesso, o áudio bruto deixa de ficar retido no navegador.
+      audioBlob = null; chunks = [];
+      statusEl.textContent = 'Processamento concluído · áudio bruto descartado da memória';
+      showBanner('Rascunho gerado localmente. Revise os campos e clique em “Salvar rascunho no histórico” quando decidir persistir.', false);
+    }catch(err){
+      showBanner(err.name === 'AbortError' ? 'O processamento excedeu o tempo limite.' : (err.message || 'Falha ao processar o áudio.'), true);
+    }finally{
+      processBtn.disabled = false;
+      processBtn.textContent = 'Transcrever e estruturar';
+    }
+  }
+
+  processBtn.addEventListener('click', processAudio);
+
+  resetBtn.addEventListener('click', () => {
+    const hasContent = audioBlob || [...fieldKeys, ...SIDE_KEYS, ...MANUAL_KEYS].some(k => document.querySelector(`.field[data-key="${k}"] textarea`).value.trim());
+    if(hasContent && !confirm('Isso vai apagar o áudio gravado e todos os campos preenchidos desta consulta (ainda não salva no histórico). Confirma que quer limpar e começar uma nova consulta?')){
+      return;
+    }
+    audioBlob = null;
+    chunks = [];
+    seconds = 0;
+    timerEl.textContent = '00:00';
+    statusEl.textContent = 'Aguardando início da gravação';
+    processBtn.disabled = true;
+    setFieldsLoading();
+    clearBanner();
+    flatline();
+    activeHistoryEntryId = null;
+    lastProcessedMeta = null;
+    setSaveState('unsaved','não salvo');
+    consent.checked = false; includeDiagnosis.checked = false; recBtn.disabled = true; recBtn.title = 'Marque o consentimento para habilitar';
+    currentExamType = null;
+    examTypeButtons.forEach(b => b.classList.remove('active'));
+    examSystemsEl.innerHTML = '<div class="empty-examples" style="padding:8px 0;">Selecione um perfil acima para ver os sistemas disponíveis.</div>';
+  });
+
+  function buildNoteText(){
+    const keys = ['queixa_principal','hda','comorbidades','medicacoes','alergias'];
+    if(includeDiagnosis.checked) keys.push('hipotese_diagnostica');
+    keys.push('exame_fisico');
+    return keys.map(k => {
+      const el = document.querySelector(`.field[data-key="${k}"] textarea`);
+      return `${fieldLabels[k]}:\n${el.value || ''}`;
+    }).join('\n\n');
+  }
+
+  // A HDA sai acompanhada dos antecedentes: comorbidades, medicações e alergias.
+  const HDA_KEYS = ['hda', 'comorbidades', 'medicacoes', 'alergias'];
+
+  function buildHdaText(){
+    return HDA_KEYS.map(k => {
+      const el = document.querySelector(`.field[data-key="${k}"] textarea`);
+      return `${fieldLabels[k]}:\n${el.value || ''}`;
+    }).join('\n\n');
+  }
+
+  function buildExamText(){
+    const el = document.querySelector('.field[data-key="exame_fisico"] textarea');
+    // se ainda não foi inserido, gera na hora a partir dos sistemas sugeridos pelo CID
+    if(!el.value.trim()) return aplicarExameFisicoSelecionado();
+    return el.value;
+  }
+
+  async function copyText(texto, btn, rotuloOriginal){
+    if(!texto.trim()){
+      showBanner('Não há conteúdo para copiar ainda.', true);
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(texto);
+      btn.textContent = 'Copiado!';
+      setTimeout(()=>btn.textContent = rotuloOriginal, 1500);
+    }catch(e){
+      showBanner('Não foi possível copiar automaticamente. Selecione o texto manualmente.', true);
+    }
+  }
+
+  copyHdaBtn.addEventListener('click', () => copyText(buildHdaText(), copyHdaBtn, 'Copiar HDA + antecedentes'));
+  copyExamBtn.addEventListener('click', () => copyText(buildExamText(), copyExamBtn, 'Copiar exame físico'));
+
+  updateHistoryBtn.addEventListener('click', saveCurrentHistoryEntry);
+  document.querySelector('.panel-right').addEventListener('input', (ev) => { if(ev.target instanceof HTMLTextAreaElement) setSaveState('unsaved','não salvo'); });
+
+  // ---------- Seletor de exame físico (perfil + sistemas) ----------
+  const examTypeButtons = document.querySelectorAll('.exam-type-btn');
+  const examSystemsEl = document.getElementById('examSystems');
+  const insertExamBtn = document.getElementById('insertExamBtn');
+  let currentExamType = null;
+
+  function renderExamSystems(type, marcados){
+    const systems = EXAM_TEMPLATES[type];
+    const sel = new Set(marcados || []);
+    examSystemsEl.innerHTML = Object.keys(systems).map(label => `
+      <label class="exam-check">
+        <input type="checkbox" class="exam-sys-check" data-label="${label}"${sel.has(label) ? ' checked' : ''}>
+        <span>${label}</span>
+      </label>
+    `).join('');
+  }
+
+  // ----- Sugestão automática de exame físico a partir de sexo, idade e CID -----
+  // Mapeia o capítulo/código do CID-10 para os sistemas que costumam ser examinados.
+  // É apenas uma sugestão inicial: tudo continua editável antes de inserir.
+  const CID_SISTEMAS = [
+    [/^J0[0-6]/,           ['Oroscopia','Otoscopia','Aparelho respiratório']],       // IVAS
+    [/^J/,                 ['Aparelho respiratório']],                                // demais respiratórios
+    [/^I/,                 ['Aparelho cardiovascular','Membros inferiores']],         // circulatório
+    [/^(K|R1[04])/,        ['Abdome']],                                               // digestivo / dor abdominal
+    [/^(A0|A9|B)/,         ['Aparelho respiratório','Abdome','Oroscopia','Pele']],    // infecciosas
+    [/^(G|R51)/,           ['Neurológico']],                                          // neuro / cefaleia
+    [/^F/,                 ['Exame do estado mental']],                               // saúde mental
+    [/^H[0-5]/,            ['Exame oftalmológico']],                                  // olho
+    [/^H[6-9]/,            ['Otoscopia']],                                            // ouvido
+    [/^L/,                 ['Pele']],                                                 // pele
+    [/^N/,                 ['Abdome']],                                               // geniturinário
+    [/^(M|S|T)/,           ['Membros inferiores']],                                   // osteomuscular / trauma
+    [/^R50/,               ['Oroscopia','Otoscopia','Aparelho respiratório','Abdome','Pele']] // febre sem foco
+  ];
+
+  function perfilPorSexoIdade(sexo, idadeAnos){
+    const idade = parseFloat(idadeAnos);
+    const lactente = Number.isFinite(idade) && idade < 2;
+    const s = (sexo || '').toUpperCase();
+    if(s.startsWith('F')) return lactente ? 'LACTENTE_MENINA' : 'MULHER';
+    if(s.startsWith('M')) return lactente ? 'LACTENTE_MENINO' : 'HOMEM';
+    return null; // indeterminado: não arrisca escolher por conta própria
+  }
+
+  function sistemasPorCid(cid, perfil){
+    // Sinais vitais e estado geral entram sempre.
+    const escolhidos = new Set(['Sinais vitais', 'Estado geral']);
+    const codigo = (cid || '').toUpperCase().replace(/[^A-Z0-9.]/g, '');
+    for(const [regex, sistemas] of CID_SISTEMAS){
+      if(regex.test(codigo)){
+        sistemas.forEach(x => escolhidos.add(x));
+        break; // usa só a primeira regra que casar, da mais específica para a mais geral
+      }
+    }
+    // mantém apenas os sistemas que existem no perfil escolhido
+    const disponiveis = Object.keys(EXAM_TEMPLATES[perfil] || {});
+    return [...escolhidos].filter(x => disponiveis.includes(x));
+  }
+
+  function sugerirExameFisico(meta){
+    if(!meta) return '';
+    const perfil = perfilPorSexoIdade(meta.meta_sexo, meta.meta_idade_anos);
+    if(!perfil){
+      showBanner('Não foi possível identificar sexo/idade no áudio — selecione o perfil do exame físico manualmente.', false);
+      return '';
+    }
+    currentExamType = perfil;
+    examTypeButtons.forEach(b => b.classList.toggle('active', b.dataset.type === perfil));
+    renderExamSystems(perfil, sistemasPorCid(meta.meta_cid, perfil));
+    // já escreve no campo o exame sugerido pelo CID — continua editável e re-inserível
+    return aplicarExameFisicoSelecionado();
+  }
+
+  examTypeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      examTypeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentExamType = btn.dataset.type;
+      renderExamSystems(currentExamType);
+    });
+  });
+
+  // Monta o texto dos sistemas marcados e escreve no campo de exame físico.
+  // Retorna o texto gerado, ou '' se não houver perfil/sistema selecionado.
+  function aplicarExameFisicoSelecionado(){
+    if(!currentExamType) return '';
+    const systems = EXAM_TEMPLATES[currentExamType];
+    const checked = Array.from(examSystemsEl.querySelectorAll('.exam-sys-check:checked')).map(c => c.dataset.label);
+    if(checked.length === 0) return '';
+    const text = applyCase(checked.map(label => systems[label]).join('\n'));
+    const wrap = document.querySelector('.field[data-key="exame_fisico"]');
+    wrap.querySelector('textarea').value = text;
+    wrap.classList.add('filled');
+    return text;
+  }
+
+  insertExamBtn.addEventListener('click', () => {
+    if(!currentExamType){
+      showBanner('Selecione um perfil (Homem, Mulher, Lactente) antes de inserir.', true);
+      return;
+    }
+    if(!aplicarExameFisicoSelecionado()){
+      showBanner('Selecione ao menos um sistema para inserir.', true);
+    }
+  });
+  // ---------- fim seletor de exame físico ----------
+
+  copyBtn.addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(buildNoteText());
+      copyBtn.textContent = 'Copiado!';
+      setTimeout(()=>copyBtn.textContent='Copiar prontuário', 1500);
+    }catch(e){
+      showBanner('Não foi possível copiar automaticamente. Selecione o texto manualmente.', true);
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([buildNoteText()], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `consulta-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  flatline();
+})();
+</script>
+</body>
+</html>
