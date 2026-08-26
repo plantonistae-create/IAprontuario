@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f5f8f7">
+<title>NEXA · BLUE COMMAND ESTÁVEL</title>
+<script>
+try{document.documentElement.dataset.theme=localStorage.getItem('nexa-theme')==='dark'?'dark':'light'}catch(e){}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js" defer></script>
+<style>
+:root,html[data-theme="light"]{
+ --bg:#f5f8f7;--surface:#fff;--surface2:#f9fbfa;--ink:#18312b;--muted:#6f817c;--hair:#dbe6e2;
+ --accent:#176b58;--accent2:#105345;--soft:#eaf4f1;--danger:#a33b3b;--dangerSoft:#fff0f0;
+ --warn:#8a7340;--warnSoft:#fffaf0;--shadow:0 8px 28px rgba(23,55,47,.07);--backdrop:rgba(23,55,47,.22);color-scheme:light
+}
+html[data-theme="dark"]{
+ --bg:#101817;--surface:#17211f;--surface2:#1b2724;--ink:#e8f1ee;--muted:#9aaca7;--hair:#30433e;
+ --accent:#67c4ac;--accent2:#7ad0b8;--soft:#203a34;--danger:#ff8893;--dangerSoft:#2a1d20;
+ --warn:#d8bd74;--warnSoft:#29271f;--shadow:0 8px 28px rgba(0,0,0,.18);--backdrop:rgba(0,0,0,.58);color-scheme:dark
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth;background:var(--bg)}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea,select{font:inherit}button{cursor:pointer}input,textarea,select{width:100%;border:1px solid var(--hair);border-radius:9px;background:var(--surface);color:var(--ink);padding:10px 11px;outline:none;transition:.15s}input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}textarea{resize:vertical;min-height:68px}label{display:block;font-size:12px;font-weight:700;margin:10px 0 5px;color:var(--ink)}
+#loginGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.login-box{width:min(450px,100%);background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:28px;box-shadow:var(--shadow)}.brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}.brand-mark{width:34px;height:34px;border-radius:10px;background:var(--accent);position:relative}.brand-mark:after{content:"";position:absolute;inset:9px;border-radius:4px;background:var(--surface)}.brand strong{display:block;letter-spacing:.11em;font-size:12px}.brand span{font-size:10px;color:var(--muted)}.login-box h2{margin:0 0 6px;font-size:26px}.hint{font-size:12px;color:var(--muted)}.auth-tabs{display:flex;gap:7px;margin:20px 0 14px}.auth-tab{flex:1;border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:9px;padding:9px;font-weight:750}.auth-tab.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.app{min-height:100vh;display:flex;flex-direction:column}header{position:relative;background:var(--surface);border-bottom:1px solid var(--hair);padding:26px max(24px,calc((100vw - 1320px)/2));box-shadow:0 4px 20px rgba(23,55,47,.04)}header h1{font-size:29px;letter-spacing:-.03em;margin:5px 0}.eyebrow{font-size:10.5px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--accent)}.sub{margin:0;color:var(--muted);max-width:780px;font-size:12.5px}.header-user{position:absolute;right:max(24px,calc((100vw - 1320px)/2));top:16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--surface2);border:1px solid var(--hair);border-radius:10px;padding:6px 8px}.header-user button{border:0;background:transparent;color:var(--accent);font-size:10.5px;padding:4px 5px}.theme-btn{border:1px solid var(--hair)!important;background:var(--surface)!important;border-radius:7px!important;padding:4px 7px!important}
+main{width:min(1320px,100%);margin:0 auto;padding:22px;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;align-items:start}.panel-left{position:sticky;top:16px}.panel-right{min-width:0}.card,.style-card,.field,.toolbar,.case-mode{background:var(--surface);border:1px solid var(--hair);border-radius:11px;box-shadow:var(--shadow)}.card{padding:16px;margin-bottom:13px}.card h3,.style-card h3{margin:0;font-size:13px}.secure-note{font-size:12px;color:var(--muted);margin-top:8px}.badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.badge{border:1px solid var(--hair);background:var(--surface2);border-radius:999px;padding:4px 7px;font-size:9.5px;color:var(--muted)}
+.btn{width:100%;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:10px 13px;font-weight:750;font-size:12.5px}.btn:hover{background:var(--accent2)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.ghost{background:var(--surface);color:var(--accent);border-color:var(--hair)}.btn.ghost:hover{background:var(--soft)}.btn.danger{background:var(--surface);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--hair))}.btn.danger:hover{background:var(--dangerSoft)}.banner{border:1px solid color-mix(in srgb,var(--accent) 30%,var(--hair));background:var(--soft);border-radius:8px;padding:9px 11px;font-size:11.5px;color:var(--ink);margin-bottom:10px}.banner.error{background:var(--dangerSoft);border-color:color-mix(in srgb,var(--danger) 35%,var(--hair));color:var(--danger)}
+.consent-row,.toggle-row{display:flex;gap:8px;align-items:flex-start}.consent-row input,.toggle-row input,.exam-check input,.conduct-item input{width:auto;margin-top:3px;accent-color:var(--accent)}.consent-row span,.toggle-row span,.toggle-row label{font-size:11.5px;color:var(--muted)}.rec-zone{text-align:center;padding:20px}.rec-btn{width:74px;height:74px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;margin:0 auto 10px;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 22%,transparent)}.rec-btn.recording{background:#b23a48}.rec-btn svg{width:31px;height:31px}.timer{font-size:21px;font-weight:850;margin:3px 0}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.status{font-size:11px;color:var(--muted)}#wave{max-width:100%;height:54px}.case-mode{padding:12px;margin:13px 0}.exam-check{display:flex;gap:8px;align-items:flex-start;font-weight:500;margin:5px 0}.secondary{margin-top:12px}
+.style-card{padding:10px 12px;margin-bottom:8px}.style-head{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;min-height:28px}.count{font-size:10px;color:var(--muted)}.style-body{display:none;margin-top:8px;border-top:1px solid var(--hair);padding-top:8px}.style-body.open{display:block}#exampleList,#historyList{display:grid;gap:4px;margin:7px 0;max-height:270px;overflow:auto}.empty{font-size:11px;color:var(--muted);padding:5px}.item{display:flex;gap:7px;align-items:center;border:1px solid var(--hair);background:var(--surface2);border-radius:7px;padding:6px 7px}.item>div{min-width:0;flex:1}.item button{border:0;background:transparent;color:var(--danger);font-size:9.5px}.item-title{font-size:11px;font-weight:750}.item-preview{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.learning{font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--hair);border-radius:7px;padding:7px;margin:7px 0}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:9px;margin-bottom:12px;position:sticky;top:8px;z-index:8}.toolbar .btn{width:auto;font-size:10.5px;padding:6px 9px}.save-state{font-size:10px;font-weight:800;padding:5px 7px;border-radius:999px;margin-left:auto}.save-state.unsaved{background:var(--warnSoft);color:var(--warn)}.save-state.saved{background:var(--soft);color:var(--accent)}.save-state.error{background:var(--dangerSoft);color:var(--danger)}
+.field{padding:12px 13px;margin-bottom:9px;position:relative;transition:.16s}.field:focus-within{border-color:color-mix(in srgb,var(--accent) 40%,var(--hair))}.field>label,.field-head label{margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px}.field textarea{border:0;border-top:1px solid var(--hair);border-radius:0;padding:9px 2px 2px;background:transparent;box-shadow:none}.field-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}.field-head label{margin:0}.inline-copy{width:auto!important;flex:0 0 auto;padding:5px 8px!important;font-size:10px!important}.workflow-step{scroll-margin-top:82px}.workflow-step.ready{border-color:color-mix(in srgb,var(--accent) 42%,var(--hair));background:color-mix(in srgb,var(--soft) 40%,var(--surface))}.suggestions{background:var(--warnSoft);border-style:dashed}.suggestions label{color:var(--warn)}
+.exam-type-tabs{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}.exam-type-btn{border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:999px;padding:5px 8px;font-size:10px;font-weight:700}.exam-type-btn.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}.exam-systems{border:1px solid var(--hair);background:var(--surface2);border-radius:8px;padding:7px 9px;margin-bottom:7px;max-height:320px;overflow:auto;overscroll-behavior:contain}
+.conduct-picker{border:1px solid var(--hair);background:var(--surface2);border-radius:9px;padding:9px;margin:7px 0 9px}.conduct-picker-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.conduct-picker-head strong{font-size:11px}.conduct-picker-head .btn{width:auto;padding:5px 8px;font-size:10px}.conduct-picker-body{display:none;margin-top:8px;border-top:1px solid var(--hair);padding-top:8px}.conduct-picker-body.open{display:block}#conductList{display:grid;gap:5px;max-height:min(42vh,360px);overflow:auto;overscroll-behavior:contain}.conduct-item{display:flex;align-items:flex-start;gap:7px;border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:7px}.conduct-item-main{min-width:0;flex:1;cursor:pointer}.conduct-item-title{font-size:10.5px;font-weight:800}.conduct-item-preview{font-size:9.8px;color:var(--muted);line-height:1.3;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.conduct-item-actions{display:flex;gap:2px}.conduct-item-actions button{border:0;background:transparent;color:var(--muted);font-size:9px;padding:2px}.conduct-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.conduct-actions .btn{width:auto;padding:6px 8px;font-size:9.8px}.conduct-form{display:none;margin-top:9px;border-top:1px solid var(--hair);padding-top:8px}
+.modal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:20px;background:var(--backdrop);backdrop-filter:blur(4px)}.modal.open{display:flex}.dialog{width:min(960px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:17px;box-shadow:var(--shadow)}.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.modal-head h3{margin:0;font-size:17px}.modal-head p{margin:3px 0 0;font-size:11px;color:var(--muted)}.modal-head .btn{width:auto;padding:5px 8px}.tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--hair);padding-bottom:8px;margin-bottom:10px}.tab{border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:999px;padding:6px 9px;font-size:10px;font-weight:750}.tab.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}.pane{display:none}.pane.active{display:block}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{border:1px solid var(--hair);background:var(--surface2);border-radius:10px;padding:10px}.box h4{margin:0 0 7px;font-size:11.5px}.chat{display:grid;gap:6px;max-height:330px;overflow:auto;margin-bottom:7px}.msg{max-width:92%;padding:8px 9px;border-radius:9px;font-size:10.5px;white-space:pre-wrap}.msg.user{justify-self:end;background:var(--soft)}.msg.assistant{justify-self:start;background:var(--surface);border:1px solid var(--hair)}.sources{display:grid;gap:4px;margin-top:7px}.source{display:block;border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:6px;color:var(--accent);font-size:9.5px;text-decoration:none}.usage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.stat{border:1px solid var(--hair);background:var(--surface2);border-radius:9px;padding:10px}.stat span{display:block;font-size:9px;color:var(--muted);text-transform:uppercase}.stat strong{display:block;font-size:17px;margin-top:3px}.warning{border:1px solid color-mix(in srgb,var(--warn) 35%,var(--hair));background:var(--warnSoft);color:var(--warn);border-radius:8px;padding:8px;font-size:10px;margin-bottom:9px}
+footer{margin-top:auto;text-align:center;color:var(--muted);font-size:10px;padding:18px}
+@media(max-width:900px){header{padding:20px 15px 82px}.header-user{left:15px;right:15px;top:auto;bottom:10px;background:transparent;border:0;padding:0}main{grid-template-columns:1fr;padding:12px}.panel-left{position:static}.toolbar{position:static}.exam-systems,#conductList{max-height:none}.workflow-step{scroll-margin-top:14px}.grid2{grid-template-columns:1fr}}
+@media(max-width:560px){.login-box{padding:20px}header h1{font-size:23px}.toolbar .btn{flex:1 1 auto}.save-state{margin-left:0}.field-head{align-items:flex-start}.inline-copy{white-space:nowrap}.usage-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== NEXA VISUAL TEST HARNESS ===== */
+html,body{transition:background .2s,color .2s}
+body:before,#loginGate:before,header:after,.rec-zone:before{display:none!important}
+.card,.style-card,.field,.toolbar,.case-mode,.login-box,.clinical-dialog,.usage-dialog,.clinical-box,
+.conduct-picker,.conduct-item,.example-item,.usage-stat,.usage-section,.calc-mini,.source-pack{
+  backdrop-filter:none!important;
+}
+.header-user{backdrop-filter:none!important}
+.field,.card,.style-card,.toolbar,.case-mode,.login-box{box-shadow:var(--shadow)!important}
+.inline-copy{white-space:nowrap}
+#examSystems,#conductList{overscroll-behavior:contain}
+@media(max-width:900px){
+  #examSystems,#conductList{max-height:none!important}
+}
+
+:root{
+ --bg:#F5F8F7;--white:#FFFFFF;--ink:#17342D;--muted:#6D807A;--hair:#DBE6E2;
+ --accent:#176B58;--accent-dark:#105345;--soft:#EAF4F1;--danger:#A33B3B;
+ --danger-soft:#FFF0F0;--warn:#8A7340;--shadow:0 8px 28px rgba(23,55,47,.07);
+}
+body{background:#F5F8F7!important;color:var(--ink)!important}
+header{background:#FFFFFF!important;border-color:var(--hair)!important}
+header h1,.login-box h2,.card h3,.style-card h3,.clinical-head h3,.clinical-box h4{color:var(--ink)!important}
+.sub,.hint,.secure-note,.status,.count,.empty,.learning,.clinical-head p{color:var(--muted)!important}
+.card,.style-card,.field,.toolbar,.case-mode,.login-box,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{background:#fff!important;border-color:var(--hair)!important}
+input,textarea,select{background:#fff!important;color:var(--ink)!important;border-color:var(--hair)!important}
+.btn{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;box-shadow:none!important}
+.btn.ghost{background:#fff!important;color:var(--accent)!important;border-color:var(--hair)!important}
+.eyebrow,.header-user button,.clinical-open-btn,.usage-openai-btn{color:var(--accent)!important}
+.suggestions-field{background:#FFFBF2!important;border-color:#E8D7A8!important}
+
+
+/* ===== THEME 01 — CLINICAL CLEAN / OVERRIDE FINAL ===== */
+html,body{background:#F6F9F8!important;color:#18352F!important}
+body:before,#loginGate:before,header:after{display:none!important}
+#loginGate{background:#F6F9F8!important}
+.login-box{
+  background:#FFFFFF!important;border:1px solid #DCE7E3!important;border-radius:14px!important;
+  box-shadow:0 14px 40px rgba(24,53,47,.08)!important;padding:30px!important
+}
+.login-box:before{display:none!important}
+.v3-brand-row{margin-bottom:18px!important}
+.v3-orb{background:#176B58!important;box-shadow:none!important;border-radius:8px!important}
+.v3-orb:after{background:#FFFFFF!important}
+.v3-brand-copy strong{color:#18352F!important}
+.v3-brand-copy span{color:#6E817B!important}
+.login-box h2{color:#18352F!important;font-size:28px!important}
+.auth-tab{background:#F8FBFA!important;border-color:#DCE7E3!important;color:#71847E!important}
+.auth-tab.active{background:#EAF4F1!important;border-color:#9FC3B8!important;color:#176B58!important}
+input,textarea,select{background:#FFFFFF!important;color:#18352F!important;border-color:#DCE7E3!important}
+.btn{background:#176B58!important;color:#fff!important;border-color:#176B58!important;box-shadow:none!important}
+.btn.ghost{background:#fff!important;color:#176B58!important;border-color:#BDD2CB!important}
+header{background:#FFFFFF!important;border-bottom:1px solid #DCE7E3!important;box-shadow:0 3px 18px rgba(24,53,47,.04)!important}
+header h1{color:#18352F!important;font-size:29px!important}
+.eyebrow{color:#176B58!important}
+.sub{color:#6E817B!important}
+.header-user{background:#F8FBFA!important;border:1px solid #DCE7E3!important}
+.header-user button{color:#176B58!important}
+.card,.style-card,.field,.toolbar,.case-mode,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{
+  background:#FFFFFF!important;border-color:#DCE7E3!important;border-radius:10px!important;
+  box-shadow:0 4px 18px rgba(24,53,47,.045)!important
+}
+main{gap:24px!important}
+.rec-btn{background:#176B58!important;box-shadow:0 8px 22px rgba(23,107,88,.18)!important}
+.suggestions-field{background:#FFFCF5!important;border-color:#E8DDBE!important}
+
+
+/* FINAL THEME — BLUE COMMAND CENTER */
+html,body{background:#e9eef4!important;color:#17283a!important;font-family:Arial,Helvetica,sans-serif!important}
+body:before,#loginGate:before{display:none!important}
+#loginGate{background:linear-gradient(135deg,#102c48 0%,#194d70 100%)!important}
+.login-box{background:#f9fbfd!important;border:0!important;border-radius:4px!important;box-shadow:0 24px 70px rgba(0,15,35,.32)!important;padding:32px!important;border-top:7px solid #1686a7!important}
+.login-box:before{content:"NEXA // MEDICAL COMMAND"!important;display:block!important;background:#102c48!important;color:#c8f3ff!important;border:0!important;border-radius:3px!important;padding:7px 9px!important;font:700 10px ui-monospace,monospace!important;letter-spacing:.12em!important;margin-bottom:20px!important}
+.v3-brand-row{display:none!important}.login-box h2{color:#17283a!important;text-transform:uppercase!important;font-size:24px!important;letter-spacing:.03em!important}
+.auth-tabs{gap:0!important;border:1px solid #cbd7e1!important;border-radius:3px!important;overflow:hidden!important}.auth-tab{border:0!important;border-radius:0!important;background:#edf2f6!important;color:#5c6e7d!important}.auth-tab.active{background:#1686a7!important;color:#fff!important}
+input,textarea,select{background:#fff!important;color:#17283a!important;border-color:#c7d4df!important;border-radius:3px!important}
+.btn{background:#146c8b!important;color:#fff!important;border-color:#146c8b!important;border-radius:3px!important;box-shadow:none!important;text-transform:uppercase!important;letter-spacing:.035em!important}.btn.ghost{background:#fff!important;color:#146c8b!important;border-color:#9eb6c5!important}
+header{background:#102c48!important;border:0!important;border-bottom:5px solid #1686a7!important;box-shadow:none!important}header h1{color:#fff!important;text-transform:uppercase!important;letter-spacing:.02em!important}.eyebrow{color:#7ed7eb!important}.sub{color:#bfd0de!important}
+.header-user{background:#183c5b!important;border:1px solid #315875!important;border-radius:3px!important}.header-user button{color:#8fe3f2!important}
+.card,.style-card,.field,.toolbar,.case-mode,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{background:#f9fbfd!important;border:1px solid #cbd7e1!important;border-radius:4px!important;box-shadow:0 2px 8px rgba(20,45,70,.055)!important}
+.card h3,.style-card h3,.field>label{color:#18354e!important;text-transform:uppercase!important}.toolbar{border-left:5px solid #1686a7!important}
+.rec-btn{background:#1686a7!important;box-shadow:none!important}.suggestions-field{border-left:5px solid #d59b2d!important}
+
+
+/* ===== BLUE COMMAND — ABAS OPERACIONAIS ===== */
+.nexa-command-workspace{margin-bottom:12px}
+.nexa-command-tabs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:7px;
+  background:#102c48;border:1px solid #244b68;border-left:5px solid #1686a7;
+  box-shadow:0 3px 10px rgba(20,45,70,.08)
+}
+.nexa-command-tab{
+  appearance:none;border:1px solid #315875;background:#173a57;color:#bcd0df;
+  min-height:42px;padding:7px 10px;display:flex;align-items:center;gap:8px;
+  justify-content:flex-start;text-align:left;font-family:Arial,Helvetica,sans-serif;
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.035em;cursor:pointer
+}
+.nexa-command-tab:hover{background:#1c4767;border-color:#3c6b89}
+.nexa-command-tab.active{background:#1686a7;border-color:#1686a7;color:#fff}
+.nexa-command-tab-action{background:#162f49}
+.nexa-command-index{
+  display:inline-grid;place-items:center;width:23px;height:23px;flex:0 0 23px;
+  border:1px solid currentColor;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.8
+}
+.nexa-command-content{
+  border:1px solid #cbd7e1;border-top:0;background:#eef3f7;padding:8px
+}
+.nexa-command-content .style-card{
+  margin:0!important;border-radius:3px!important;box-shadow:none!important
+}
+.nexa-workspace-pane{display:none!important}
+.nexa-workspace-pane.active{display:block!important}
+.nexa-workspace-pane.active .style-body{display:block!important}
+.nexa-workspace-pane .style-head{cursor:default!important}
+@media(max-width:700px){
+  .nexa-command-tabs{grid-template-columns:1fr}
+  .nexa-command-tab{min-height:38px}
+}
+
+
+/* ===== BLUE COMMAND — ABAS RECOLHÍVEIS, BASE ESTÁVEL ===== */
+.nexa-command-workspace.is-collapsed .nexa-command-content{
+  display:none!important;
+}
+.nexa-command-content{
+  display:block;
+}
+.nexa-command-tab.active::after{
+  content:"▴";
+  margin-left:auto;
+  font-size:10px;
+}
+.nexa-command-tab:not(.active)::after{
+  content:"▾";
+  margin-left:auto;
+  font-size:10px;
+  opacity:.55;
+}
+
+
+/* ===== ORDEM DE SELEÇÃO DAS CONDUTAS ===== */
+.conduct-item{position:relative}
+.conduct-item.selected-in-order{
+  border-color:#1686a7!important;
+  box-shadow:inset 3px 0 0 #1686a7!important;
+}
+.conduct-order-badge{
+  position:absolute;
+  right:7px;
+  bottom:7px;
+  width:20px;
+  height:20px;
+  display:grid;
+  place-items:center;
+  background:#1686a7;
+  color:#fff;
+  border:1px solid #0f617a;
+  font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+</style>
+</head>
+<body>
+<div id="loginGate"><div class="login-box"><div class="brand"><div class="brand-mark"></div><div><strong>NEXA CLINICAL</strong><span>Documentação clínica assistida</span></div></div><h2>Acesso ao NEXA</h2><p class="hint">Ambiente clínico individual protegido por autenticação e RLS.</p><div class="auth-tabs"><button class="auth-tab active" id="signInTab">Entrar</button><button class="auth-tab" id="signUpTab">Criar conta</button></div><label id="authNameLabel" for="authName" style="display:none">Nome profissional</label><input id="authName" style="display:none" placeholder="Dr(a). Nome Sobrenome"><label for="authEmail">E-mail</label><input id="authEmail" inputmode="email" autocomplete="email" placeholder="voce@clinica.com.br"><label for="authPassword">Senha</label><input id="authPassword" type="password" minlength="8" autocomplete="current-password"><button class="btn" id="authSubmitBtn" style="margin-top:12px">Entrar</button><button class="btn ghost" id="forgotPasswordBtn" style="margin-top:7px">Esqueci minha senha</button><div id="loginBanner" style="margin-top:10px"></div><p class="hint" style="margin:14px 0 0">NEXA V3.3 · uso clínico com revisão profissional.</p></div></div>
+<div class="app" id="mainApp" style="display:none">
+<header><div class="header-user"><span id="loggedProfName"></span><button id="changeNameBtn">Trocar nome</button><button id="changePasswordBtn">Trocar senha</button><button id="openAiUsageBtn">Uso OpenAI</button><button id="clinicalIntelligenceBtn">Assistente clínico</button><button id="nexaThemeToggle" class="theme-btn">◐ Modo escuro</button><button id="logoutBtn">Sair</button></div><div class="eyebrow">NEXA CLINICAL · DOCUMENTAÇÃO</div><h1>Consulta em registro clínico, sem atrito.</h1><p class="sub">Grave, transcreva, copie HDA e antecedentes, selecione o exame físico e finalize com as condutas.</p></header>
+<div class="modal" id="usageModal"><div class="dialog"><div class="modal-head"><div><h3>Uso da OpenAI</h3><p>Consumo retornado pelo backend administrativo.</p></div><button class="btn ghost" id="closeUsageBtn">Fechar</button></div><div id="usageBody"><div class="hint">Carregando…</div></div></div></div>
+<div class="modal" id="clinicalModal"><div class="dialog"><div class="modal-head"><div><h3>NEXA Clinical Intelligence</h3><p>Apoio clínico separado do prontuário; revise antes de qualquer decisão.</p></div><button class="btn ghost" id="closeClinicalBtn">Fechar</button></div><div class="warning">Ferramenta de apoio para profissional de saúde. O conteúdo não é inserido automaticamente no prontuário.</div><div class="tabs"><button class="tab active" data-pane="chatPane">Perguntar à IA</button><button class="tab" data-pane="protocolPane">Protocolos</button><button class="tab" data-pane="pedsPane">Dose pediátrica</button><button class="tab" data-pane="calcPane">Calculadoras</button><button class="tab" data-pane="sourcesPane">Fontes clínicas</button></div><section class="pane active" id="chatPane"><div class="grid2"><div class="box"><div id="clinicalChat" class="chat"><div class="hint">Faça uma pergunta clínica.</div></div><label class="toggle-row"><input type="checkbox" id="clinicalUseContext"><span>Usar contexto da consulta atual</span></label><textarea id="clinicalQuestion" placeholder="Ex.: Quais red flags devo revisar antes da alta?"></textarea><button class="btn" id="clinicalSendBtn" style="margin-top:7px">Perguntar</button><div class="hint" id="clinicalStatus" style="margin-top:6px"></div></div><div class="box"><h4>Fontes da última resposta</h4><div id="clinicalSources" class="sources"><div class="hint">Nenhuma fonte consultada.</div></div></div></div></section><section class="pane" id="protocolPane"><div class="grid2"><div class="box"><h4>Consultar base de protocolos</h4><p class="hint">Pesquisa somente a base privada de protocolos autorizados quando disponível.</p><textarea id="protocolQuery" placeholder="Ex.: Qual é o fluxo descrito para este quadro?"></textarea><button class="btn" id="searchProtocolBtn" style="margin-top:7px">Pesquisar protocolos</button><div id="protocolStatus" class="hint" style="margin-top:6px"></div></div><div class="box"><h4>Resposta</h4><div id="protocolOutput" class="learning">Nenhuma consulta realizada.</div><div id="protocolSources" class="sources"></div></div></div></section><section class="pane" id="pedsPane"><div class="grid2"><div class="box"><h4>Calculadora pediátrica determinística</h4><div class="warning">Informe a dose de referência obtida em bula/protocolo validado. O NEXA apenas faz a conversão matemática.</div><label>Peso (kg)</label><input id="pedsWeight" type="number" min="0.1" step="0.01"><label>Dose de referência (mg/kg)</label><input id="pedsDoseRef" type="number" min="0.001" step="0.001"><label>Referência</label><select id="pedsDoseMode"><option value="dose">mg/kg/dose</option><option value="day">mg/kg/dia</option></select><label>Doses por dia</label><input id="pedsDosesPerDay" type="number" min="1" max="24" step="1" value="1"><label>Apresentação (mg)</label><input id="pedsConcMg" type="number" min="0.001" step="0.001"><label>Apresentação (mL)</label><input id="pedsConcMl" type="number" min="0.001" step="0.001"><label>Dose máxima por administração (mg) — opcional</label><input id="pedsMaxDose" type="number" min="0" step="0.1"><button class="btn" id="calculatePedsDoseBtn" style="margin-top:8px">Calcular</button></div><div class="box"><h4>Resultado</h4><div id="pedsDoseResult" class="learning">Preencha os dados e clique em Calcular.</div></div></div></section><section class="pane" id="calcPane"><div class="grid2"><div class="box"><h4>IMC</h4><label>Peso (kg)</label><input id="bmiWeight" type="number"><label>Altura (cm)</label><input id="bmiHeight" type="number"><button class="btn ghost" id="calculateBmiBtn" style="margin-top:7px">Calcular</button><div id="bmiResult" class="learning">—</div></div><div class="box"><h4>Superfície corporal · Mosteller</h4><label>Peso (kg)</label><input id="bsaWeight" type="number"><label>Altura (cm)</label><input id="bsaHeight" type="number"><button class="btn ghost" id="calculateBsaBtn" style="margin-top:7px">Calcular</button><div id="bsaResult" class="learning">—</div></div></div></section><section class="pane" id="sourcesPane"><div class="box"><h4>Fontes clínicas e roteamento</h4><p class="hint">O assistente clínico pode usar protocolos privados NEXA e pesquisa web confiável conforme configuração do backend. A resposta deve manter rastreabilidade das fontes consultadas.</p><div class="learning"><strong>Prioridade:</strong> protocolos institucionais cadastrados → sociedades médicas e órgãos oficiais → literatura confiável quando permitida. O prontuário nunca recebe automaticamente o conteúdo do chat.</div><div class="badges"><span class="badge">MS / gov.br</span><span class="badge">Sociedades médicas</span><span class="badge">Protocolos NEXA</span><span class="badge">Fontes rastreáveis</span></div></div></section></div></div>
+<main><section class="panel-left"><div class="card"><h3>IA clínica · backend seguro</h3><div class="secure-note">O áudio segue para uma função autenticada. Chaves do provedor permanecem no servidor.</div><div class="badges"><span class="badge">Sessão autenticada</span><span class="badge">RLS ativo</span><span class="badge">IA via backend</span></div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input type="checkbox" id="consent"><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label></div><div class="card rec-zone"><button class="rec-btn" id="recBtn" disabled><svg viewBox="0 0 24 24"><circle id="circleShape" cx="12" cy="12" r="7" fill="currentColor"/><rect id="stopShape" x="8" y="8" width="8" height="8" rx="1" fill="currentColor" style="display:none"/></svg></button><div class="timer mono" id="timer">00:00</div><canvas id="wave" width="280" height="54"></canvas><div class="status" id="status">Aguardando início da gravação</div></div><div class="case-mode"><label style="margin-top:0">Formato do texto gerado</label><label class="exam-check"><input type="radio" name="caseMode" value="upper" checked><span>LETRAS MAIÚSCULAS</span></label><label class="exam-check"><input type="radio" name="caseMode" value="normal"><span>Escrita normal</span></label></div><button class="btn secondary" id="processBtn" disabled>Transcrever e estruturar</button><button class="btn danger" id="resetBtn" style="margin-top:18px">Limpar e começar nova consulta</button></section>
+<section class="panel-right">
+
+<div class="nexa-command-workspace is-collapsed" id="nexaCommandWorkspace">
+  <div class="nexa-command-tabs" role="tablist" aria-label="Ferramentas do NEXA">
+    <button type="button" class="nexa-command-tab" id="workspaceExamplesTab" data-pane="workspaceExamplesPane">
+      <span class="nexa-command-index">01</span><span>Exemplos de escrita</span>
+    </button>
+    <button type="button" class="nexa-command-tab" id="workspaceHistoryTab" data-pane="workspaceHistoryPane">
+      <span class="nexa-command-index">02</span><span>Histórico de rascunhos</span>
+    </button>
+    <button type="button" class="nexa-command-tab nexa-command-tab-action" id="workspaceClinicalTab">
+      <span class="nexa-command-index">03</span><span>Assistente clínico</span>
+    </button>
+  </div>
+  <div class="nexa-command-content">
+    <div class="style-card nexa-workspace-pane" id="workspaceExamplesPane"><div class="style-head" id="styleHead"><h3>Exemplos de escrita anteriores</h3><span class="count" id="exampleCount">0 salvos ▸</span></div><div class="style-body" id="styleBody"><label class="toggle-row" style="margin:0"><input type="checkbox" id="useExamples" checked><span>Usar meu estilo revisado nas próximas consultas</span></label><div class="learning">Consultas revisadas e salvas podem orientar o estilo das próximas gerações, sem copiar fatos clínicos.</div><div id="exampleList"></div><button class="btn ghost" id="addExampleBtn">+ Adicionar exemplo</button><div id="exampleForm" style="display:none;border-top:1px solid var(--hair);margin-top:8px;padding-top:8px"><label>Nome do exemplo</label><input id="exTitle"><label>Queixa principal</label><textarea id="ex_queixa_principal"></textarea><label>História da doença atual</label><textarea id="ex_hda"></textarea><label>Comorbidades</label><textarea id="ex_comorbidades"></textarea><label>Medicações em uso</label><textarea id="ex_medicacoes"></textarea><label>Alergias</label><textarea id="ex_alergias"></textarea><label>Hipótese diagnóstica</label><textarea id="ex_hipotese_diagnostica"></textarea><div class="conduct-actions"><button class="btn" id="saveExampleBtn">Salvar exemplo</button><button class="btn ghost" id="cancelExampleBtn">Cancelar</button></div></div></div></div>
+    <div class="style-card nexa-workspace-pane" id="workspaceHistoryPane"><div class="style-head" id="historyHead"><h3>Histórico de rascunhos</h3><span class="count" id="historyCount">0 registros ▸</span></div><div class="style-body" id="historyBody"><div class="toggle-row" style="justify-content:space-between"><span>Consultas salvas. Toque para reabrir.</span><button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:5px 8px">Atualizar</button></div><div id="historyList"></div></div></div>
+  </div>
+</div>
+
+
+<div class="toolbar"><button class="btn ghost" id="copyBtn">Copiar prontuário</button><button class="btn ghost" id="downloadBtn">Baixar .txt</button><button class="btn ghost" id="copyHdaBtn">Copiar HDA + antecedentes</button><button class="btn ghost" id="updateHistoryBtn">Salvar revisão</button><span class="save-state unsaved" id="saveState">não salvo</span></div><div id="bannerArea"></div>
+<div class="field" data-key="queixa_principal"><label>Queixa principal</label><textarea placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="hda"><label>História da doença atual</label><textarea style="min-height:110px" placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="comorbidades"><label>Comorbidades</label><textarea></textarea></div><div class="field" data-key="medicacoes"><label>Medicações em uso</label><textarea></textarea></div><div class="field" data-key="alergias"><label>Alergias</label><textarea></textarea></div><div class="field suggestions" data-key="hipotese_diagnostica"><label>Hipótese diagnóstica sugerida · assistência por IA</label><textarea></textarea><label class="toggle-row"><input type="checkbox" id="includeDiagnosis"><span>Revisei e quero incluir na cópia do prontuário.</span></label></div>
+<div class="field workflow-step" id="examPhysicalBlock" data-key="exame_fisico"><div class="field-head"><label>Exame físico <span style="font-weight:400;color:var(--muted)">(modelo manual)</span></label><button class="btn ghost inline-copy" id="copyExamBtn">Copiar exame físico</button></div><div class="exam-type-tabs"><button class="exam-type-btn" data-type="HOMEM">Homem</button><button class="exam-type-btn" data-type="MULHER">Mulher</button><button class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button><button class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button></div><div class="exam-systems" id="examSystems"><div class="empty">Selecione um perfil para ver os sistemas.</div></div><button class="btn ghost" id="insertExamBtn" style="margin:7px 0 8px">Inserir sistemas selecionados</button><textarea placeholder="Selecione os sistemas acima ou edite manualmente..."></textarea></div>
+<div class="field workflow-step" id="conductBlock" data-key="conduta"><div class="field-head"><label>Condutas <span style="font-weight:400;color:var(--muted)">(manual + biblioteca pessoal)</span></label><button class="btn ghost inline-copy" id="copyConductBtn">Copiar condutas</button></div><div class="conduct-picker"><div class="conduct-picker-head"><strong>Condutas cadastradas</strong><button class="btn ghost" id="toggleConductPickerBtn">Selecionar condutas</button></div><div class="conduct-picker-body" id="conductPickerBody"><div class="learning">Sua biblioteca é sincronizada pela sua conta. Marque uma ou mais condutas para copiar diretamente ou adicionar ao campo para edição.</div><div id="conductList"></div><div class="conduct-actions"><button class="btn" id="insertSelectedConductsBtn">Adicionar selecionadas</button><button class="btn ghost" id="clearConductSelectionBtn">Desmarcar</button><button class="btn ghost" id="addConductTemplateBtn">+ Cadastrar conduta</button></div><div class="conduct-form" id="conductForm"><label for="conductContentInput">Nova conduta</label><textarea id="conductContentInput" style="min-height:120px" placeholder="Digite a conduta exatamente como deseja utilizá-la..."></textarea><div class="conduct-actions"><button class="btn" id="saveConductTemplateBtn">Salvar conduta</button><button class="btn ghost" id="cancelConductTemplateBtn">Cancelar</button></div></div></div></div><textarea style="min-height:110px" placeholder="Selecione condutas ou digite/edite manualmente..."></textarea></div>
+<div class="field suggestions" data-key="orientacoes_alta"><label>Orientações para alta · IA</label><textarea></textarea></div><div class="field suggestions" data-key="sugestoes_perguntas"><label>Sugestões de perguntas não feitas · IA</label><textarea></textarea></div>
+</section></main><footer>NEXA Clinical · V3.3 consolidada — documentação assistida por IA · revisão profissional obrigatória.</footer></div>
+<script>
+'use strict';
+(async function(){
+const SUPABASE_URL='https://fmkrcieubrlltiggyauc.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
+const APP_CONFIG={appVersion:'3.3.1-consolidated',aiGatewayPath:'/functions/v1/process-consultation',openAiUsagePath:'/functions/v1/openai-usage',clinicalAssistantPath:'/functions/v1/clinical-assistant',maxStyleExamples:5};
+function $(id){return document.getElementById(id)}
+function setBanner(container,msg,error=false){container.replaceChildren();if(!msg)return;const d=document.createElement('div');d.className='banner'+(error?' error':'');d.textContent=msg;container.appendChild(d)}
+async function ensureSupabase(){if(window.supabase?.createClient)return;for(const src of ['https://unpkg.com/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js']){try{await new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});if(window.supabase?.createClient)return}catch(e){}}throw new Error('Não foi possível carregar a autenticação Supabase.')}
+try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);applyTheme(n)};
+let currentProf=null,authMode='signin',styleExamples=[],history=[],conductTemplates=[],activeHistoryId=null,lastProcessedMeta=null;
+const fieldKeys=['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica'],sideKeys=['orientacoes_alta','sugestoes_perguntas'],manualKeys=['exame_fisico','conduta'];
+const labels={queixa_principal:'QUEIXA PRINCIPAL',hda:'HISTÓRIA DA DOENÇA ATUAL',comorbidades:'COMORBIDADES',medicacoes:'MEDICAÇÕES EM USO',alergias:'ALERGIAS',hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA',exame_fisico:'EXAME FÍSICO',conduta:'CONDUTAS'};
+function ta(k){return document.querySelector(`.field[data-key="${k}"] textarea`)}function mode(){return document.querySelector('input[name="caseMode"]:checked')?.value||'upper'}function applyCase(s){return mode()==='upper'?String(s||'').toUpperCase():String(s||'')}
+function normalizeHda(s){s=String(s||'').trim();if(!s)return s;s=s.replace(/\s*(?:Nega|Sem)\s+(?:outras|demais)\s+queixas\.?\s*$/i,'').trim();if(s&&!/[.!?]$/.test(s))s+='.';return s+' Sem demais queixas.'}function normalizeOutput(d){d={...(d||{})};if(d.hda)d.hda=normalizeHda(d.hda);return d}
+function saveState(k,t){$('saveState').className='save-state '+k;$('saveState').textContent=t}function show(msg,e=false){setBanner($('bannerArea'),msg,e)}
+function collect(){const o={};[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>o[k]=ta(k)?.value||'');o._include_hipotese=$('includeDiagnosis').checked;return o}
+function fill(d){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(!ta(k))return;ta(k).value=applyCase(d[k]||'');ta(k).closest('.field').classList.toggle('filled',!!d[k])});$('includeDiagnosis').checked=d._include_hipotese===true;updateWorkflow()}
+function clearFields(){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(ta(k)){ta(k).value='';ta(k).closest('.field').classList.remove('filled')}});$('includeDiagnosis').checked=false;updateWorkflow()}
+function updateWorkflow(){const h=!!ta('hda')?.value.trim(),e=!!ta('exame_fisico')?.value.trim();$('examPhysicalBlock').classList.toggle('ready',h);$('conductBlock').classList.toggle('ready',h||e)}document.querySelector('.panel-right').addEventListener('input',ev=>{if(ev.target instanceof HTMLTextAreaElement){saveState('unsaved','não salvo');updateWorkflow()}});
+function setAuthMode(m){authMode=m;const up=m==='signup';$('signInTab').classList.toggle('active',!up);$('signUpTab').classList.toggle('active',up);$('authName').style.display=up?'block':'none';$('authNameLabel').style.display=up?'block':'none';$('forgotPasswordBtn').style.display=up?'none':'block';$('authSubmitBtn').textContent=up?'Criar conta':'Entrar';setBanner($('loginBanner'),'')}$('signInTab').onclick=()=>setAuthMode('signin');$('signUpTab').onclick=()=>setAuthMode('signup');
+async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.from('profiles').select('id,display_name').eq('id',u.id).maybeSingle();if(error)throw error;if(data)return{id:u.id,name:data.display_name||fallback,email:u.email||''};await sb.from('profiles').insert({id:u.id,display_name:fallback});return{id:u.id,name:fallback,email:u.email||''}}catch(e){return{id:u.id,name:fallback,email:u.email||''}}}
+async function enter(session){if(!session?.user)return;currentProf=await getProfile(session.user);$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}
+async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};$('logoutBtn').onclick=async()=>{currentProf=null;await sb.auth.signOut()};$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_IN'&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){$('loginGate').style.display='flex';$('mainApp').style.display='none';$('authPassword').value=''}});
+function item(container,title,preview,onopen,ondelete){const r=document.createElement('div');r.className='item';const b=document.createElement('div');b.style.cursor='pointer';const t=document.createElement('div');t.className='item-title';t.textContent=title;const p=document.createElement('div');p.className='item-preview';p.textContent=preview||'';b.append(t,p);if(onopen)b.onclick=onopen;r.appendChild(b);if(ondelete){const x=document.createElement('button');x.textContent='remover';x.onclick=e=>{e.stopPropagation();ondelete()};r.appendChild(x)}container.appendChild(r)}
+async function loadExamples(){if(!currentProf)return;try{const {data,error}=await sb.from('style_examples').select('id,title,fields,created_at').eq('user_id',currentProf.id).order('created_at');if(error)throw error;styleExamples=(data||[]).map(r=>({id:r.id,title:r.title,...r.fields}))}catch(e){styleExamples=[]}renderExamples()}function renderExamples(){$('exampleCount').textContent=`${styleExamples.length} salvos ${$('styleBody').classList.contains('open')?'▾':'▸'}`;$('exampleList').replaceChildren();if(!styleExamples.length){$('exampleList').innerHTML='<div class="empty">Nenhum exemplo salvo.</div>';return}[...styleExamples].slice(-8).reverse().forEach(ex=>item($('exampleList'),ex.title||'Exemplo',ex.queixa_principal,()=>fill(ex),async()=>{await sb.from('style_examples').delete().eq('id',ex.id).eq('user_id',currentProf.id);styleExamples=styleExamples.filter(x=>x.id!==ex.id);renderExamples()}))}$('styleHead').onclick=()=>{$('styleBody').classList.toggle('open');renderExamples()};$('addExampleBtn').onclick=()=>{$('exampleForm').style.display=$('exampleForm').style.display==='none'?'block':'none'};$('cancelExampleBtn').onclick=()=>{$('exampleForm').style.display='none'};$('saveExampleBtn').onclick=async()=>{const fields={};fieldKeys.forEach(k=>fields[k]=$('ex_'+k).value.trim());if(!Object.values(fields).some(Boolean))return show('Preencha ao menos um campo do exemplo.',true);const id=crypto.randomUUID(),title=$('exTitle').value.trim();const {error}=await sb.from('style_examples').insert({id,user_id:currentProf.id,title:title||null,fields});if(error)return show('Não foi possível salvar o exemplo.',true);styleExamples.push({id,title,...fields});$('exampleForm').style.display='none';renderExamples();show('Exemplo salvo.')} ;
+async function loadHistory(){if(!currentProf)return;try{const {data,error}=await sb.from('consultation_history').select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').eq('user_id',currentProf.id).order('created_at',{ascending:false});if(error)throw error;history=data||[]}catch(e){history=[]}renderHistory()}function renderHistory(){$('historyCount').textContent=`${history.length} registros ${$('historyBody').classList.contains('open')?'▾':'▸'}`;$('historyList').replaceChildren();if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma consulta salva.</div>';return}history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}))}$('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};$('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
+async function saveHistory(){if(!currentProf)return show('Sessão expirada.',true);const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para salvar.',true);saveState('unsaved','salvando…');const now=new Date().toISOString();try{if(activeHistoryId){const {data,error}=await sb.from('consultation_history').update({fields,updated_at:now,status:'draft',processing_meta:lastProcessedMeta||{}}).eq('id',activeHistoryId).eq('user_id',currentProf.id).select().single();if(error)throw error;const i=history.findIndex(x=>x.id===activeHistoryId);if(i>=0)history[i]=data}else{const id=crypto.randomUUID();const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||now,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();if(error)throw error;activeHistoryId=data.id;history.unshift(data)}saveState('saved','salvo');renderHistory();show('Consulta salva no histórico protegido.')}catch(e){saveState('error','erro ao salvar');show('Falha ao salvar.',true)}}$('updateHistoryBtn').onclick=saveHistory;
+
+
+const LEGACY_CONDUCT_LOCAL_KEY='nexa-v33-conducts-local-v1';
+let conductSyncInterval=null;
+let selectedConductOrder=[];
+
+function normalizedConductContent(value){
+  return String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');
+}
+function readLegacyLocalConducts(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(LEGACY_CONDUCT_LOCAL_KEY)||'[]');
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){return[]}
+}
+async function migrateLegacyConducts(){
+  if(!currentProf)return;
+  const local=readLegacyLocalConducts();
+  if(!local.length)return;
+  try{
+    const {data:remote,error}=await sb.from('conduct_templates').select('id,content').eq('user_id',currentProf.id);
+    if(error)throw error;
+    const existing=new Set((remote||[]).map(x=>normalizedConductContent(x.content)));
+    const missing=[];
+    for(const item of local){
+      const content=String(item?.content||'').trim();
+      const normalized=normalizedConductContent(content);
+      if(!content||existing.has(normalized))continue;
+      existing.add(normalized);
+      missing.push({
+        id:(item?.id && /^[0-9a-f-]{36}$/i.test(item.id))?item.id:crypto.randomUUID(),
+        user_id:currentProf.id,
+        content
+      });
+    }
+    if(missing.length){
+      const {error:insertError}=await sb.from('conduct_templates').insert(missing);
+      if(insertError)throw insertError;
+    }
+    localStorage.removeItem(LEGACY_CONDUCT_LOCAL_KEY);
+    if(missing.length)show(`${missing.length} conduta${missing.length===1?' foi':'s foram'} migrada${missing.length===1?'':'s'} para sua biblioteca sincronizada.`,false);
+  }catch(e){
+    console.warn('Migração das condutas locais adiada:',e);
+  }
+}
+
+async function loadConducts({silent=false}={}){
+  if(!currentProf)return;
+  try{
+    const {data,error}=await sb.from('conduct_templates')
+      .select('id,content,created_at,updated_at')
+      .eq('user_id',currentProf.id)
+      .order('updated_at',{ascending:false});
+    if(error)throw error;
+    conductTemplates=data||[];
+    const validIds=new Set(conductTemplates.map(x=>x.id));
+    selectedConductOrder=selectedConductOrder.filter(id=>validIds.has(id));
+    renderConducts();
+  }catch(e){
+    console.error('Falha ao sincronizar condutas:',e);
+    if(!silent)show('Não foi possível sincronizar a biblioteca de condutas com o Supabase.',true);
+  }
+}
+
+
+function updateConductOrderBadges(){
+  document.querySelectorAll('.conduct-item').forEach(item=>{
+    const check=item.querySelector('.conduct-template-check');
+    if(!check)return;
+    let badge=item.querySelector('.conduct-order-badge');
+    const idx=selectedConductOrder.indexOf(check.dataset.id);
+    if(idx>=0){
+      if(!badge){
+        badge=document.createElement('span');
+        badge.className='conduct-order-badge';
+        item.appendChild(badge);
+      }
+      badge.textContent=String(idx+1);
+      item.classList.add('selected-in-order');
+    }else{
+      if(badge)badge.remove();
+      item.classList.remove('selected-in-order');
+    }
+  });
+}
+
+function renderConducts(){
+  $('conductList').replaceChildren();
+  if(!conductTemplates.length){
+    $('conductList').innerHTML='<div class="empty">Nenhuma conduta cadastrada. Toque em “+ Cadastrar conduta”.</div>';
+    return;
+  }
+  conductTemplates.forEach(c=>{
+    const row=document.createElement('div'); row.className='conduct-item';
+    const check=document.createElement('input'); 
+    check.type='checkbox'; 
+    check.className='conduct-template-check'; 
+    check.dataset.id=c.id;
+    check.checked=selectedConductOrder.includes(c.id);
+    check.addEventListener('change',()=>{
+      if(check.checked){
+        if(!selectedConductOrder.includes(c.id)) selectedConductOrder.push(c.id);
+      }else{
+        selectedConductOrder=selectedConductOrder.filter(id=>id!==c.id);
+      }
+      updateConductOrderBadges();
+    });
+    const main=document.createElement('div'); main.className='conduct-item-main';
+    const preview=document.createElement('div'); preview.className='conduct-item-preview'; preview.textContent=c.content||''; preview.style.webkitLineClamp='3';
+    main.appendChild(preview); 
+    main.onclick=()=>{
+      check.checked=!check.checked;
+      check.dispatchEvent(new Event('change'));
+    };
+    const actions=document.createElement('div'); actions.className='conduct-item-actions';
+
+    const edit=document.createElement('button'); edit.type='button'; edit.textContent='editar';
+    edit.onclick=()=>{
+      $('conductForm').dataset.editingId=c.id;
+      $('conductContentInput').value=c.content||'';
+      $('conductForm').style.display='block';
+      $('saveConductTemplateBtn').textContent='Salvar alterações';
+      $('conductContentInput').focus();
+    };
+
+    const del=document.createElement('button'); del.type='button'; del.textContent='remover';
+    del.onclick=async()=>{
+      if(!confirm('Remover esta conduta cadastrada?'))return;
+      try{
+        const {error}=await sb.from('conduct_templates').delete().eq('id',c.id).eq('user_id',currentProf.id);
+        if(error)throw error;
+        selectedConductOrder=selectedConductOrder.filter(id=>id!==c.id);
+        await loadConducts({silent:true});
+        show('Conduta removida e sincronizada.',false);
+      }catch(e){ console.error(e); show('Não foi possível remover a conduta.',true); }
+    };
+
+    actions.append(edit,del);
+    row.append(check,main,actions);
+    $('conductList').append(row);
+  });
+  updateConductOrderBadges();
+}
+
+$('toggleConductPickerBtn').onclick=()=>{
+  const opening=!$('conductPickerBody').classList.contains('open');
+  $('conductPickerBody').classList.toggle('open',opening);
+  $('toggleConductPickerBtn').textContent=opening?'Fechar biblioteca':'Selecionar condutas';
+  if(opening)loadConducts({silent:true});
+};
+$('addConductTemplateBtn').onclick=()=>{
+  $('conductForm').dataset.editingId='';
+  $('conductContentInput').value='';
+  $('saveConductTemplateBtn').textContent='Salvar conduta';
+  $('conductForm').style.display='block';
+  $('conductContentInput').focus();
+};
+$('cancelConductTemplateBtn').onclick=()=>{
+  $('conductForm').style.display='none';
+  $('conductForm').dataset.editingId='';
+  $('conductContentInput').value='';
+  $('saveConductTemplateBtn').textContent='Salvar conduta';
+};
+$('saveConductTemplateBtn').onclick=async()=>{
+  if(!currentProf)return show('Sessão expirada. Entre novamente.',true);
+  const content=$('conductContentInput').value.trim();
+  if(!content)return show('Digite a conduta antes de salvar.',true);
+  const btn=$('saveConductTemplateBtn');
+  const editingId=$('conductForm').dataset.editingId||'';
+  btn.disabled=true; btn.textContent='Salvando…';
+  try{
+    if(editingId){
+      const {error}=await sb.from('conduct_templates')
+        .update({content,updated_at:new Date().toISOString()})
+        .eq('id',editingId).eq('user_id',currentProf.id);
+      if(error)throw error;
+      show('Conduta atualizada e sincronizada.',false);
+    }else{
+      const normalized=normalizedConductContent(content);
+      if(conductTemplates.some(x=>normalizedConductContent(x.content)===normalized)) throw new Error('Essa conduta já está cadastrada.');
+      const {error}=await sb.from('conduct_templates').insert({id:crypto.randomUUID(),user_id:currentProf.id,content});
+      if(error)throw error;
+      show('Conduta cadastrada e sincronizada.',false);
+    }
+    $('conductContentInput').value='';
+    $('conductForm').style.display='none';
+    $('conductForm').dataset.editingId='';
+    await loadConducts({silent:true});
+  }catch(e){
+    console.error('Falha ao salvar conduta:',e);
+    show(e?.message||'Não foi possível salvar a conduta.',true);
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Salvar conduta';
+  }
+};
+$('clearConductSelectionBtn').onclick=()=>{
+  selectedConductOrder=[];
+  document.querySelectorAll('.conduct-template-check').forEach(c=>c.checked=false);
+  updateConductOrderBadges();
+};
+function selectedConductText(){
+  const parts=selectedConductOrder
+    .map(id=>conductTemplates.find(x=>x.id===id)?.content?.trim())
+    .filter(Boolean);
+  return parts.length?applyCase(parts.join('\n\n')):ta('conduta').value.trim();
+}
+$('insertSelectedConductsBtn').onclick=()=>{
+  const text=selectedConductText();
+  if(!text)return show('Selecione ao menos uma conduta.',true);
+  const current=ta('conduta').value.trim();
+  ta('conduta').value=current?`${current}\n\n${text}`:text;
+  saveState('unsaved','não salvo');
+  updateWorkflow();
+};
+
+window.addEventListener('focus',()=>loadConducts({silent:true}));
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')loadConducts({silent:true});
+});
+
+const EXAM={HOMEM:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorado, afebril, acianótico, anictérico, eupneico e hidratado.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcido, orientado auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},MULHER:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorada, afebril, acianótica, anictérica, eupneica e hidratada.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcida, orientada auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},LACTENTE_MENINO:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativo e reativo, hidratado, afebril, acianótico, eupneico.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativo e reativo, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'},LACTENTE_MENINA:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativa e reativa, hidratada, afebril, acianótica, eupneica.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativa e reativa, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'}};
+let examType=null;function renderExam(type,checked=[]){const set=new Set(checked);$('examSystems').innerHTML=Object.keys(EXAM[type]||{}).map(k=>`<label class="exam-check"><input type="checkbox" class="exam-sys-check" data-label="${k}" ${set.has(k)?'checked':''}><span>${k}</span></label>`).join('')}document.querySelectorAll('.exam-type-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.exam-type-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');examType=b.dataset.type;renderExam(examType)});function insertExam(){if(!examType)return'';const keys=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);if(!keys.length)return'';const text=applyCase(keys.map(k=>EXAM[examType][k]).join('\n'));ta('exame_fisico').value=text;updateWorkflow();return text}$('insertExamBtn').onclick=()=>{if(!insertExam())show('Selecione um perfil e pelo menos um sistema.',true)};
+let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,seconds=0,timerInt;const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){return show('Não foi possível acessar o microfone.',true)}chunks=[];audioBlob=null;$('processBtn').disabled=true;audioCtx=new(window.AudioContext||window.webkitAudioContext)();const source=audioCtx.createMediaStreamSource(stream);analyser=audioCtx.createAnalyser();analyser.fftSize=1024;dataArray=new Uint8Array(analyser.frequencyBinCount);source.connect(analyser);wave();const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';mediaRecorder=new MediaRecorder(stream,{mimeType:mime});mediaRecorder.ondataavailable=e=>e.data.size&&chunks.push(e.data);mediaRecorder.onstop=()=>{audioBlob=new Blob(chunks,{type:mime});$('processBtn').disabled=false;$('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;flat()};mediaRecorder.start();recording=true;seconds=0;timerInt=setInterval(()=>{$('timer').textContent=fmt(++seconds)},1000);$('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';$('status').textContent='Gravando consulta…'}function stopRec(){recording=false;clearInterval(timerInt);$('recBtn').classList.remove('recording');$('circleShape').style.display='block';$('stopShape').style.display='none';mediaRecorder?.state!=='inactive'&&mediaRecorder.stop();stream?.getTracks().forEach(t=>t.stop());audioCtx?.close()}$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;recording?stopRec():startRec()};
+async function invoke(blob){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);try{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:form,signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha no backend (${r.status}).`);return d}finally{clearTimeout(to)}}async function processAudio(){if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);$('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';clearFields();activeHistoryId=null;try{const consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob),parsed=normalizeOutput(payload.fields||payload);fill(parsed);lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion};audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Fluxo sugerido: copie HDA + antecedentes, depois exame físico e condutas.')}catch(e){show(e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message,true)}finally{$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'}}$('processBtn').onclick=processAudio;$('resetBtn').onclick=()=>{if((audioBlob||Object.values(collect()).some(v=>typeof v==='string'&&v.trim()))&&!confirm('Apagar a consulta atual e começar outra?'))return;if(recording)stopRec();audioBlob=null;chunks=[];seconds=0;$('timer').textContent='00:00';$('status').textContent='Aguardando início da gravação';$('processBtn').disabled=true;$('consent').checked=false;$('recBtn').disabled=true;activeHistoryId=null;lastProcessedMeta=null;clearFields();document.querySelectorAll('.conduct-template-check').forEach(c=>c.checked=false);saveState('unsaved','não salvo');show('');flat()};
+function noteText(){const keys=['queixa_principal','hda','comorbidades','medicacoes','alergias'];if($('includeDiagnosis').checked)keys.push('hipotese_diagnostica');keys.push('exame_fisico','conduta');return keys.map(k=>`${labels[k]}:\n${ta(k).value||''}`).join('\n\n')}function hdaText(){return['hda','comorbidades','medicacoes','alergias'].map(k=>`${labels[k]}:\n${ta(k).value||''}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'Copiar exame físico');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'Copiar condutas');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
+$('openAiUsageBtn').onclick=async()=>{$('usageModal').classList.add('open');$('usageBody').innerHTML='<div class="hint">Consultando…</div>';try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.openAiUsagePath+'?period=mtd',{headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY}}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao consultar uso.');const nf=new Intl.NumberFormat('pt-BR'),usd=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});$('usageBody').innerHTML=`<div class="usage-grid"><div class="stat"><span>Gasto no período</span><strong>${usd.format(+d.cost_usd||0)}</strong></div><div class="stat"><span>Requisições</span><strong>${nf.format(+d.requests||0)}</strong></div><div class="stat"><span>Tokens entrada</span><strong>${nf.format(+d.input_tokens||0)}</strong></div><div class="stat"><span>Tokens saída</span><strong>${nf.format(+d.output_tokens||0)}</strong></div></div>`}catch(e){$('usageBody').innerHTML=`<div class="banner error">${e.message}</div>`}};$('closeUsageBtn').onclick=()=>$('usageModal').classList.remove('open');
+$('clinicalIntelligenceBtn').onclick=()=>$('clinicalModal').classList.add('open');$('closeClinicalBtn').onclick=()=>$('clinicalModal').classList.remove('open');document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.pane).classList.add('active')});function contextText(){return['queixa_principal','hda','comorbidades','medicacoes','alergias','hipotese_diagnostica','exame_fisico','conduta'].map(k=>ta(k)?.value.trim()?`${labels[k]||k}:\n${ta(k).value.trim()}`:'').filter(Boolean).join('\n\n').slice(0,12000)}$('clinicalSendBtn').onclick=async()=>{const q=$('clinicalQuestion').value.trim();if(q.length<3)return;$('clinicalSendBtn').disabled=true;$('clinicalStatus').textContent='Consultando…';const u=document.createElement('div');u.className='msg user';u.textContent=q;$('clinicalChat').append(u);try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.clinicalAssistantPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:q,source_mode:'hybrid',specialty:'auto',context:$('clinicalUseContext').checked?contextText():'',history:[]})}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha no assistente.');const a=document.createElement('div');a.className='msg assistant';a.textContent=d.answer||'Resposta vazia.';$('clinicalChat').append(a);$('clinicalSources').replaceChildren();[...(d.protocol_sources||[]),...(d.sources||[])].slice(0,10).forEach(s=>{const el=document.createElement(s.url?'a':'div');el.className='source';el.textContent=s.title||s.filename||s.url||'Fonte';if(s.url){el.href=s.url;el.target='_blank';el.rel='noopener noreferrer'}$('clinicalSources').append(el)});$('clinicalStatus').textContent='Resposta concluída.'}catch(e){$('clinicalStatus').textContent=e.message}finally{$('clinicalSendBtn').disabled=false;$('clinicalQuestion').value=''}};$('searchProtocolBtn').onclick=async()=>{const q=$('protocolQuery').value.trim();if(q.length<3)return;$('searchProtocolBtn').disabled=true;$('protocolStatus').textContent='Pesquisando protocolos…';try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.clinicalAssistantPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:q,source_mode:'protocols',specialty:'auto',context:'',history:[]})}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao consultar protocolos.');$('protocolOutput').textContent=d.answer||'Resposta vazia.';$('protocolSources').replaceChildren();[...(d.protocol_sources||[]),...(d.sources||[])].forEach(src=>{const el=document.createElement(src.url?'a':'div');el.className='source';el.textContent=src.title||src.filename||src.url||'Fonte';if(src.url){el.href=src.url;el.target='_blank';el.rel='noopener noreferrer'}$('protocolSources').append(el)});$('protocolStatus').textContent='Pesquisa concluída.'}catch(e){$('protocolStatus').textContent=e.message}finally{$('searchProtocolBtn').disabled=false}};$('calculatePedsDoseBtn').onclick=()=>{const w=+$('pedsWeight').value,ref=+$('pedsDoseRef').value,n=Math.max(1,+$('pedsDosesPerDay').value||1),cmg=+$('pedsConcMg').value,cml=+$('pedsConcMl').value,max=+$('pedsMaxDose').value;let mg=w*ref;if($('pedsDoseMode').value==='day')mg/=n;if(max>0)mg=Math.min(mg,max);let txt=`Dose matemática por administração: ${mg.toLocaleString('pt-BR',{maximumFractionDigits:2})} mg.`;if(cmg>0&&cml>0)txt+=` Volume correspondente: ${(mg*cml/cmg).toLocaleString('pt-BR',{maximumFractionDigits:2})} mL.`;txt+=' Confirmar dose de referência, concentração, máximo e indicação na fonte clínica antes de usar.';$('pedsDoseResult').textContent=w>0&&ref>0?txt:'Informe peso e dose de referência.'};
+$('calculateBmiBtn').onclick=()=>{const w=+$('bmiWeight').value,h=+$('bmiHeight').value/100;$('bmiResult').textContent=w>0&&h>0?(w/(h*h)).toLocaleString('pt-BR',{maximumFractionDigits:1})+' kg/m²':'Informe peso e altura.'};$('calculateBsaBtn').onclick=()=>{const w=+$('bsaWeight').value,h=+$('bsaHeight').value;$('bsaResult').textContent=w>0&&h>0?Math.sqrt(h*w/3600).toLocaleString('pt-BR',{maximumFractionDigits:3})+' m²':'Informe peso e altura.'};
+[$('usageModal'),$('clinicalModal')].forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
+// Blue Command: abas operacionais recolhíveis
+const workspace=document.getElementById('nexaCommandWorkspace');
+const workspaceTabs=document.querySelectorAll('.nexa-command-tab[data-pane]');
+const workspacePanes=document.querySelectorAll('.nexa-workspace-pane');
+let activeWorkspacePane=null;
+
+function closeWorkspace(){
+  activeWorkspacePane=null;
+  workspaceTabs.forEach(t=>t.classList.remove('active'));
+  workspacePanes.forEach(p=>p.classList.remove('active'));
+  workspace?.classList.add('is-collapsed');
+}
+
+function openWorkspacePane(id){
+  activeWorkspacePane=id;
+  workspaceTabs.forEach(t=>t.classList.toggle('active',t.dataset.pane===id));
+  workspacePanes.forEach(p=>p.classList.toggle('active',p.id===id));
+  workspace?.classList.remove('is-collapsed');
+}
+
+workspaceTabs.forEach(t=>{
+  t.addEventListener('click',()=>{
+    const id=t.dataset.pane;
+    if(activeWorkspacePane===id) closeWorkspace();
+    else openWorkspacePane(id);
+  });
+});
+
+const workspaceClinicalTab=document.getElementById('workspaceClinicalTab');
+if(workspaceClinicalTab){
+  workspaceClinicalTab.addEventListener('click',()=>{
+    const existing=document.getElementById('clinicalIntelligenceBtn');
+    if(existing) existing.click();
+  });
+}
+
+closeWorkspace();
+
+flat();updateWorkflow();
+})();
+</script>
+</body></html>
