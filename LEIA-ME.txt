@@ -1,0 +1,28 @@
+NEXA V3.3.14 — PWA + RESPONSIVIDADE ADAPTATIVA
+
+PUBLICAÇÃO
+1. Substitua o index.html da raiz pelo index.html deste pacote.
+2. Envie também para a MESMA pasta/raiz:
+   - manifest.webmanifest
+   - sw.js
+   - apple-touch-icon.png
+   - icon-192.png
+   - icon-512.png
+   - favicon-64.png
+3. Aguarde o GitHub Pages atualizar.
+4. No iPhone, abra no Safari e use Compartilhar > Adicionar à Tela de Início.
+
+NÃO ALTERA
+- Supabase SQL
+- Edge Functions
+- banco de protocolos/prescrições
+
+IMPLEMENTA
+- ícone NEXA para Home Screen
+- manifest PWA e modo standalone
+- service worker somente para shell/arquivos locais (não cacheia Supabase/API)
+- detecção automática mobile/tablet/desktop
+- navegação inferior no mobile e rail lateral no desktop
+- modal/protocolos mais amplo no desktop
+- inputs e alvos de toque ajustados no iPhone
+- dica discreta de instalação no Safari/iPhone
