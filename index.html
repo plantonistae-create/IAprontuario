@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f5f8f7">
+<title>NEXA · BLUE COMMAND ESTÁVEL</title>
+<script>
+try{document.documentElement.dataset.theme=localStorage.getItem('nexa-theme')==='dark'?'dark':'light'}catch(e){}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js" defer></script>
+<style>
+:root,html[data-theme="light"]{
+ --bg:#f5f8f7;--surface:#fff;--surface2:#f9fbfa;--ink:#18312b;--muted:#6f817c;--hair:#dbe6e2;
+ --accent:#176b58;--accent2:#105345;--soft:#eaf4f1;--danger:#a33b3b;--dangerSoft:#fff0f0;
+ --warn:#8a7340;--warnSoft:#fffaf0;--shadow:0 8px 28px rgba(23,55,47,.07);--backdrop:rgba(23,55,47,.22);color-scheme:light
+}
+html[data-theme="dark"]{
+ --bg:#101817;--surface:#17211f;--surface2:#1b2724;--ink:#e8f1ee;--muted:#9aaca7;--hair:#30433e;
+ --accent:#67c4ac;--accent2:#7ad0b8;--soft:#203a34;--danger:#ff8893;--dangerSoft:#2a1d20;
+ --warn:#d8bd74;--warnSoft:#29271f;--shadow:0 8px 28px rgba(0,0,0,.18);--backdrop:rgba(0,0,0,.58);color-scheme:dark
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth;background:var(--bg)}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea,select{font:inherit}button{cursor:pointer}input,textarea,select{width:100%;border:1px solid var(--hair);border-radius:9px;background:var(--surface);color:var(--ink);padding:10px 11px;outline:none;transition:.15s}input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}textarea{resize:vertical;min-height:68px}label{display:block;font-size:12px;font-weight:700;margin:10px 0 5px;color:var(--ink)}
+#loginGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.login-box{width:min(450px,100%);background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:28px;box-shadow:var(--shadow)}.brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}.brand-mark{width:34px;height:34px;border-radius:10px;background:var(--accent);position:relative}.brand-mark:after{content:"";position:absolute;inset:9px;border-radius:4px;background:var(--surface)}.brand strong{display:block;letter-spacing:.11em;font-size:12px}.brand span{font-size:10px;color:var(--muted)}.login-box h2{margin:0 0 6px;font-size:26px}.hint{font-size:12px;color:var(--muted)}.auth-tabs{display:flex;gap:7px;margin:20px 0 14px}.auth-tab{flex:1;border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:9px;padding:9px;font-weight:750}.auth-tab.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.app{min-height:100vh;display:flex;flex-direction:column}header{position:relative;background:var(--surface);border-bottom:1px solid var(--hair);padding:26px max(24px,calc((100vw - 1320px)/2));box-shadow:0 4px 20px rgba(23,55,47,.04)}header h1{font-size:29px;letter-spacing:-.03em;margin:5px 0}.eyebrow{font-size:10.5px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--accent)}.sub{margin:0;color:var(--muted);max-width:780px;font-size:12.5px}.header-user{position:absolute;right:max(24px,calc((100vw - 1320px)/2));top:16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--surface2);border:1px solid var(--hair);border-radius:10px;padding:6px 8px}.header-user button{border:0;background:transparent;color:var(--accent);font-size:10.5px;padding:4px 5px}.theme-btn{border:1px solid var(--hair)!important;background:var(--surface)!important;border-radius:7px!important;padding:4px 7px!important}
+main{width:min(1320px,100%);margin:0 auto;padding:22px;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;align-items:start}.panel-left{position:sticky;top:16px}.panel-right{min-width:0}.card,.style-card,.field,.toolbar,.case-mode{background:var(--surface);border:1px solid var(--hair);border-radius:11px;box-shadow:var(--shadow)}.card{padding:16px;margin-bottom:13px}.card h3,.style-card h3{margin:0;font-size:13px}.secure-note{font-size:12px;color:var(--muted);margin-top:8px}.badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.badge{border:1px solid var(--hair);background:var(--surface2);border-radius:999px;padding:4px 7px;font-size:9.5px;color:var(--muted)}
+.btn{width:100%;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:10px 13px;font-weight:750;font-size:12.5px}.btn:hover{background:var(--accent2)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.ghost{background:var(--surface);color:var(--accent);border-color:var(--hair)}.btn.ghost:hover{background:var(--soft)}.btn.danger{background:var(--surface);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--hair))}.btn.danger:hover{background:var(--dangerSoft)}.banner{border:1px solid color-mix(in srgb,var(--accent) 30%,var(--hair));background:var(--soft);border-radius:8px;padding:9px 11px;font-size:11.5px;color:var(--ink);margin-bottom:10px}.banner.error{background:var(--dangerSoft);border-color:color-mix(in srgb,var(--danger) 35%,var(--hair));color:var(--danger)}
+.consent-row,.toggle-row{display:flex;gap:8px;align-items:flex-start}.consent-row input,.toggle-row input,.exam-check input,.conduct-item input{width:auto;margin-top:3px;accent-color:var(--accent)}.consent-row span,.toggle-row span,.toggle-row label{font-size:11.5px;color:var(--muted)}.rec-zone{text-align:center;padding:20px}.rec-btn{width:74px;height:74px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;margin:0 auto 10px;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 22%,transparent)}.rec-btn.recording{background:#b23a48}.rec-btn svg{width:31px;height:31px}.timer{font-size:21px;font-weight:850;margin:3px 0}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.status{font-size:11px;color:var(--muted)}#wave{max-width:100%;height:54px}.case-mode{padding:12px;margin:13px 0}.exam-check{display:flex;gap:8px;align-items:flex-start;font-weight:500;margin:5px 0}.secondary{margin-top:12px}
+.style-card{padding:10px 12px;margin-bottom:8px}.style-head{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;min-height:28px}.count{font-size:10px;color:var(--muted)}.style-body{display:none;margin-top:8px;border-top:1px solid var(--hair);padding-top:8px}.style-body.open{display:block}#exampleList,#historyList{display:grid;gap:4px;margin:7px 0;max-height:270px;overflow:auto}.empty{font-size:11px;color:var(--muted);padding:5px}.item{display:flex;gap:7px;align-items:center;border:1px solid var(--hair);background:var(--surface2);border-radius:7px;padding:6px 7px}.item>div{min-width:0;flex:1}.item button{border:0;background:transparent;color:var(--danger);font-size:9.5px}.item-title{font-size:11px;font-weight:750}.item-preview{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.learning{font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--hair);border-radius:7px;padding:7px;margin:7px 0}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:9px;margin-bottom:12px;position:sticky;top:8px;z-index:8}.toolbar .btn{width:auto;font-size:10.5px;padding:6px 9px}.save-state{font-size:10px;font-weight:800;padding:5px 7px;border-radius:999px;margin-left:auto}.save-state.unsaved{background:var(--warnSoft);color:var(--warn)}.save-state.saved{background:var(--soft);color:var(--accent)}.save-state.error{background:var(--dangerSoft);color:var(--danger)}
+.field{padding:12px 13px;margin-bottom:9px;position:relative;transition:.16s}.field:focus-within{border-color:color-mix(in srgb,var(--accent) 40%,var(--hair))}.field>label,.field-head label{margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px}.field textarea{border:0;border-top:1px solid var(--hair);border-radius:0;padding:9px 2px 2px;background:transparent;box-shadow:none}.field-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}.field-head label{margin:0}.inline-copy{width:auto!important;flex:0 0 auto;padding:5px 8px!important;font-size:10px!important}.workflow-step{scroll-margin-top:82px}.workflow-step.ready{border-color:color-mix(in srgb,var(--accent) 42%,var(--hair));background:color-mix(in srgb,var(--soft) 40%,var(--surface))}.suggestions{background:var(--warnSoft);border-style:dashed}.suggestions label{color:var(--warn)}
+.exam-type-tabs{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}.exam-type-btn{border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:999px;padding:5px 8px;font-size:10px;font-weight:700}.exam-type-btn.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}.exam-systems{border:1px solid var(--hair);background:var(--surface2);border-radius:8px;padding:7px 9px;margin-bottom:7px;max-height:320px;overflow:auto;overscroll-behavior:contain}
+.conduct-picker{border:1px solid var(--hair);background:var(--surface2);border-radius:9px;padding:9px;margin:7px 0 9px}.conduct-picker-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.conduct-picker-head strong{font-size:11px}.conduct-picker-head .btn{width:auto;padding:5px 8px;font-size:10px}.conduct-picker-body{display:none;margin-top:8px;border-top:1px solid var(--hair);padding-top:8px}.conduct-picker-body.open{display:block}#conductList{display:grid;gap:5px;max-height:min(42vh,360px);overflow:auto;overscroll-behavior:contain}.conduct-item{display:flex;align-items:flex-start;gap:7px;border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:7px}.conduct-item-main{min-width:0;flex:1;cursor:pointer}.conduct-item-title{font-size:10.5px;font-weight:800}.conduct-item-preview{font-size:9.8px;color:var(--muted);line-height:1.3;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.conduct-item-actions{display:flex;gap:2px}.conduct-item-actions button{border:0;background:transparent;color:var(--muted);font-size:9px;padding:2px}
+.conduct-drag-handle{flex:0 0 28px;width:28px;min-height:34px;display:grid;place-items:center;border:1px solid var(--hair);border-radius:4px;background:var(--surface2);color:var(--muted);font-size:18px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.conduct-drag-handle:active{cursor:grabbing}.conduct-item.dragging{opacity:.55;border-color:#1686a7!important}.conduct-item.drag-over{box-shadow:0 -3px 0 #1686a7!important}
+.conduct-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.conduct-actions .btn{width:auto;padding:6px 8px;font-size:9.8px}.conduct-form{display:none;margin-top:9px;border-top:1px solid var(--hair);padding-top:8px}
+.modal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:20px;background:var(--backdrop);backdrop-filter:blur(4px)}.modal.open{display:flex}.dialog{width:min(960px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:17px;box-shadow:var(--shadow)}.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.modal-head h3{margin:0;font-size:17px}.modal-head p{margin:3px 0 0;font-size:11px;color:var(--muted)}.modal-head .btn{width:auto;padding:5px 8px}.tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--hair);padding-bottom:8px;margin-bottom:10px}.tab{border:1px solid var(--hair);background:var(--surface2);color:var(--muted);border-radius:999px;padding:6px 9px;font-size:10px;font-weight:750}.tab.active{background:var(--soft);border-color:var(--accent);color:var(--accent)}.pane{display:none}.pane.active{display:block}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{border:1px solid var(--hair);background:var(--surface2);border-radius:10px;padding:10px}.box h4{margin:0 0 7px;font-size:11.5px}.chat{display:grid;gap:6px;max-height:330px;overflow:auto;margin-bottom:7px}.msg{max-width:92%;padding:8px 9px;border-radius:9px;font-size:10.5px;white-space:pre-wrap}.msg.user{justify-self:end;background:var(--soft)}.msg.assistant{justify-self:start;background:var(--surface);border:1px solid var(--hair)}.sources{display:grid;gap:4px;margin-top:7px}.source{display:block;border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:6px;color:var(--accent);font-size:9.5px;text-decoration:none}.usage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.stat{border:1px solid var(--hair);background:var(--surface2);border-radius:9px;padding:10px}.stat span{display:block;font-size:9px;color:var(--muted);text-transform:uppercase}.stat strong{display:block;font-size:17px;margin-top:3px}.warning{border:1px solid color-mix(in srgb,var(--warn) 35%,var(--hair));background:var(--warnSoft);color:var(--warn);border-radius:8px;padding:8px;font-size:10px;margin-bottom:9px}
+footer{margin-top:auto;text-align:center;color:var(--muted);font-size:10px;padding:18px}
+@media(max-width:900px){header{padding:20px 15px 82px}.header-user{left:15px;right:15px;top:auto;bottom:10px;background:transparent;border:0;padding:0}main{grid-template-columns:1fr;padding:12px}.panel-left{position:static}.toolbar{position:static}.exam-systems,#conductList{max-height:none}.workflow-step{scroll-margin-top:14px}.grid2{grid-template-columns:1fr}}
+@media(max-width:560px){.login-box{padding:20px}header h1{font-size:23px}.toolbar .btn{flex:1 1 auto}.save-state{margin-left:0}.field-head{align-items:flex-start}.inline-copy{white-space:nowrap}.usage-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== NEXA VISUAL TEST HARNESS ===== */
+html,body{transition:background .2s,color .2s}
+body:before,#loginGate:before,header:after,.rec-zone:before{display:none!important}
+.card,.style-card,.field,.toolbar,.case-mode,.login-box,.clinical-dialog,.usage-dialog,.clinical-box,
+.conduct-picker,.conduct-item,.example-item,.usage-stat,.usage-section,.calc-mini,.source-pack{
+  backdrop-filter:none!important;
+}
+.header-user{backdrop-filter:none!important}
+.field,.card,.style-card,.toolbar,.case-mode,.login-box{box-shadow:var(--shadow)!important}
+.inline-copy{white-space:nowrap}
+#examSystems,#conductList{overscroll-behavior:contain}
+@media(max-width:900px){
+  #examSystems,#conductList{max-height:none!important}
+}
+
+:root{
+ --bg:#F5F8F7;--white:#FFFFFF;--ink:#17342D;--muted:#6D807A;--hair:#DBE6E2;
+ --accent:#176B58;--accent-dark:#105345;--soft:#EAF4F1;--danger:#A33B3B;
+ --danger-soft:#FFF0F0;--warn:#8A7340;--shadow:0 8px 28px rgba(23,55,47,.07);
+}
+body{background:#F5F8F7!important;color:var(--ink)!important}
+header{background:#FFFFFF!important;border-color:var(--hair)!important}
+header h1,.login-box h2,.card h3,.style-card h3,.clinical-head h3,.clinical-box h4{color:var(--ink)!important}
+.sub,.hint,.secure-note,.status,.count,.empty,.learning,.clinical-head p{color:var(--muted)!important}
+.card,.style-card,.field,.toolbar,.case-mode,.login-box,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{background:#fff!important;border-color:var(--hair)!important}
+input,textarea,select{background:#fff!important;color:var(--ink)!important;border-color:var(--hair)!important}
+.btn{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;box-shadow:none!important}
+.btn.ghost{background:#fff!important;color:var(--accent)!important;border-color:var(--hair)!important}
+.eyebrow,.header-user button,.clinical-open-btn,.usage-openai-btn{color:var(--accent)!important}
+.suggestions-field{background:#FFFBF2!important;border-color:#E8D7A8!important}
+
+
+/* ===== THEME 01 — CLINICAL CLEAN / OVERRIDE FINAL ===== */
+html,body{background:#F6F9F8!important;color:#18352F!important}
+body:before,#loginGate:before,header:after{display:none!important}
+#loginGate{background:#F6F9F8!important}
+.login-box{
+  background:#FFFFFF!important;border:1px solid #DCE7E3!important;border-radius:14px!important;
+  box-shadow:0 14px 40px rgba(24,53,47,.08)!important;padding:30px!important
+}
+.login-box:before{display:none!important}
+.v3-brand-row{margin-bottom:18px!important}
+.v3-orb{background:#176B58!important;box-shadow:none!important;border-radius:8px!important}
+.v3-orb:after{background:#FFFFFF!important}
+.v3-brand-copy strong{color:#18352F!important}
+.v3-brand-copy span{color:#6E817B!important}
+.login-box h2{color:#18352F!important;font-size:28px!important}
+.auth-tab{background:#F8FBFA!important;border-color:#DCE7E3!important;color:#71847E!important}
+.auth-tab.active{background:#EAF4F1!important;border-color:#9FC3B8!important;color:#176B58!important}
+input,textarea,select{background:#FFFFFF!important;color:#18352F!important;border-color:#DCE7E3!important}
+.btn{background:#176B58!important;color:#fff!important;border-color:#176B58!important;box-shadow:none!important}
+.btn.ghost{background:#fff!important;color:#176B58!important;border-color:#BDD2CB!important}
+header{background:#FFFFFF!important;border-bottom:1px solid #DCE7E3!important;box-shadow:0 3px 18px rgba(24,53,47,.04)!important}
+header h1{color:#18352F!important;font-size:29px!important}
+.eyebrow{color:#176B58!important}
+.sub{color:#6E817B!important}
+.header-user{background:#F8FBFA!important;border:1px solid #DCE7E3!important}
+.header-user button{color:#176B58!important}
+.card,.style-card,.field,.toolbar,.case-mode,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{
+  background:#FFFFFF!important;border-color:#DCE7E3!important;border-radius:10px!important;
+  box-shadow:0 4px 18px rgba(24,53,47,.045)!important
+}
+main{gap:24px!important}
+.rec-btn{background:#176B58!important;box-shadow:0 8px 22px rgba(23,107,88,.18)!important}
+.suggestions-field{background:#FFFCF5!important;border-color:#E8DDBE!important}
+
+
+/* FINAL THEME — BLUE COMMAND CENTER */
+html,body{background:#e9eef4!important;color:#17283a!important;font-family:Arial,Helvetica,sans-serif!important}
+body:before,#loginGate:before{display:none!important}
+#loginGate{background:linear-gradient(135deg,#102c48 0%,#194d70 100%)!important}
+.login-box{background:#f9fbfd!important;border:0!important;border-radius:4px!important;box-shadow:0 24px 70px rgba(0,15,35,.32)!important;padding:32px!important;border-top:7px solid #1686a7!important}
+.login-box:before{content:"NEXA // MEDICAL COMMAND"!important;display:block!important;background:#102c48!important;color:#c8f3ff!important;border:0!important;border-radius:3px!important;padding:7px 9px!important;font:700 10px ui-monospace,monospace!important;letter-spacing:.12em!important;margin-bottom:20px!important}
+.v3-brand-row{display:none!important}.login-box h2{color:#17283a!important;text-transform:uppercase!important;font-size:24px!important;letter-spacing:.03em!important}
+.auth-tabs{gap:0!important;border:1px solid #cbd7e1!important;border-radius:3px!important;overflow:hidden!important}.auth-tab{border:0!important;border-radius:0!important;background:#edf2f6!important;color:#5c6e7d!important}.auth-tab.active{background:#1686a7!important;color:#fff!important}
+input,textarea,select{background:#fff!important;color:#17283a!important;border-color:#c7d4df!important;border-radius:3px!important}
+.btn{background:#146c8b!important;color:#fff!important;border-color:#146c8b!important;border-radius:3px!important;box-shadow:none!important;text-transform:uppercase!important;letter-spacing:.035em!important}.btn.ghost{background:#fff!important;color:#146c8b!important;border-color:#9eb6c5!important}
+header{background:#102c48!important;border:0!important;border-bottom:5px solid #1686a7!important;box-shadow:none!important}header h1{color:#fff!important;text-transform:uppercase!important;letter-spacing:.02em!important}.eyebrow{color:#7ed7eb!important}.sub{color:#bfd0de!important}
+.header-user{background:#183c5b!important;border:1px solid #315875!important;border-radius:3px!important}.header-user button{color:#8fe3f2!important}
+.card,.style-card,.field,.toolbar,.case-mode,.clinical-dialog,.usage-dialog,.clinical-box,.conduct-picker,.conduct-item,.example-item{background:#f9fbfd!important;border:1px solid #cbd7e1!important;border-radius:4px!important;box-shadow:0 2px 8px rgba(20,45,70,.055)!important}
+.card h3,.style-card h3,.field>label{color:#18354e!important;text-transform:uppercase!important}.toolbar{border-left:5px solid #1686a7!important}
+.rec-btn{background:#1686a7!important;box-shadow:none!important}.suggestions-field{border-left:5px solid #d59b2d!important}
+
+
+/* ===== BLUE COMMAND — ABAS OPERACIONAIS ===== */
+.nexa-command-workspace{margin-bottom:12px}
+.nexa-command-tabs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:7px;
+  background:#102c48;border:1px solid #244b68;border-left:5px solid #1686a7;
+  box-shadow:0 3px 10px rgba(20,45,70,.08)
+}
+.nexa-command-tab{
+  appearance:none;border:1px solid #315875;background:#173a57;color:#bcd0df;
+  min-height:42px;padding:7px 10px;display:flex;align-items:center;gap:8px;
+  justify-content:flex-start;text-align:left;font-family:Arial,Helvetica,sans-serif;
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.035em;cursor:pointer
+}
+.nexa-command-tab:hover{background:#1c4767;border-color:#3c6b89}
+.nexa-command-tab.active{background:#1686a7;border-color:#1686a7;color:#fff}
+.nexa-command-tab-action{background:#162f49}
+.nexa-command-index{
+  display:inline-grid;place-items:center;width:23px;height:23px;flex:0 0 23px;
+  border:1px solid currentColor;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.8
+}
+.nexa-command-content{
+  border:1px solid #cbd7e1;border-top:0;background:#eef3f7;padding:8px
+}
+.nexa-command-content .style-card{
+  margin:0!important;border-radius:3px!important;box-shadow:none!important
+}
+.nexa-workspace-pane{display:none!important}
+.nexa-workspace-pane.active{display:block!important}
+.nexa-workspace-pane.active .style-body{display:block!important}
+.nexa-workspace-pane .style-head{cursor:default!important}
+@media(max-width:700px){
+  .nexa-command-tabs{grid-template-columns:1fr}
+  .nexa-command-tab{min-height:38px}
+}
+
+
+/* ===== BLUE COMMAND — ABAS RECOLHÍVEIS, BASE ESTÁVEL ===== */
+.nexa-command-workspace.is-collapsed .nexa-command-content{
+  display:none!important;
+}
+.nexa-command-content{
+  display:block;
+}
+.nexa-command-tab.active::after{
+  content:"▴";
+  margin-left:auto;
+  font-size:10px;
+}
+.nexa-command-tab:not(.active)::after{
+  content:"▾";
+  margin-left:auto;
+  font-size:10px;
+  opacity:.55;
+}
+
+
+/* ===== ORDEM DE SELEÇÃO DAS CONDUTAS ===== */
+.conduct-item{position:relative}
+.conduct-item.selected-in-order{
+  border-color:#1686a7!important;
+  box-shadow:inset 3px 0 0 #1686a7!important;
+}
+.conduct-order-badge{
+  position:absolute;
+  right:7px;
+  bottom:7px;
+  width:20px;
+  height:20px;
+  display:grid;
+  place-items:center;
+  background:#1686a7;
+  color:#fff;
+  border:1px solid #0f617a;
+  font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+
+/* ===== HIPÓTESE DIAGNÓSTICA NO TOPO ===== */
+.field[data-key="hipotese_diagnostica"]{
+  border-left:5px solid #d59b2d!important;
+  margin-bottom:12px!important;
+}
+
+
+/* ===== NEXA CORE · ADMINISTRAÇÃO E AUDITORIA ===== */
+.core-admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.core-admin-table{display:grid;gap:6px;margin-top:8px}
+.core-user,.core-audit-case{border:1px solid var(--hair);background:var(--surface2);padding:9px;border-radius:7px}
+.core-user-head,.core-audit-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.core-meta{font-size:9.5px;color:var(--muted);margin-top:3px}
+.core-pills{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.core-pill{font-size:9px;padding:3px 6px;border:1px solid var(--hair);border-radius:999px}
+.core-audit-fields{white-space:pre-wrap;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid var(--hair);background:var(--surface);padding:8px;border-radius:6px;max-height:300px;overflow:auto;margin:8px 0}
+.core-audit-edit{min-height:220px;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+.core-danger-note{font-size:10px;color:var(--danger);margin-top:6px}
+@media(max-width:760px){.core-admin-grid{grid-template-columns:1fr}}
+.core-protocol-layout{display:grid;grid-template-columns:minmax(280px,.78fr) minmax(0,1.45fr);gap:12px;align-items:start}
+.protocol-library{position:sticky;top:0}.protocol-library-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.protocol-library-head h4{margin:0;font-size:14px}.protocol-library-head .hint{margin:3px 0 0}.protocol-library-tools{display:grid;gap:7px;margin-top:10px}.protocol-search-wrap{position:relative}.protocol-search-wrap input{padding-left:34px}.protocol-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none}.protocol-filter-row{display:flex;gap:6px;align-items:center}.protocol-filter-row select{margin:0;min-width:0}.protocol-list-summary{font-size:9.5px;color:var(--muted);padding:1px 2px}.protocol-list{display:grid;gap:7px;max-height:62vh;overflow:auto;padding:2px;margin-top:6px}.protocol-row{border:1px solid var(--hair);background:var(--surface2);padding:11px 12px;border-radius:11px;cursor:pointer;transition:.15s ease}.protocol-row:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--hair))}.protocol-row.active{border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent)}.protocol-row-title{font-size:11.5px;font-weight:800;line-height:1.25}.protocol-row-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}.protocol-cid{font-size:9.5px;font-weight:750;letter-spacing:.02em;color:var(--accent)}.protocol-state{font-size:8.7px;padding:3px 7px;border-radius:999px;border:1px solid var(--hair);color:var(--muted);background:var(--surface)}.protocol-state.draft{border-color:rgba(213,155,45,.35);color:#9a6b12;background:rgba(213,155,45,.08)}.protocol-state.approved{border-color:rgba(38,139,110,.30);color:#24795f;background:rgba(38,139,110,.08)}.protocol-state.review{border-color:rgba(62,120,190,.30);color:#346ea8;background:rgba(62,120,190,.08)}
+.protocol-editor{min-width:0}.protocol-editor-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--hair)}.protocol-editor-title{font-size:15px!important;line-height:1.25}.protocol-editor-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.protocol-editor textarea{min-height:90px}.protocol-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.protocol-section{border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--surface);margin-top:9px}.protocol-section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.protocol-section-title h4{margin:0;font-size:11.5px}.protocol-section-title p{margin:2px 0 0;font-size:9.5px;color:var(--muted)}.protocol-statusline{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}.protocol-version-box{border:1px solid var(--hair);border-radius:8px;padding:8px;background:var(--surface2);margin-top:7px}.protocol-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.protocol-actions .btn{width:auto}.protocol-small{font-size:9.5px;color:var(--muted)}.protocol-advanced{margin-top:9px;border:1px dashed var(--hair);border-radius:10px;background:var(--surface2)}.protocol-advanced summary{cursor:pointer;padding:10px 11px;font-size:10px;font-weight:750;color:var(--muted);user-select:none}.protocol-advanced-body{padding:0 11px 11px}.protocol-savebar{position:sticky;bottom:0;z-index:3;margin:12px -2px -2px;padding:10px;background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 0%,transparent),var(--surface) 28%);border-top:1px solid var(--hair)}.protocol-savebar .protocol-actions{margin:0}.protocol-savebar .btn{flex:1;min-width:120px}.protocol-empty-state{text-align:center;padding:28px 14px;border:1px dashed var(--hair);border-radius:12px;color:var(--muted)}
+@media(max-width:760px){.core-protocol-layout{grid-template-columns:1fr}.protocol-library{position:static}.protocol-list{max-height:42vh}.protocol-review-grid{grid-template-columns:1fr}.protocol-editor-head{position:sticky;top:0;z-index:2;background:var(--surface);padding-top:2px}.protocol-library-actions .btn{font-size:9px;padding:8px}.protocol-savebar{bottom:72px}}
+
+
+
+/* ===== NEXA 3.3.4 · PLANO CLÍNICO ===== */
+.clinical-plan{border:1px solid var(--hair);background:linear-gradient(180deg,var(--surface),var(--surface2));border-radius:10px;padding:11px;margin:0 0 12px}
+.clinical-plan-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.clinical-plan-head h3{margin:0;font-size:13px}.clinical-plan-head p{margin:3px 0 0;font-size:10px;color:var(--muted)}
+.plan-actions,.copy-actions{display:flex;gap:6px;flex-wrap:wrap}.plan-actions .btn,.copy-actions .btn{width:auto}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.plan-box{border:1px solid var(--hair);border-radius:8px;padding:9px;background:var(--surface)}
+.plan-box h4{margin:0 0 4px;font-size:11px}.plan-box textarea{min-height:125px;margin-top:6px}.plan-status{font-size:9.5px;color:var(--muted);min-height:15px;margin-top:5px}
+.plan-missing{border:1px solid rgba(213,155,45,.55);background:linear-gradient(180deg,rgba(213,155,45,.10),rgba(213,155,45,.05));padding:10px;border-radius:10px;margin:8px 0;font-size:10px;display:none;line-height:1.45}
+.plan-alerts{display:grid;gap:6px;margin-top:8px}.plan-alerts:empty{display:none}.plan-alert-head{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;color:var(--text);margin-bottom:1px}.plan-alert-count{font-size:8.5px;padding:2px 6px;border-radius:999px;background:rgba(194,58,58,.10);color:var(--danger);border:1px solid rgba(194,58,58,.22)}.plan-alert-item{display:grid;grid-template-columns:20px 1fr;gap:7px;align-items:start;padding:8px 9px;border-radius:9px;border:1px solid rgba(194,58,58,.16);background:linear-gradient(180deg,rgba(194,58,58,.045),rgba(194,58,58,.02));font-size:9.6px;line-height:1.42;color:var(--text)}.plan-alert-icon{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;background:rgba(194,58,58,.10);font-size:11px}.score-suggestions{font-size:9.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap;padding:7px 9px;border-radius:9px;background:var(--surface2);border:1px solid var(--hair)}.score-suggestions:empty{display:none}#suggestedPrescription{text-transform:uppercase;letter-spacing:.01em;white-space:pre;overflow-x:auto;line-height:1.55}
+.calc-card{border:1px solid var(--hair);border-radius:8px;padding:9px;background:var(--surface);margin-bottom:8px}.calc-card h4{margin:0 0 5px}.calc-check{display:flex;gap:7px;align-items:flex-start;margin:5px 0;font-size:10px}.calc-check input{width:auto;margin-top:1px}.calc-result{white-space:pre-wrap;margin-top:7px}
+.calc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.calc-grid label{margin-top:0}.score-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}.score-tabs button{width:auto}
+@media(max-width:760px){.plan-grid,.calc-grid{grid-template-columns:1fr}.clinical-plan-head{display:block}.plan-actions{margin-top:7px}}
+.hyp-review{border:1px solid var(--hair);background:var(--surface);border-radius:10px;padding:10px;margin:0 0 12px}
+.hyp-review-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.hyp-review-head h3{margin:0;font-size:12px}.hyp-review-head p{margin:3px 0 0;font-size:10px;color:var(--muted)}
+.hyp-badge{font-size:9px;padding:4px 7px;border-radius:999px;border:1px solid var(--hair);background:var(--surface2);font-weight:700}
+.hyp-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.hyp-actions .btn{width:auto}
+.hyp-edit{display:none;margin-top:9px;padding-top:9px;border-top:1px solid var(--hair)}
+.hyp-edit-grid{display:grid;grid-template-columns:150px 1fr;gap:8px}.hyp-original{font-size:9.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap}
+.hyp-lock{font-size:9.5px;color:var(--muted);margin-top:6px}
+@media(max-width:760px){.hyp-edit-grid{grid-template-columns:1fr}}
+
+
+
+/* V3.3.7 · navegação inferior estilo aplicativo */
+.nexa-bottom-nav{position:fixed;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:1600;width:min(680px,calc(100% - 24px));background:rgba(8,31,49,.96);backdrop-filter:blur(16px);border:1px solid rgba(72,199,225,.26);border-radius:22px;padding:8px;box-shadow:0 18px 48px rgba(0,20,35,.32);display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.nexa-nav-item{border:0;background:transparent;color:#b9cad6;border-radius:15px;padding:8px 4px 7px;font:700 11px system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;min-height:54px}.nexa-nav-item.active{background:rgba(31,184,214,.14);color:#6ce6ff;box-shadow:inset 0 0 0 1px rgba(82,219,242,.35)}.nexa-nav-icon{font-size:18px;line-height:1;font-weight:800}.app{padding-bottom:88px}.core-nav-view .dialog{width:min(980px,calc(100% - 20px));max-height:calc(100dvh - 110px);overflow:auto}.core-nav-view .pane{display:none}.core-nav-view .pane.active{display:block}.audit-health{padding:8px 10px;border-radius:10px;background:var(--soft);margin-bottom:8px;font-size:12px;color:var(--muted)}
+@media(max-width:560px){.nexa-bottom-nav{bottom:max(6px,env(safe-area-inset-bottom));width:calc(100% - 16px);border-radius:20px}.nexa-nav-item{font-size:10px;min-height:52px}.core-nav-view .dialog{margin:8px;width:calc(100% - 16px);max-height:calc(100dvh - 92px);padding:16px}.core-protocol-layout{grid-template-columns:1fr!important}}
+
+.rx-composer{display:grid;gap:10px;margin-top:10px}.rx-toolbar{display:flex;gap:7px;flex-wrap:wrap}.rx-options{display:grid;gap:8px}.rx-group{border:1px solid var(--hair);border-radius:10px;padding:9px;background:var(--surface2)}.rx-group h5{margin:0 0 7px;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.rx-option{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border:1px solid var(--hair);border-radius:9px;background:var(--surface);margin-top:6px}.rx-option.selected{border-color:var(--accent);background:var(--soft)}.rx-option-title{font-weight:800;font-size:10px}.rx-option-meta{font-size:9px;color:var(--muted);line-height:1.35;margin-top:2px}.rx-option-actions{display:flex;gap:4px}.rx-mini{border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:5px 7px;font-size:9px}.rx-final{display:grid;gap:8px;margin-top:10px}.rx-route-block{border:1px solid var(--hair);border-radius:10px;padding:10px;background:var(--surface)}.rx-route-title{text-align:center;font-weight:900;letter-spacing:.08em;font-size:11px;margin-bottom:8px}.rx-final-item{padding:8px 0;border-top:1px dashed var(--hair)}.rx-final-item:first-of-type{border-top:0}.rx-final-head{font-weight:800;font-size:10px}.rx-final-pos{font-size:9.5px;line-height:1.45;margin-top:3px}.rx-order{display:flex;gap:4px;margin-top:5px}.rx-manual{display:none;border:1px solid var(--hair);border-radius:10px;padding:10px;background:var(--surface2)}.rx-manual.open{display:block}.rx-manual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}@media(max-width:560px){.rx-manual-grid{grid-template-columns:1fr}.rx-option{grid-template-columns:auto 1fr}.rx-option-actions{grid-column:2}}
+</style>
+</head>
+<body>
+<div id="loginGate"><div class="login-box"><div class="brand"><div class="brand-mark"></div><div><strong>NEXA CLINICAL</strong><span>Documentação clínica assistida</span></div></div><h2>Acesso ao NEXA</h2><p class="hint">Ambiente clínico individual protegido por autenticação e RLS.</p><div class="auth-tabs" style="display:none"><button class="auth-tab active" id="signInTab">Entrar</button><button class="auth-tab" id="signUpTab" style="display:none">Criar conta</button></div><label id="authNameLabel" for="authName" style="display:none">Nome profissional</label><input id="authName" style="display:none" placeholder="Dr(a). Nome Sobrenome"><label for="authEmail">E-mail</label><input id="authEmail" inputmode="email" autocomplete="email" placeholder="voce@clinica.com.br"><label for="authPassword">Senha</label><input id="authPassword" type="password" minlength="8" autocomplete="current-password"><button class="btn" id="authSubmitBtn" style="margin-top:12px">Entrar</button><button class="btn ghost" id="forgotPasswordBtn" style="margin-top:7px">Esqueci minha senha</button><div id="loginBanner" style="margin-top:10px"></div><p class="hint" style="margin:14px 0 0">Acesso por convite do administrador · NEXA Core.</p></div></div>
+<div class="app" id="mainApp" style="display:none">
+<header><div class="header-user"><span id="loggedProfName"></span><button id="changeNameBtn">Trocar nome</button><button id="changePasswordBtn">Trocar senha</button><button id="openAiUsageBtn">Uso OpenAI</button><button id="clinicalIntelligenceBtn">Assistente clínico</button><button id="coreAdminBtn" style="display:none">NEXA Core</button><button id="nexaThemeToggle" class="theme-btn">◐ Modo escuro</button><button id="logoutBtn">Sair</button></div><div class="eyebrow">NEXA CLINICAL · DOCUMENTAÇÃO</div><h1>Consulta em registro clínico, sem atrito.</h1><p class="sub">Grave, transcreva, copie HDA e antecedentes, selecione o exame físico e finalize com as condutas.</p></header>
+<div class="modal" id="coreAdminModal"><div class="dialog"><div class="modal-head"><div><h3 id="coreModalTitle">NEXA Core</h3><p id="coreModalSubtitle">Administração clínica e governança.</p></div><button class="btn ghost" id="closeCoreAdminBtn">Fechar</button></div><div class="tabs core-internal-tabs" style="display:none"><button class="tab active core-tab" data-core-pane="coreUsersPane">Médicos</button><button class="tab core-tab" data-core-pane="coreAuditPane">Auditoria</button><button class="tab core-tab" data-core-pane="coreProtocolsPane">Protocolos / Prescrições</button></div><section class="pane active" id="coreUsersPane"><div class="core-admin-grid"><div class="box"><h4>Cadastrar médico</h4><label>Nome profissional</label><input id="coreInviteName" placeholder="Dr(a). Nome Sobrenome"><label>E-mail</label><input id="coreInviteEmail" inputmode="email" placeholder="medico@exemplo.com"><button class="btn" id="coreInviteBtn" style="margin-top:8px">Convidar e ativar vaga</button><div class="hint" id="coreInviteStatus" style="margin-top:6px"></div></div><div class="box"><h4>Vagas clínicas</h4><div id="coreSlotsBody" class="learning">Carregando…</div><p class="hint">Máximo de 5 usuários com acesso clínico ativo. Administrador/revisor sem acesso clínico não ocupa vaga.</p></div></div><div class="box" style="margin-top:10px"><h4>Usuários</h4><div id="coreUsersBody" class="core-admin-table"><div class="hint">Carregando…</div></div></div></section><section class="pane" id="coreAuditPane"><div class="box"><div class="toggle-row" style="justify-content:space-between;align-items:center"><div><h4 style="margin:0">Fila de auditoria</h4><p class="hint" style="margin:3px 0 0">Somente casos desidentificados são exibidos aqui.</p></div><button class="btn ghost" id="coreRefreshAuditBtn" style="width:auto">Atualizar</button></div><div id="coreAuditBody" class="core-admin-table"><div class="hint">Carregando…</div></div></div></section><section class="pane" id="coreProtocolsPane"><div class="core-protocol-layout">
+<div class="box protocol-library"><div class="protocol-library-head"><div><h4>Biblioteca clínica</h4><p class="hint">Patologias em ordem alfabética. Toque para revisar protocolo e medicamentos.</p></div><div class="protocol-library-actions" style="display:flex;gap:6px"><button class="btn ghost" id="newProtocolBtn" style="width:auto">+ Novo</button></div></div>
+<div class="protocol-library-tools"><div class="protocol-search-wrap"><span class="protocol-search-icon">⌕</span><input id="protocolAdminSearch" placeholder="Buscar patologia ou CID"></div><div class="protocol-filter-row"><select id="protocolStatusFilter" aria-label="Filtrar protocolos"><option value="all">Todos</option><option value="pending">Pendentes de revisão</option><option value="approved">Publicados</option><option value="unpublished">Sem publicação</option></select><button class="btn ghost" id="refreshProtocolsBtn" style="width:auto">Atualizar</button></div><div class="protocol-list-summary" id="protocolListSummary"></div></div>
+<div id="protocolAdminList" class="protocol-list"><div class="hint">Carregando…</div></div>
+<details class="protocol-advanced"><summary>Manutenção do catálogo CID-10</summary><div class="protocol-advanced-body"><p class="hint">Use somente quando precisar atualizar o catálogo de diagnósticos.</p><button class="btn ghost" id="syncCid10Btn" style="width:auto">Sincronizar CID-10</button></div></details></div>
+
+<div class="box protocol-editor"><div class="protocol-editor-head"><div><h4 class="protocol-editor-title" id="protocolEditorTitle">Selecione uma patologia</h4><div class="protocol-editor-meta" id="protocolEditorMeta"></div></div></div>
+<div id="protocolEditorEmpty" class="protocol-empty-state" style="margin-top:10px"><strong>Selecione uma patologia</strong><div class="hint" style="margin-top:5px">Você verá os medicamentos, orientações, critérios e histórico da versão para revisão.</div></div>
+<div id="protocolEditorForm" style="display:none">
+<div class="protocol-section"><div class="protocol-section-title"><div><h4>Resumo do protocolo</h4><p>Informações clínicas principais para identificação e uso.</p></div></div><div class="protocol-review-grid"><div><label>Patologia</label><input id="pAdminTitle"><label>CID-10</label><input id="pAdminCid" placeholder="Busque CID ou informe vários separados por vírgula" list="protocolCidOptions"><datalist id="protocolCidOptions"></datalist></div><div><label>Situação clínica</label><input id="pAdminScope" placeholder="ex.: alta ambulatorial"><label>Motivo desta revisão</label><input id="pAdminChange" placeholder="ex.: revisão de doses e alternativas"></div></div></div>
+
+<div class="protocol-section"><div class="protocol-section-title"><div><h4>💊 Medicamentos do protocolo</h4><p>Revise as opções que aparecerão no RX Composer.</p></div><button class="btn ghost" id="pRxAddBtn" type="button" style="width:auto">+ Medicamento</button></div><div id="pRxEditor" style="display:none;margin-top:8px"><div class="grid2"><div><label>Nome / princípio ativo</label><input id="pRxName"><label>Apresentação</label><input id="pRxPresentation" placeholder="ex.: 500 mg"><label>Quantidade total</label><input id="pRxQty" placeholder="ex.: 14 comprimidos"><label>Via</label><select id="pRxRoute"><option value="oral">Via oral</option><option value="topica">Uso tópico</option><option value="inalatoria">Via inalatória</option><option value="intramuscular">Via intramuscular</option><option value="endovenosa">Via endovenosa</option><option value="subcutanea">Via subcutânea</option><option value="nasal">Via nasal</option><option value="oftalmica">Via oftálmica</option><option value="otologica">Via otológica</option><option value="retal">Via retal</option><option value="vaginal">Via vaginal</option><option value="sublingual">Via sublingual</option><option value="outra">Outra</option></select></div><div><label>Categoria</label><input id="pRxCategory" placeholder="Tratamento principal / Sintomático / Alternativa"><label>Grupo de seleção</label><input id="pRxGroup" placeholder="ex.: antibiotico_principal"><label>Modo</label><select id="pRxMode"><option value="multi">Pode combinar</option><option value="single">Escolha única</option><option value="bundle">Usar em conjunto</option></select><label>Como usar / posologia</label><textarea id="pRxHow" style="min-height:82px" placeholder="Tomar 1 comprimido, via oral..."></textarea></div></div><div class="protocol-actions"><button class="btn" id="pRxSaveItemBtn" type="button">Salvar item</button><button class="btn ghost" id="pRxCancelItemBtn" type="button">Cancelar</button></div></div><div id="pRxItemsList" style="margin-top:8px"><div class="hint">Nenhum item estruturado.</div></div></div>
+
+<div class="protocol-section"><div class="protocol-section-title"><div><h4>Orientações e segurança</h4><p>Conteúdo clínico que acompanha a prescrição.</p></div></div><label>Orientações ao paciente</label><textarea id="pAdminGuidance"></textarea><label>Critérios de uso / escolha da variante</label><textarea id="pAdminCriteria"></textarea><label>Contraindicações / alertas</label><textarea id="pAdminContra"></textarea><label>Dados necessários / modificadores</label><textarea id="pAdminRequired"></textarea></div>
+
+<details class="protocol-advanced"><summary>Dados técnicos e legado</summary><div class="protocol-advanced-body"><div class="grid2"><div><label>Chave diagnóstica</label><input id="pAdminKey" placeholder="ex.: pac"><label>Termos de correspondência</label><input id="pAdminTerms" placeholder="separados por vírgula"></div><div><label>Fonte interna</label><input id="pAdminSource"><label>Página / seção</label><input id="pAdminPage"></div></div><label>Prescrição legada / fallback</label><textarea id="pAdminPrescription" placeholder="Mantida apenas para compatibilidade com versões anteriores."></textarea></div></details>
+
+<div class="protocol-section"><div class="protocol-section-title"><div><h4>Versões e publicação</h4><p>O conteúdo só passa a ser usado pelos médicos depois da publicação.</p></div></div><div class="protocol-statusline" id="protocolVersionStatus"></div><div id="protocolAdminStatus" class="hint" style="margin-top:6px"></div><details class="protocol-advanced"><summary>Histórico de versões</summary><div class="protocol-advanced-body"><div id="protocolVersions"></div></div></details></div>
+<div class="protocol-savebar"><div class="protocol-actions"><button class="btn ghost" id="saveProtocolDraftBtn">Salvar rascunho</button><button class="btn ghost" id="submitProtocolReviewBtn">Enviar para revisão</button><button class="btn" id="publishProtocolBtn">Aprovar e publicar</button></div></div>
+</div></div></div></section></div></div>
+<div class="modal" id="usageModal"><div class="dialog"><div class="modal-head"><div><h3>Uso da OpenAI</h3><p>Consumo retornado pelo backend administrativo.</p></div><button class="btn ghost" id="closeUsageBtn">Fechar</button></div><div id="usageBody"><div class="hint">Carregando…</div></div></div></div>
+<div class="modal" id="clinicalModal"><div class="dialog"><div class="modal-head"><div><h3>NEXA Clinical Intelligence</h3><p>Apoio clínico separado do prontuário; revise antes de qualquer decisão.</p></div><button class="btn ghost" id="closeClinicalBtn">Fechar</button></div><div class="warning">Ferramenta de apoio para profissional de saúde. O conteúdo não é inserido automaticamente no prontuário.</div><div class="tabs"><button class="tab active" data-pane="chatPane">Perguntar à IA</button><button class="tab" data-pane="protocolPane">Protocolos</button><button class="tab" data-pane="pedsPane">Dose pediátrica</button><button class="tab" data-pane="calcPane">Calculadoras</button><button class="tab" data-pane="sourcesPane">Fontes clínicas</button></div><section class="pane active" id="chatPane"><div class="grid2"><div class="box"><div id="clinicalChat" class="chat"><div class="hint">Faça uma pergunta clínica.</div></div><label class="toggle-row"><input type="checkbox" id="clinicalUseContext"><span>Usar contexto da consulta atual</span></label><textarea id="clinicalQuestion" placeholder="Ex.: Quais red flags devo revisar antes da alta?"></textarea><button class="btn" id="clinicalSendBtn" style="margin-top:7px">Perguntar</button><div class="hint" id="clinicalStatus" style="margin-top:6px"></div></div><div class="box"><h4>Fontes da última resposta</h4><div id="clinicalSources" class="sources"><div class="hint">Nenhuma fonte consultada.</div></div></div></div></section><section class="pane" id="protocolPane"><div class="grid2"><div class="box"><h4>Consultar base de protocolos</h4><p class="hint">Pesquisa somente a base privada de protocolos autorizados quando disponível.</p><textarea id="protocolQuery" placeholder="Ex.: Qual é o fluxo descrito para este quadro?"></textarea><button class="btn" id="searchProtocolBtn" style="margin-top:7px">Pesquisar protocolos</button><div id="protocolStatus" class="hint" style="margin-top:6px"></div></div><div class="box"><h4>Resposta</h4><div id="protocolOutput" class="learning">Nenhuma consulta realizada.</div><div id="protocolSources" class="sources"></div></div></div></section><section class="pane" id="pedsPane"><div class="grid2"><div class="box"><h4>Calculadora pediátrica determinística</h4><div class="warning">Informe a dose de referência obtida em bula/protocolo validado. O NEXA apenas faz a conversão matemática.</div><label>Peso (kg)</label><input id="pedsWeight" type="number" min="0.1" step="0.01"><label>Dose de referência (mg/kg)</label><input id="pedsDoseRef" type="number" min="0.001" step="0.001"><label>Referência</label><select id="pedsDoseMode"><option value="dose">mg/kg/dose</option><option value="day">mg/kg/dia</option></select><label>Doses por dia</label><input id="pedsDosesPerDay" type="number" min="1" max="24" step="1" value="1"><label>Apresentação (mg)</label><input id="pedsConcMg" type="number" min="0.001" step="0.001"><label>Apresentação (mL)</label><input id="pedsConcMl" type="number" min="0.001" step="0.001"><label>Dose máxima por administração (mg) — opcional</label><input id="pedsMaxDose" type="number" min="0" step="0.1"><button class="btn" id="calculatePedsDoseBtn" style="margin-top:8px">Calcular</button></div><div class="box"><h4>Resultado</h4><div id="pedsDoseResult" class="learning">Preencha os dados e clique em Calcular.</div></div></div></section><section class="pane" id="calcPane"><div class="score-tabs"><button class="btn ghost" type="button" data-score-jump="curb65Card">CURB-65</button><button class="btn ghost" type="button" data-score-jump="centorCard">Centor mod.</button><button class="btn ghost" type="button" data-score-jump="psiCard">PSI</button></div>
+<div class="calc-card" id="curb65Card"><h4>CURB-65 · PAC</h4><p class="hint">Critérios conforme o material clínico enviado.</p><label class="calc-check"><input id="curbConfusion" type="checkbox">Confusão mental (+1)</label><label>Ureia (mg/dL)</label><input id="curbUrea" type="number" step="0.1"><label>Frequência respiratória (irpm)</label><input id="curbFr" type="number"><div class="calc-grid"><div><label>PAS (mmHg)</label><input id="curbPas" type="number"></div><div><label>PAD (mmHg)</label><input id="curbPad" type="number"></div></div><label>Idade (anos)</label><input id="curbAge" type="number"><button class="btn ghost" id="calculateCurb65Btn" style="margin-top:7px">Calcular CURB-65</button><div id="curb65Result" class="learning calc-result">—</div></div>
+<div class="calc-card" id="centorCard"><h4>Centor modificado · conforme material enviado</h4><label class="calc-check"><input id="centorFever" type="checkbox">Febre &gt; 38 °C (+1)</label><label class="calc-check"><input id="centorNodes" type="checkbox">Adenopatia cervical anterior (+1)</label><label class="calc-check"><input id="centorExudate" type="checkbox">Exsudato ou edema amigdaliano (+1)</label><label>Idade (anos)</label><input id="centorAge" type="number"><button class="btn ghost" id="calculateCentorBtn" style="margin-top:7px">Calcular Centor</button><div id="centorResult" class="learning calc-result">—</div></div>
+<div class="calc-card" id="psiCard"><h4>PSI / Pneumonia Severity Index</h4><p class="hint">Calculadora baseada na tabela do material enviado. Marque “ausência de preditores” somente quando aplicável.</p><label class="calc-check"><input id="psiNoPredictors" type="checkbox">Ausência de preditores → PORT I</label><div class="calc-grid"><div><label>Sexo</label><select id="psiSex"><option value="m">Masculino</option><option value="f">Feminino</option></select></div><div><label>Idade</label><input id="psiAge" type="number"></div></div><label class="calc-check"><input id="psiNursing" type="checkbox">Residente em casa de repouso (+10)</label><label class="calc-check"><input id="psiNeoplasia" type="checkbox">Neoplasia ativa (+30)</label><label class="calc-check"><input id="psiLiver" type="checkbox">Doença hepática crônica (+20)</label><label class="calc-check"><input id="psiHeart" type="checkbox">Insuficiência cardíaca (+10)</label><label class="calc-check"><input id="psiCerebro" type="checkbox">Doença cerebrovascular (+10)</label><label class="calc-check"><input id="psiRenal" type="checkbox">Doença renal crônica (+10)</label><label class="calc-check"><input id="psiMental" type="checkbox">Estado mental alterado (+20)</label><div class="calc-grid"><div><label>FR</label><input id="psiFr" type="number"></div><div><label>PAS</label><input id="psiPas" type="number"></div><div><label>Temperatura °C</label><input id="psiTemp" type="number" step="0.1"></div><div><label>FC</label><input id="psiFc" type="number"></div><div><label>pH</label><input id="psiPh" type="number" step="0.01"></div><div><label>Ureia mg/dL</label><input id="psiUrea" type="number" step="0.1"></div><div><label>Sódio mEq/L</label><input id="psiSodium" type="number" step="0.1"></div><div><label>Glicose mg/dL</label><input id="psiGlucose" type="number"></div><div><label>Hematócrito %</label><input id="psiHct" type="number" step="0.1"></div><div><label>PaO₂ mmHg</label><input id="psiPao2" type="number" step="0.1"></div><div><label>SpO₂ %</label><input id="psiSpo2" type="number" step="0.1"></div></div><label class="calc-check"><input id="psiEffusion" type="checkbox">Derrame pleural (+10)</label><button class="btn ghost" id="calculatePsiBtn" style="margin-top:7px">Calcular PSI</button><div id="psiResult" class="learning calc-result">—</div></div>
+<div class="grid2"><div class="box"><h4>IMC</h4><label>Peso (kg)</label><input id="bmiWeight" type="number"><label>Altura (cm)</label><input id="bmiHeight" type="number"><button class="btn ghost" id="calculateBmiBtn" style="margin-top:7px">Calcular</button><div id="bmiResult" class="learning">—</div></div><div class="box"><h4>Superfície corporal · Mosteller</h4><label>Peso (kg)</label><input id="bsaWeight" type="number"><label>Altura (cm)</label><input id="bsaHeight" type="number"><button class="btn ghost" id="calculateBsaBtn" style="margin-top:7px">Calcular</button><div id="bsaResult" class="learning">—</div></div></div></section><section class="pane" id="sourcesPane"><div class="box"><h4>Fontes clínicas e roteamento</h4><p class="hint">O assistente clínico pode usar protocolos privados NEXA e pesquisa web confiável conforme configuração do backend. A resposta deve manter rastreabilidade das fontes consultadas.</p><div class="learning"><strong>Prioridade:</strong> protocolos institucionais cadastrados → sociedades médicas e órgãos oficiais → literatura confiável quando permitida. O prontuário nunca recebe automaticamente o conteúdo do chat.</div><div class="badges"><span class="badge">MS / gov.br</span><span class="badge">Sociedades médicas</span><span class="badge">Protocolos NEXA</span><span class="badge">Fontes rastreáveis</span></div></div></section></div></div>
+<main><section class="panel-left"><div class="card"><h3>IA clínica · backend seguro</h3><div class="secure-note">O áudio segue para uma função autenticada. Chaves do provedor permanecem no servidor.</div><div class="badges"><span class="badge">Sessão autenticada</span><span class="badge">RLS ativo</span><span class="badge">IA via backend</span></div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input type="checkbox" id="consent"><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label></div><div class="card rec-zone"><button class="rec-btn" id="recBtn" disabled><svg viewBox="0 0 24 24"><circle id="circleShape" cx="12" cy="12" r="7" fill="currentColor"/><rect id="stopShape" x="8" y="8" width="8" height="8" rx="1" fill="currentColor" style="display:none"/></svg></button><div class="timer mono" id="timer">00:00</div><canvas id="wave" width="280" height="54"></canvas><div class="status" id="status">Aguardando início da gravação</div></div><div class="case-mode"><label style="margin-top:0">Formato do texto gerado</label><label class="exam-check"><input type="radio" name="caseMode" value="upper" checked><span>LETRAS MAIÚSCULAS</span></label><label class="exam-check"><input type="radio" name="caseMode" value="normal"><span>Escrita normal</span></label></div><button class="btn secondary" id="processBtn" disabled>Transcrever e estruturar</button><button class="btn danger" id="resetBtn" style="margin-top:18px">Limpar e começar nova consulta</button></section>
+<section class="panel-right">
+
+<div class="nexa-command-workspace is-collapsed" id="nexaCommandWorkspace">
+  <div class="nexa-command-tabs" role="tablist" aria-label="Ferramentas do NEXA">
+    <button type="button" class="nexa-command-tab" id="workspaceExamplesTab" data-pane="workspaceExamplesPane">
+      <span class="nexa-command-index">01</span><span>Exemplos de escrita</span>
+    </button>
+    <button type="button" class="nexa-command-tab" id="workspaceHistoryTab" data-pane="workspaceHistoryPane">
+      <span class="nexa-command-index">02</span><span>Histórico de rascunhos</span>
+    </button>
+    <button type="button" class="nexa-command-tab nexa-command-tab-action" id="workspaceClinicalTab">
+      <span class="nexa-command-index">03</span><span>Assistente clínico</span>
+    </button>
+  </div>
+  <div class="nexa-command-content">
+    <div class="style-card nexa-workspace-pane" id="workspaceExamplesPane"><div class="style-head" id="styleHead"><h3>Exemplos de escrita anteriores</h3><span class="count" id="exampleCount">0 salvos ▸</span></div><div class="style-body" id="styleBody"><label class="toggle-row" style="margin:0"><input type="checkbox" id="useExamples" checked><span>Usar meu estilo revisado nas próximas consultas</span></label><div class="learning">Toda consulta revisada e salva entra automaticamente como exemplo de escrita. O NEXA usa apenas o estilo e a organização textual, sem transportar fatos clínicos para outro paciente. Exemplos podem ser removidos individualmente com trava contra exclusão acidental.</div><div id="exampleList"></div><button class="btn ghost" id="addExampleBtn">+ Adicionar exemplo</button><div id="exampleForm" style="display:none;border-top:1px solid var(--hair);margin-top:8px;padding-top:8px"><label>Nome do exemplo</label><input id="exTitle"><label>Queixa principal</label><textarea id="ex_queixa_principal"></textarea><label>História da doença atual</label><textarea id="ex_hda"></textarea><label>Comorbidades</label><textarea id="ex_comorbidades"></textarea><label>Antecedentes</label><textarea id="ex_antecedentes" placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea><label>Medicações em uso</label><textarea id="ex_medicacoes"></textarea><label>Alergias</label><textarea id="ex_alergias"></textarea><label>Hipótese diagnóstica</label><textarea id="ex_hipotese_diagnostica"></textarea><div class="conduct-actions"><button class="btn" id="saveExampleBtn">Salvar exemplo</button><button class="btn ghost" id="cancelExampleBtn">Cancelar</button></div></div></div></div>
+    <div class="style-card nexa-workspace-pane" id="workspaceHistoryPane"><div class="style-head" id="historyHead"><h3>Histórico de rascunhos</h3><span class="count" id="historyCount">0 registros ▸</span></div><div class="style-body" id="historyBody"><div class="toggle-row" style="justify-content:space-between"><span>Transcrições dos últimos 7 dias. Após esse período deixam de aparecer aqui; casos enviados à auditoria permanecem no bloco de Auditoria.</span><button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:5px 8px">Atualizar</button></div><div id="historyList"></div></div></div>
+  </div>
+</div>
+
+
+<div class="toolbar"><button class="btn ghost" id="copyBtn">Copiar prontuário</button><button class="btn ghost" id="downloadBtn">Baixar .txt</button><button class="btn ghost" id="copyHdaBtn">Copiar HDA + antecedentes</button><button class="btn ghost" id="updateHistoryBtn">Salvar revisão</button><button class="btn ghost" id="submitAuditBtn">Enviar p/ auditoria</button><span class="save-state unsaved" id="saveState">não salvo</span></div><div id="bannerArea"></div>
+<div class="field suggestions" data-key="hipotese_diagnostica"><label>Hipótese diagnóstica sugerida · assistência por IA</label><textarea></textarea><label class="toggle-row"><input type="checkbox" id="includeDiagnosis"><span>Revisei e quero incluir na cópia do prontuário.</span></label></div>
+<div class="hyp-review" id="hypothesisReviewBlock">
+  <div class="hyp-review-head"><div><h3>Validação médica da hipótese</h3><p>Exames e prescrição só usam uma hipótese confirmada ou alterada pelo médico. Se a hipótese permanecer indefinida, apenas investigação pode ser sugerida.</p></div><span class="hyp-badge" id="hypothesisReviewBadge">Aguardando validação</span></div>
+  <div class="hyp-original" id="aiHypothesisOriginal"></div>
+  <div class="hyp-actions"><button class="btn" id="confirmHypothesisBtn">Confirmar hipótese</button><button class="btn ghost" id="editHypothesisBtn">Alterar hipótese / CID</button><button class="btn ghost" id="undefinedHypothesisBtn">Hipótese indefinida</button></div>
+  <div class="hyp-edit" id="hypothesisEditPanel"><div class="hyp-edit-grid"><div><label>CID-10</label><input id="physicianCid" placeholder="Busque por código ou diagnóstico" autocapitalize="characters" list="physicianCidOptions"><datalist id="physicianCidOptions"></datalist><div class="hint" id="physicianCidHint">CID-10 validado no catálogo NEXA.</div></div><div><label>Hipótese definida pelo médico</label><input id="physicianHypothesis" placeholder="Ex.: Pneumonia adquirida na comunidade (opcional se informar CID)"></div></div><div class="hyp-actions"><button class="btn" id="applyEditedHypothesisBtn">Usar hipótese alterada</button><button class="btn ghost" id="cancelEditedHypothesisBtn">Cancelar</button></div></div>
+  <div class="hyp-lock" id="hypothesisPlanLock">Confirme ou altere a hipótese para liberar exames e prescrição.</div>
+</div>
+<div class="clinical-plan" id="clinicalPlanBlock">
+  <div class="clinical-plan-head"><div><h3>Plano clínico sugerido</h3><p>Exames e prescrição são independentes. Conteúdo auxiliar, sempre sujeito à revisão médica.</p></div><div class="plan-actions"><button class="btn ghost" id="generateExamsBtn" disabled>Gerar exames</button><button class="btn ghost" id="generatePrescriptionBtn" disabled>Gerar prescrição</button><button class="btn" id="generateBothPlanBtn" disabled>Gerar ambos</button></div></div>
+  <div id="planGlobalAlerts" class="plan-alerts"></div><div id="planScoreSuggestions" class="score-suggestions"></div>
+  <div class="plan-grid">
+    <div class="plan-box"><h4>🧪 Exames sugeridos</h4><div class="plan-status" id="examsPlanStatus">Ainda não gerado.</div><div class="plan-missing" id="examsMissing"></div><textarea id="suggestedExams" placeholder="O NEXA decidirá primeiro se há necessidade de exames."></textarea><div class="copy-actions"><button class="btn ghost" id="copySuggestedExamsBtn">Copiar exames</button><button class="btn ghost" id="continueExamsWithoutDataBtn" style="display:none">Continuar sem os dados</button></div></div>
+    <div class="plan-box"><h4>💊 Montagem da prescrição</h4><div class="plan-status" id="rxPlanStatus">Ainda não gerada.</div><div class="plan-missing" id="rxMissing"></div><div class="rx-composer"><div class="rx-toolbar"><button class="btn ghost" id="selectSuggestedRxBtn" type="button">Usar esquema sugerido</button><button class="btn ghost" id="addManualRxBtn" type="button">+ Adicionar medicamento</button></div><div id="rxOptions" class="rx-options"><div class="hint">Gere a prescrição para ver opções selecionáveis.</div></div><div id="rxManualForm" class="rx-manual"><div class="rx-manual-grid"><select id="rxMRoute"><option value="oral">Via oral</option><option value="topica">Uso tópico</option><option value="inalatoria">Via inalatória</option><option value="intramuscular">Via intramuscular</option><option value="endovenosa">Via endovenosa</option><option value="subcutanea">Via subcutânea</option><option value="nasal">Via nasal</option><option value="oftalmica">Via oftálmica</option><option value="otologica">Via otológica</option><option value="retal">Via retal</option><option value="vaginal">Via vaginal</option><option value="sublingual">Via sublingual</option><option value="outra">Outra via</option></select><input id="rxMName" placeholder="Nome + dose/apresentação (ex.: Cefalexina 500 mg)"><input id="rxMQty" placeholder="Quantidade (ex.: 28 comprimidos)"></div><textarea id="rxMHow" placeholder="Como tomar/aplicar — escreva exatamente como deseja na receita (ex.: Tomar 1 comprimido, via oral, de 6 em 6 horas, por 7 dias.)" style="margin-top:7px;min-height:88px"></textarea><label style="display:flex;gap:7px;align-items:center;margin-top:8px;font-size:10px"><input id="rxMSaveFav" type="checkbox"> Salvar como favorito pessoal</label><div class="rx-toolbar" style="margin-top:7px"><button class="btn" id="saveManualRxBtn" type="button">Adicionar à receita</button><button class="btn ghost" id="cancelManualRxBtn" type="button">Cancelar</button></div></div><div id="rxFinal" class="rx-final"></div><textarea id="suggestedPrescription" style="display:none" wrap="off"></textarea><div class="copy-actions"><button class="btn ghost" id="copyPrescriptionBtn">Copiar receita</button><button class="btn ghost" id="copyGuidanceBtn">Copiar orientações</button><button class="btn ghost" id="copyPrescriptionGuidanceBtn">Copiar receita + orientações</button><button class="btn ghost" id="continueRxWithoutDataBtn" style="display:none">Continuar sem os dados</button></div><div class="plan-status" id="rxGuidancePreview"></div></div></div>
+  </div>
+</div>
+<div class="field" data-key="queixa_principal"><label>Queixa principal</label><textarea placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="hda"><label>História da doença atual</label><textarea style="min-height:110px" placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="comorbidades"><label>Comorbidades</label><textarea></textarea></div><div class="field" data-key="antecedentes"><label>Antecedentes</label><textarea placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea></div><div class="field" data-key="medicacoes"><label>Medicações em uso</label><textarea></textarea></div><div class="field" data-key="alergias"><label>Alergias</label><textarea></textarea></div>
+<div class="field workflow-step" id="examPhysicalBlock" data-key="exame_fisico"><div class="field-head"><label>Exame físico <span style="font-weight:400;color:var(--muted)">(modelo manual)</span></label><button class="btn ghost inline-copy" id="copyExamBtn">Copiar exame físico</button></div><div class="exam-type-tabs"><button class="exam-type-btn" data-type="HOMEM">Homem</button><button class="exam-type-btn" data-type="MULHER">Mulher</button><button class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button><button class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button></div><div class="exam-systems" id="examSystems"><div class="empty">Selecione um perfil para ver os sistemas.</div></div><button class="btn ghost" id="insertExamBtn" style="margin:7px 0 8px">Inserir sistemas selecionados</button><textarea placeholder="Selecione os sistemas acima ou edite manualmente..."></textarea></div>
+<div class="field workflow-step" id="conductBlock" data-key="conduta"><div class="field-head"><label>Condutas <span style="font-weight:400;color:var(--muted)">(manual + biblioteca pessoal)</span></label><button class="btn ghost inline-copy" id="copyConductBtn">Copiar condutas</button></div><div class="conduct-picker"><div class="conduct-picker-head"><strong>Condutas cadastradas</strong><button class="btn ghost" id="toggleConductPickerBtn">Selecionar condutas</button></div><div class="conduct-picker-body" id="conductPickerBody"><div class="learning">Sua biblioteca é sincronizada pela sua conta. Marque uma ou mais condutas para copiar diretamente ou adicionar ao campo para edição.</div><div id="conductList"></div><div class="conduct-actions"><button class="btn" id="insertSelectedConductsBtn">Adicionar selecionadas</button><button class="btn ghost" id="clearConductSelectionBtn">Desmarcar</button><button class="btn ghost" id="addConductTemplateBtn">+ Cadastrar conduta</button></div><div class="conduct-form" id="conductForm"><label for="conductContentInput">Nova conduta</label><textarea id="conductContentInput" style="min-height:120px" placeholder="Digite a conduta exatamente como deseja utilizá-la..."></textarea><div class="conduct-actions"><button class="btn" id="saveConductTemplateBtn">Salvar conduta</button><button class="btn ghost" id="cancelConductTemplateBtn">Cancelar</button></div></div></div></div><textarea style="min-height:110px" placeholder="Selecione condutas ou digite/edite manualmente..."></textarea></div>
+<div class="field suggestions" data-key="orientacoes_alta"><label>Orientações para alta · IA</label><textarea></textarea></div><div class="field suggestions" data-key="sugestoes_perguntas"><label>Sugestões de perguntas não feitas · IA</label><textarea></textarea></div>
+</section></main><footer>NEXA Clinical · V3.3.13 — documentação assistida por IA · revisão profissional obrigatória.</footer>
+<nav id="nexaBottomNav" class="nexa-bottom-nav" aria-label="Navegação principal" style="display:none">
+  <button class="nexa-nav-item active" id="navClinicalBtn" type="button"><span class="nexa-nav-icon">⌂</span><span>Clínico</span></button>
+  <button class="nexa-nav-item" id="navAuditBtn" type="button" style="display:none"><span class="nexa-nav-icon">✓</span><span>Auditoria</span></button>
+  <button class="nexa-nav-item" id="navProtocolsBtn" type="button" style="display:none"><span class="nexa-nav-icon">Rx</span><span>Protocolos</span></button>
+  <button class="nexa-nav-item" id="navAdminBtn" type="button" style="display:none"><span class="nexa-nav-icon">⚙</span><span>Gestão</span></button>
+</nav></div>
+<script>
+'use strict';
+(async function(){
+const SUPABASE_URL='https://fmkrcieubrlltiggyauc.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
+const APP_CONFIG={appVersion:'3.3.13-protocol-library-review',aiGatewayPath:'/functions/v1/process-consultation',openAiUsagePath:'/functions/v1/openai-usage',clinicalAssistantPath:'/functions/v1/clinical-assistant',adminUsersPath:'/functions/v1/admin-users',submitAuditPath:'/functions/v1/submit-audit-case',clinicalPlanPath:'/functions/v1/clinical-plan',adminProtocolsPath:'/functions/v1/admin-protocols',cid10CatalogPath:'/functions/v1/cid10-catalog',maxStyleExamples:5};
+function $(id){return document.getElementById(id)}
+function setBanner(container,msg,error=false){container.replaceChildren();if(!msg)return;const d=document.createElement('div');d.className='banner'+(error?' error':'');d.textContent=msg;container.appendChild(d)}
+async function ensureSupabase(){if(window.supabase?.createClient)return;for(const src of ['https://unpkg.com/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js']){try{await new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});if(window.supabase?.createClient)return}catch(e){}}throw new Error('Não foi possível carregar a autenticação Supabase.')}
+try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);applyTheme(n)};
+let currentProf=null,authMode='signin',styleExamples=[],history=[],conductTemplates=[],activeHistoryId=null,lastProcessedMeta=null;
+const fieldKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica'],sideKeys=['orientacoes_alta','sugestoes_perguntas'],manualKeys=['exame_fisico','conduta'];
+const labels={queixa_principal:'QUEIXA PRINCIPAL',hda:'HISTÓRIA DA DOENÇA ATUAL',comorbidades:'COMORBIDADES',antecedentes:'ANTECEDENTES',medicacoes:'MEDICAÇÕES EM USO',alergias:'ALERGIAS',hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA',exame_fisico:'EXAME FÍSICO',conduta:'CONDUTAS'};
+function ta(k){return document.querySelector(`.field[data-key="${k}"] textarea`)}function mode(){return document.querySelector('input[name="caseMode"]:checked')?.value||'upper'}function applyCase(s){return mode()==='upper'?String(s||'').toUpperCase():String(s||'')}
+function norm(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+function esc(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;')}
+function normalizeHda(s){s=String(s||'').trim();if(!s)return s;s=s.replace(/\s*(?:Nega|Sem)\s+(?:outras|demais)\s+queixas\.?\s*$/i,'').trim();if(s&&!/[.!?]$/.test(s))s+='.';return s+' Sem demais queixas.'}function normalizeOutput(d){d={...(d||{})};if(d.hda)d.hda=normalizeHda(d.hda);return d}
+function saveState(k,t){$('saveState').className='save-state '+k;$('saveState').textContent=t}function show(msg,e=false){setBanner($('bannerArea'),msg,e)}
+function collect(){const o={};[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>o[k]=ta(k)?.value||'');o._include_hipotese=$('includeDiagnosis').checked;return o}
+function fill(d){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(!ta(k))return;ta(k).value=applyCase(d[k]||'');ta(k).closest('.field').classList.toggle('filled',!!d[k])});$('includeDiagnosis').checked=d._include_hipotese===true;updateWorkflow()}
+function clearFields(){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(ta(k)){ta(k).value='';ta(k).closest('.field').classList.remove('filled')}});$('includeDiagnosis').checked=false;updateWorkflow()}
+function updateWorkflow(){const h=!!ta('hda')?.value.trim(),e=!!ta('exame_fisico')?.value.trim();$('examPhysicalBlock').classList.toggle('ready',h);$('conductBlock').classList.toggle('ready',h||e)}document.querySelector('.panel-right').addEventListener('input',ev=>{if(ev.target instanceof HTMLTextAreaElement){saveState('unsaved','não salvo');updateWorkflow()}});
+function setAuthMode(m){authMode=m;const up=m==='signup';$('signInTab').classList.toggle('active',!up);$('signUpTab').classList.toggle('active',up);$('authName').style.display=up?'block':'none';$('authNameLabel').style.display=up?'block':'none';$('forgotPasswordBtn').style.display=up?'none':'block';$('authSubmitBtn').textContent=up?'Criar conta':'Entrar';setBanner($('loginBanner'),'')}$('signInTab').onclick=()=>setAuthMode('signin');$('signUpTab').onclick=()=>setAuthMode('signup');
+async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.rpc('get_my_capabilities');if(error)throw error;const p=Array.isArray(data)?data[0]:data;if(p)return{id:u.id,name:p.display_name||fallback,email:u.email||'',access_status:p.access_status||'pending',is_admin:!!p.is_admin,is_reviewer:!!p.is_reviewer,clinical_access:!!p.clinical_access};return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}catch(e){console.warn('Capacidades NEXA Core indisponíveis:',e);return{id:u.id,name:fallback,email:u.email||'',access_status:'active',is_admin:false,is_reviewer:false,clinical_access:true}}}
+async function enter(session){if(!session?.user)return;currentProf=await getProfile(session.user);if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
+async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};$('logoutBtn').onclick=async()=>{currentProf=null;await sb.auth.signOut()};$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_IN'&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){$('loginGate').style.display='flex';$('mainApp').style.display='none';$('nexaBottomNav').style.display='none';$('authPassword').value=''}});
+function item(container,title,preview,onopen,ondelete){const r=document.createElement('div');r.className='item';const b=document.createElement('div');b.style.cursor='pointer';const t=document.createElement('div');t.className='item-title';t.textContent=title;const p=document.createElement('div');p.className='item-preview';p.textContent=preview||'';b.append(t,p);if(onopen)b.onclick=onopen;r.appendChild(b);if(ondelete){const x=document.createElement('button');x.textContent='remover';x.onclick=e=>{e.stopPropagation();ondelete()};r.appendChild(x)}container.appendChild(r)}
+async function loadExamples(){
+  if(!currentProf)return;
+  try{
+    const {data,error}=await sb.from('style_examples').select('id,title,fields,created_at,updated_at,source_consultation_id,source_type,style_quality').eq('user_id',currentProf.id);
+    if(error)throw error;
+    styleExamples=(data||[]).map(r=>({id:r.id,title:r.title,created_at:r.created_at,updated_at:r.updated_at,source_consultation_id:r.source_consultation_id,source_type:r.source_type,style_quality:r.style_quality,...(r.fields||{})}))
+      .sort((a,b)=>new Date(a.updated_at||a.created_at||0)-new Date(b.updated_at||b.created_at||0));
+  }catch(e){console.warn('Falha ao carregar exemplos de escrita:',e);styleExamples=[]}
+  renderExamples();
+}
+const styleDeleteUnlock=new Map();
+async function removeStyleExampleLocked(ex,btn){
+  const now=Date.now(),until=styleDeleteUnlock.get(ex.id)||0;
+  if(now>until){
+    styleDeleteUnlock.set(ex.id,now+6000);
+    btn.textContent='⚠ Confirmar remoção';
+    btn.classList.add('danger');
+    setTimeout(()=>{
+      if((styleDeleteUnlock.get(ex.id)||0)<=Date.now()){
+        styleDeleteUnlock.delete(ex.id);
+        if(btn?.isConnected){btn.textContent='🔒 Remover';btn.classList.remove('danger')}
+      }
+    },6100);
+    return;
+  }
+  if(!confirm('Remover este exemplo de escrita? Esta ação não apaga a consulta original e não pode ser desfeita.'))return;
+  const {error}=await sb.from('style_examples').delete().eq('id',ex.id).eq('user_id',currentProf.id);
+  if(error)return show('Não foi possível remover o exemplo.',true);
+  styleDeleteUnlock.delete(ex.id);
+  styleExamples=styleExamples.filter(x=>x.id!==ex.id);
+  renderExamples();
+  show('Exemplo de escrita removido.');
+}
+function renderExamples(){
+  $('exampleCount').textContent=`${styleExamples.length} salvos ${$('styleBody').classList.contains('open')?'▾':'▸'}`;
+  $('exampleList').replaceChildren();
+  if(!styleExamples.length){$('exampleList').innerHTML='<div class="empty">Nenhum exemplo salvo.</div>';return}
+  [...styleExamples].slice(-12).reverse().forEach(ex=>{
+    const r=document.createElement('div');r.className='item';
+    const b=document.createElement('div');b.style.cursor='pointer';b.style.flex='1';
+    const t=document.createElement('div');t.className='item-title';t.textContent=ex.title||'Exemplo revisado';
+    const p=document.createElement('div');p.className='item-preview';p.textContent=ex.hda||ex.queixa_principal||'';
+    const meta=document.createElement('div');meta.className='hint';meta.style.marginTop='3px';
+    meta.textContent=ex.source_type==='consultation_review'?'Gerado automaticamente após Salvar revisão':'Exemplo adicionado manualmente';
+    b.append(t,p,meta);b.onclick=()=>fill(ex);
+    const x=document.createElement('button');x.className='btn ghost';x.style.width='auto';x.textContent='🔒 Remover';
+    x.onclick=e=>{e.stopPropagation();removeStyleExampleLocked(ex,x)};
+    r.append(b,x);$('exampleList').append(r);
+  });
+}
+$('styleHead').onclick=()=>{$('styleBody').classList.toggle('open');renderExamples()};
+$('addExampleBtn').onclick=()=>{$('exampleForm').style.display=$('exampleForm').style.display==='none'?'block':'none'};
+$('cancelExampleBtn').onclick=()=>{$('exampleForm').style.display='none'};
+$('saveExampleBtn').onclick=async()=>{
+  const fields={};fieldKeys.forEach(k=>fields[k]=$('ex_'+k).value.trim());
+  if(!Object.values(fields).some(Boolean))return show('Preencha ao menos um campo do exemplo.',true);
+  const id=crypto.randomUUID(),title=$('exTitle').value.trim(),now=new Date().toISOString();
+  const {error}=await sb.from('style_examples').insert({id,user_id:currentProf.id,title:title||null,fields,source_type:'manual',style_quality:'neutral',updated_at:now});
+  if(error)return show('Não foi possível salvar o exemplo.',true);
+  await loadExamples();$('exampleForm').style.display='none';show('Exemplo salvo.');
+};
+async function syncReviewToStyleExample(historyId,fields,now){
+  if(!currentProf||!historyId)return;
+  const styleFields={};fieldKeys.forEach(k=>styleFields[k]=String(fields?.[k]||'').trim());
+  if(!Object.values(styleFields).some(Boolean))return;
+  const title=`Revisão · ${new Date(now).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
+  const {data:existing,error:findError}=await sb.from('style_examples').select('id').eq('user_id',currentProf.id).eq('source_consultation_id',historyId).maybeSingle();
+  if(findError)throw findError;
+  if(existing?.id){
+    const {error}=await sb.from('style_examples').update({title,fields:styleFields,source_type:'consultation_review',style_quality:'approved',updated_at:now}).eq('id',existing.id).eq('user_id',currentProf.id);
+    if(error)throw error;
+  }else{
+    const {error}=await sb.from('style_examples').insert({id:crypto.randomUUID(),user_id:currentProf.id,title,fields:styleFields,source_consultation_id:historyId,source_type:'consultation_review',style_quality:'approved',updated_at:now});
+    if(error)throw error;
+  }
+  await loadExamples();
+}
+async function loadHistory(){
+  if(!currentProf)return;
+  try{
+    const cutoff=new Date(Date.now()-7*24*60*60*1000).toISOString();
+    const {data,error}=await sb.from('consultation_history').select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').eq('user_id',currentProf.id).gte('created_at',cutoff).order('created_at',{ascending:false});
+    if(error)throw error;history=data||[];
+  }catch(e){console.warn('Falha ao carregar histórico recente:',e);history=[]}
+  renderHistory();
+}
+function renderHistory(){
+  $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
+  $('historyList').replaceChildren();
+  if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
+  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+}
+$('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
+$('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
+async function saveHistory(){
+  if(!currentProf)return show('Sessão expirada.',true);
+  const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para salvar.',true);
+  saveState('unsaved','salvando…');const now=new Date().toISOString();
+  try{
+    if(activeHistoryId){
+      const {data,error}=await sb.from('consultation_history').update({fields,updated_at:now,status:'draft',processing_meta:lastProcessedMeta||{}}).eq('id',activeHistoryId).eq('user_id',currentProf.id).select().single();
+      if(error)throw error;const i=history.findIndex(x=>x.id===activeHistoryId);if(i>=0)history[i]=data;
+    }else{
+      const id=crypto.randomUUID();
+      const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||now,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
+      if(error)throw error;activeHistoryId=data.id;history.unshift(data);
+    }
+    await syncReviewToStyleExample(activeHistoryId,fields,now);
+    saveState('saved','salvo');renderHistory();show('Revisão salva. A versão final também foi adicionada/atualizada nos exemplos de escrita.');
+  }catch(e){console.error(e);saveState('error','erro ao salvar');show('Falha ao salvar revisão ou atualizar exemplo de escrita.',true)}
+}
+$('updateHistoryBtn').onclick=saveHistory;
+
+async function sessionHeaders(){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');return{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'}}
+function prettyFields(obj){return Object.entries(obj||{}).filter(([,v])=>String(v||'').trim()).map(([k,v])=>`${labels[k]||k.toUpperCase()}:\n${v}`).join('\n\n')}
+async function submitCurrentForAudit(){
+  if(!currentProf?.clinical_access)return show('Seu perfil não possui acesso clínico.',true);
+  const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para enviar à auditoria.',true);if(hypothesisReview.ai)fields.hipotese_ia_original=hypothesisReview.ai;if(hypothesisReview.final)fields.hipotese_medico_final=hypothesisReview.final;if(hypothesisReview.cid)fields.cid_medico_final=hypothesisReview.cid;fields.status_validacao_hipotese=hypothesisReview.status;
+  if(!activeHistoryId){await saveHistory();if(!activeHistoryId)return;}
+  if(!confirm('Enviar esta consulta para desidentificação e auditoria do NEXA Core? O caso será separado da sua identificação antes de aparecer ao revisor.'))return;
+  const btn=$('submitAuditBtn');btn.disabled=true;btn.textContent='Enviando…';
+  try{const r=await fetch(SUPABASE_URL+APP_CONFIG.submitAuditPath,{method:'POST',headers:await sessionHeaders(),body:JSON.stringify({source_consultation_id:activeHistoryId,fields})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error==='ALREADY_SUBMITTED'?'Esta consulta já foi enviada para auditoria.':d.error||'Falha ao enviar para auditoria.');show('Consulta desidentificada e enviada para a fila de auditoria do NEXA Core.');}
+  catch(e){show(e.message,true)}finally{btn.disabled=false;btn.textContent='Enviar p/ auditoria'}
+}
+$('submitAuditBtn').onclick=submitCurrentForAudit;
+
+async function adminApi(body){const r=await fetch(SUPABASE_URL+APP_CONFIG.adminUsersPath,{method:'POST',headers:await sessionHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Falha administrativa.');return d}
+async function loadCoreUsers(){
+  if(!currentProf?.is_admin)return;
+  $('coreUsersBody').innerHTML='<div class="hint">Carregando…</div>';
+  try{const d=await adminApi({action:'list'});$('coreUsersBody').replaceChildren();for(const u of d.users||[]){const row=document.createElement('div');row.className='core-user';const head=document.createElement('div');head.className='core-user-head';const info=document.createElement('div');info.innerHTML=`<strong>${u.display_name||u.email||'Usuário'}</strong><div class="core-meta">${u.email||''}</div>`;const actions=document.createElement('div');actions.className='conduct-actions';const active=u.access_status==='active';const clinical=!!u.clinical_access;const reviewer=!!u.is_reviewer;const admin=!!u.is_admin;const toggle=document.createElement('button');toggle.className='btn ghost';toggle.style.width='auto';toggle.textContent=active?'Desativar':'Ativar';toggle.onclick=async()=>{if(!confirm(`${active?'Desativar':'Ativar'} o acesso de ${u.display_name||u.email}?`))return;try{await sb.rpc('admin_manage_profile',{target_user:u.id,new_access_status:active?'disabled':'active',new_clinical_access:active?false:clinical,new_is_admin:admin,new_is_reviewer:reviewer});await refreshCoreAdmin()}catch(e){alert(e.message)}};const clin=document.createElement('button');clin.className='btn ghost';clin.style.width='auto';clin.textContent=clinical?'Retirar clínica':'Dar clínica';clin.onclick=async()=>{try{await sb.rpc('admin_manage_profile',{target_user:u.id,new_access_status:'active',new_clinical_access:!clinical,new_is_admin:admin,new_is_reviewer:reviewer});await refreshCoreAdmin()}catch(e){alert(String(e.message).includes('CLINICAL_SLOT_LIMIT_REACHED')?'As 5 vagas clínicas estão ocupadas.':e.message)}};const rev=document.createElement('button');rev.className='btn ghost';rev.style.width='auto';rev.textContent=reviewer?'Retirar revisor':'Tornar revisor';rev.onclick=async()=>{try{await sb.rpc('admin_manage_profile',{target_user:u.id,new_access_status:'active',new_clinical_access:clinical,new_is_admin:admin,new_is_reviewer:!reviewer});await refreshCoreAdmin()}catch(e){alert(e.message)}};actions.append(toggle,clin,rev);head.append(info,actions);const pills=document.createElement('div');pills.className='core-pills';pills.innerHTML=`<span class="core-pill">${u.access_status||'pending'}</span>${clinical?'<span class="core-pill">clínico</span>':''}${reviewer?'<span class="core-pill">revisor</span>':''}${admin?'<span class="core-pill">admin</span>':''}`;row.append(head,pills);$('coreUsersBody').append(row)}if(!(d.users||[]).length)$('coreUsersBody').innerHTML='<div class="empty">Nenhum usuário.</div>'}
+  catch(e){$('coreUsersBody').innerHTML=`<div class="banner error">${e.message}</div>`}
+}
+async function loadCoreSlots(){if(!currentProf?.is_admin)return;try{const {data,error}=await sb.rpc('get_admin_slot_summary');if(error)throw error;$('coreSlotsBody').innerHTML=(data||[]).map(x=>`Vaga ${x.slot_no}: ${x.display_name||'livre'}`).join('<br>')}catch(e){$('coreSlotsBody').textContent=e.message}}
+async function loadAuditQueue(){
+  if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;
+  $('coreAuditBody').innerHTML='<div class="hint">Carregando…</div>';
+  try{
+    const {data,error}=await sb.rpc('get_audit_queue',{queue_status:null});
+    if(error)throw error;
+    $('coreAuditBody').replaceChildren();
+    const rows=[...(data||[])].reverse();
+    for(const c of rows){
+      const row=document.createElement('div');row.className='core-audit-case';
+      const head=document.createElement('div');head.className='core-audit-head';
+      const statusLabel=c.status==='approved'?'correta':c.status==='corrected'?'corrigida':c.status==='discarded'?'descartada':'pendente';
+      head.innerHTML=`<div><strong>Caso ${String(c.id).slice(0,8)}</strong><div class="core-meta">Recebido ${new Date(c.submitted_at).toLocaleString('pt-BR')}${c.reviewed_at?` · Revisado ${new Date(c.reviewed_at).toLocaleString('pt-BR')}`:''}</div></div><span class="core-pill">${statusLabel}</span>`;
+      const original=document.createElement('div');original.className='core-audit-fields';original.textContent=prettyFields(c.deidentified_fields);
+      row.append(head,original);
+      if(c.status==='pending'){
+        const edit=document.createElement('textarea');edit.className='core-audit-edit';edit.value=JSON.stringify(c.deidentified_fields,null,2);
+        const note=document.createElement('textarea');note.placeholder='Observação da auditoria (opcional)';note.style.minHeight='60px';
+        const acts=document.createElement('div');acts.className='conduct-actions';
+        const decide=async(decision)=>{
+          let corrected=null;
+          if(decision==='corrected'){try{corrected=JSON.parse(edit.value)}catch(e){return alert('O conteúdo corrigido precisa permanecer em JSON válido.')}}
+          if(!confirm(`Confirmar auditoria como ${decision==='approved'?'CORRETA':decision==='corrected'?'CORRIGIDA':'DESCARTADA'}?`))return;
+          const {error}=await sb.rpc('submit_audit_review',{case_id:c.id,decision,corrected_fields:corrected,note:note.value.trim()||null});
+          if(error)return alert(error.message);await loadAuditQueue()
+        };
+        [['Correta','approved'],['Salvar corrigida','corrected'],['Descartar','discarded']].forEach(([txt,val])=>{
+          const b=document.createElement('button');b.className=val==='discarded'?'btn danger':'btn ghost';b.style.width='auto';b.textContent=txt;b.onclick=()=>decide(val);acts.append(b)
+        });
+        row.append(edit,note,acts);
+      }else{
+        if(c.reviewed_fields){
+          const finalBox=document.createElement('div');finalBox.className='core-audit-fields';
+          finalBox.textContent='VERSÃO FINAL DA AUDITORIA:\n\n'+prettyFields(c.reviewed_fields);
+          row.append(finalBox);
+        }
+        if(c.review_note){
+          const noteBox=document.createElement('div');noteBox.className='learning';noteBox.textContent='Observação: '+c.review_note;row.append(noteBox);
+        }
+      }
+      $('coreAuditBody').append(row);
+    }
+    if(!rows.length)$('coreAuditBody').innerHTML='<div class="empty"><strong>Nenhum caso em auditoria.</strong><br>Casos enviados permanecem neste bloco mesmo depois de saírem do histórico clínico de 7 dias.</div>';
+  }catch(e){
+    $('coreAuditBody').innerHTML=`<div class="banner error"><strong>Auditoria indisponível.</strong><br>${e.message}<br><small>Verifique se as RPCs get_audit_queue e submit_audit_review da migration NEXA Core estão ativas.</small></div>`
+  }
+}
+async function refreshCoreAdmin(){await Promise.all([loadCoreUsers(),loadCoreSlots(),loadAuditQueue(),loadProtocolsAdmin()])}
+
+let protocolAdminItems=[],protocolAdminCurrent=null,protocolAdminVersion=null;
+let protocolRxItems=[],protocolRxEditIndex=-1,cidSearchTimer=null;
+async function cid10Api(payload){const {data:s}=await sb.auth.getSession();const token=s?.session?.access_token;if(!token)throw new Error('Sessão inválida.');const r=await fetch(`${SUPABASE_URL}${APP_CONFIG.cid10CatalogPath}`,{method:'POST',headers:{Authorization:`Bearer ${token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Falha no catálogo CID-10.');return d}
+function fillCidDatalist(id,items){const dl=$(id);if(!dl)return;dl.replaceChildren();for(const x of items||[]){const o=document.createElement('option');o.value=x.code;o.label=`${x.code} — ${x.description}`;dl.appendChild(o)}}
+async function searchCidFor(inputId,listId,hintId){const q=$(inputId)?.value?.trim()||'';const last=q.split(',').pop().trim();if(last.length<2)return;try{const d=await cid10Api({action:'search',q:last,limit:20});fillCidDatalist(listId,d.items||[]);if(hintId&&$(hintId)){const exact=(d.items||[]).find(x=>x.code.toUpperCase()===last.toUpperCase());$(hintId).textContent=exact?`${exact.code} — ${exact.description}`:(d.items||[]).length?'Selecione uma opção válida do catálogo CID-10.':'Nenhum CID encontrado.'}}catch(e){if(hintId&&$(hintId))$(hintId).textContent=e.message}}
+function bindCidSearch(inputId,listId,hintId){const el=$(inputId);if(!el)return;el.addEventListener('input',()=>{clearTimeout(cidSearchTimer);cidSearchTimer=setTimeout(()=>searchCidFor(inputId,listId,hintId),220)})}
+bindCidSearch('physicianCid','physicianCidOptions','physicianCidHint');bindCidSearch('pAdminCid','protocolCidOptions');
+function resetProtocolRxEditor(){protocolRxEditIndex=-1;['pRxName','pRxPresentation','pRxQty','pRxCategory','pRxGroup','pRxHow'].forEach(id=>{if($(id))$(id).value=''});if($('pRxRoute'))$('pRxRoute').value='oral';if($('pRxMode'))$('pRxMode').value='multi';if($('pRxEditor'))$('pRxEditor').style.display='none'}
+function renderProtocolRxItems(){const host=$('pRxItemsList');if(!host)return;host.replaceChildren();if(!protocolRxItems.length){host.innerHTML='<div class="hint">Nenhum item estruturado. O texto legado continuará disponível como fallback.</div>';return}protocolRxItems.forEach((m,i)=>{const d=document.createElement('div');d.className='protocol-version-box';d.innerHTML=`<div class="toggle-row" style="justify-content:space-between"><div><strong>${i+1}. ${esc([m.principio_ativo,m.apresentacao].filter(Boolean).join(' '))}</strong><div class="protocol-small">${esc([routeLabel(m.via),m.quantidade_total,m.categoria,m.modo_selecao].filter(Boolean).join(' · '))}</div><div style="font-size:10px;margin-top:4px">${esc(m.manual_text||m.posologia||'')}</div></div><div class="rx-order"><button class="rx-mini" type="button" data-prx-up="${i}">↑</button><button class="rx-mini" type="button" data-prx-down="${i}">↓</button><button class="rx-mini" type="button" data-prx-edit="${i}">✎</button><button class="rx-mini" type="button" data-prx-del="${i}">×</button></div></div>`;host.appendChild(d)});host.querySelectorAll('[data-prx-edit]').forEach(b=>b.onclick=()=>openProtocolRxItem(+b.dataset.prxEdit));host.querySelectorAll('[data-prx-del]').forEach(b=>b.onclick=()=>{protocolRxItems.splice(+b.dataset.prxDel,1);renderProtocolRxItems()});host.querySelectorAll('[data-prx-up]').forEach(b=>b.onclick=()=>moveProtocolRx(+b.dataset.prxUp,-1));host.querySelectorAll('[data-prx-down]').forEach(b=>b.onclick=()=>moveProtocolRx(+b.dataset.prxDown,1))}
+function moveProtocolRx(i,d){const j=i+d;if(j<0||j>=protocolRxItems.length)return;[protocolRxItems[i],protocolRxItems[j]]=[protocolRxItems[j],protocolRxItems[i]];renderProtocolRxItems()}
+function openProtocolRxItem(i=-1){protocolRxEditIndex=i;const m=i>=0?protocolRxItems[i]:{};$('pRxName').value=m.principio_ativo||'';$('pRxPresentation').value=m.apresentacao||'';$('pRxQty').value=m.quantidade_total||'';$('pRxRoute').value=m.via||'oral';$('pRxCategory').value=m.categoria||'';$('pRxGroup').value=m.grupo_selecao||'';$('pRxMode').value=m.modo_selecao||'multi';$('pRxHow').value=m.manual_text||m.posologia||'';$('pRxEditor').style.display='block';$('pRxName').focus()}
+$('pRxAddBtn').onclick=()=>openProtocolRxItem(-1);$('pRxCancelItemBtn').onclick=resetProtocolRxEditor;$('pRxSaveItemBtn').onclick=()=>{const name=$('pRxName').value.trim(),how=$('pRxHow').value.trim();if(!name)return $('protocolAdminStatus').textContent='Informe o nome do medicamento.';if(!how)return $('protocolAdminStatus').textContent='Informe a posologia / como usar.';const m={principio_ativo:name,apresentacao:$('pRxPresentation').value.trim(),quantidade_total:$('pRxQty').value.trim(),via:$('pRxRoute').value,categoria:$('pRxCategory').value.trim()||'Tratamento',grupo_selecao:$('pRxGroup').value.trim(),modo_selecao:$('pRxMode').value,manual_text:how,posologia:how,sugerido:true};if(protocolRxEditIndex>=0)protocolRxItems[protocolRxEditIndex]=m;else protocolRxItems.push(m);resetProtocolRxEditor();renderProtocolRxItems()};
+$('syncCid10Btn').onclick=async()=>{if(!confirm('Sincronizar o catálogo completo da CID-10 brasileira no NEXA Core?'))return;const b=$('syncCid10Btn');b.disabled=true;b.textContent='Sincronizando…';try{const d=await cid10Api({action:'sync'});show(`CID-10 sincronizada: ${d.saved||0} códigos carregados.`)}catch(e){show(e.message,true)}finally{b.disabled=false;b.textContent='Sincronizar CID-10'}};
+
+async function protocolAdminApi(payload){const {data:s}=await sb.auth.getSession();const token=s?.session?.access_token;if(!token)throw new Error('Sessão inválida.');const r=await fetch(`${SUPABASE_URL}${APP_CONFIG.adminProtocolsPath}`,{method:'POST',headers:{Authorization:`Bearer ${token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Falha no banco de protocolos.');return d}
+function setProtocolEditorVisible(v){$('protocolEditorEmpty').style.display=v?'none':'block';$('protocolEditorForm').style.display=v?'block':'none'}
+function protocolBadge(txt){return `<span class="core-pill">${txt}</span>`}
+function protocolFriendlyState(p){if(p.latest_status==='review')return['Em revisão','review'];if(p.latest_status==='draft')return['Rascunho','draft'];if(p.active_version_no)return['Publicado','approved'];return['Sem publicação','']}
+function renderProtocolAdminList(){const q=norm($('protocolAdminSearch').value||'');const filter=$('protocolStatusFilter')?.value||'all';$('protocolAdminList').replaceChildren();let items=protocolAdminItems.filter(p=>{const searchable=norm([p.title,(p.cid10||[]).join(' ')].join(' '));if(q&&!searchable.includes(q))return false;if(filter==='pending'&&!['draft','review'].includes(p.latest_status))return false;if(filter==='approved'&&!p.active_version_no)return false;if(filter==='unpublished'&&p.active_version_no)return false;return true});items=[...items].sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'pt-BR',{sensitivity:'base'}));if($('protocolListSummary'))$('protocolListSummary').textContent=`${items.length} de ${protocolAdminItems.length} patologias`;for(const p of items){const row=document.createElement('div');row.className='protocol-row'+(protocolAdminCurrent?.id===p.id?' active':'');const [label,cls]=protocolFriendlyState(p),cid=(p.cid10||[]).join(', ');row.innerHTML=`<div class="protocol-row-title">${esc(p.title||'Sem título')}</div><div class="protocol-row-meta">${cid?`<span class="protocol-cid">${esc(cid)}</span>`:'<span class="protocol-state">CID pendente</span>'}<span class="protocol-state ${cls}">${esc(label)}</span></div>`;row.onclick=()=>openProtocolAdmin(p.id);$('protocolAdminList').append(row)}if(!items.length)$('protocolAdminList').innerHTML='<div class="empty">Nenhuma patologia encontrada.</div>'}
+async function loadProtocolsAdmin(){if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;$('protocolAdminList').innerHTML='<div class="hint">Carregando…</div>';try{const d=await protocolAdminApi({action:'list'});protocolAdminItems=d.protocols||[];renderProtocolAdminList();if(protocolAdminCurrent?.id&&protocolAdminItems.some(x=>x.id===protocolAdminCurrent.id))await openProtocolAdmin(protocolAdminCurrent.id)}catch(e){$('protocolAdminList').innerHTML=`<div class="banner error">${e.message}</div>`}}
+function fillProtocolEditor(d){const versions=Array.isArray(d.versions)?d.versions:[];const editable=d.editable_version||versions.find(x=>['draft','review'].includes(x?.status))||null;const active=d.active_version||versions.find(x=>x?.id===d.protocol?.active_version_id)||versions.find(x=>x?.status==='approved')||null;protocolAdminCurrent=d.protocol;protocolAdminVersion=editable||active||null;setProtocolEditorVisible(true);$('protocolEditorTitle').textContent=d.protocol.title||'Protocolo';const v=protocolAdminVersion||{};protocolRxItems=Array.isArray(v.prescription_items)?JSON.parse(JSON.stringify(v.prescription_items)):[];const meta=[];if((d.protocol.cid10||[]).length)meta.push(`<span class="protocol-state">${esc((d.protocol.cid10||[]).join(', '))}</span>`);if(editable)meta.push(`<span class="protocol-state ${editable.status==='review'?'review':'draft'}">${editable.status==='review'?'Em revisão':'Rascunho'} v${editable.version_no}</span>`);if(active)meta.push(`<span class="protocol-state approved">Publicado v${active.version_no}</span>`);meta.push(`<span class="protocol-state">${protocolRxItems.length} medicamento${protocolRxItems.length===1?'':'s'}</span>`);$('protocolEditorMeta').innerHTML=meta.join('');$('pAdminTitle').value=d.protocol.title||'';$('pAdminKey').value=d.protocol.diagnosis_key||'';$('pAdminCid').value=(d.protocol.cid10||[]).join(', ');$('pAdminTerms').value=(d.protocol.match_terms||[]).join(', ');resetProtocolRxEditor();renderProtocolRxItems();$('pAdminScope').value=v.clinical_scope||'';$('pAdminSource').value=v.source_label||'';$('pAdminPage').value=v.source_page||'';$('pAdminChange').value='';$('pAdminPrescription').value=v.prescription_text||'';$('pAdminGuidance').value=v.guidance_text||'';$('pAdminCriteria').value=v.criteria_text||'';$('pAdminContra').value=v.contraindications_text||'';$('pAdminRequired').value=v.required_data_text||'';$('protocolVersionStatus').innerHTML=(active?protocolBadge('PUBLICADA v'+active.version_no):protocolBadge('SEM PUBLICAÇÃO'))+(editable?protocolBadge(String(editable.status||'draft').toUpperCase()+' v'+editable.version_no):'');$('submitProtocolReviewBtn').disabled=!editable||editable.status!=='draft';$('publishProtocolBtn').disabled=!editable||!['draft','review'].includes(editable.status);$('protocolAdminStatus').textContent=editable?'Você está revisando uma versão não publicada. A versão ativa continua disponível até a publicação.':'Ao salvar, será criada uma nova versão em rascunho.';$('protocolVersions').innerHTML=(versions.map(x=>`<div class="protocol-version-box"><strong>v${x.version_no} · ${x.status==='approved'?'publicada':x.status==='review'?'em revisão':x.status==='draft'?'rascunho':x.status}</strong><div class="protocol-small">${x.published_at?'Publicada '+new Date(x.published_at).toLocaleString('pt-BR'):x.created_at?new Date(x.created_at).toLocaleString('pt-BR'):''}${x.change_note?' · '+esc(x.change_note):''}</div></div>`).join('')||'<div class="hint">Nenhuma versão.</div>');renderProtocolAdminList()}
+async function openProtocolAdmin(id){try{const d=await protocolAdminApi({action:'get',protocol_id:id});fillProtocolEditor(d)}catch(e){alert(e.message)}}
+function protocolFormPayload(){return {protocol_id:protocolAdminCurrent?.id||null,title:$('pAdminTitle').value.trim(),diagnosis_key:$('pAdminKey').value.trim(),cid10:$('pAdminCid').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean),match_terms:$('pAdminTerms').value.split(',').map(x=>x.trim()).filter(Boolean),clinical_scope:$('pAdminScope').value.trim(),source_label:$('pAdminSource').value.trim(),source_page:$('pAdminPage').value.trim(),change_note:$('pAdminChange').value.trim(),prescription_text:$('pAdminPrescription').value.trim(),prescription_items:protocolRxItems,guidance_text:$('pAdminGuidance').value.trim(),criteria_text:$('pAdminCriteria').value.trim(),contraindications_text:$('pAdminContra').value.trim(),required_data_text:$('pAdminRequired').value.trim()}}
+$('newProtocolBtn').onclick=()=>{protocolAdminCurrent=null;protocolAdminVersion=null;setProtocolEditorVisible(true);$('protocolEditorTitle').textContent='Novo protocolo';$('protocolEditorMeta').textContent='Será criado como rascunho';['pAdminTitle','pAdminKey','pAdminCid','pAdminTerms','pAdminScope','pAdminSource','pAdminPage','pAdminChange','pAdminPrescription','pAdminGuidance','pAdminCriteria','pAdminContra','pAdminRequired'].forEach(id=>$(id).value='');protocolRxItems=[];resetProtocolRxEditor();renderProtocolRxItems();$('protocolVersionStatus').innerHTML=protocolBadge('NOVO RASCUNHO');$('submitProtocolReviewBtn').disabled=true;$('publishProtocolBtn').disabled=true;$('protocolVersions').innerHTML='';renderProtocolAdminList()};
+$('refreshProtocolsBtn').onclick=loadProtocolsAdmin;$('protocolAdminSearch').oninput=renderProtocolAdminList;if($('protocolStatusFilter'))$('protocolStatusFilter').onchange=renderProtocolAdminList;
+$('saveProtocolDraftBtn').onclick=async()=>{const p=protocolFormPayload();if(p.title.length<2||!p.diagnosis_key)return $('protocolAdminStatus').textContent='Informe título e chave diagnóstica.';if(!p.change_note)return $('protocolAdminStatus').textContent='Informe o motivo da alteração.';try{$('protocolAdminStatus').textContent='Salvando rascunho…';const d=await protocolAdminApi({action:'save_draft',...p});await loadProtocolsAdmin();await openProtocolAdmin(d.protocol_id);$('protocolAdminStatus').textContent='Rascunho salvo. A versão publicada não foi alterada.'}catch(e){$('protocolAdminStatus').textContent=e.message}};
+$('submitProtocolReviewBtn').onclick=async()=>{if(!protocolAdminCurrent||!protocolAdminVersion)return;try{await protocolAdminApi({action:'submit_review',protocol_id:protocolAdminCurrent.id,version_id:protocolAdminVersion.id});await openProtocolAdmin(protocolAdminCurrent.id)}catch(e){alert(e.message)}};
+$('publishProtocolBtn').onclick=async()=>{if(!protocolAdminCurrent||!protocolAdminVersion)return;if(!confirm(`Aprovar e publicar a versão v${protocolAdminVersion.version_no}? Ela passará a ser usada imediatamente por todos os usuários.`))return;try{await protocolAdminApi({action:'publish',protocol_id:protocolAdminCurrent.id,version_id:protocolAdminVersion.id});await loadProtocolsAdmin();await openProtocolAdmin(protocolAdminCurrent.id);$('protocolAdminStatus').textContent='Versão publicada. Novas gerações já usarão este conteúdo.'}catch(e){alert(e.message)}};
+function setNexaNavActive(id){document.querySelectorAll('.nexa-nav-item').forEach(x=>x.classList.toggle('active',x.id===id))}
+async function openCorePane(pane){
+  if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;
+  const modal=$('coreAdminModal');modal.classList.add('open','core-nav-view');
+  document.querySelectorAll('#coreAdminModal .pane').forEach(x=>x.classList.remove('active'));
+  const target=$(pane);if(target)target.classList.add('active');
+  const titles={coreAuditPane:['Auditoria clínica','Revisão de casos desidentificados enviados ao NEXA Core.'],coreProtocolsPane:['Protocolos / Prescrições','Banco central versionado; somente versões publicadas são usadas pelos médicos.'],coreUsersPane:['Gestão de usuários','Acessos, vagas clínicas e permissões do NEXA.']};
+  const meta=titles[pane]||['NEXA Core','Administração clínica e governança.'];$('coreModalTitle').textContent=meta[0];$('coreModalSubtitle').textContent=meta[1];
+  if(pane==='coreAuditPane'){setNexaNavActive('navAuditBtn');await loadAuditQueue()}
+  else if(pane==='coreProtocolsPane'){setNexaNavActive('navProtocolsBtn');await loadProtocolsAdmin()}
+  else {setNexaNavActive('navAdminBtn');await Promise.all([loadCoreUsers(),loadCoreSlots()])}
+}
+$('navClinicalBtn').onclick=()=>{setNexaNavActive('navClinicalBtn');$('coreAdminModal').classList.remove('open');if(currentProf?.clinical_access)document.querySelector('main').style.display='grid'};
+$('navAuditBtn').onclick=()=>openCorePane('coreAuditPane');
+$('navProtocolsBtn').onclick=()=>openCorePane('coreProtocolsPane');
+$('navAdminBtn').onclick=()=>openCorePane('coreUsersPane');
+$('coreAdminBtn').onclick=()=>openCorePane(currentProf?.is_admin?'coreUsersPane':'coreAuditPane');
+$('closeCoreAdminBtn').onclick=()=>{$('coreAdminModal').classList.remove('open');setNexaNavActive('navClinicalBtn')};
+$('coreRefreshAuditBtn').onclick=loadAuditQueue;
+document.querySelectorAll('.core-tab').forEach(b=>b.onclick=()=>openCorePane(b.dataset.corePane));
+$('coreInviteBtn').onclick=async()=>{const name=$('coreInviteName').value.trim(),email=$('coreInviteEmail').value.trim();if(name.length<2||!email.includes('@'))return $('coreInviteStatus').textContent='Informe nome e e-mail válidos.';if(!confirm(`Convidar ${name} (${email}) e ocupar uma vaga clínica?`))return;const btn=$('coreInviteBtn');btn.disabled=true;$('coreInviteStatus').textContent='Enviando convite…';try{await adminApi({action:'invite',display_name:name,email});$('coreInviteName').value='';$('coreInviteEmail').value='';$('coreInviteStatus').textContent='Convite enviado e acesso clínico ativado.';await refreshCoreAdmin()}catch(e){$('coreInviteStatus').textContent=String(e.message).includes('CLINICAL_SLOT_LIMIT_REACHED')?'As 5 vagas clínicas já estão ocupadas.':e.message}finally{btn.disabled=false}};
+
+
+
+const LEGACY_CONDUCT_LOCAL_KEY='nexa-v33-conducts-local-v1';
+const CONDUCT_ORDER_LOCAL_KEY='nexa-v33-conduct-order-v1';
+let conductSyncInterval=null;
+let selectedConductOrder=[];
+let draggedConductRow=null;
+
+function conductOrderStorageKey(){
+  return `${CONDUCT_ORDER_LOCAL_KEY}:${currentProf?.id||'anonymous'}`;
+}
+function readSavedConductOrder(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(conductOrderStorageKey())||'[]');
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){return[]}
+}
+function applySavedConductOrder(list){
+  const saved=readSavedConductOrder();
+  if(!saved.length)return list;
+  const rank=new Map(saved.map((id,index)=>[id,index]));
+  return [...list].sort((a,b)=>{
+    const ai=rank.has(a.id)?rank.get(a.id):Number.MAX_SAFE_INTEGER;
+    const bi=rank.has(b.id)?rank.get(b.id):Number.MAX_SAFE_INTEGER;
+    if(ai!==bi)return ai-bi;
+    return new Date(b.updated_at||b.created_at||0)-new Date(a.updated_at||a.created_at||0);
+  });
+}
+function persistConductOrder(){
+  if(!currentProf)return;
+  try{
+    localStorage.setItem(conductOrderStorageKey(),JSON.stringify(conductTemplates.map(x=>x.id)));
+  }catch(e){console.warn('Não foi possível salvar a ordem das condutas:',e)}
+}
+function syncConductTemplatesFromDom(){
+  const ids=[...document.querySelectorAll('#conductList .conduct-item[data-id]')].map(el=>el.dataset.id);
+  const byId=new Map(conductTemplates.map(x=>[x.id,x]));
+  conductTemplates=ids.map(id=>byId.get(id)).filter(Boolean);
+  persistConductOrder();
+}
+function clearDragMarkers(){
+  document.querySelectorAll('#conductList .conduct-item').forEach(el=>el.classList.remove('dragging','drag-over'));
+}
+function startConductDrag(row,clientY){
+  draggedConductRow=row;
+  row.classList.add('dragging');
+  moveConductDrag(clientY);
+}
+function moveConductDrag(clientY){
+  if(!draggedConductRow)return;
+  const list=$('conductList');
+  const target=document.elementFromPoint(Math.max(0,Math.min(window.innerWidth-1,draggedConductRow.getBoundingClientRect().left+20)),clientY)?.closest?.('.conduct-item[data-id]');
+  document.querySelectorAll('#conductList .conduct-item.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  if(!target||target===draggedConductRow||target.parentElement!==list)return;
+  target.classList.add('drag-over');
+  const rect=target.getBoundingClientRect();
+  const before=clientY < rect.top+rect.height/2;
+  list.insertBefore(draggedConductRow,before?target:target.nextSibling);
+}
+function endConductDrag(){
+  if(!draggedConductRow)return;
+  syncConductTemplatesFromDom();
+  clearDragMarkers();
+  draggedConductRow=null;
+  updateConductOrderBadges();
+}
+
+function normalizedConductContent(value){
+  return String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');
+}
+function readLegacyLocalConducts(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(LEGACY_CONDUCT_LOCAL_KEY)||'[]');
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){return[]}
+}
+async function migrateLegacyConducts(){
+  if(!currentProf)return;
+  const local=readLegacyLocalConducts();
+  if(!local.length)return;
+  try{
+    const {data:remote,error}=await sb.from('conduct_templates').select('id,content').eq('user_id',currentProf.id);
+    if(error)throw error;
+    const existing=new Set((remote||[]).map(x=>normalizedConductContent(x.content)));
+    const missing=[];
+    for(const item of local){
+      const content=String(item?.content||'').trim();
+      const normalized=normalizedConductContent(content);
+      if(!content||existing.has(normalized))continue;
+      existing.add(normalized);
+      missing.push({
+        id:(item?.id && /^[0-9a-f-]{36}$/i.test(item.id))?item.id:crypto.randomUUID(),
+        user_id:currentProf.id,
+        content
+      });
+    }
+    if(missing.length){
+      const {error:insertError}=await sb.from('conduct_templates').insert(missing);
+      if(insertError)throw insertError;
+    }
+    localStorage.removeItem(LEGACY_CONDUCT_LOCAL_KEY);
+    if(missing.length)show(`${missing.length} conduta${missing.length===1?' foi':'s foram'} migrada${missing.length===1?'':'s'} para sua biblioteca sincronizada.`,false);
+  }catch(e){
+    console.warn('Migração das condutas locais adiada:',e);
+  }
+}
+
+async function loadConducts({silent=false}={}){
+  if(!currentProf)return;
+  try{
+    const {data,error}=await sb.from('conduct_templates')
+      .select('id,content,created_at,updated_at')
+      .eq('user_id',currentProf.id)
+      .order('updated_at',{ascending:false});
+    if(error)throw error;
+    conductTemplates=applySavedConductOrder(data||[]);
+    const validIds=new Set(conductTemplates.map(x=>x.id));
+    selectedConductOrder=selectedConductOrder.filter(id=>validIds.has(id));
+    renderConducts();
+  }catch(e){
+    console.error('Falha ao sincronizar condutas:',e);
+    if(!silent)show('Não foi possível sincronizar a biblioteca de condutas com o Supabase.',true);
+  }
+}
+
+
+function updateConductOrderBadges(){
+  document.querySelectorAll('.conduct-item').forEach(item=>{
+    const check=item.querySelector('.conduct-template-check');
+    if(!check)return;
+    let badge=item.querySelector('.conduct-order-badge');
+    const idx=selectedConductOrder.indexOf(check.dataset.id);
+    if(idx>=0){
+      if(!badge){
+        badge=document.createElement('span');
+        badge.className='conduct-order-badge';
+        item.appendChild(badge);
+      }
+      badge.textContent=String(idx+1);
+      item.classList.add('selected-in-order');
+    }else{
+      if(badge)badge.remove();
+      item.classList.remove('selected-in-order');
+    }
+  });
+}
+
+function renderConducts(){
+  $('conductList').replaceChildren();
+  if(!conductTemplates.length){
+    $('conductList').innerHTML='<div class="empty">Nenhuma conduta cadastrada. Toque em “+ Cadastrar conduta”.</div>';
+    return;
+  }
+  conductTemplates.forEach(c=>{
+    const row=document.createElement('div'); row.className='conduct-item'; row.dataset.id=c.id;
+
+    const handle=document.createElement('div');
+    handle.className='conduct-drag-handle';
+    handle.textContent='≡';
+    handle.title='Arraste para reordenar';
+    handle.setAttribute('role','button');
+    handle.setAttribute('aria-label','Arraste para reordenar esta conduta');
+
+    handle.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      e.preventDefault();
+      try{handle.setPointerCapture(e.pointerId)}catch(_){}
+      startConductDrag(row,e.clientY);
+    });
+    handle.addEventListener('pointermove',e=>{
+      if(!draggedConductRow)return;
+      e.preventDefault();
+      moveConductDrag(e.clientY);
+    });
+    handle.addEventListener('pointerup',e=>{
+      if(!draggedConductRow)return;
+      e.preventDefault();
+      try{handle.releasePointerCapture(e.pointerId)}catch(_){}
+      endConductDrag();
+    });
+    handle.addEventListener('pointercancel',()=>endConductDrag());
+
+    const check=document.createElement('input'); 
+    check.type='checkbox'; 
+    check.className='conduct-template-check'; 
+    check.dataset.id=c.id;
+    check.checked=selectedConductOrder.includes(c.id);
+    check.addEventListener('change',()=>{
+      if(check.checked){
+        if(!selectedConductOrder.includes(c.id)) selectedConductOrder.push(c.id);
+      }else{
+        selectedConductOrder=selectedConductOrder.filter(id=>id!==c.id);
+      }
+      updateConductOrderBadges();
+    });
+    const main=document.createElement('div'); main.className='conduct-item-main';
+    const preview=document.createElement('div'); preview.className='conduct-item-preview'; preview.textContent=c.content||''; preview.style.webkitLineClamp='3';
+    main.appendChild(preview); 
+    main.onclick=()=>{
+      check.checked=!check.checked;
+      check.dispatchEvent(new Event('change'));
+    };
+    const actions=document.createElement('div'); actions.className='conduct-item-actions';
+
+    const edit=document.createElement('button'); edit.type='button'; edit.textContent='editar';
+    edit.onclick=()=>{
+      $('conductForm').dataset.editingId=c.id;
+      $('conductContentInput').value=c.content||'';
+      $('conductForm').style.display='block';
+      $('saveConductTemplateBtn').textContent='Salvar alterações';
+      $('conductContentInput').focus();
+    };
+
+    const del=document.createElement('button'); del.type='button'; del.textContent='remover';
+    del.onclick=async()=>{
+      if(!confirm('Remover esta conduta cadastrada?'))return;
+      try{
+        const {error}=await sb.from('conduct_templates').delete().eq('id',c.id).eq('user_id',currentProf.id);
+        if(error)throw error;
+        selectedConductOrder=selectedConductOrder.filter(id=>id!==c.id);
+        await loadConducts({silent:true});
+        show('Conduta removida e sincronizada.',false);
+      }catch(e){ console.error(e); show('Não foi possível remover a conduta.',true); }
+    };
+
+    actions.append(edit,del);
+    row.append(handle,check,main,actions);
+    $('conductList').append(row);
+  });
+  updateConductOrderBadges();
+}
+
+$('toggleConductPickerBtn').onclick=()=>{
+  const opening=!$('conductPickerBody').classList.contains('open');
+  $('conductPickerBody').classList.toggle('open',opening);
+  $('toggleConductPickerBtn').textContent=opening?'Fechar biblioteca':'Selecionar condutas';
+  if(opening)loadConducts({silent:true});
+};
+$('addConductTemplateBtn').onclick=()=>{
+  $('conductForm').dataset.editingId='';
+  $('conductContentInput').value='';
+  $('saveConductTemplateBtn').textContent='Salvar conduta';
+  $('conductForm').style.display='block';
+  $('conductContentInput').focus();
+};
+$('cancelConductTemplateBtn').onclick=()=>{
+  $('conductForm').style.display='none';
+  $('conductForm').dataset.editingId='';
+  $('conductContentInput').value='';
+  $('saveConductTemplateBtn').textContent='Salvar conduta';
+};
+$('saveConductTemplateBtn').onclick=async()=>{
+  if(!currentProf)return show('Sessão expirada. Entre novamente.',true);
+  const content=$('conductContentInput').value.trim();
+  if(!content)return show('Digite a conduta antes de salvar.',true);
+  const btn=$('saveConductTemplateBtn');
+  const editingId=$('conductForm').dataset.editingId||'';
+  btn.disabled=true; btn.textContent='Salvando…';
+  try{
+    if(editingId){
+      const {error}=await sb.from('conduct_templates')
+        .update({content,updated_at:new Date().toISOString()})
+        .eq('id',editingId).eq('user_id',currentProf.id);
+      if(error)throw error;
+      show('Conduta atualizada e sincronizada.',false);
+    }else{
+      const normalized=normalizedConductContent(content);
+      if(conductTemplates.some(x=>normalizedConductContent(x.content)===normalized)) throw new Error('Essa conduta já está cadastrada.');
+      const {error}=await sb.from('conduct_templates').insert({id:crypto.randomUUID(),user_id:currentProf.id,content});
+      if(error)throw error;
+      show('Conduta cadastrada e sincronizada.',false);
+    }
+    $('conductContentInput').value='';
+    $('conductForm').style.display='none';
+    $('conductForm').dataset.editingId='';
+    await loadConducts({silent:true});
+  }catch(e){
+    console.error('Falha ao salvar conduta:',e);
+    show(e?.message||'Não foi possível salvar a conduta.',true);
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Salvar conduta';
+  }
+};
+$('clearConductSelectionBtn').onclick=()=>{
+  selectedConductOrder=[];
+  document.querySelectorAll('.conduct-template-check').forEach(c=>c.checked=false);
+  updateConductOrderBadges();
+};
+function selectedConductText(){
+  const parts=selectedConductOrder
+    .map(id=>conductTemplates.find(x=>x.id===id)?.content?.trim())
+    .filter(Boolean);
+  return parts.length?applyCase(parts.join('\n')):ta('conduta').value.trim();
+}
+$('insertSelectedConductsBtn').onclick=()=>{
+  const text=selectedConductText();
+  if(!text)return show('Selecione ao menos uma conduta.',true);
+  const current=ta('conduta').value.trim();
+  ta('conduta').value=current?`${current}\n${text}`:text;
+  saveState('unsaved','não salvo');
+  updateWorkflow();
+};
+
+window.addEventListener('focus',()=>loadConducts({silent:true}));
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')loadConducts({silent:true});
+});
+
+const EXAM={HOMEM:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorado, afebril, acianótico, anictérico, eupneico e hidratado.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcido, orientado auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},MULHER:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorada, afebril, acianótica, anictérica, eupneica e hidratada.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcida, orientada auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},LACTENTE_MENINO:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativo e reativo, hidratado, afebril, acianótico, eupneico.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativo e reativo, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'},LACTENTE_MENINA:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativa e reativa, hidratada, afebril, acianótica, eupneica.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativa e reativa, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'}};
+let examType=null;function renderExam(type,checked=[]){const set=new Set(checked);$('examSystems').innerHTML=Object.keys(EXAM[type]||{}).map(k=>`<label class="exam-check"><input type="checkbox" class="exam-sys-check" data-label="${k}" ${set.has(k)?'checked':''}><span>${k}</span></label>`).join('')}document.querySelectorAll('.exam-type-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.exam-type-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');examType=b.dataset.type;renderExam(examType)});function insertExam(){if(!examType)return'';const keys=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);if(!keys.length)return'';const text=applyCase(keys.map(k=>EXAM[examType][k]).join('\n'));ta('exame_fisico').value=text;updateWorkflow();return text}$('insertExamBtn').onclick=()=>{if(!insertExam())show('Selecione um perfil e pelo menos um sistema.',true)};
+let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,seconds=0,timerInt=null,discardStoppedRecording=false;
+function stopRecordingTimer({reset=false}={}){
+  if(timerInt!==null){
+    clearInterval(timerInt);
+    timerInt=null;
+  }
+  if(reset){
+    seconds=0;
+    $('timer').textContent='00:00';
+  }
+}const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
+  stopRecordingTimer();
+  discardStoppedRecording=false;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+  catch(e){return show('Não foi possível acessar o microfone.',true)}
+  chunks=[];audioBlob=null;$('processBtn').disabled=true;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  const source=audioCtx.createMediaStreamSource(stream);
+  analyser=audioCtx.createAnalyser();analyser.fftSize=1024;
+  dataArray=new Uint8Array(analyser.frequencyBinCount);source.connect(analyser);wave();
+  const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+  mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
+  mediaRecorder.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  mediaRecorder.onstop=()=>{
+    stopRecordingTimer();
+    recording=false;
+    if(discardStoppedRecording){
+      discardStoppedRecording=false;chunks=[];audioBlob=null;$('processBtn').disabled=true;flat();return;
+    }
+    audioBlob=new Blob(chunks,{type:mime});
+    $('processBtn').disabled=false;
+    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;
+    flat();
+  };
+  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';
+  timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
+  $('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';
+  $('status').textContent='Gravando consulta…';
+}
+function stopRec({discard=false}={}){
+  if(discard)discardStoppedRecording=true;
+  recording=false;stopRecordingTimer();
+  $('recBtn').classList.remove('recording');$('circleShape').style.display='block';$('stopShape').style.display='none';
+  try{if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop()}catch(e){}
+  try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
+  try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
+  stream=null;audioCtx=null;
+}$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;recording?stopRec():startRec()};
+async function invoke(blob){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);try{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:form,signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha no backend (${r.status}).`);return d}finally{clearTimeout(to)}}async function processAudio(){stopRecordingTimer();if(recording)stopRec();if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);$('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';clearFields();activeHistoryId=null;try{const consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob),parsed=normalizeOutput(payload.fields||payload);fill(parsed);lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion};initHypothesisReview(parsed.hipotese_diagnostica||'');audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Fluxo sugerido: copie HDA + antecedentes, depois exame físico e condutas.')}catch(e){show(e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message,true)}finally{stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'}}$('processBtn').onclick=processAudio;
+$('resetBtn').onclick=()=>{
+  const hasContent=
+    recording||
+    Boolean(audioBlob)||
+    [...fieldKeys,...sideKeys,...manualKeys].some(k=>ta(k)?.value?.trim())||
+    document.querySelectorAll('.conduct-template-check:checked').length>0||
+    Boolean(examType);
+
+  if(hasContent&&!confirm('Isso vai apagar o áudio gravado, os campos preenchidos e todas as seleções desta consulta. Confirma que quer limpar e começar uma nova consulta?'))return;
+
+  stopRecordingTimer({reset:true});
+
+  if(recording||(mediaRecorder&&mediaRecorder.state!=='inactive')){
+    stopRec({discard:true});
+  }else{
+    discardStoppedRecording=false;
+    try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
+    try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
+    stream=null;audioCtx=null;
+  }
+
+  audioBlob=null;
+  chunks=[];
+  seconds=0;
+  $('timer').textContent='00:00';
+  $('status').textContent='Aguardando início da gravação';
+  $('processBtn').disabled=true;
+  $('processBtn').textContent='Transcrever e estruturar';
+  $('recBtn').classList.remove('recording');
+  $('circleShape').style.display='block';
+  $('stopShape').style.display='none';
+
+  clearFields();
+  $('bannerArea').replaceChildren();
+  activeHistoryId=null;
+  lastProcessedMeta=null;
+  clinicalPlanCache={exams:null,prescription:null,both:null};
+  initHypothesisReview('');
+  ['suggestedExams','suggestedPrescription'].forEach(id=>{if($(id))$(id).value=''});
+  ['examsMissing','rxMissing'].forEach(id=>{if($(id))$(id).style.display='none'});
+  ['continueExamsWithoutDataBtn','continueRxWithoutDataBtn'].forEach(id=>{if($(id))$(id).style.display='none'});
+  if($('planGlobalAlerts'))$('planGlobalAlerts').textContent='';if($('planScoreSuggestions'))$('planScoreSuggestions').textContent='';if($('rxGuidancePreview'))$('rxGuidancePreview').textContent='';
+  saveState('unsaved','não salvo');
+
+  $('consent').checked=false;
+  $('includeDiagnosis').checked=false;
+  $('recBtn').disabled=true;
+  $('recBtn').title='Marque o consentimento para habilitar';
+
+  examType=null;
+  document.querySelectorAll('.exam-type-btn').forEach(b=>b.classList.remove('active'));
+  $('examSystems').innerHTML='<div class="empty">Selecione um perfil para ver os sistemas.</div>';
+
+  selectedConductOrder=[];
+  document.querySelectorAll('.conduct-template-check').forEach(c=>c.checked=false);
+  updateConductOrderBadges();
+
+  $('conductForm').style.display='none';
+  $('conductForm').dataset.editingId='';
+  $('conductContentInput').value='';
+  $('saveConductTemplateBtn').textContent='Salvar conduta';
+  $('conductPickerBody').classList.remove('open');
+  $('toggleConductPickerBtn').textContent='Selecionar condutas';
+
+  closeWorkspace();
+  flat();
+  updateWorkflow();
+  show('Nova consulta iniciada. Campos e seleções foram limpos.',false);
+};
+function noteText(){const keys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias'];if($('includeDiagnosis').checked)keys.push('hipotese_diagnostica');keys.push('exame_fisico','conduta');return keys.map(k=>`${labels[k]}:\n${ta(k).value||''}`).join('\n\n')}function hdaText(){return['hda','comorbidades','antecedentes','medicacoes','alergias'].map(k=>`${labels[k]}:\n${ta(k).value||''}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'Copiar exame físico');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'Copiar condutas');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
+$('openAiUsageBtn').onclick=async()=>{$('usageModal').classList.add('open');$('usageBody').innerHTML='<div class="hint">Consultando…</div>';try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.openAiUsagePath+'?period=mtd',{headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY}}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao consultar uso.');const nf=new Intl.NumberFormat('pt-BR'),usd=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});$('usageBody').innerHTML=`<div class="usage-grid"><div class="stat"><span>Gasto no período</span><strong>${usd.format(+d.cost_usd||0)}</strong></div><div class="stat"><span>Requisições</span><strong>${nf.format(+d.requests||0)}</strong></div><div class="stat"><span>Tokens entrada</span><strong>${nf.format(+d.input_tokens||0)}</strong></div><div class="stat"><span>Tokens saída</span><strong>${nf.format(+d.output_tokens||0)}</strong></div></div>`}catch(e){$('usageBody').innerHTML=`<div class="banner error">${e.message}</div>`}};$('closeUsageBtn').onclick=()=>$('usageModal').classList.remove('open');
+$('clinicalIntelligenceBtn').onclick=()=>$('clinicalModal').classList.add('open');$('closeClinicalBtn').onclick=()=>$('clinicalModal').classList.remove('open');document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.pane).classList.add('active')});function contextText(){return['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica','exame_fisico','conduta'].map(k=>ta(k)?.value.trim()?`${labels[k]||k}:\n${ta(k).value.trim()}`:'').filter(Boolean).join('\n\n').slice(0,12000)}$('clinicalSendBtn').onclick=async()=>{const q=$('clinicalQuestion').value.trim();if(q.length<3)return;$('clinicalSendBtn').disabled=true;$('clinicalStatus').textContent='Consultando…';const u=document.createElement('div');u.className='msg user';u.textContent=q;$('clinicalChat').append(u);try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.clinicalAssistantPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:q,source_mode:'hybrid',specialty:'auto',context:$('clinicalUseContext').checked?contextText():'',history:[]})}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha no assistente.');const a=document.createElement('div');a.className='msg assistant';a.textContent=d.answer||'Resposta vazia.';$('clinicalChat').append(a);$('clinicalSources').replaceChildren();[...(d.protocol_sources||[]),...(d.sources||[])].slice(0,10).forEach(s=>{const el=document.createElement(s.url?'a':'div');el.className='source';el.textContent=s.title||s.filename||s.url||'Fonte';if(s.url){el.href=s.url;el.target='_blank';el.rel='noopener noreferrer'}$('clinicalSources').append(el)});$('clinicalStatus').textContent='Resposta concluída.'}catch(e){$('clinicalStatus').textContent=e.message}finally{$('clinicalSendBtn').disabled=false;$('clinicalQuestion').value=''}};$('searchProtocolBtn').onclick=async()=>{const q=$('protocolQuery').value.trim();if(q.length<3)return;$('searchProtocolBtn').disabled=true;$('protocolStatus').textContent='Pesquisando protocolos…';try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.clinicalAssistantPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:q,source_mode:'protocols',specialty:'auto',context:'',history:[]})}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao consultar protocolos.');$('protocolOutput').textContent=d.answer||'Resposta vazia.';$('protocolSources').replaceChildren();[...(d.protocol_sources||[]),...(d.sources||[])].forEach(src=>{const el=document.createElement(src.url?'a':'div');el.className='source';el.textContent=src.title||src.filename||src.url||'Fonte';if(src.url){el.href=src.url;el.target='_blank';el.rel='noopener noreferrer'}$('protocolSources').append(el)});$('protocolStatus').textContent='Pesquisa concluída.'}catch(e){$('protocolStatus').textContent=e.message}finally{$('searchProtocolBtn').disabled=false}};$('calculatePedsDoseBtn').onclick=()=>{const w=+$('pedsWeight').value,ref=+$('pedsDoseRef').value,n=Math.max(1,+$('pedsDosesPerDay').value||1),cmg=+$('pedsConcMg').value,cml=+$('pedsConcMl').value,max=+$('pedsMaxDose').value;let mg=w*ref;if($('pedsDoseMode').value==='day')mg/=n;if(max>0)mg=Math.min(mg,max);let txt=`Dose matemática por administração: ${mg.toLocaleString('pt-BR',{maximumFractionDigits:2})} mg.`;if(cmg>0&&cml>0)txt+=` Volume correspondente: ${(mg*cml/cmg).toLocaleString('pt-BR',{maximumFractionDigits:2})} mL.`;txt+=' Confirmar dose de referência, concentração, máximo e indicação na fonte clínica antes de usar.';$('pedsDoseResult').textContent=w>0&&ref>0?txt:'Informe peso e dose de referência.'};
+
+/* ===== NEXA 3.3.5 · VALIDAÇÃO DA HIPÓTESE + PLANO CLÍNICO / CÓPIA ===== */
+let clinicalPlanCache={exams:null,prescription:null,both:null};
+let hypothesisReview={status:'pending',ai:'',final:'',cid:'',source:''};
+let hypothesisInternalWrite=false;
+function cleanArray(v){return Array.isArray(v)?v.filter(Boolean):[]}
+function persistHypothesisReview(){if(lastProcessedMeta)lastProcessedMeta.hypothesisReview={...hypothesisReview}}
+function clearPlanOutputs(msg='Plano precisa ser regenerado após mudança da hipótese.'){
+  clinicalPlanCache={exams:null,prescription:null,both:null};
+  if($('suggestedExams'))$('suggestedExams').value='';if($('suggestedPrescription'))$('suggestedPrescription').value='';
+  if($('examsPlanStatus'))$('examsPlanStatus').textContent=msg;if($('rxPlanStatus'))$('rxPlanStatus').textContent=msg;
+  ['examsMissing','rxMissing'].forEach(id=>{if($(id))$(id).style.display='none'});['continueExamsWithoutDataBtn','continueRxWithoutDataBtn'].forEach(id=>{if($(id))$(id).style.display='none'});
+  if($('planGlobalAlerts'))$('planGlobalAlerts').textContent='';if($('planScoreSuggestions'))$('planScoreSuggestions').textContent='';if($('rxGuidancePreview'))$('rxGuidancePreview').textContent='';
+}
+function updateHypothesisReviewUI(){
+  const st=hypothesisReview.status,b=$('hypothesisReviewBadge'),lock=$('hypothesisPlanLock');
+  const map={pending:'Aguardando validação',confirmed:'Confirmada pelo médico',altered:'Alterada pelo médico',undefined:'Hipótese indefinida'};if(b)b.textContent=map[st]||st;
+  if($('aiHypothesisOriginal'))$('aiHypothesisOriginal').textContent=hypothesisReview.ai?`Hipótese originalmente sugerida pela IA: ${hypothesisReview.ai}`:'';
+  const examsOK=['confirmed','altered','undefined'].includes(st),rxOK=['confirmed','altered'].includes(st);
+  $('generateExamsBtn').disabled=!examsOK;$('generatePrescriptionBtn').disabled=!rxOK;$('generateBothPlanBtn').disabled=!rxOK;
+  if(lock)lock.textContent=st==='pending'?'Confirme ou altere a hipótese para liberar exames e prescrição.':st==='undefined'?'Hipótese indefinida: investigação pode ser sugerida, mas prescrição específica permanece bloqueada.':`Plano liberado com hipótese ${st==='altered'?'alterada':'confirmada'}${hypothesisReview.cid?' · CID-10 '+hypothesisReview.cid:''}.`;
+  persistHypothesisReview();
+}
+function initHypothesisReview(ai=''){hypothesisReview={status:'pending',ai:String(ai||'').trim(),final:'',cid:'',source:''};if($('physicianCid'))$('physicianCid').value='';if($('physicianHypothesis'))$('physicianHypothesis').value='';if($('hypothesisEditPanel'))$('hypothesisEditPanel').style.display='none';updateHypothesisReviewUI()}
+function restoreHypothesisReview(saved,current=''){if(saved&&typeof saved==='object'){hypothesisReview={status:saved.status||'pending',ai:saved.ai||current||'',final:saved.final||'',cid:saved.cid||'',source:saved.source||''}}else{hypothesisReview={status:'pending',ai:current||'',final:'',cid:'',source:''}};updateHypothesisReviewUI()}
+function invalidateHypothesisReview(){if(hypothesisInternalWrite)return;const current=ta('hipotese_diagnostica')?.value.trim()||'';if(['confirmed','altered','undefined'].includes(hypothesisReview.status)){hypothesisReview.status='pending';hypothesisReview.final='';hypothesisReview.cid='';hypothesisReview.source='';clearPlanOutputs();updateHypothesisReviewUI()}if(!hypothesisReview.ai&&current)hypothesisReview.ai=current}
+const hypTa=ta('hipotese_diagnostica');if(hypTa)hypTa.addEventListener('input',invalidateHypothesisReview);
+$('confirmHypothesisBtn').onclick=()=>{const h=ta('hipotese_diagnostica')?.value.trim()||'';if(!h)return show('Não há hipótese para confirmar.',true);if(!hypothesisReview.ai)hypothesisReview.ai=h;hypothesisReview={...hypothesisReview,status:'confirmed',final:h,cid:'',source:'ai_confirmed'};$('hypothesisEditPanel').style.display='none';clearPlanOutputs('Hipótese confirmada. Gere o plano clínico quando desejar.');updateHypothesisReviewUI();show('Hipótese confirmada pelo médico. Exames e prescrição liberados.')};
+$('editHypothesisBtn').onclick=()=>{$('hypothesisEditPanel').style.display='block';$('physicianHypothesis').value=hypothesisReview.status==='altered'?hypothesisReview.final:'';$('physicianCid').value=hypothesisReview.status==='altered'?hypothesisReview.cid:''};
+$('cancelEditedHypothesisBtn').onclick=()=>{$('hypothesisEditPanel').style.display='none'};
+$('applyEditedHypothesisBtn').onclick=()=>{const cid=$('physicianCid').value.trim().toUpperCase(),desc=$('physicianHypothesis').value.trim();if(!cid&&!desc)return show('Informe o CID-10 e/ou a hipótese definida pelo médico.',true);if(!hypothesisReview.ai)hypothesisReview.ai=ta('hipotese_diagnostica')?.value.trim()||'';const final=desc||(cid?`CID-10 ${cid}`:'');hypothesisInternalWrite=true;ta('hipotese_diagnostica').value=final;hypothesisInternalWrite=false;hypothesisReview={...hypothesisReview,status:'altered',final,cid,source:'physician_edited'};$('hypothesisEditPanel').style.display='none';clearPlanOutputs('Hipótese alterada. Gere novamente exames e/ou prescrição.');updateHypothesisReviewUI();show('Hipótese alterada pelo médico. O plano usará esta definição.')};
+$('undefinedHypothesisBtn').onclick=()=>{if(!hypothesisReview.ai)hypothesisReview.ai=ta('hipotese_diagnostica')?.value.trim()||'';hypothesisReview={...hypothesisReview,status:'undefined',final:'',cid:'',source:'physician_undefined'};$('hypothesisEditPanel').style.display='none';clearPlanOutputs('Hipótese indefinida. Você pode gerar somente investigação sugerida.');updateHypothesisReviewUI();show('Hipótese marcada como indefinida. Prescrição específica permanece bloqueada.')};
+function formatExamPlan(d){
+  const level=String(d.necessidade_exames||'').replaceAll('_',' ');const xs=cleanArray(d.exames);
+  if(!xs.length)return d.racional_exames?`Necessidade: ${level||'não definida'}\n${d.racional_exames}`:'Exames complementares não sugeridos neste momento.';
+  return xs.map((x,i)=>`${i+1}. ${x.nome}${x.prioridade?` — ${x.prioridade}`:''}`).join('\n');
+}
+function routePhrase(v){v=String(v||'').trim();if(!v)return '';return /via/i.test(v)?v:`via ${v}`}
+function rxCompactSpecification(v){
+  const t=String(v||'').replace(/\s+/g,' ').trim();
+  if(!t)return '';
+  const safety=/não exceder|nao exceder|evitar|pode causar|suspender|procurar|risco|contraindic|efeito advers|reavaliar|retornar|urgência|urgencia/i;
+  return t.length<=70&&!safety.test(t)?t:'';
+}
+function formatPrescription(d){
+  const sep=' ——————————— ';
+  return cleanArray(d.prescricao).map((m,i)=>{
+    const drug=[String(m.principio_ativo||'').trim(),String(m.apresentacao||'').trim()].filter(Boolean).join(' ');
+    const qty=String(m.quantidade_total||'').trim();
+    const head=`${i+1}. ${drug}${qty?sep+qty:''}`.trim();
+    const parts=[];
+    if(m.quantidade_por_tomada)parts.push(String(m.quantidade_por_tomada).trim());
+    if(m.via)parts.push(routePhrase(m.via));
+    if(m.intervalo)parts.push(String(m.intervalo).trim());
+    const spec=rxCompactSpecification(m.especificacao);
+    if(spec)parts.push(spec);
+    if(m.duracao)parts.push(`durante ${String(m.duracao).trim()}`);
+    let line=`${m.acao||'Usar'} ${parts.join(', ')}`.replace(/\s+/g,' ').trim();
+    if(line&&!/[.!]$/.test(line))line+='.';
+    return (head+'\n'+line).toUpperCase();
+  }).join('\n\n');
+}
+
+let rxComposer={options:[],selected:new Map(),counter:0,manual:[]};
+function rxKey(m,i=0){return [m.principio_ativo,m.apresentacao,m.via,m.intervalo,m.duracao,i].map(x=>String(x||'').trim().toLowerCase()).join('|')}
+function routeLabel(v){const n=String(v||'').toLowerCase();if(n.includes('oral')||n==='vo')return 'VIA ORAL';if(n.includes('tóp')||n.includes('topic'))return 'USO TÓPICO';if(n.includes('inal'))return 'VIA INALATÓRIA';if(n.includes('intramus')||n==='im')return 'VIA INTRAMUSCULAR';if(n.includes('subcut')||n==='sc')return 'VIA SUBCUTÂNEA';if(n.includes('intraven')||n==='ev'||n==='iv')return 'VIA ENDOVENOSA';if(n.includes('nasal'))return 'VIA NASAL';if(n.includes('oft'))return 'VIA OFTÁLMICA';if(n.includes('retal'))return 'VIA RETAL';if(n.includes('otol'))return 'VIA OTOLÓGICA';if(n.includes('vag'))return 'VIA VAGINAL';if(n.includes('subling'))return 'VIA SUBLINGUAL';return (String(v||'OUTRA VIA').trim()||'OUTRA VIA').toUpperCase()}
+function rxCategory(m){return String(m.categoria||'Opções medicamentosas').trim()||'Opções medicamentosas'}
+function rxPosology(m){if(m.manual_text){let x=String(m.manual_text).trim();if(x&&!/[.!]$/.test(x))x+='.';return x}const parts=[];if(m.quantidade_por_tomada)parts.push(String(m.quantidade_por_tomada));if(m.via)parts.push(routePhrase(m.via));if(m.intervalo)parts.push(String(m.intervalo));const spec=rxCompactSpecification(m.especificacao);if(spec)parts.push(spec);if(m.duracao)parts.push('durante '+String(m.duracao));let x=`${m.acao||'Usar'} ${parts.join(', ')}`.replace(/\s+/g,' ').trim();if(x&&!/[.!]$/.test(x))x+='.';return x}
+function selectedRxItems(){return [...rxComposer.selected.values()].sort((a,b)=>a.order-b.order)}
+function formatSelectedPrescription(){const items=selectedRxItems();if(!items.length)return'';const groups=[];const by=new Map();for(const x of items){const r=routeLabel(x.item.via);if(!by.has(r)){by.set(r,[]);groups.push(r)}by.get(r).push(x)}let n=1,out=[];for(const r of groups){out.push(r);for(const x of by.get(r)){const m=x.item,drug=[m.principio_ativo,m.apresentacao].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();const qty=String(m.quantidade_total||'').trim();const sep=qty?' ——————————— ':'';out.push(`${n++}. ${drug}${sep}${qty}`.toUpperCase()+'\n'+rxPosology(m).toUpperCase())}}return out.join('\n\n')}
+function persistRxSelection(){lastProcessedMeta=lastProcessedMeta||{};lastProcessedMeta.prescriptionSelection={selected:selectedRxItems().map(x=>({principio_ativo:x.item.principio_ativo,apresentacao:x.item.apresentacao,via:x.item.via,quantidade_total:x.item.quantidade_total,manual_text:x.item.manual_text||'',order:x.order})),updated_at:new Date().toISOString()}}
+function renderRxFinal(){const host=$('rxFinal');host.innerHTML='';const items=selectedRxItems();if(!items.length){host.innerHTML='<div class="hint">Selecione os itens que deseja incluir na receita.</div>';$('suggestedPrescription').value='';persistRxSelection();return}const groups=[];const by=new Map();items.forEach(x=>{const r=routeLabel(x.item.via);if(!by.has(r)){by.set(r,[]);groups.push(r)}by.get(r).push(x)});let num=1;for(const r of groups){const block=document.createElement('div');block.className='rx-route-block';block.innerHTML=`<div class="rx-route-title">${esc(r)}</div>`;for(const x of by.get(r)){const m=x.item,d=document.createElement('div');d.className='rx-final-item';d.innerHTML=`<div class="rx-final-head">${num++}. ${esc(([m.principio_ativo,m.apresentacao].filter(Boolean).join(' ')+' — '+(m.quantidade_total||'')).toUpperCase())}</div><div class="rx-final-pos">${esc(rxPosology(m).toUpperCase())}</div><div class="rx-order"><button class="rx-mini" data-up="${esc(x.key)}">↑</button><button class="rx-mini" data-down="${esc(x.key)}">↓</button></div>`;block.appendChild(d)}host.appendChild(block)}host.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>moveRx(b.dataset.up,-1));host.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>moveRx(b.dataset.down,1));$('suggestedPrescription').value=formatSelectedPrescription();persistRxSelection()}
+function moveRx(k,delta){const arr=selectedRxItems(),i=arr.findIndex(x=>x.key===k),j=i+delta;if(i<0||j<0||j>=arr.length)return;const a=arr[i],b=arr[j],t=a.order;a.order=b.order;b.order=t;rxComposer.selected.set(a.key,a);rxComposer.selected.set(b.key,b);renderRxFinal()}
+function toggleRxOption(key,checked){const opt=rxComposer.options.find(x=>x._key===key);if(!opt)return;if(checked){const g=String(opt.grupo_selecao||'');if(g&&String(opt.modo_selecao||'multi')==='single'){for(const [k,x] of [...rxComposer.selected])if(String(x.item.grupo_selecao||'')===g)rxComposer.selected.delete(k)}rxComposer.selected.set(key,{key,item:opt,order:++rxComposer.counter})}else rxComposer.selected.delete(key);renderRxOptions();renderRxFinal()}
+function renderRxOptions(){const host=$('rxOptions');host.innerHTML='';if(!rxComposer.options.length){host.innerHTML='<div class="hint">Nenhuma opção medicamentosa retornada.</div>';return}const cats=[];const map=new Map();rxComposer.options.forEach((m,i)=>{m._key=m._key||rxKey(m,i);const c=rxCategory(m);if(!map.has(c)){map.set(c,[]);cats.push(c)}map.get(c).push(m)});for(const c of cats){const g=document.createElement('div');g.className='rx-group';g.innerHTML=`<h5>${esc(c)}</h5>`;for(const m of map.get(c)){const sel=rxComposer.selected.has(m._key),d=document.createElement('label');d.className='rx-option'+(sel?' selected':'');d.innerHTML=`<input type="checkbox" ${sel?'checked':''}><div><div class="rx-option-title">${esc([m.principio_ativo,m.apresentacao].filter(Boolean).join(' '))}${m.sugerido?' ⭐':''}</div><div class="rx-option-meta">${esc([routeLabel(m.via),m.quantidade_total,rxPosology(m)].filter(Boolean).join(' · '))}</div></div><div class="rx-option-actions"><button type="button" class="rx-mini" title="Favorito">☆</button></div>`;d.querySelector('input').onchange=e=>toggleRxOption(m._key,e.target.checked);d.querySelector('button').onclick=e=>{e.preventDefault();const k='nexa_rx_favs_'+(currentProf?.id||'anon'),a=new Set(JSON.parse(localStorage.getItem(k)||'[]'));a.has(m._key)?a.delete(m._key):a.add(m._key);localStorage.setItem(k,JSON.stringify([...a]));e.currentTarget.textContent=a.has(m._key)?'★':'☆'};g.appendChild(d)}host.appendChild(g)}}
+function rxPersonalFavKey(){return 'nexa_rx_manual_favs_'+(currentProf?.id||'anon')}
+function loadManualFavorites(){try{return JSON.parse(localStorage.getItem(rxPersonalFavKey())||'[]').filter(x=>x&&x.principio_ativo)}catch{return[]}}
+function saveManualFavorite(m){const a=loadManualFavorites();const sig=[m.principio_ativo,m.via,m.quantidade_total,m.manual_text].join('|').toLowerCase();if(!a.some(x=>[x.principio_ativo,x.via,x.quantidade_total,x.manual_text].join('|').toLowerCase()===sig)){a.unshift({...m,sugerido:false,categoria:'Favoritos pessoais'});localStorage.setItem(rxPersonalFavKey(),JSON.stringify(a.slice(0,40)))}}
+function initRxComposer(d){const generated=cleanArray(d.prescricao).map((m,i)=>({...m,_key:rxKey(m,i)}));const favs=loadManualFavorites().map((m,i)=>({...m,_key:rxKey(m,'fav'+i),categoria:'Favoritos pessoais',sugerido:false}));rxComposer={options:[...favs,...generated],selected:new Map(),counter:0,manual:[]};renderRxOptions();renderRxFinal()}
+$('selectSuggestedRxBtn').onclick=()=>{for(const m of rxComposer.options.filter(x=>x.sugerido!==false)){if(!rxComposer.selected.has(m._key))rxComposer.selected.set(m._key,{key:m._key,item:m,order:++rxComposer.counter})}renderRxOptions();renderRxFinal()};$('addManualRxBtn').onclick=()=>$('rxManualForm').classList.add('open');$('cancelManualRxBtn').onclick=()=>$('rxManualForm').classList.remove('open');$('saveManualRxBtn').onclick=()=>{const raw=$('rxMName').value.trim(),how=$('rxMHow').value.trim(),qty=$('rxMQty').value.trim(),route=$('rxMRoute').value.trim();if(!raw)return show('Informe o nome e a dose/apresentação do medicamento.',true);if(!how)return show('Escreva como o paciente deve usar a medicação.',true);const m={principio_ativo:raw,apresentacao:'',quantidade_total:qty,via:route,manual_text:how,categoria:'Adicionado manualmente',sugerido:true};m._key=rxKey(m,Date.now());rxComposer.options.push(m);rxComposer.selected.set(m._key,{key:m._key,item:m,order:++rxComposer.counter});if($('rxMSaveFav').checked)saveManualFavorite(m);$('rxMName').value='';$('rxMQty').value='';$('rxMHow').value='';$('rxMSaveFav').checked=false;$('rxMRoute').value='oral';$('rxManualForm').classList.remove('open');renderRxOptions();renderRxFinal()};
+function planGuidanceText(d){const o=cleanArray(d.orientacoes_alta);return o.length?'ORIENTAÇÕES:\n'+o.map(x=>'• '+x).join('\n'):''}
+function renderPlanWarnings(d){
+  const host=$('planGlobalAlerts');
+  const a=cleanArray(d.alertas);
+  host.innerHTML='';
+  if(a.length){
+    const head=document.createElement('div');head.className='plan-alert-head';
+    const title=document.createElement('span');title.textContent='⚠ Atenção clínica';
+    const count=document.createElement('span');count.className='plan-alert-count';count.textContent=`${a.length} alerta${a.length===1?'':'s'}`;
+    head.append(title,count);host.appendChild(head);
+    a.forEach(txt=>{const item=document.createElement('div');item.className='plan-alert-item';const icon=document.createElement('div');icon.className='plan-alert-icon';icon.textContent='!';const body=document.createElement('div');body.textContent=String(txt);item.append(icon,body);host.appendChild(item)});
+  }
+  const ss=cleanArray(d.escores_sugeridos);$('planScoreSuggestions').textContent=ss.length?'🧮 Escores aplicáveis: '+ss.map(x=>`${x.nome}${x.motivo?' — '+x.motivo:''}${cleanArray(x.dados_ausentes).length?' (faltam: '+x.dados_ausentes.join(', ')+')':''}`).join('\n'):'';
+}
+function missingBox(kind,items){const el=$(kind==='exams'?'examsMissing':'rxMissing'),btn=$(kind==='exams'?'continueExamsWithoutDataBtn':'continueRxWithoutDataBtn');items=cleanArray(items);if(!items.length){el.style.display='none';btn.style.display='none';return false}el.textContent='Dados relevantes ausentes: '+items.join(', ')+'. Você pode informar os dados ou continuar mesmo assim.';el.style.display='block';btn.style.display='inline-flex';return true}
+function revealClinicalPlan(kind,d,forced=false){renderPlanWarnings(d);if(kind==='exams'||kind==='both'){const missing=cleanArray(d.dados_ausentes_exames);if(!forced&&missingBox('exams',missing)){$('examsPlanStatus').textContent='Aguardando sua decisão sobre dados ausentes.'}else{missingBox('exams',[]);$('suggestedExams').value=formatExamPlan(d);$('examsPlanStatus').textContent=`Necessidade: ${String(d.necessidade_exames||'avaliada').replaceAll('_',' ')}.`}}if(kind==='prescription'||kind==='both'){const missing=cleanArray(d.dados_ausentes_prescricao);if(!forced&&missingBox('prescription',missing)){$('rxPlanStatus').textContent='Aguardando sua decisão sobre dados ausentes.'}else{missingBox('prescription',[]);initRxComposer(d);$('rxPlanStatus').textContent=cleanArray(d.prescricao).length?'Opções medicamentosas carregadas. Selecione os itens da receita.':'Nenhuma opção medicamentosa sugerida.';$('rxGuidancePreview').textContent=cleanArray(d.orientacoes_alta).length?`${d.orientacoes_alta.length} orientação(ões) pronta(s) para cópia conjunta.`:''}}}
+async function generateClinicalPlan(kind){const st=hypothesisReview.status;if(st==='pending')return show('Confirme ou altere a hipótese antes de gerar o plano.',true);if(st==='undefined'&&kind!=='exams')return show('Com hipótese indefinida, o NEXA libera apenas sugestão de investigação.',true);const hypothesis=(['confirmed','altered'].includes(st)?hypothesisReview.final:(ta('hipotese_diagnostica')?.value.trim()||hypothesisReview.ai||'Hipótese ainda indefinida'));const ids=kind==='exams'?['generateExamsBtn']:kind==='prescription'?['generatePrescriptionBtn']:['generateBothPlanBtn'];ids.forEach(id=>{$(id).disabled=true});if(kind==='exams')$('examsPlanStatus').textContent='Analisando necessidade de exames…';if(kind==='prescription')$('rxPlanStatus').textContent='Analisando prescrição…';if(kind==='both'){$('examsPlanStatus').textContent='Analisando…';$('rxPlanStatus').textContent='Analisando…'};try{const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Sessão expirada.');const r=await fetch(SUPABASE_URL+APP_CONFIG.clinicalPlanPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({action:kind,hypothesis,cid:hypothesisReview.cid||'',hypothesis_status:st,hypothesis_source:hypothesisReview.source||'',ai_hypothesis:hypothesisReview.ai||'',context:contextText(),case_mode:mode(),app_version:APP_CONFIG.appVersion})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao gerar plano clínico.');clinicalPlanCache[kind]=d;revealClinicalPlan(kind,d,false)}catch(e){if(kind!=='prescription')$('examsPlanStatus').textContent=e.message;if(kind!=='exams')$('rxPlanStatus').textContent=e.message}finally{updateHypothesisReviewUI()}}
+$('generateExamsBtn').onclick=()=>generateClinicalPlan('exams');$('generatePrescriptionBtn').onclick=()=>generateClinicalPlan('prescription');$('generateBothPlanBtn').onclick=()=>generateClinicalPlan('both');
+$('continueExamsWithoutDataBtn').onclick=()=>{const d=clinicalPlanCache.exams||clinicalPlanCache.both;if(d)revealClinicalPlan('exams',d,true)};$('continueRxWithoutDataBtn').onclick=()=>{const d=clinicalPlanCache.prescription||clinicalPlanCache.both;if(d)revealClinicalPlan('prescription',d,true)};
+$('copySuggestedExamsBtn').onclick=()=>copy($('suggestedExams').value,$('copySuggestedExamsBtn'),'Copiar exames');$('copyPrescriptionBtn').onclick=()=>copy(formatSelectedPrescription(),$('copyPrescriptionBtn'),'Copiar receita');$('copyGuidanceBtn').onclick=()=>{const d=clinicalPlanCache.prescription||clinicalPlanCache.both||{};copy(planGuidanceText(d),$('copyGuidanceBtn'),'Copiar orientações')};$('copyPrescriptionGuidanceBtn').onclick=()=>{const d=clinicalPlanCache.prescription||clinicalPlanCache.both||{};const txt=[formatSelectedPrescription().trim(),planGuidanceText(d)].filter(Boolean).join('\n\n');copy(txt,$('copyPrescriptionGuidanceBtn'),'Copiar receita + orientações')};
+updateHypothesisReviewUI();
+
+/* Calculadoras clínicas determinísticas */
+$('calculateCurb65Btn').onclick=()=>{let s=0;const details=[];if($('curbConfusion').checked){s++;details.push('confusão')};const u=+$('curbUrea').value,fr=+$('curbFr').value,pas=+$('curbPas').value,pad=+$('curbPad').value,age=+$('curbAge').value;if(u>43){s++;details.push('ureia >43')};if(fr>30){s++;details.push('FR >30')};if((pas>0&&pas<90)||(pad>0&&pad<60)){s++;details.push('PA baixa')};if(age>=65){s++;details.push('idade ≥65')};$('curb65Result').textContent=`CURB-65: ${s}/5${details.length?'\nCritérios: '+details.join(', '):''}.\nInterpretar no contexto clínico; o escore não substitui julgamento médico.`};
+$('calculateCentorBtn').onclick=()=>{let s=0;const a=+$('centorAge').value;if($('centorFever').checked)s++;if($('centorNodes').checked)s++;if($('centorExudate').checked)s++;if(a>=3&&a<=14)s++;else if(a>45)s--;$('centorResult').textContent=`Centor modificado (conforme material enviado): ${s} ponto(s).\nEsta versão usa apenas os critérios explicitamente listados no material cadastrado.`};
+$('calculatePsiBtn').onclick=()=>{if($('psiNoPredictors').checked){$('psiResult').textContent='PSI: PORT I / Grupo I — ausência de preditores marcada.';return}let age=+$('psiAge').value;if(!(age>0)){ $('psiResult').textContent='Informe a idade.';return }let s=$('psiSex').value==='f'?age-10:age;if($('psiNursing').checked)s+=10;if($('psiNeoplasia').checked)s+=30;if($('psiLiver').checked)s+=20;if($('psiHeart').checked)s+=10;if($('psiCerebro').checked)s+=10;if($('psiRenal').checked)s+=10;if($('psiMental').checked)s+=20;const fr=+$('psiFr').value,pas=+$('psiPas').value,t=+$('psiTemp').value,fc=+$('psiFc').value,ph=+$('psiPh').value,u=+$('psiUrea').value,na=+$('psiSodium').value,g=+$('psiGlucose').value,h=+$('psiHct').value,pao=+$('psiPao2').value,spo=+$('psiSpo2').value;if(fr>30)s+=20;if(pas>0&&pas<90)s+=20;if(t>0&&(t<35||t>40))s+=25;if(fc>125)s+=10;if(ph>0&&ph<7.35)s+=30;if(u>30)s+=20;if(na>0&&na<130)s+=20;if(g>=250)s+=10;if(h>0&&h<30)s+=10;if((pao>0&&pao<60)||(spo>0&&spo<90))s+=10;if($('psiEffusion').checked)s+=10;let port=s<71?'PORT II / Grupo II':s<=90?'PORT III / Grupo III':s<=130?'PORT IV / Grupo IV':'PORT V / Grupo V';$('psiResult').textContent=`PSI: ${s} ponto(s) — ${port}.\nPORT I deve ser marcado pela regra de ausência de preditores do material.`};
+document.querySelectorAll('[data-score-jump]').forEach(b=>b.onclick=()=>$(b.dataset.scoreJump)?.scrollIntoView({behavior:'smooth',block:'start'}));
+
+$('calculateBmiBtn').onclick=()=>{const w=+$('bmiWeight').value,h=+$('bmiHeight').value/100;$('bmiResult').textContent=w>0&&h>0?(w/(h*h)).toLocaleString('pt-BR',{maximumFractionDigits:1})+' kg/m²':'Informe peso e altura.'};$('calculateBsaBtn').onclick=()=>{const w=+$('bsaWeight').value,h=+$('bsaHeight').value;$('bsaResult').textContent=w>0&&h>0?Math.sqrt(h*w/3600).toLocaleString('pt-BR',{maximumFractionDigits:3})+' m²':'Informe peso e altura.'};
+[$('usageModal'),$('clinicalModal'),$('coreAdminModal')].forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
+// Blue Command: abas operacionais recolhíveis
+const workspace=document.getElementById('nexaCommandWorkspace');
+const workspaceTabs=document.querySelectorAll('.nexa-command-tab[data-pane]');
+const workspacePanes=document.querySelectorAll('.nexa-workspace-pane');
+let activeWorkspacePane=null;
+
+function closeWorkspace(){
+  activeWorkspacePane=null;
+  workspaceTabs.forEach(t=>t.classList.remove('active'));
+  workspacePanes.forEach(p=>p.classList.remove('active'));
+  workspace?.classList.add('is-collapsed');
+}
+
+function openWorkspacePane(id){
+  activeWorkspacePane=id;
+  workspaceTabs.forEach(t=>t.classList.toggle('active',t.dataset.pane===id));
+  workspacePanes.forEach(p=>p.classList.toggle('active',p.id===id));
+  workspace?.classList.remove('is-collapsed');
+}
+
+workspaceTabs.forEach(t=>{
+  t.addEventListener('click',()=>{
+    const id=t.dataset.pane;
+    if(activeWorkspacePane===id) closeWorkspace();
+    else openWorkspacePane(id);
+  });
+});
+
+const workspaceClinicalTab=document.getElementById('workspaceClinicalTab');
+if(workspaceClinicalTab){
+  workspaceClinicalTab.addEventListener('click',()=>{
+    const existing=document.getElementById('clinicalIntelligenceBtn');
+    if(existing) existing.click();
+  });
+}
+
+closeWorkspace();
+
+flat();updateWorkflow();
+})();
+</script>
+</body></html>
