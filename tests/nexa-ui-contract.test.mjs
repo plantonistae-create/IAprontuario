@@ -16,6 +16,7 @@ const requiredLoaderModules = [
   'nexa-layout-flow-v18.1.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
+assert.ok(loader.includes('20260904-v182'), 'loader precisa forçar cache-bust v18.2');
 
 const forbiddenLoaderModules = [
   'nexa-runtime-consolidated-v14.js',
@@ -37,26 +38,32 @@ for (const duplicate of ['nexaRadarPauseProxy','nexaRadarFinishProxy','nexaRadar
   assert.ok(ui.includes(duplicate), `UI v18 não remove proxy legado ${duplicate}`);
 }
 
-// v18.1: regression guards for the two defects reported on desktop.
+// v18.2: guardas contra coluna fantasma + sobreposição do Radar.
 for (const token of [
   'grid-template-columns:minmax(0,1fr)!important',
   'grid-column:1/-1!important',
   'position:static!important',
+  'forceSingleContentColumn',
+  "setProperty(prop,val,'important')",
+  'legacyLeftHidden',
+  'panelStartsInFirstColumn',
   'dispositionInsideRadar',
-  '__NEXA_V18_1_LAYOUT_SMOKE__'
+  '__NEXA_V18_2_LAYOUT_SMOKE__'
 ]) {
-  assert.ok(flow.includes(token), `layout-flow v18.1 sem proteção esperada: ${token}`);
+  assert.ok(flow.includes(token), `layout-flow v18.2 sem proteção esperada: ${token}`);
 }
-assert.ok(flow.includes('#mainApp>main>.panel-left'), 'layout-flow precisa zerar a coluna esquerda legada');
+assert.ok(flow.includes('#mainApp>main .panel-left'), 'layout-flow precisa ocultar qualquer coluna esquerda legada, mesmo aninhada');
+assert.ok(flow.includes("imp(main,'display','grid')"), 'main precisa receber display:grid inline !important');
+assert.ok(flow.includes("imp(main,'grid-template-columns','minmax(0,1fr)')"), 'main precisa receber uma única coluna inline !important');
+assert.ok(flow.includes("imp(panel,'grid-column','1 / -1')"), 'panel-right precisa começar na primeira coluna real');
 assert.ok(flow.includes('#realtimeRadarCard>#nexaDispositionCard'), 'Disposição do PS deve permanecer dentro do Radar');
 assert.ok(flow.includes('grid-area:record!important'), 'gravação deve ocupar a faixa superior do Radar');
 assert.ok(flow.includes('grid-area:summary!important'), 'Resumo rápido deve ocupar a coluna direita');
 assert.ok(flow.includes('grid-area:alerts!important'), 'Alertas devem ocupar a coluna direita abaixo do resumo');
 
-assert.ok(sw.includes('nexa-v18-1-layout-20260904'), 'service worker não está na versão v18.1');
+assert.ok(sw.includes('nexa-v18-2-layout-20260904'), 'service worker não está na versão v18.2');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
 
-// Syntax validation in addition to `node --check`.
 new Function(loader);
 new Function(ui);
 new Function(flow);
