@@ -1,0 +1,59 @@
+name: NEXA one-time production hotfix
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/nexa-apply-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch production index and cache version
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          tag = '<script src="./nexa-hotfix.js?v=20260903-2"></script>'
+          if 'nexa-hotfix.js' not in html:
+              if '</body>' in html:
+                  head, tail = html.rsplit('</body>', 1)
+                  html = head + tag + '\n</body>' + tail
+              else:
+                  html += '\n' + tag + '\n'
+              index.write_text(html, encoding='utf-8')
+
+          sw = Path('sw.js')
+          if sw.exists():
+              text = sw.read_text(encoding='utf-8')
+              text = text.replace('nexa-v3.7.2-radar-rec-hotfix1', 'nexa-v3.7.3-radar-rec-hotfix2')
+              text = text.replace('v=20260903-1', 'v=20260903-2')
+              sw.write_text(text, encoding='utf-8')
+
+          workflow = Path('.github/workflows/nexa-apply-hotfix.yml')
+          if workflow.exists():
+              workflow.unlink()
+          PY
+
+      - name: Commit production fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'fix: load NEXA radar and recording hotfix directly'
+          git push
