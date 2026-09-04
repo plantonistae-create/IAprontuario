@@ -11,5 +11,5 @@
           .catch(console.error)
           .finally(()=>load('./nexa-mobile-viewport-fix-v8.js?v=20260904-4')
             .catch(console.error)
-            .finally(()=>load('./nexa-auditor-mobile-guard-v9.js?v=20260904-4').catch(console.error))))));
+            .finally(()=>load('./nexa-auditor-mobile-guard-v9.js?v=20260904-5').catch(console.error))))));
 })();
