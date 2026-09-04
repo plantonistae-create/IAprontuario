@@ -73,8 +73,19 @@ function syncAuditor(){
   if(on&&mobile()){
     ensureAuditorHeader();
     const launch=q('.nexa-auditor-launch');
-    if(launch){launch.style.removeProperty('margin-top');launch.scrollTop=0}
+    if(launch){
+      launch.style.setProperty('margin','0','important');
+      launch.style.setProperty('margin-left','0','important');
+      launch.style.setProperty('left','0','important');
+      launch.style.setProperty('right','0','important');
+      launch.style.setProperty('width','100%','important');
+      launch.style.setProperty('max-width','none','important');
+      launch.scrollTop=0;
+    }
+    const side=$('n7Sidebar');if(side)side.style.setProperty('display','none','important');
     try{window.scrollTo(0,0)}catch{}
+  }else if(!on){
+    const side=$('n7Sidebar');if(side)side.style.removeProperty('display');
   }
   ensureAuditorDrawerButton();
 }
@@ -97,14 +108,23 @@ html.n9-modal-lock,html.n9-modal-lock body{overflow:hidden!important}
  #n9ClinicalClose{display:none;top:max(10px,env(safe-area-inset-top));right:10px}
  #clinicalModal.open #n9ClinicalClose{display:grid!important}
  #n9AuditorDrawer{display:block!important;width:100%;height:48px;border:0;background:rgba(0,183,164,.14);color:#7ef0dc;text-align:left;font-weight:850;border-bottom:1px solid rgba(255,255,255,.08);padding:0 12px}
- body.n9-auditor-mobile #n7MobileHeader,body.n9-auditor-mobile #n7Bottom,body.n9-auditor-mobile #n7Drawer,body.n9-auditor-mobile #n7Overlay,body.n9-auditor-mobile #mainApp>main{display:none!important}
- body.n9-auditor-mobile #n9AuditorHeader{display:flex!important;position:fixed!important;z-index:15000!important;top:0;left:0;right:0;height:calc(64px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 0;background:#061f31;color:#fff;align-items:center;justify-content:space-between;border-bottom:3px solid #1ec8bd}
+ body.n9-auditor-mobile #n7MobileHeader,
+ body.n9-auditor-mobile #n7Bottom,
+ body.n9-auditor-mobile #n7Drawer,
+ body.n9-auditor-mobile #n7Overlay,
+ body.n9-auditor-mobile #mainApp>main,
+ body.n8-auditor-shell.n9-auditor-mobile #n7Sidebar,
+ body.n9-auditor-mobile #n7Sidebar{display:none!important}
+ body.n9-auditor-mobile{overflow-x:hidden!important;width:100%!important;max-width:100%!important}
+ body.n9-auditor-mobile #n9AuditorHeader{display:flex!important;position:fixed!important;z-index:15000!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:calc(64px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 0!important;background:#061f31;color:#fff;align-items:center;justify-content:space-between;border-bottom:3px solid #1ec8bd}
  #n9AuditorHeader b{font-size:21px;color:#00c5ad}#n9AuditorHeader span{font-size:12px;font-weight:850;letter-spacing:.08em}
  #n9AuditorBack{height:40px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.07);color:#fff;font-weight:850;padding:0 12px}
- body.n9-auditor-mobile .nexa-auditor-launch{display:block!important;position:relative!important;margin:0!important;width:100%!important;max-width:none!important;padding:calc(82px + env(safe-area-inset-top)) 14px 28px!important;min-height:100dvh!important;transform:none!important;background:var(--n7-bg,#f7f9fb)!important}
+ body.n8-auditor-shell.n9-auditor-mobile .nexa-auditor-launch,
+ body.n9-auditor-mobile .nexa-auditor-launch{display:block!important;position:relative!important;left:0!important;right:0!important;margin:0!important;margin-left:0!important;width:100%!important;max-width:none!important;padding:calc(82px + env(safe-area-inset-top)) 14px 28px!important;min-height:100dvh!important;transform:none!important;background:var(--n7-bg,#f7f9fb)!important;overflow-x:hidden!important}
  body.n9-auditor-mobile .nexa-auditor-launch:before{display:none!important}
  body.n9-auditor-mobile .nexa-auditor-dashboard{width:100%!important;max-width:none!important;margin:0!important;grid-template-columns:1fr!important}
  body.n9-auditor-mobile .nexa-audit-actions{grid-template-columns:1fr!important}
+ body.n9-auditor-mobile .nexa-auditor-dashboard>*{max-width:100%!important;min-width:0!important}
 }
 @media(min-width:821px){#n9AuditorDrawer{display:none!important}}
 `;
