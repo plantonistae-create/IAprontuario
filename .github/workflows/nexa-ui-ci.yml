@@ -1,0 +1,34 @@
+name: NEXA UI CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: npm run check:js
+      - name: UI contract tests
+        run: npm test
+      - name: Guard against duplicate visual loaders
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -o 'nexa-final-ui-v18.js' nexa-hotfix.js | wc -l | tr -d ' ')" = "1"
+          ! grep -q 'nexa-runtime-consolidated-v14.js' nexa-hotfix.js
+          ! grep -q 'nexa-approved-ui-v15.js' nexa-hotfix.js
+          ! grep -q 'nexa-parity-v17.js' nexa-hotfix.js
+          echo 'Single visual shell: PASS'
