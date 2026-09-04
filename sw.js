@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v3.7.3-radar-rec-hotfix2";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260903-2";
+const CACHE_NAME="nexa-v3.7.3-stable14-20260904";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260904-stable14";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
@@ -10,58 +10,19 @@ async function injectHotfix(response){
   if(text.includes("nexa-hotfix.js"))return new Response(text,{status:response.status,statusText:response.statusText,headers:response.headers});
   const tag=`<script src="${HOTFIX_URL}"></script>`;
   const html=text.includes("</body>")?text.replace("</body>",`${tag}</body>`):`${text}${tag}`;
-  const headers=new Headers(response.headers);
-  headers.set("content-type","text/html; charset=utf-8");
-  headers.set("cache-control","no-store, max-age=0");
+  const headers=new Headers(response.headers);headers.set("content-type","text/html; charset=utf-8");headers.set("cache-control","no-store, max-age=0");
   return new Response(html,{status:response.status,statusText:response.statusText,headers});
 }
 
-self.addEventListener("install",e=>{
-  self.skipWaiting();
-  e.waitUntil((async()=>{
-    const c=await caches.open(CACHE_NAME);
-    try{await c.add(HOTFIX_URL)}catch(_){}
-    try{
-      const raw=await fetch(new Request(INDEX_URL,{cache:"no-store"}));
-      if(raw.ok)await c.put(INDEX_URL,await injectHotfix(raw));
-    }catch(_){}
-  })());
-});
-
-self.addEventListener("activate",e=>{
-  e.waitUntil((async()=>{
-    const keys=await caches.keys();
-    await Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)));
-    await self.clients.claim();
-  })());
-});
-
+self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(Promise.resolve())});
+self.addEventListener("activate",e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)));await self.clients.claim()})())});
 self.addEventListener("fetch",e=>{
-  const r=e.request;
-  if(r.method!=="GET")return;
-  const u=new URL(r.url);
-  if(u.origin!==self.location.origin)return;
-
+  const r=e.request;if(r.method!=="GET")return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;
   if(r.mode==="navigate"||u.pathname.endsWith("/index.html")){
-    e.respondWith((async()=>{
-      try{
-        const raw=await fetch(new Request(r,{cache:"no-store"}));
-        if(!raw.ok)throw new Error("NAV_FETCH_FAILED");
-        const modified=await injectHotfix(raw);
-        const c=await caches.open(CACHE_NAME);
-        await c.put(INDEX_URL,modified.clone());
-        return modified;
-      }catch(_){
-        return (await caches.match(INDEX_URL)) || Response.error();
-      }
-    })());
-    return;
+    e.respondWith((async()=>{try{return await fetch(new Request(r,{cache:"no-store"}))}catch(_){return (await caches.match(INDEX_URL))||Response.error()}})());return;
   }
-
-  if(u.pathname.endsWith("/nexa-hotfix.js")){
-    e.respondWith(fetch(new Request(r,{cache:"no-store"})).catch(()=>caches.match(r)));
-    return;
+  if(/\/nexa-[^/]+\.js$/.test(u.pathname)||u.pathname.endsWith("/nexa-hotfix.js")){
+    e.respondWith(fetch(new Request(r,{cache:"no-store"})).catch(()=>caches.match(r)));return;
   }
-
-  e.respondWith(caches.match(r).then(cached=>cached||fetch(r)));
+  e.respondWith(fetch(r).catch(()=>caches.match(r)));
 });
