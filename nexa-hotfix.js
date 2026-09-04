@@ -9,5 +9,7 @@
         .catch(console.error)
         .finally(()=>load('./nexa-role-mobile-v4.js?v=20260904-1')
           .catch(console.error)
-          .finally(()=>load('./nexa-shell-v5.js?v=20260904-1').catch(console.error)))));
+          .finally(()=>load('./nexa-shell-v5.js?v=20260904-1')
+            .catch(console.error)
+            .finally(()=>load('./nexa-mobile-order-v6.js?v=20260904-1').catch(console.error))))));
 })();
