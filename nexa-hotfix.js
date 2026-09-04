@@ -1,4 +1,4 @@
-/* NEXA production loader · clean UI v7 + mobile viewport fix v8 + stability/auditor v9 + desktop/auth v10.3 · 2026-09-04 */
+/* NEXA production loader · clean UI v7 + mobile viewport fix v8 + stability/auditor v9 + desktop/auth v10.4 · 2026-09-04 */
 (()=>{
   const load=(src)=>new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)});
   load('./nexa-hotfix-v1.js?v=20260904-clean')
@@ -13,5 +13,5 @@
             .catch(console.error)
             .finally(()=>load('./nexa-auditor-mobile-guard-v9.js?v=20260904-5')
               .catch(console.error)
-              .finally(()=>load('./nexa-desktop-stability-v10.js?v=20260904-4').catch(console.error)))))));
+              .finally(()=>load('./nexa-desktop-stability-v10.js?v=20260904-5').catch(console.error)))))));
 })();
