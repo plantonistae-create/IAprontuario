@@ -1,7 +1,7 @@
 {
   "name": "nexa-clinical-ui",
   "private": true,
-  "version": "18.1.0",
+  "version": "18.2.0",
   "scripts": {
     "test": "node tests/nexa-ui-contract.test.mjs",
     "check:js": "node --check nexa-hotfix.js && node --check nexa-hotfix-v1.js && node --check nexa-ui-v3.js && node --check nexa-radar-v4.js && node --check nexa-final-ui-v18.js && node --check nexa-layout-flow-v18.1.js && node --check sw.js"
