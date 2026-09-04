@@ -9,5 +9,5 @@
         .catch(console.error)
         .finally(()=>load('./nexa-clean-ui-v7.js?v=20260904-1')
           .catch(console.error)
-          .finally(()=>load('./nexa-mobile-viewport-fix-v8.js?v=20260904-2').catch(console.error)))));
+          .finally(()=>load('./nexa-mobile-viewport-fix-v8.js?v=20260904-3').catch(console.error)))));
 })();
