@@ -1,9 +1,33 @@
-const CACHE_NAME="nexa-v3.7.1";
-const APP_SHELL=["./","./index.html"];
+const CACHE_NAME="nexa-v3.7.2-radar-rec-hotfix1";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260903-1";
+const INDEX_URL="./index.html";
+
+async function injectHotfix(response){
+  if(!response)return response;
+  const type=response.headers.get("content-type")||"";
+  if(!type.includes("text/html"))return response;
+  const text=await response.text();
+  if(text.includes("nexa-hotfix.js"))return new Response(text,{status:response.status,statusText:response.statusText,headers:response.headers});
+  const tag=`<script src="${HOTFIX_URL}"></script>`;
+  const html=text.includes("</body>")?text.replace("</body>",`${tag}</body>`):`${text}${tag}`;
+  const headers=new Headers(response.headers);
+  headers.set("content-type","text/html; charset=utf-8");
+  headers.set("cache-control","no-store, max-age=0");
+  return new Response(html,{status:response.status,statusText:response.statusText,headers});
+}
+
 self.addEventListener("install",e=>{
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL).catch(()=>{})));
+  e.waitUntil((async()=>{
+    const c=await caches.open(CACHE_NAME);
+    try{await c.add(HOTFIX_URL)}catch(_){}
+    try{
+      const raw=await fetch(new Request(INDEX_URL,{cache:"no-store"}));
+      if(raw.ok)await c.put(INDEX_URL,await injectHotfix(raw));
+    }catch(_){}
+  })());
 });
+
 self.addEventListener("activate",e=>{
   e.waitUntil((async()=>{
     const keys=await caches.keys();
@@ -11,24 +35,33 @@ self.addEventListener("activate",e=>{
     await self.clients.claim();
   })());
 });
+
 self.addEventListener("fetch",e=>{
   const r=e.request;
   if(r.method!=="GET")return;
   const u=new URL(r.url);
   if(u.origin!==self.location.origin)return;
+
   if(r.mode==="navigate"||u.pathname.endsWith("/index.html")){
-    e.respondWith(
-      fetch(new Request(r,{cache:"no-store"}))
-        .then(async res=>{
-          if(res?.ok){
-            const c=await caches.open(CACHE_NAME);
-            await c.put("./index.html",res.clone());
-          }
-          return res;
-        })
-        .catch(()=>caches.match("./index.html"))
-    );
+    e.respondWith((async()=>{
+      try{
+        const raw=await fetch(new Request(r,{cache:"no-store"}));
+        if(!raw.ok)throw new Error("NAV_FETCH_FAILED");
+        const modified=await injectHotfix(raw);
+        const c=await caches.open(CACHE_NAME);
+        await c.put(INDEX_URL,modified.clone());
+        return modified;
+      }catch(_){
+        return (await caches.match(INDEX_URL)) || Response.error();
+      }
+    })());
     return;
   }
+
+  if(u.pathname.endsWith("/nexa-hotfix.js")){
+    e.respondWith(fetch(new Request(r,{cache:"no-store"})).catch(()=>caches.match(r)));
+    return;
+  }
+
   e.respondWith(caches.match(r).then(cached=>cached||fetch(r)));
 });
