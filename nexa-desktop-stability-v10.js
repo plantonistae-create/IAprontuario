@@ -1,0 +1,65 @@
+/* NEXA desktop/auth stability v10 · 2026-09-04 */
+(()=>{
+'use strict';
+if(window.__NEXA_DESKTOP_STABILITY_V10__) return;
+window.__NEXA_DESKTOP_STABILITY_V10__=true;
+const $=id=>document.getElementById(id);
+const q=s=>document.querySelector(s);
+const desktop=()=>window.matchMedia('(min-width:821px)').matches;
+function visible(el){if(!el)return false;const cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'&&el.getBoundingClientRect().height>0}
+function syncAuth(){
+  const login=$('loginGate');
+  const app=$('mainApp');
+  const loginOpen=visible(login)&&(!app||!visible(app));
+  document.body.classList.toggle('n10-auth-login',loginOpen);
+  document.body.classList.toggle('n10-app-ready',!loginOpen);
+  if(loginOpen){
+    try{window.scrollTo(0,0)}catch{}
+    document.documentElement.classList.remove('n7-lock','n9-modal-lock');
+  }
+}
+function addCss(){
+  if($('nexaDesktopStabilityV10Style')) return;
+  const s=document.createElement('style');s.id='nexaDesktopStabilityV10Style';s.textContent=`
+/* Login must be completely independent from the clinical shell. */
+body.n10-auth-login #nexaCleanUIv7,body.n10-auth-login #n7Sidebar,body.n10-auth-login #n7Top,body.n10-auth-login #n7MobileHeader,body.n10-auth-login #n7Bottom,body.n10-auth-login #n7Drawer,body.n10-auth-login #n7Overlay{display:none!important}
+body.n10-auth-login #loginGate{position:relative!important;z-index:30000!important;display:flex!important;width:100%!important;min-height:100vh!important;margin:0!important;padding:24px!important;background:var(--bg,#f5f8f7)!important}
+body.n10-auth-login{overflow:auto!important;background:var(--bg,#f5f8f7)!important}
+@media(min-width:821px){
+ body.nexa-clean-v7.n10-app-ready{--n7-side:172px;--n7-top:62px;overflow-x:hidden!important}
+ body.nexa-clean-v7.n10-app-ready #n7Sidebar{width:var(--n7-side)!important;padding:14px 8px 10px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-logo{font-size:24px!important;margin:0 8px 14px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-nav{gap:2px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-nav button{height:40px!important;padding:0 11px!important;font-size:12px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-lockbox{font-size:11px!important;padding:7px 10px!important}
+ body.nexa-clean-v7.n10-app-ready #n7Top{left:var(--n7-side)!important;height:var(--n7-top)!important;gap:8px!important;padding:7px 10px!important;overflow:hidden!important}
+ body.nexa-clean-v7.n10-app-ready .n7-pill{height:40px!important;padding:0 9px!important;gap:7px!important;font-size:12px!important;flex:0 0 auto!important}
+ body.nexa-clean-v7.n10-app-ready .n7-ring{width:25px!important;height:25px!important;border-width:3px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-metric{font-size:11px!important;flex:0 0 auto!important}
+ body.nexa-clean-v7.n10-app-ready .n7-metric:before{width:9px!important;height:9px!important;margin-right:5px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-rec{height:40px!important;gap:6px!important;padding:0 7px!important;min-width:0!important;flex:0 1 auto!important}
+ body.nexa-clean-v7.n10-app-ready .n7-rec strong{font-size:21px!important;white-space:nowrap!important}
+ body.nexa-clean-v7.n10-app-ready .n7-rec button{font-size:11px!important;white-space:nowrap!important;padding:7px 8px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-action{height:38px!important;padding:0 8px!important;font-size:10px!important;white-space:normal!important;line-height:1.05!important;flex:0 1 auto!important}
+ body.nexa-clean-v7.n10-app-ready #mainApp>main{margin-left:var(--n7-side)!important;width:calc(100% - var(--n7-side))!important;max-width:none!important;padding:calc(var(--n7-top) + 10px) 10px 26px!important;overflow-x:hidden!important}
+ body.nexa-clean-v7.n10-app-ready .nexa-stage-view[data-stage="radar"].active{display:grid!important;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr)!important;gap:10px!important;width:100%!important;max-width:100%!important}
+ body.nexa-clean-v7.n10-app-ready .nexa-stage-view[data-stage="radar"]>#realtimeRadarCard,body.nexa-clean-v7.n10-app-ready .nexa-stage-view[data-stage="radar"]>.card.rec-zone,body.nexa-clean-v7.n10-app-ready #nexaRadarAlertsDock,body.nexa-clean-v7.n10-app-ready #nexaDispositionCard{min-width:0!important;max-width:100%!important;overflow:hidden!important}
+ body.nexa-clean-v7.n10-app-ready .nexa-stage-view[data-stage="radar"]>.card.rec-zone{grid-column:2!important;grid-row:1!important}
+ body.nexa-clean-v7.n10-app-ready #realtimeRadarCard{grid-column:1!important}
+}
+@media(min-width:821px) and (max-width:1120px){
+ body.nexa-clean-v7.n10-app-ready{--n7-side:154px}
+ body.nexa-clean-v7.n10-app-ready #n7Top{gap:5px!important;padding-left:7px!important;padding-right:7px!important}
+ body.nexa-clean-v7.n10-app-ready #n7Top>.n7-action[data-go="radar"]{display:none!important}
+ body.nexa-clean-v7.n10-app-ready .n7-rec>span{display:none!important}
+ body.nexa-clean-v7.n10-app-ready .n7-action{font-size:9px!important;padding:0 6px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-metric{font-size:10px!important}
+ body.nexa-clean-v7.n10-app-ready .n7-pill{font-size:11px!important}
+ body.nexa-clean-v7.n10-app-ready .nexa-stage-view[data-stage="radar"].active{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+}
+`;
+  document.head.appendChild(s);
+}
+function init(){addCss();syncAuth();const mo=new MutationObserver(syncAuth);mo.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden']});window.addEventListener('resize',syncAuth);window.addEventListener('pageshow',()=>setTimeout(syncAuth,0));setTimeout(syncAuth,250);setTimeout(syncAuth,1000)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
