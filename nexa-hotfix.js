@@ -8,5 +8,6 @@
   .finally(()=>load('./nexa-radar-v4.js?v=20260904-v17').catch(console.error)
   .finally(()=>load('./nexa-runtime-consolidated-v14.js?v=20260904-v17').catch(console.error)
   .finally(()=>load('./nexa-approved-ui-v15.js?v=20260904-v17').catch(console.error)
-  .finally(()=>load('./nexa-parity-v17.js?v=20260904-v17').catch(console.error))))));
+  .finally(()=>load('./nexa-parity-v17.js?v=20260904-v17').catch(console.error)
+  .finally(()=>load('./nexa-parity-v17-hotfix.js?v=20260904-v17').catch(console.error)))))));
 })();
