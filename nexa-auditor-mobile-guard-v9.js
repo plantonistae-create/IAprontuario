@@ -34,6 +34,50 @@ function stabilizeClinical(){
   observer.observe(m,{attributes:true,attributeFilter:['class']});
 }
 
+function recordingActive(){
+  const rec=$('recBtn')||q('.rec-btn');
+  const pause=$('nexaDesktopPause')||$('nexaRadarPauseProxy');
+  return !!(rec?.classList.contains('recording')||pause?.disabled===false&&/pausar|retomar/i.test(pause?.textContent||''));
+}
+function ensureRecordingControls(){
+  const zone=q('.nexa-stage-view[data-stage="radar"] .rec-zone');
+  const nativeConsent=$('consent');
+  const nativeRec=$('recBtn')||zone?.querySelector('.rec-btn');
+  if(!zone||!nativeRec)return;
+  let box=$('n9RecordingStartBox');
+  if(!box){
+    box=document.createElement('div');box.id='n9RecordingStartBox';box.className='n9-record-start-box';
+    box.innerHTML=`<label class="n9-consent"><input id="n9Consent" type="checkbox"><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label><button type="button" id="n9StartRecording">● Iniciar gravação</button>`;
+    zone.insertBefore(box,zone.firstChild);
+    const mirror=$('n9Consent');
+    mirror.checked=!!nativeConsent?.checked;
+    mirror.addEventListener('change',()=>{
+      if(nativeConsent){nativeConsent.checked=mirror.checked;nativeConsent.dispatchEvent(new Event('change',{bubbles:true}))}
+      syncRecordingControls();
+    });
+    $('n9StartRecording').addEventListener('click',e=>{
+      e.preventDefault();e.stopImmediatePropagation();
+      if(nativeConsent&&!nativeConsent.checked){mirror.focus();return}
+      nativeRec.click();
+      setTimeout(syncRecordingControls,80);
+    },true);
+  }
+  syncRecordingControls();
+}
+function syncRecordingControls(){
+  const nativeConsent=$('consent');
+  const mirror=$('n9Consent');
+  const start=$('n9StartRecording');
+  const active=recordingActive();
+  if(mirror&&nativeConsent&&mirror.checked!==nativeConsent.checked)mirror.checked=nativeConsent.checked;
+  if(start){
+    start.disabled=!!nativeConsent&&!nativeConsent.checked;
+    start.style.display=active?'none':'flex';
+  }
+  if(mirror)mirror.disabled=active;
+  const box=$('n9RecordingStartBox');if(box)box.classList.toggle('is-recording',active);
+}
+
 function ensureAuditorDrawerButton(){
   const drawer=$('n7Drawer');if(!drawer)return;
   let b=$('n9AuditorDrawer');
@@ -100,6 +144,7 @@ html.n9-modal-lock,html.n9-modal-lock body{overflow:hidden!important}
 #clinicalModal.open{display:flex!important}
 #clinicalModal .dialog{position:relative!important;z-index:20001!important}
 #n9AuditorHeader{display:none}
+.n9-record-start-box{display:grid;gap:10px;margin:0 0 16px;text-align:left}.n9-consent{display:flex!important;align-items:flex-start;gap:10px!important;margin:0!important;padding:11px 12px;border:1px solid var(--hair,#dce6ec);border-radius:10px;background:var(--surface2,#f7faf9);font-size:12px!important;font-weight:650!important;color:var(--ink,#0b1727)!important}.n9-consent input{width:20px!important;height:20px!important;min-width:20px!important;margin:0!important;accent-color:#0b9f8a}.n9-consent span{line-height:1.35}.n9-record-start-box.is-recording .n9-consent{opacity:.72}.n9-record-start-box #n9StartRecording{min-height:48px;border:0;border-radius:10px;background:#0e93ad;color:#fff;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}.n9-record-start-box #n9StartRecording:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:820px){
  #clinicalModal{inset:0!important;padding:0!important;align-items:stretch!important;background:var(--surface,#fff)!important}
  #clinicalModal .dialog{width:100%!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow-y:auto!important;overscroll-behavior:contain!important;padding:0 14px max(28px,env(safe-area-inset-bottom))!important}
@@ -142,6 +187,6 @@ function bindGlobal(){
   const privilegedWatcher=new MutationObserver(()=>ensureAuditorDrawerButton());privilegedWatcher.observe(document.body,{attributes:true,attributeFilter:['class']});
   window.addEventListener('resize',syncAuditor);window.addEventListener('orientationchange',()=>setTimeout(syncAuditor,100));
 }
-function init(){addCss();stabilizeClinical();ensureAuditorDrawerButton();syncAuditor();bindGlobal();setTimeout(()=>{stabilizeClinical();ensureAuditorDrawerButton();syncAuditor()},500);setTimeout(()=>{ensureAuditorDrawerButton();syncAuditor()},1400)}
+function init(){addCss();stabilizeClinical();ensureRecordingControls();ensureAuditorDrawerButton();syncAuditor();bindGlobal();setInterval(syncRecordingControls,350);setTimeout(()=>{stabilizeClinical();ensureRecordingControls();ensureAuditorDrawerButton();syncAuditor()},500);setTimeout(()=>{ensureRecordingControls();ensureAuditorDrawerButton();syncAuditor()},1400)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
