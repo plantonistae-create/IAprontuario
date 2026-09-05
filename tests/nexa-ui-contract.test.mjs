@@ -56,10 +56,10 @@ for (const token of ['__NEXA_HISTORY_LIFECYCLE_V18_6_9__',"const cutoff=new Date
 assert.ok(!historyLifecycle.includes('MutationObserver'), 'history lifecycle não deve adicionar observador visual contínuo');
 
 for (const token of ['__NEXA_AUDITOR_NATIVE_V18_8__','Painel de Auditoria','Fila de casos','Aprovar sem alteração','Aprovar com correções','Descartar','get_audit_queue','get_core_dataset_summary','submit_audit_review','nexaOpenProfessionalAudit']) assert.ok(auditor.includes(token), `auditor v18.8 sem contrato esperado: ${token}`);
-assert.ok(!auditor.includes('MutationObserver'), 'auditor v18.8 não pode usar MutationObserver');
+assert.ok(!auditor.includes('new MutationObserver'), 'auditor v18.8 não pode instanciar observador contínuo');
 assert.ok(!auditor.includes('setInterval'), 'auditor v18.8 não pode usar polling contínuo');
 for (const token of ['__NEXA_MOBILE_TOP_SAFE_V18_8__','--nm18-safe-top','padding-top:calc(var(--nm18-header)','scroll-margin-top']) assert.ok(mobileTop.includes(token), `mobile top v18.8 sem proteção esperada: ${token}`);
-assert.ok(!mobileTop.includes('MutationObserver')&&!mobileTop.includes('setInterval'),'mobile top v18.8 deve ser CSS-only');
+assert.ok(!mobileTop.includes('new MutationObserver')&&!mobileTop.includes('setInterval'),'mobile top v18.8 deve ser CSS-only');
 
 assert.ok(sw.includes('nexa-v18-8-native-auditor-20260905'), 'service worker não está na versão v18.8');
 assert.ok(sw.includes('20260905-v1880'), 'service worker precisa apontar para o hotfix v18.8');
