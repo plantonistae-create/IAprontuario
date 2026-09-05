@@ -1,0 +1,7 @@
+NEXA v18.7.1 regression contract
+- nexa-auditor-mobile-fix-v18.7.1.js must be loaded after nexa-auditor-workspace-v18.7.js
+- audit entry points force nexa-auditor-view / professional workspace
+- legacy coreAdminModal is hidden outside native bridge harvesting
+- mobile header is sticky and inserted before #mainApp
+- clinical main has 12px mobile top padding, not duplicated fixed-header offset
+- service worker cache key must be v18.7.1
