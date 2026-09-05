@@ -41,6 +41,8 @@ for (const id of ['recBtn','consent','timer','status','wave','processBtn','reset
 assert.ok(html.includes('id="nexaRecordingKicker"'), 'fixture precisa expor o kicker legado que causava auto-placement no grid');
 assert.ok(html.includes("host.id='nexaStageHost'"), 'index precisa continuar criando o stage host clínico');
 assert.ok(html.includes("$('submitAuditBtn').onclick=submitCurrentForAudit"), 'envio manual à auditoria deve continuar disponível como fallback');
+assert.ok(html.includes('id="workspaceHistoryPane"'), 'histórico nativo de rascunhos precisa continuar disponível');
+assert.ok(html.includes('Histórico de rascunhos'), 'histórico deve continuar identificado como rascunhos');
 
 for (const token of ['#nfSide','#nfTop','#nfRecMain','#nfRecActions','#nfSummary','#nfRadarTabs','cleanupDuplicates','__NEXA_V18_SMOKE__','rec.append(main,quick)']) {
   assert.ok(ui.includes(token), `UI v18 sem contrato esperado: ${token}`);
@@ -98,23 +100,27 @@ for (const token of [
   '__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__',
   'function recordingActive()',
   "rec.dataset.nexaStartOnly='1'",
+  "rec.setAttribute('aria-label','Iniciar gravação')",
   'e.stopImmediatePropagation()',
-  "show('A gravação já está em andamento. Use o botão Pausar para pausar ou retomar.')",
+  "status.textContent='Gravação em andamento · use Pausar ou Finalizar'",
   'function mountHistoryStage()',
   "q('.nexa-stage-view[data-stage=\"history\"]')",
   "const pane=$('workspaceHistoryPane')",
   'stage.appendChild(pane)',
-  'function persistDraft()',
-  ".eq('status','draft')",
-  ".gte('updated_at',cutoff)",
-  ".order('updated_at',{ascending:false})",
-  'function loadDraftHistory()',
-  "refresh.dataset.nexaDraftRefresh='1'",
-  'Promise.resolve(result).finally(()=>schedulePersist(0))',
-  'window.nexaPersistDraftNow=persistDraft',
-  'window.nexaRefreshDraftHistory=loadDraftHistory',
-  '__NEXA_V18_6_6_DRAFT_DIAGNOSTIC__'
+  "body.classList.add('open')",
+  'function refreshNativeHistory()',
+  "const refresh=$('refreshHistoryBtn')",
+  'refresh.click()',
+  '[data-go="history"],#nfQuickHistory,.nexa-session-tab[data-stage="history"]',
+  'function renderCurrentDraft(stage)',
+  "card.id='nexaCurrentDraftCard'",
+  'Consulta ainda aberta · o histórico salvo aparece abaixo',
+  'window.nexaRefreshDraftHistory=refreshNativeHistory',
+  '__NEXA_V18_6_6_DRAFT_DIAGNOSTIC__',
+  'nativeDraftStore:true'
 ]) assert.ok(draft.includes(token), `draft history/recording v18.6.6 sem contrato esperado: ${token}`);
+assert.ok(!draft.includes("typeof currentProf"), 'v18.6.6 deve usar o store nativo autenticado em vez de acessar escopo privado do index');
+assert.ok(!draft.includes("sb.from('consultation_history')"), 'v18.6.6 não deve criar uma segunda rota de persistência clínica');
 assert.ok(!draft.includes('MutationObserver'), 'v18.6.6 não deve adicionar observador visual contínuo');
 assert.ok(!draft.includes('requestAnimationFrame'), 'v18.6.6 não deve adicionar loop visual por frame');
 
@@ -129,4 +135,4 @@ new Function(audit);
 new Function(draft);
 new Function(sw);
 
-console.log('NEXA UI + start-only recording + live draft history + fixed canvas + audit contract: PASS');
+console.log('NEXA UI + start-only recording + native draft history + fixed canvas + audit contract: PASS');
