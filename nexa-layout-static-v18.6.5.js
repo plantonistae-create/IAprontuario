@@ -1,18 +1,19 @@
-/* NEXA v18.6.4 · fixed clinical canvas · 2026-09-05
-   Desktop clinical workspace is anchored directly to the final sidebar/topbar.
-   The stage host stays inside <main> for compatibility, but uses viewport-fixed
-   geometry so legacy main/grid/max-width rules cannot create a left white rail. */
+/* NEXA v18.6.5 · fixed clinical canvas + recorder root-cause normalization · 2026-09-05
+   Keeps the viewport-fixed clinical canvas introduced in v18.6.4 and fixes the
+   remaining apparent white band inside the Radar: legacy direct children of
+   .rec-zone were still participating in CSS Grid auto-placement and pushing
+   #nfRecMain away from the left edge. */
 (()=>{
 'use strict';
-if(window.__NEXA_FIXED_CANVAS_V18_6_4__)return;
-window.__NEXA_FIXED_CANVAS_V18_6_4__=true;
+if(window.__NEXA_FIXED_CANVAS_V18_6_5__)return;
+window.__NEXA_FIXED_CANVAS_V18_6_5__=true;
 
 const $=id=>document.getElementById(id);
 
 function installStyle(){
-  if($('nf1864FixedCanvasStyle'))return;
+  if($('nf1865FixedCanvasStyle'))return;
   const s=document.createElement('style');
-  s.id='nf1864FixedCanvasStyle';
+  s.id='nf1865FixedCanvasStyle';
   s.textContent=`
 @media(min-width:821px){
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open){
@@ -20,7 +21,15 @@ function installStyle(){
     background:var(--nf-bg)!important;
   }
 
-  /* Neutralize the legacy document grid, but keep it alive for native controls. */
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #mainApp{
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    transform:none!important;
+  }
+
+  /* Keep native controls alive, but remove every legacy document-grid offset. */
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #mainApp>main{
     display:block!important;
     position:static!important;
@@ -35,6 +44,7 @@ function installStyle(){
     gap:0!important;
     overflow:visible!important;
     background:var(--nf-bg)!important;
+    transform:none!important;
   }
 
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #mainApp>main>.panel-left,
@@ -54,12 +64,7 @@ function installStyle(){
     pointer-events:none!important;
   }
 
-  /*
-   * Key fix: host remains a child of <main>, but fixed positioning removes it
-   * entirely from every legacy grid/margin/max-width calculation.
-   * The canvas starts exactly at the final sidebar edge; 16px is internal
-   * padding, so there is no exposed white rail between sidebar and workspace.
-   */
+  /* The clinical canvas is anchored directly to the final sidebar/topbar. */
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #mainApp>main>#nexaStageHost,
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #mainApp>main>.nexa-stage-host{
     display:block!important;
@@ -92,7 +97,7 @@ function installStyle(){
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view{
     position:relative!important;
     inset:auto!important;
-    left:auto!important;
+    left:0!important;
     right:auto!important;
     width:100%!important;
     min-width:0!important;
@@ -106,14 +111,13 @@ function installStyle(){
     overflow:visible!important;
   }
 
-  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[hidden]{
-    display:none!important;
-  }
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[hidden]{display:none!important}
 
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view.active{
     width:100%!important;
     max-width:none!important;
     margin:0!important;
+    padding:0!important;
   }
 
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view.active>*{
@@ -141,20 +145,81 @@ function installStyle(){
     width:100%!important;
     max-width:none!important;
     margin:0!important;
+    padding:0!important;
   }
 
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="summary"].active>*,
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="hypothesis"].active>*,
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="plan"].active>*,
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="history"].active>*{
+    position:relative!important;
+    left:0!important;
+    right:auto!important;
     width:100%!important;
     max-width:none!important;
     margin-left:0!important;
     margin-right:0!important;
+    transform:none!important;
+    translate:none!important;
     box-sizing:border-box!important;
   }
 
-  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone{grid-area:record!important}
+  /* Root-cause fix for the remaining white band in Radar. */
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone{
+    grid-area:record!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 320px!important;
+    grid-template-areas:"recmain quick"!important;
+    gap:16px!important;
+    align-items:stretch!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:16px!important;
+    left:0!important;
+    right:auto!important;
+    transform:none!important;
+    box-sizing:border-box!important;
+  }
+
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone>#nfRecMain{
+    grid-area:recmain!important;
+    grid-column:1!important;
+    grid-row:1!important;
+    display:flex!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    transform:none!important;
+  }
+
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone>#nfQuick{
+    grid-area:quick!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    transform:none!important;
+  }
+
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone.nf-rec-normalized>:not(#nfRecMain):not(#nfQuick){
+    display:none!important;
+    width:0!important;
+    min-width:0!important;
+    max-width:0!important;
+    height:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    overflow:hidden!important;
+  }
+
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>#realtimeRadarCard{grid-area:radar!important}
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>#nfSummary{grid-area:summary!important}
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>#nexaRadarAlertsDock{grid-area:alerts!important}
@@ -175,20 +240,58 @@ function installStyle(){
   html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="radar"].active{
     grid-template-columns:minmax(0,1fr) minmax(285px,.72fr)!important;
   }
+  html body.nexa-v340.nexa-doctor-view:not(.doctor-home-open) #nexaStageHost .nexa-stage-view[data-stage="radar"]>.card.rec-zone{
+    grid-template-columns:minmax(0,1fr) 260px!important;
+  }
 }
 `;
   document.head.appendChild(s);
 }
 
-function install(){
+function normalizeRecorderGrid(){
+  const host=$('nexaStageHost');
+  const rec=host?.querySelector('.nexa-stage-view[data-stage="radar"]>.card.rec-zone');
+  const recMain=$('nfRecMain');
+  const quick=$('nfQuick');
+  if(!rec||!recMain||!quick)return false;
+
+  if(recMain.parentElement!==rec)rec.appendChild(recMain);
+  if(quick.parentElement!==rec)rec.appendChild(quick);
+
+  rec.classList.add('nf-rec-normalized');
+  [...rec.children].forEach(el=>{
+    if(el===recMain||el===quick)return;
+    el.style.setProperty('display','none','important');
+    el.setAttribute('aria-hidden','true');
+  });
+  return true;
+}
+
+function repair(){
   document.body?.classList.add('nexa-v340');
   installStyle();
-  window.__NEXA_V18_6_4_LAYOUT_DIAGNOSTIC__={
-    mode:'fixed-canvas',
+  const normalized=normalizeRecorderGrid();
+  window.__NEXA_V18_6_5_LAYOUT_DIAGNOSTIC__={
+    mode:'fixed-canvas+recorder-normalized',
     keepsHostInMain:true,
     dynamicCounterShift:false,
-    appliesTo:['radar','summary','hypothesis','plan','history']
+    appliesTo:['radar','summary','hypothesis','plan','history'],
+    recorderNormalized:normalized,
+    recorderChildren:$('nexaStageHost')?.querySelector('.nexa-stage-view[data-stage="radar"]>.card.rec-zone')
+      ?[...$('nexaStageHost').querySelector('.nexa-stage-view[data-stage="radar"]>.card.rec-zone').children].map(el=>el.id||el.className||el.tagName)
+      :[]
   };
+}
+
+function install(){
+  repair();
+  [60,180,400,800,1500,2500].forEach(ms=>setTimeout(repair,ms));
+  addEventListener('pageshow',()=>setTimeout(repair,20));
+  addEventListener('resize',repair,{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(repair,20)});
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('[data-go],.nexa-session-tab,#nfDoctor,#nfAuditor'))setTimeout(repair,0);
+  },true);
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});

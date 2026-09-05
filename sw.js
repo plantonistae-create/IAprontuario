@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-6-4-fixed-canvas-20260905";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1864";
+const CACHE_NAME="nexa-v18-6-5-recorder-root-fix-20260905";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1865";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
