@@ -1,9 +1,9 @@
 {
   "name": "nexa-clinical-ui",
   "private": true,
-  "version": "18.6.0",
+  "version": "18.6.2",
   "scripts": {
     "test": "node tests/nexa-ui-contract.test.mjs",
-    "check:js": "node --check nexa-hotfix.js && node --check nexa-hotfix-v1.js && node --check nexa-ui-v3.js && node --check nexa-radar-v4.js && node --check nexa-final-ui-v18.js && node --check nexa-layout-flow-v18.6.js && node --check nexa-audit-autosave-v18.5.js && node --check sw.js"
+    "check:js": "node --check nexa-hotfix.js && node --check nexa-hotfix-v1.js && node --check nexa-ui-v3.js && node --check nexa-radar-v4.js && node --check nexa-final-ui-v18.js && node --check nexa-layout-flow-v18.6.js && node --check nexa-gap-selfheal-v18.6.2.js && node --check nexa-audit-autosave-v18.5.js && node --check sw.js"
   }
 }
