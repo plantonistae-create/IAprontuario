@@ -16,7 +16,7 @@ const requiredLoaderModules = [
   'nexa-layout-flow-v18.1.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
-assert.ok(loader.includes('20260904-v183'), 'loader precisa forçar cache-bust v18.3');
+assert.ok(loader.includes('20260905-v184'), 'loader precisa forçar cache-bust v18.4');
 
 const forbiddenLoaderModules = [
   'nexa-runtime-consolidated-v14.js',
@@ -38,27 +38,32 @@ for (const duplicate of ['nexaRadarPauseProxy','nexaRadarFinishProxy','nexaRadar
   assert.ok(ui.includes(duplicate), `UI v18 não remove proxy legado ${duplicate}`);
 }
 
-// v18.3: a antiga coluna esquerda deve ser removida do DOM, não apenas escondida.
+// v18.4: geometria crítica não pode depender de body.nexa-v340.
 for (const token of [
-  '__NEXA_LAYOUT_FLOW_V18_3__',
-  'preserveFinalContent',
-  "qa('#mainApp>main .panel-left').forEach(left=>left.remove())",
+  '__NEXA_LAYOUT_FLOW_V18_4__',
+  'ensureBodyContract',
+  "document.body.classList.add('nexa-v340')",
+  'html body #mainApp>main',
   "imp(main,'display','block')",
-  "imp(main,'margin','0 0 0 var(--nf-side)')",
-  "imp(panel,'width','100%')",
-  'legacyPanelLeftCount',
-  '__NEXA_V18_3_LAYOUT_DIAGNOSTIC__',
-  'position:static!important',
+  "imp(main,'grid-template-columns','none')",
+  "imp(main,'margin','0 0 0 var(--nf-side,214px)')",
+  "qa('#mainApp>main .panel-left').forEach(left=>left.remove())",
+  '__NEXA_V18_4_LAYOUT_DIAGNOSTIC__',
+  'bodyHasContract',
+  'panelGap',
+  'recorderGap',
   'grid-area:record!important',
   'grid-area:summary!important',
   'grid-area:alerts!important'
 ]) {
-  assert.ok(flow.includes(token), `layout-flow v18.3 sem proteção esperada: ${token}`);
+  assert.ok(flow.includes(token), `layout-flow v18.4 sem proteção esperada: ${token}`);
 }
-assert.ok(flow.includes('panel.appendChild(directHost)'), 'host de estágios precisa ser preservado antes de remover wrappers legados');
+assert.ok(flow.includes("if($('nfShell')&&$('nfRecMain'))"), 'panel-left só deve ser removido após a UI final recolher os controles nativos');
 assert.ok(flow.includes('#realtimeRadarCard>#nexaDispositionCard'), 'Disposição do PS deve permanecer dentro do Radar');
+assert.ok(!flow.includes('html body.nexa-v340 #mainApp>main{'), 'regra crítica do main não pode depender de body.nexa-v340');
 
-assert.ok(sw.includes('nexa-v18-3-layout-20260904'), 'service worker não está na versão v18.3');
+assert.ok(sw.includes('nexa-v18-4-layout-20260905'), 'service worker não está na versão v18.4');
+assert.ok(sw.includes('20260905-v184'), 'service worker precisa apontar para o hotfix v18.4');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
 
 new Function(loader);
