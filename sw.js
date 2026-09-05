@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-8-1-mobile-flow-20260905";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1881";
+const CACHE_NAME="nexa-v18-9-exact-auditor-20260905";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1890";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
@@ -15,9 +15,4 @@ async function injectHotfix(response){
 }
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(Promise.resolve())});
 self.addEventListener("activate",e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)));await self.clients.claim()})())});
-self.addEventListener("fetch",e=>{
-  const r=e.request;if(r.method!=="GET")return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;
-  if(r.mode==="navigate"||u.pathname.endsWith("/index.html")){e.respondWith((async()=>{try{return await injectHotfix(await fetch(new Request(r,{cache:"no-store"})))}catch{return(await caches.match(INDEX_URL))||Response.error()}})());return}
-  if(/\/nexa-[^/]+\.js$/.test(u.pathname)||u.pathname.endsWith("/nexa-hotfix.js")){e.respondWith(fetch(new Request(r,{cache:"no-store"})).catch(()=>caches.match(r)));return}
-  e.respondWith(fetch(r).catch(()=>caches.match(r)));
-});
+self.addEventListener("fetch",e=>{const r=e.request;if(r.method!=="GET")return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;if(r.mode==="navigate"||u.pathname.endsWith("/index.html")){e.respondWith((async()=>{try{return await injectHotfix(await fetch(new Request(r,{cache:"no-store"})))}catch{return(await caches.match(INDEX_URL))||Response.error()}})());return}if(/\/nexa-[^/]+\.js$/.test(u.pathname)||u.pathname.endsWith("/nexa-hotfix.js")){e.respondWith(fetch(new Request(r,{cache:"no-store"})).catch(()=>caches.match(r)));return}e.respondWith(fetch(r).catch(()=>caches.match(r)))});
