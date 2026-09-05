@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-6-2-gap-selfheal-20260905";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1862";
+const CACHE_NAME="nexa-v18-6-3-static-layout-20260905";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1863";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
