@@ -18,7 +18,7 @@ const requiredLoaderModules = [
   'nexa-audit-autosave-v18.5.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
-assert.ok(loader.includes('20260905-v1863'), 'loader precisa forçar cache-bust v18.6.3');
+assert.ok(loader.includes('20260905-v1864'), 'loader precisa forçar cache-bust v18.6.4');
 
 for (const forbidden of [
   'nexa-layout-flow-v18.6.js',
@@ -42,28 +42,34 @@ for (const token of ['#nfSide','#nfTop','#nfRecMain','#nfRecActions','#nfSummary
 }
 
 for (const token of [
-  '__NEXA_LAYOUT_STATIC_V18_6_3__',
-  'nf1863StaticLayoutStyle',
-  'width:calc(100vw - var(--nf-side,214px))!important',
-  'margin:0 0 0 var(--nf-side,214px)!important',
-  'grid-template-columns:minmax(0,1fr)!important',
+  '__NEXA_FIXED_CANVAS_V18_6_4__',
+  'nf1864FixedCanvasStyle',
+  'position:fixed!important',
+  'left:var(--nf-side,214px)!important',
+  'right:0!important',
+  'top:var(--nf-top,72px)!important',
+  'bottom:0!important',
+  'inset:var(--nf-top,72px) 0 0 var(--nf-side,214px)!important',
+  'overflow-y:auto!important',
+  'background:var(--nf-bg)!important',
   '#mainApp>main>.panel-left',
   '#mainApp>main>.panel-right',
+  '#nexaStageHost>.nexa-stage-view.active',
   '#nexaStageHost>.nexa-stage-view[data-stage="radar"].active',
+  '#nexaStageHost>.nexa-stage-view[data-stage="summary"].active',
   '#nexaStageHost>.nexa-stage-view[data-stage="hypothesis"].active',
   '#nexaStageHost>.nexa-stage-view[data-stage="plan"].active',
   '#nexaStageHost>.nexa-stage-view[data-stage="history"].active',
-  'width:100%!important',
-  'if(host.parentElement!==main)main.prepend(host)',
-  'radar.hidden=false',
-  '__NEXA_V18_6_3_LAYOUT_DIAGNOSTIC__'
-]) assert.ok(layout.includes(token), `layout estático v18.6.3 sem proteção esperada: ${token}`);
+  'keepsHostInMain:true',
+  'dynamicCounterShift:false',
+  '__NEXA_V18_6_4_LAYOUT_DIAGNOSTIC__'
+]) assert.ok(layout.includes(token), `fixed canvas v18.6.4 sem proteção esperada: ${token}`);
 
-assert.ok(!layout.includes('MutationObserver'), 'layout v18.6.3 não pode usar MutationObserver e gerar loop visual');
-assert.ok(!layout.includes('requestAnimationFrame'), 'layout v18.6.3 não pode recalcular deslocamento a cada frame');
-assert.ok(!layout.includes('getBoundingClientRect().left-'), 'layout v18.6.3 não pode aplicar correção horizontal medida continuamente');
+assert.ok(!layout.includes('MutationObserver'), 'v18.6.4 não pode usar MutationObserver e gerar loop visual');
+assert.ok(!layout.includes('requestAnimationFrame'), 'v18.6.4 não pode recalcular deslocamento a cada frame');
+assert.ok(!layout.includes('setInterval'), 'v18.6.4 não pode manter loop de correção visual');
+assert.ok(!layout.includes('getBoundingClientRect'), 'v18.6.4 não pode depender de medição dinâmica de posição');
 assert.ok(!layout.includes('document.body.appendChild(host)'), 'Radar não pode ser destacado para o body');
-assert.ok(!layout.includes("display','none'"), 'layout não pode ocultar programaticamente o main clínico');
 
 for (const token of [
   '__NEXA_AUDIT_AUTOSAVE_V18_5__',
@@ -79,8 +85,8 @@ for (const token of [
 ]) assert.ok(audit.includes(token), `audit autosave sem proteção esperada: ${token}`);
 assert.ok(audit.includes("d.error!=='ALREADY_SUBMITTED'"), 'autosave deve tratar reenvio idempotente como sucesso');
 
-assert.ok(sw.includes('nexa-v18-6-3-static-layout-20260905'), 'service worker não está na versão v18.6.3');
-assert.ok(sw.includes('20260905-v1863'), 'service worker precisa apontar para o hotfix v18.6.3');
+assert.ok(sw.includes('nexa-v18-6-4-fixed-canvas-20260905'), 'service worker não está na versão v18.6.4');
+assert.ok(sw.includes('20260905-v1864'), 'service worker precisa apontar para o hotfix v18.6.4');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
 
 new Function(loader);
@@ -89,4 +95,4 @@ new Function(layout);
 new Function(audit);
 new Function(sw);
 
-console.log('NEXA UI + static all-stage layout + audit contract: PASS');
+console.log('NEXA UI + fixed clinical canvas + audit contract: PASS');
