@@ -6,6 +6,7 @@ const loader = read('nexa-hotfix.js');
 const ui = read('nexa-final-ui-v18.js');
 const layout = read('nexa-layout-static-v18.6.5.js');
 const audit = read('nexa-audit-autosave-v18.5.js');
+const draft = read('nexa-record-draft-history-v18.6.6.js');
 const html = read('index.html');
 const sw = read('sw.js');
 
@@ -15,10 +16,11 @@ const requiredLoaderModules = [
   'nexa-radar-v4.js',
   'nexa-final-ui-v18.js',
   'nexa-layout-static-v18.6.5.js',
-  'nexa-audit-autosave-v18.5.js'
+  'nexa-audit-autosave-v18.5.js',
+  'nexa-record-draft-history-v18.6.6.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
-assert.ok(loader.includes('20260905-v1865'), 'loader precisa forçar cache-bust v18.6.5');
+assert.ok(loader.includes('20260905-v1866'), 'loader precisa forçar cache-bust v18.6.6');
 
 for (const forbidden of [
   'nexa-layout-static-v18.6.3.js',
@@ -33,7 +35,7 @@ for (const forbidden of [
   'nexa-parity-v17-hotfix.js'
 ]) assert.ok(!loader.includes(forbidden), `loader não pode carregar camada conflitante: ${forbidden}`);
 
-for (const id of ['recBtn','consent','timer','status','wave','processBtn','resetBtn','realtimeRadarCard','nexaPauseBtn','nexaFinishBtn']) {
+for (const id of ['recBtn','consent','timer','status','wave','processBtn','resetBtn','realtimeRadarCard','nexaPauseBtn','nexaFinishBtn','workspaceHistoryPane','historyList','refreshHistoryBtn']) {
   assert.ok(html.includes(`id="${id}"`), `controle nativo ausente no index.html: ${id}`);
 }
 assert.ok(html.includes('id="nexaRecordingKicker"'), 'fixture precisa expor o kicker legado que causava auto-placement no grid');
@@ -69,12 +71,7 @@ for (const token of [
   '.card.rec-zone.nf-rec-normalized>:not(#nfRecMain):not(#nfQuick)',
   'function normalizeRecorderGrid()',
   "rec.classList.add('nf-rec-normalized')",
-  'if(el===recMain||el===quick)return',
-  "el.style.setProperty('display','none','important')",
-  '__NEXA_V18_6_5_LAYOUT_DIAGNOSTIC__',
-  "mode:'fixed-canvas+recorder-normalized'",
-  'recorderNormalized:',
-  'recorderChildren:'
+  '__NEXA_V18_6_5_LAYOUT_DIAGNOSTIC__'
 ]) assert.ok(layout.includes(token), `fixed canvas/recorder v18.6.5 sem proteção esperada: ${token}`);
 
 assert.ok(!layout.includes('MutationObserver'), 'v18.6.5 não pode usar MutationObserver e gerar loop visual');
@@ -97,14 +94,39 @@ for (const token of [
 ]) assert.ok(audit.includes(token), `audit autosave sem proteção esperada: ${token}`);
 assert.ok(audit.includes("d.error!=='ALREADY_SUBMITTED'"), 'autosave deve tratar reenvio idempotente como sucesso');
 
-assert.ok(sw.includes('nexa-v18-6-5-recorder-root-fix-20260905'), 'service worker não está na versão v18.6.5');
-assert.ok(sw.includes('20260905-v1865'), 'service worker precisa apontar para o hotfix v18.6.5');
+for (const token of [
+  '__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__',
+  'function recordingActive()',
+  "rec.dataset.nexaStartOnly='1'",
+  'e.stopImmediatePropagation()',
+  "show('A gravação já está em andamento. Use o botão Pausar para pausar ou retomar.')",
+  'function mountHistoryStage()',
+  "q('.nexa-stage-view[data-stage=\"history\"]')",
+  "const pane=$('workspaceHistoryPane')",
+  'stage.appendChild(pane)',
+  'function persistDraft()',
+  ".eq('status','draft')",
+  ".gte('updated_at',cutoff)",
+  ".order('updated_at',{ascending:false})",
+  'function loadDraftHistory()',
+  "refresh.dataset.nexaDraftRefresh='1'",
+  'Promise.resolve(result).finally(()=>schedulePersist(0))',
+  'window.nexaPersistDraftNow=persistDraft',
+  'window.nexaRefreshDraftHistory=loadDraftHistory',
+  '__NEXA_V18_6_6_DRAFT_DIAGNOSTIC__'
+]) assert.ok(draft.includes(token), `draft history/recording v18.6.6 sem contrato esperado: ${token}`);
+assert.ok(!draft.includes('MutationObserver'), 'v18.6.6 não deve adicionar observador visual contínuo');
+assert.ok(!draft.includes('requestAnimationFrame'), 'v18.6.6 não deve adicionar loop visual por frame');
+
+assert.ok(sw.includes('nexa-v18-6-6-record-draft-history-20260905'), 'service worker não está na versão v18.6.6');
+assert.ok(sw.includes('20260905-v1866'), 'service worker precisa apontar para o hotfix v18.6.6');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
 
 new Function(loader);
 new Function(ui);
 new Function(layout);
 new Function(audit);
+new Function(draft);
 new Function(sw);
 
-console.log('NEXA UI + fixed canvas + recorder root-cause fix + all-stage layout + audit contract: PASS');
+console.log('NEXA UI + start-only recording + live draft history + fixed canvas + audit contract: PASS');
