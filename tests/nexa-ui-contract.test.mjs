@@ -25,7 +25,7 @@ for(const token of ['__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__',"rec.dataset.nexaSta
 for(const token of ['__NEXA_MOBILE_SHELL_V18_6_7__','nexaMobileBottomNav','nexaMobileHeader'])assert.ok(mobile.includes(token));
 for(const token of ['__NEXA_HISTORY_LIFECYCLE_V18_6_9__','Consultas dos últimos 7 dias','Enviar p/ auditoria'])assert.ok(historyLifecycle.includes(token));
 for(const token of ['__NEXA_MOBILE_FLOW_V18_8_1__','position:sticky!important','document.body.insertBefore(header,app)'])assert.ok(mobileFlow.includes(token));
-for(const token of ['__NEXA_AUDITOR_EXACT_V18_9__','Painel de Auditoria','Fila de casos','Taxa de concordância','Principais campos com correções','Aprovar sem alteração','Aprovar com correções','Descartar do aprendizado','get_audit_queue','get_core_dataset_summary','submit_audit_review','nexaOpenProfessionalAuditExact',"data-mobile-open==='audit'",'#nexaMobileDrawer{top:calc(116px'])assert.ok(exact.includes(token),`auditor exato sem ${token}`);
+for(const token of ['__NEXA_AUDITOR_EXACT_V18_9__','Painel de Auditoria','Fila de casos','Taxa de concordância','Principais campos com correções','Aprovar sem alteração','Aprovar com correções','Descartar do aprendizado','get_audit_queue','get_core_dataset_summary','submit_audit_review','nexaOpenProfessionalAuditExact',"mobileOpen==='audit'",'#nexaMobileDrawer{top:calc(116px'])assert.ok(exact.includes(token),`auditor exato sem ${token}`);
 assert.ok(!exact.includes('new MutationObserver')&&!exact.includes('setInterval'),'auditor exato não pode usar loops contínuos');
 assert.ok(sw.includes('nexa-v18-9-exact-auditor-20260905'));
 assert.ok(sw.includes('20260905-v1890'));
