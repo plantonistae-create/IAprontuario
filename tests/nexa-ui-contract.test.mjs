@@ -7,6 +7,7 @@ const ui = read('nexa-final-ui-v18.js');
 const layout = read('nexa-layout-static-v18.6.5.js');
 const audit = read('nexa-audit-autosave-v18.5.js');
 const draft = read('nexa-record-draft-history-v18.6.6.js');
+const mobile = read('nexa-mobile-shell-v18.6.7.js');
 const html = read('index.html');
 const sw = read('sw.js');
 
@@ -17,10 +18,12 @@ const requiredLoaderModules = [
   'nexa-final-ui-v18.js',
   'nexa-layout-static-v18.6.5.js',
   'nexa-audit-autosave-v18.5.js',
-  'nexa-record-draft-history-v18.6.6.js'
+  'nexa-record-draft-history-v18.6.6.js',
+  'nexa-mobile-shell-v18.6.7.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
-assert.ok(loader.includes('20260905-v1866'), 'loader precisa forçar cache-bust v18.6.6');
+assert.ok(loader.includes('20260905-v1867'), 'loader precisa forçar cache-bust v18.6.7');
+assert.ok(loader.lastIndexOf('nexa-mobile-shell-v18.6.7.js')>loader.lastIndexOf('nexa-record-draft-history-v18.6.6.js'),'mobile shell precisa carregar por último');
 
 for (const forbidden of [
   'nexa-layout-static-v18.6.3.js',
@@ -124,8 +127,30 @@ assert.ok(!draft.includes("sb.from('consultation_history')"), 'v18.6.6 não deve
 assert.ok(!draft.includes('MutationObserver'), 'v18.6.6 não deve adicionar observador visual contínuo');
 assert.ok(!draft.includes('requestAnimationFrame'), 'v18.6.6 não deve adicionar loop visual por frame');
 
-assert.ok(sw.includes('nexa-v18-6-6-record-draft-history-20260905'), 'service worker não está na versão v18.6.6');
-assert.ok(sw.includes('20260905-v1866'), 'service worker precisa apontar para o hotfix v18.6.6');
+for (const token of [
+  '__NEXA_MOBILE_SHELL_V18_6_7__',
+  "const MOBILE='(max-width:900px)'",
+  "const stages=['radar','summary','hypothesis','plan','history']",
+  "nav.id='nexaMobileBottomNav'",
+  "header.id='nexaMobileHeader'",
+  "drawer.id='nexaMobileDrawer'",
+  'data-mobile-stage',
+  'safe-area-inset-bottom',
+  'safe-area-inset-top',
+  'body.nexa-v340 #nfSide,body.nexa-v340 #nfTop',
+  '#nexaStageHost>.nexa-stage-view[data-stage="radar"].active{display:block!important}',
+  '#nfQuick{display:none!important}',
+  '#nexaMobileBottomNav{display:grid!important;position:fixed!important',
+  'grid-template-columns:repeat(5,minmax(0,1fr))',
+  "if(stage==='history')setTimeout(()=>window.nexaRefreshDraftHistory?.(),60)",
+  '__NEXA_V18_6_7_MOBILE_DIAGNOSTIC__',
+  'desktopCanvasIsolated:true'
+]) assert.ok(mobile.includes(token), `mobile shell v18.6.7 sem contrato esperado: ${token}`);
+assert.ok(!mobile.includes('MutationObserver'), 'mobile shell não deve usar observador contínuo de DOM');
+assert.ok(!mobile.includes('getBoundingClientRect'), 'mobile shell não deve corrigir geometria por medição dinâmica');
+
+assert.ok(sw.includes('nexa-v18-6-7-mobile-shell-20260905'), 'service worker não está na versão v18.6.7');
+assert.ok(sw.includes('20260905-v1867'), 'service worker precisa apontar para o hotfix v18.6.7');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
 
 new Function(loader);
@@ -133,6 +158,7 @@ new Function(ui);
 new Function(layout);
 new Function(audit);
 new Function(draft);
+new Function(mobile);
 new Function(sw);
 
-console.log('NEXA UI + start-only recording + native draft history + fixed canvas + audit contract: PASS');
+console.log('NEXA UI + mobile shell + bottom nav + start-only recording + draft history + fixed canvas + audit contract: PASS');
