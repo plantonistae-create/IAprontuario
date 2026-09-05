@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-9-exact-auditor-20260905";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1890";
+const CACHE_NAME="nexa-v18-9-1-functional-auditor-20260905";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260905-v1891";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
