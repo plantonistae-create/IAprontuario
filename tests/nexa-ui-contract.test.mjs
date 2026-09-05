@@ -5,6 +5,7 @@ const read = p => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const loader = read('nexa-hotfix.js');
 const ui = read('nexa-final-ui-v18.js');
 const flow = read('nexa-layout-flow-v18.6.js');
+const stableFlow = read('nexa-layout-flow-v18.5.js');
 const audit = read('nexa-audit-autosave-v18.5.js');
 const html = read('index.html');
 const sw = read('sw.js');
@@ -18,8 +19,7 @@ const requiredLoaderModules = [
   'nexa-audit-autosave-v18.5.js'
 ];
 for (const mod of requiredLoaderModules) assert.ok(loader.includes(mod), `loader sem ${mod}`);
-assert.ok(loader.includes('20260905-v186'), 'loader precisa forçar cache-bust v18.6');
-assert.ok(!loader.includes('nexa-layout-flow-v18.5.js'), 'loader não pode reativar o layout-flow v18.5');
+assert.ok(loader.includes('20260905-v1861'), 'loader precisa forçar cache-bust v18.6.1');
 assert.ok(!loader.includes('nexa-layout-flow-v18.1.js'), 'loader não pode reativar o layout-flow legado');
 
 const forbiddenLoaderModules = [
@@ -43,27 +43,22 @@ for (const duplicate of ['nexaRadarPauseProxy','nexaRadarFinishProxy','nexaRadar
   assert.ok(ui.includes(duplicate), `UI v18 não remove proxy legado ${duplicate}`);
 }
 
-// v18.6: o atendimento ativo é destacado fisicamente do main legado.
+// v18.6.1: nunca esconder o Radar nem manter o stage host destacado do app.
 for (const token of [
-  '__NEXA_LAYOUT_FLOW_V18_6__',
-  'detachStageHost',
-  'document.body.appendChild(host)',
-  "#mainApp>main{\n    display:none!important",
-  'body.nexa-v340.nexa-doctor-view:not(.doctor-home-open)>#nexaStageHost',
-  'width:calc(100vw - var(--nf-side,214px) - 32px)!important',
-  'margin:0 16px 20px calc(var(--nf-side,214px) + 16px)!important',
-  'hostAtBody',
-  'mainHidden',
-  '__NEXA_V18_6_LAYOUT_DIAGNOSTIC__',
-  'grid-area:record!important',
-  'grid-area:summary!important',
-  'grid-area:alerts!important'
+  '__NEXA_LAYOUT_FLOW_V18_6_1__',
+  'restoreNativeClinicalRoot',
+  "if(main&&host&&host.parentElement!==main)main.prepend(host)",
+  "main.style.removeProperty('display')",
+  "radar.hidden=false",
+  "radar.classList.add('active')",
+  'nexa-layout-flow-v18.5.js?v=20260905-v1861'
 ]) {
-  assert.ok(flow.includes(token), `layout-flow v18.6 sem proteção esperada: ${token}`);
+  assert.ok(flow.includes(token), `hotfix v18.6.1 sem proteção esperada: ${token}`);
 }
-assert.ok(flow.includes("host.querySelector('#recBtn')&&host.querySelector('#realtimeRadarCard')"), 'stage host só pode ser destacado após possuir os controles clínicos reais');
-assert.ok(flow.includes('#realtimeRadarCard>#nexaDispositionCard'), 'Disposição do PS deve permanecer dentro do Radar');
-assert.ok(!flow.includes('main.prepend(host)'), 'v18.6 não pode recolocar o host dentro do main legado');
+assert.ok(!flow.includes('document.body.appendChild(host)'), 'hotfix não pode destacar novamente o stage host para o body');
+assert.ok(!flow.includes("imp(main,'display','none')"), 'hotfix não pode ocultar o main clínico');
+assert.ok(stableFlow.includes("if(host.parentElement!==main)main.prepend(host)"), 'layout estável precisa manter o stage host dentro do main');
+assert.ok(stableFlow.includes('#realtimeRadarCard>#nexaDispositionCard'), 'Disposição do PS deve permanecer dentro do Radar');
 
 // Auditoria automática permanece ativa.
 for (const token of [
@@ -84,8 +79,8 @@ for (const token of [
 assert.ok(audit.includes("d.error!=='ALREADY_SUBMITTED'"), 'autosave deve tratar reenvio idempotente como sucesso');
 assert.ok(audit.includes('Consulta salva. Auditoria ficou em fila'), 'falha transitória deve preservar o caso e entrar em retry');
 
-assert.ok(sw.includes('nexa-v18-6-detached-stage-20260905'), 'service worker não está na versão v18.6');
-assert.ok(sw.includes('20260905-v186'), 'service worker precisa apontar para o hotfix v18.6');
+assert.ok(sw.includes('nexa-v18-6-1-radar-restore-20260905'), 'service worker não está na versão de restauração do Radar');
+assert.ok(sw.includes('20260905-v1861'), 'service worker precisa apontar para o hotfix v18.6.1');
 assert.ok(sw.includes('text.replace(pattern,tag)'), 'service worker deve substituir o loader antigo no HTML navegado');
 assert.ok(sw.includes('injectHotfix(await fetch'), 'navegação precisa executar a injeção do loader fresco');
 assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtime sem cache obsoleto');
@@ -93,7 +88,8 @@ assert.ok(sw.includes('cache:"no-store"'), 'service worker precisa buscar runtim
 new Function(loader);
 new Function(ui);
 new Function(flow);
+new Function(stableFlow);
 new Function(audit);
 new Function(sw);
 
-console.log('NEXA UI + audit contract: PASS');
+console.log('NEXA UI + radar restore + audit contract: PASS');
