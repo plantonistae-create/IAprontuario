@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-9-4-radar-stable-state-20260906";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260906-v1894";
+const CACHE_NAME="nexa-v18-9-5-history-audit-reliability-20260906";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260906-v1895";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
