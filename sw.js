@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-9-3-medical-layout-state-20260906";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260906-v1893";
+const CACHE_NAME="nexa-v18-9-4-radar-stable-state-20260906";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260906-v1894";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
