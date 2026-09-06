@@ -1,9 +1,9 @@
 {
   "name": "nexa-clinical-ui",
   "private": true,
-  "version": "18.9.6",
+  "version": "18.9.7",
   "scripts": {
     "test": "node tests/nexa-ui-contract.test.mjs",
-    "check:js": "node --check nexa-hotfix.js && node --check nexa-hotfix-v1.js && node --check nexa-ui-v3.js && node --check nexa-radar-v4.js && node --check nexa-final-ui-v18.js && node --check nexa-layout-static-v18.6.5.js && node --check nexa-record-draft-history-v18.6.6.js && node --check nexa-mobile-shell-v18.6.7.js && node --check nexa-mobile-flow-v18.8.1.js && node --check nexa-auditor-exact-v18.9.js && node --check nexa-auditor-panel-queue-v18.9.2.js && node --check nexa-medical-layout-state-v18.9.3.js && node --check nexa-radar-stable-state-v18.9.4.js && node --check nexa-history-native-v18.9.5.js && node --check nexa-audit-clear-safety-v18.9.5.js && node --check nexa-history-style-v18.9.6.js && node --check sw.js"
+    "check:js": "node --check nexa-hotfix.js && node --check nexa-hotfix-v1.js && node --check nexa-ui-v3.js && node --check nexa-radar-v4.js && node --check nexa-final-ui-v18.js && node --check nexa-layout-static-v18.6.5.js && node --check nexa-record-draft-history-v18.6.6.js && node --check nexa-mobile-shell-v18.6.7.js && node --check nexa-mobile-flow-v18.8.1.js && node --check nexa-auditor-exact-v18.9.js && node --check nexa-auditor-panel-queue-v18.9.2.js && node --check nexa-medical-layout-state-v18.9.3.js && node --check nexa-radar-stable-state-v18.9.4.js && node --check nexa-history-style-audit-v18.9.7.js && node --check sw.js"
   }
 }
