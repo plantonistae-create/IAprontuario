@@ -6,6 +6,7 @@
 
   const processBtn=document.getElementById('processBtn');
   const resetBtn=document.getElementById('resetBtn');
+  const copyBtn=document.getElementById('copyConductBtn');
   const banner=document.getElementById('bannerArea');
   const saveState=document.getElementById('saveState');
   const conduct=()=>document.querySelector('.field[data-key="conduta"] textarea');
@@ -34,6 +35,22 @@
     return true;
   }
 
+  async function copyReviewedConduct(){
+    const value=String(conduct()?.value||'').trim();
+    if(!value)return false;
+    try{
+      await navigator.clipboard.writeText(value);
+      if(copyBtn){
+        copyBtn.textContent='Copiado ✓';
+        setTimeout(()=>{copyBtn.textContent='⧉ Copiar'},1200);
+      }
+      window.dispatchEvent(new CustomEvent('nexa:conduct-copied',{detail:{source:'reviewed-textarea'}}));
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
   function finishProcessingIfReady(){
     if(!processing||processBtn.disabled)return;
     const error=!!banner.querySelector('.banner.error');
@@ -48,6 +65,13 @@
     queueMicrotask(finishProcessingIfReady);
   },true);
 
+  copyBtn?.addEventListener('click',event=>{
+    if(!String(conduct()?.value||'').trim())return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    copyReviewedConduct();
+  },true);
+
   const observer=new MutationObserver(()=>queueMicrotask(finishProcessingIfReady));
   observer.observe(banner,{childList:true,subtree:true,characterData:true});
   observer.observe(processBtn,{attributes:true,attributeFilter:['disabled'],childList:true,characterData:true,subtree:true});
@@ -60,6 +84,7 @@
   window.nexaConductStateGuard18913={
     takeSnapshot,
     restoreSnapshot,
+    copyReviewedConduct,
     get active(){return processing},
     get hasSnapshot(){return !!snapshot}
   };
