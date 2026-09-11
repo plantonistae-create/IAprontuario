@@ -5,7 +5,7 @@ if(window.__NEXA_AUDIT_FUNCTIONAL_GUARD_V18_9_16__)return;
 window.__NEXA_AUDIT_FUNCTIONAL_GUARD_V18_9_16__=true;
 
 const SUPABASE_URL='https://fmkrcieubrlltiggyauc.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3JjaWV1YnJsbHRpZ2d5YXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQzNjQsImV4cCI6MjEwMDU5MDM2NH0.lueZ5Czs3oHGXmQKNhw1egzuSBUOaMWpm3VoZucvIR4';
 const AUDIT_SUBMIT_PATH='/functions/v1/submit-audit-case';
 const DESTINATION_STORAGE_KEY='nexa-destination-state-v18915';
 const $=id=>document.getElementById(id);
