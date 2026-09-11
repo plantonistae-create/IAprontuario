@@ -44,27 +44,24 @@ for(const token of ['__NEXA_RADAR_STATE_BRIDGE_V18_9_9__','window.radarState','n
 assert.ok(radarBridge.includes('#radarQuestions .radar-question:not(.nexa-question-done)'));
 assert.ok(radarBridge.includes('#resetBtn,#nexaRadarResetBtn,#nexaRadarClearProxy,#nfClear'));
 
-// Resumo Clínico / Prontuário Estruturado
 const summaryKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','exame_fisico'];
 for(const key of summaryKeys)assert.ok(html.includes(`data-key="${key}"`),`Resumo sem campo ${key}`);
 for(const id of ['copyFieldChiefBtn','copyFieldHdaBtn','copyFieldComorbBtn','copyFieldAntecedentsBtn','copyFieldMedsBtn','copyFieldAllergiesBtn','copyExamBtn','downloadBtn','updateHistoryBtn','saveState'])assert.ok(html.includes(`id="${id}"`),`Resumo sem controle ${id}`);
-assert.ok(html.includes("['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes']"),'stage Resumo não contém o conjunto esperado');
-assert.ok(html.includes("if(q('examPhysicalBlock')) summaryGrid.appendChild(q('examPhysicalBlock'))"),'exame físico não está no stage Resumo');
-assert.ok(html.includes("if(q('clinicalPlanBlock')) views.plan.appendChild(q('clinicalPlanBlock'))"),'Plano deve permanecer fora do Resumo');
-assert.ok(html.includes("if(q('finalRecordActions')) views.plan.appendChild(q('finalRecordActions'))"),'cópia completa deve permanecer no Plano');
+assert.ok(html.includes("['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes']"));
+assert.ok(html.includes("if(q('examPhysicalBlock')) summaryGrid.appendChild(q('examPhysicalBlock'))"));
+assert.ok(html.includes("if(q('clinicalPlanBlock')) views.plan.appendChild(q('clinicalPlanBlock'))"));
+assert.ok(html.includes("if(q('finalRecordActions')) views.plan.appendChild(q('finalRecordActions'))"));
 assert.ok(html.includes("sb.from('consultation_history').update"));
 assert.ok(html.includes("sb.from('consultation_history').insert"));
 assert.ok(html.includes("const NEXA_SESSION_KEY='nexa-active-clinical-session-v370'"));
 assert.ok(html.includes("document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()}"));
 for(const token of ['__NEXA_SUMMARY_STATE_GUARD_V18_9_10__','SUMMARY_KEYS','nexa:summary-restored-after-error','MutationObserver','nexaSummaryStateGuard1910'])assert.ok(summaryGuard.includes(token),`Summary guard v18.9.10 sem ${token}`);
 for(const key of summaryKeys)assert.ok(summaryGuard.includes(`'${key}'`),`Summary guard não protege ${key}`);
-assert.ok(summaryGuard.includes("banner.querySelector('.banner.error')"),'Summary guard precisa restaurar somente em erro real');
-assert.ok(summaryGuard.includes("resetBtn?.addEventListener('click'"),'Summary guard precisa invalidar snapshot no reset');
+assert.ok(summaryGuard.includes("banner.querySelector('.banner.error')"));
+assert.ok(summaryGuard.includes("resetBtn?.addEventListener('click'"));
 
-// Hipótese/CID
-for(const token of ['__NEXA_HYPOTHESIS_CID_GUARD_V18_9_11__','physicianCid','physicianCidOptions','nexaHypothesisCidGuard18911'])assert.ok(hypothesisGuard.includes(token),`Hypothesis guard v18.9.11 sem ${token}`);
+for(const token of ['__NEXA_HYPOTHESIS_CID_GUARD_V18_9_11__','physicianCid','physicianCidOptions','nexaHypothesisCidGuard1911'])assert.ok(hypothesisGuard.includes(token),`Hypothesis guard v18.9.11 sem ${token}`);
 
-// Plano Clínico — Exames e Prescrição
 for(const id of ['generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn','suggestedExams','copySuggestedExamsBtn','rxOptions','selectSuggestedRxBtn','addManualRxBtn','rxMRoute','rxMName','rxMQty','rxMHow','copyPrescriptionBtn','copyGuidanceBtn','copyPrescriptionGuidanceBtn','informRxDataBtn','rxMissingDataInput','applyRxMissingDataBtn','cancelRxMissingDataBtn'])assert.ok(html.includes(`id="${id}"`),`Plano sem controle ${id}`);
 assert.ok(html.includes("const examsOK=['confirmed','altered','undefined'].includes(st),rxOK=['confirmed','altered'].includes(st)"),'gate de hipótese do Plano ausente');
 assert.ok(html.includes("if(st==='undefined'&&kind!=='exams')"),'prescrição precisa permanecer bloqueada com hipótese indefinida');
@@ -75,11 +72,11 @@ assert.ok(html.includes("$('copyPrescriptionBtn').onclick"));
 assert.ok(html.includes("$('copyGuidanceBtn').onclick"));
 assert.ok(html.includes("$('copyPrescriptionGuidanceBtn').onclick"));
 for(const token of ['__NEXA_CLINICAL_PLAN_GUARD_V18_9_12__','/functions/v1/clinical-plan','AbortController','superseded','hypothesis-changed','reset','nexaClinicalPlanGuard18912'])assert.ok(planGuard.includes(token),`Plan guard v18.9.12 sem ${token}`);
-assert.ok(planGuard.includes("generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn"),'guard deve bloquear gerações concorrentes');
-assert.ok(planGuard.includes("applyRxMissingDataBtn"),'guard deve cobrir atualização por dado adicional');
-assert.ok(planGuard.includes("hipotese_diagnostica"),'guard deve cancelar geração se a hipótese mudar');
+assert.ok(planGuard.includes("generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn"));
+assert.ok(planGuard.includes("applyRxMissingDataBtn"));
+assert.ok(planGuard.includes("hipotese_diagnostica"));
 
-assert.ok(!sicRule.includes('MutationObserver')&&!sicRule.includes('setInterval'),'SIC rule não pode usar loops contínuos');
+assert.ok(!sicRule.includes('MutationObserver')&&!sicRule.includes('setInterval'));
 assert.ok(sw.includes('cache:"no-store"'));
 new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(summaryGuard);new Function(hypothesisGuard);new Function(planGuard);new Function(sw);
 console.log('NEXA v18.9.12 Plano Clínico contract: PASS');
