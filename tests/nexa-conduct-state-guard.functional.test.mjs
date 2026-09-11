@@ -13,20 +13,28 @@ class El{
 const conduct=new El();
 const processBtn=new El();
 const resetBtn=new El();
+const copyBtn=new El();
 const banner=new El();
 const saveState=new El();
 const observers=[];
 const events=[];
+let copied='';
 
 function querySelector(sel){
   if(sel==='.field[data-key="conduta"] textarea')return conduct;
   return null;
 }
-function getElementById(id){return ({processBtn,resetBtn,bannerArea:banner,saveState})[id]||null}
+function getElementById(id){return ({processBtn,resetBtn,copyConductBtn:copyBtn,bannerArea:banner,saveState})[id]||null}
 
 globalThis.window={dispatchEvent:e=>events.push(e)};
 globalThis.document={querySelector,getElementById};
-globalThis.Event=class{constructor(type,init={}){this.type=type;this.bubbles=!!init.bubbles}};
+globalThis.navigator={clipboard:{writeText:async text=>{copied=text}}};
+globalThis.setTimeout=fn=>{fn();return 1};
+globalThis.Event=class{
+  constructor(type,init={}){this.type=type;this.bubbles=!!init.bubbles;this.defaultPrevented=false;this.immediateStopped=false}
+  preventDefault(){this.defaultPrevented=true}
+  stopImmediatePropagation(){this.immediateStopped=true}
+};
 globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail}};
 globalThis.queueMicrotask=fn=>Promise.resolve().then(fn);
 globalThis.MutationObserver=class{
@@ -79,5 +87,13 @@ mutate();await flush();
 assert.equal(conduct.value,'');
 assert.equal(guard.active,false);
 assert.equal(guard.hasSnapshot,false);
+
+// 4) cópia deve usar a conduta final revisada do textarea, não seleção antiga da biblioteca
+conduct.value='Conduta revisada manualmente após inserir o template.';
+copied='';
+const copiedOk=await guard.copyReviewedConduct();
+assert.equal(copiedOk,true);
+assert.equal(copied,'Conduta revisada manualmente após inserir o template.');
+assert.ok(events.some(e=>e.type==='nexa:conduct-copied'&&e.detail?.source==='reviewed-textarea'));
 
 console.log('NEXA conduct state guard functional test: PASS');
