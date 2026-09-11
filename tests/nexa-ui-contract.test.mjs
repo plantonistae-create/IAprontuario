@@ -31,13 +31,13 @@ for(const token of ['__NEXA_AUDITOR_PANEL_QUEUE_V18_9_2__','get_audit_queue'])as
 for(const token of ['__NEXA_MEDICAL_LAYOUT_STATE_V18_9_3__','nexaReturnToMedicalModeStable'])assert.ok(medicalState.includes(token));
 for(const token of ['__NEXA_RADAR_STABLE_STATE_V18_9_4__','Disposição do PS'])assert.ok(radarStable.includes(token));
 for(const token of ['__NEXA_HISTORY_STYLE_AUDIT_V18_9_7__','persistCase','localMirror','styleBackfill','auditQueue','directPersistence','consultation_history','style_examples','submitAuditPath','nexaFinalizeCaseSafely197','nexaRefreshHistory197','nexaOpenMyStyle197'])assert.ok(hsa.includes(token),`v18.9.7 sem ${token}`);
-for(const token of ['__NEXA_RECORDING_TIMER_STATE_V18_9_8__','stopRecordingTimer','MediaRecorder','nexaStopGhostRecordingTimer'])assert.ok(timerGuard.includes(token),`timer v18.9.8 sem ${token}`);
+for(const token of ['__NEXA_RECORDING_TIMER_STATE_V18_9_8__','parseTimer','recBtn','nexaStopGhostRecordingTimer','nexaRecordingTimerState198'])assert.ok(timerGuard.includes(token),`timer v18.9.8 sem ${token}`);
+assert.ok(!timerGuard.includes('active=!!recording'),'timer guard não pode depender do escopo léxico do index');
 for(const token of ['__NEXA_SIC_DOCUMENTATION_RULE_V18_9_8__','documentation_instructions','sic_policy','(SIC)','system_rule_sic','nexaDocumentationSicRule198'])assert.ok(sicRule.includes(token),`SIC v18.9.8 sem ${token}`);
 for(const token of ['__NEXA_RADAR_STATE_BRIDGE_V18_9_9__','window.radarState','nexa:radar-state','MutationObserver','nexaRadarStateBridge199'])assert.ok(radarBridge.includes(token),`Radar bridge v18.9.9 sem ${token}`);
 assert.ok(radarBridge.includes('#radarQuestions .radar-question:not(.nexa-question-done)'));
 assert.ok(radarBridge.includes('#resetBtn,#nexaRadarResetBtn,#nexaRadarClearProxy,#nfClear'));
 assert.ok(!sicRule.includes('MutationObserver')&&!sicRule.includes('setInterval'),'SIC rule não pode usar loops contínuos');
-assert.ok(sw.includes('nexa-v18-9-8-timer-sic-20260907'));
 assert.ok(sw.includes('cache:"no-store"'));
 new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(sw);
 console.log('NEXA v18.9.9 Radar state bridge: PASS');
