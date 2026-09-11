@@ -20,11 +20,7 @@
     const fields={};
     for(const key of SUMMARY_KEYS)fields[key]=field(key)?.value||'';
     const hasContent=Object.values(fields).some(v=>String(v).trim());
-    snapshot=hasContent?{
-      fields,
-      saveClass:saveState?.className||'',
-      saveText:saveState?.textContent||''
-    }:null;
+    snapshot=hasContent?{fields}:null;
     return snapshot;
   }
 
@@ -36,8 +32,8 @@
       el.dispatchEvent(new Event('input',{bubbles:true}));
     }
     if(saveState){
-      saveState.className=snapshot.saveClass||'save-state unsaved';
-      saveState.textContent=snapshot.saveText||'não salvo';
+      saveState.className='save-state unsaved';
+      saveState.textContent='restaurado · revisar salvamento';
     }
     window.dispatchEvent(new CustomEvent('nexa:summary-restored-after-error',{detail:{keys:[...SUMMARY_KEYS]}}));
     return true;
