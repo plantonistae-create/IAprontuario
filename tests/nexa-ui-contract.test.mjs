@@ -14,13 +14,15 @@ const hsa=read('nexa-history-style-audit-v18.9.7.js');
 const timerGuard=read('nexa-recording-timer-state-v18.9.8.js');
 const sicRule=read('nexa-sic-documentation-rule-v18.9.8.js');
 const radarBridge=read('nexa-radar-state-bridge-v18.9.9.js');
+const summaryGuard=read('nexa-summary-state-guard-v18.9.10.js');
 const html=read('index.html');
 const sw=read('sw.js');
-const required=['nexa-hotfix-v1.js','nexa-ui-v3.js','nexa-radar-v4.js','nexa-final-ui-v18.js','nexa-layout-static-v18.6.5.js','nexa-record-draft-history-v18.6.6.js','nexa-mobile-shell-v18.6.7.js','nexa-mobile-flow-v18.8.1.js','nexa-auditor-exact-v18.9.js','nexa-auditor-panel-queue-v18.9.2.js','nexa-medical-layout-state-v18.9.3.js','nexa-radar-stable-state-v18.9.4.js','nexa-history-style-audit-v18.9.7.js','nexa-recording-timer-state-v18.9.8.js','nexa-sic-documentation-rule-v18.9.8.js','nexa-radar-state-bridge-v18.9.9.js'];
+const required=['nexa-hotfix-v1.js','nexa-ui-v3.js','nexa-radar-v4.js','nexa-final-ui-v18.js','nexa-layout-static-v18.6.5.js','nexa-record-draft-history-v18.6.6.js','nexa-mobile-shell-v18.6.7.js','nexa-mobile-flow-v18.8.1.js','nexa-auditor-exact-v18.9.js','nexa-auditor-panel-queue-v18.9.2.js','nexa-medical-layout-state-v18.9.3.js','nexa-radar-stable-state-v18.9.4.js','nexa-history-style-audit-v18.9.7.js','nexa-recording-timer-state-v18.9.8.js','nexa-sic-documentation-rule-v18.9.8.js','nexa-radar-state-bridge-v18.9.9.js','nexa-summary-state-guard-v18.9.10.js'];
 for(const mod of required)assert.ok(loader.includes(mod),`loader sem ${mod}`);
 for(const forbidden of ['nexa-audit-autosave-v18.5.js','nexa-history-lifecycle-v18.6.9.js','nexa-history-native-v18.9.5.js','nexa-audit-clear-safety-v18.9.5.js','nexa-history-style-v18.9.6.js','nexa-auditor-functional-v18.9.1.js','nexa-auditor-native-v18.8.js','nexa-auditor-workspace-v18.7.js','nexa-auditor-mobile-fix-v18.7.1.js'])assert.ok(!loader.includes(forbidden),`loader não pode carregar camada antiga/conflitante: ${forbidden}`);
-assert.ok(loader.includes('20260911-v1899'));
+assert.ok(loader.includes('20260911-v18910'));
 assert.ok(loader.lastIndexOf('nexa-radar-state-bridge-v18.9.9.js')>loader.lastIndexOf('nexa-radar-stable-state-v18.9.4.js'));
+assert.ok(loader.lastIndexOf('nexa-summary-state-guard-v18.9.10.js')>loader.lastIndexOf('nexa-radar-state-bridge-v18.9.9.js'));
 for(const id of ['recBtn','consent','timer','processBtn','resetBtn','workspaceHistoryPane','refreshHistoryBtn','updateHistoryBtn','submitAuditBtn','workspaceExamplesPane','useExamples'])assert.ok(html.includes(`id="${id}"`));
 assert.ok(!layout.includes('MutationObserver')&&!layout.includes('setInterval'));
 for(const token of ['__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__','window.nexaRefreshDraftHistory'])assert.ok(draft.includes(token));
@@ -37,7 +39,25 @@ for(const token of ['__NEXA_SIC_DOCUMENTATION_RULE_V18_9_8__','documentation_ins
 for(const token of ['__NEXA_RADAR_STATE_BRIDGE_V18_9_9__','window.radarState','nexa:radar-state','MutationObserver','nexaRadarStateBridge199'])assert.ok(radarBridge.includes(token),`Radar bridge v18.9.9 sem ${token}`);
 assert.ok(radarBridge.includes('#radarQuestions .radar-question:not(.nexa-question-done)'));
 assert.ok(radarBridge.includes('#resetBtn,#nexaRadarResetBtn,#nexaRadarClearProxy,#nfClear'));
+
+// Resumo Clínico / Prontuário Estruturado
+const summaryKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','exame_fisico'];
+for(const key of summaryKeys)assert.ok(html.includes(`data-key="${key}"`),`Resumo sem campo ${key}`);
+for(const id of ['copyFieldChiefBtn','copyFieldHdaBtn','copyFieldComorbBtn','copyFieldAntecedentsBtn','copyFieldMedsBtn','copyFieldAllergiesBtn','copyExamBtn','downloadBtn','updateHistoryBtn','saveState'])assert.ok(html.includes(`id="${id}"`),`Resumo sem controle ${id}`);
+assert.ok(html.includes("['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes']"),'stage Resumo não contém o conjunto esperado');
+assert.ok(html.includes("if(q('examPhysicalBlock')) summaryGrid.appendChild(q('examPhysicalBlock'))"),'exame físico não está no stage Resumo');
+assert.ok(html.includes("if(q('clinicalPlanBlock')) views.plan.appendChild(q('clinicalPlanBlock'))"),'Plano deve permanecer fora do Resumo');
+assert.ok(html.includes("if(q('finalRecordActions')) views.plan.appendChild(q('finalRecordActions'))"),'cópia completa deve permanecer no Plano');
+assert.ok(html.includes("sb.from('consultation_history').update"));
+assert.ok(html.includes("sb.from('consultation_history').insert"));
+assert.ok(html.includes("const NEXA_SESSION_KEY='nexa-active-clinical-session-v370'"));
+assert.ok(html.includes("document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()}"));
+for(const token of ['__NEXA_SUMMARY_STATE_GUARD_V18_9_10__','SUMMARY_KEYS','nexa:summary-restored-after-error','MutationObserver','nexaSummaryStateGuard1910'])assert.ok(summaryGuard.includes(token),`Summary guard v18.9.10 sem ${token}`);
+for(const key of summaryKeys)assert.ok(summaryGuard.includes(`'${key}'`),`Summary guard não protege ${key}`);
+assert.ok(summaryGuard.includes("banner.querySelector('.banner.error')"),'Summary guard precisa restaurar somente em erro real');
+assert.ok(summaryGuard.includes("resetBtn?.addEventListener('click'"),'Summary guard precisa invalidar snapshot no reset');
+
 assert.ok(!sicRule.includes('MutationObserver')&&!sicRule.includes('setInterval'),'SIC rule não pode usar loops contínuos');
 assert.ok(sw.includes('cache:"no-store"'));
-new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(sw);
-console.log('NEXA v18.9.9 Radar state bridge: PASS');
+new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(summaryGuard);new Function(sw);
+console.log('NEXA v18.9.10 Resumo Clínico contract: PASS');
