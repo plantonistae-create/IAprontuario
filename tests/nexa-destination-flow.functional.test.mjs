@@ -39,6 +39,7 @@ globalThis.Storage=StorageMock;
 globalThis.localStorage=new StorageMock();
 globalThis.window=globalThis;
 globalThis.document=documentMock;
+globalThis.dispatchEvent=()=>true;
 globalThis.CustomEvent=class{constructor(type,init={}){this.type=type;this.detail=init.detail}};
 globalThis.Event=class{constructor(type){this.type=type}preventDefault(){}stopImmediatePropagation(){}};
 Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async()=>{}}},configurable:true});
