@@ -40,7 +40,7 @@ globalThis.window=globalThis;
 globalThis.document=documentMock;
 globalThis.CustomEvent=class{constructor(type,init={}){this.type=type;this.detail=init.detail}};
 globalThis.Event=class{constructor(type){this.type=type}preventDefault(){}stopImmediatePropagation(){}};
-globalThis.navigator={clipboard:{writeText:async()=>{}}};
+Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async()=>{}}},configurable:true});
 globalThis.fetch=async()=>({ok:true,status:200,json:async()=>({answer:'{"destination":"alta","reason":"estável"}'}),clone(){return this}});
 
 const code=fs.readFileSync(new URL('../nexa-destination-flow-v18.9.15.js',import.meta.url),'utf8');
