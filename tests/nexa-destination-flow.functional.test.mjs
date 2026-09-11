@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
+// Functional gate for the physician-owned destination state machine.
 class StorageMock{
   constructor(){this.map=new Map()}
   get length(){return this.map.size}
