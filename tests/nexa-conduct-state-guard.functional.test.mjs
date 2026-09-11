@@ -28,7 +28,7 @@ function getElementById(id){return ({processBtn,resetBtn,copyConductBtn:copyBtn,
 
 globalThis.window={dispatchEvent:e=>events.push(e)};
 globalThis.document={querySelector,getElementById};
-globalThis.navigator={clipboard:{writeText:async text=>{copied=text}}};
+Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async text=>{copied=text}}},configurable:true});
 globalThis.setTimeout=fn=>{fn();return 1};
 globalThis.Event=class{
   constructor(type,init={}){this.type=type;this.bubbles=!!init.bubbles;this.defaultPrevented=false;this.immediateStopped=false}
