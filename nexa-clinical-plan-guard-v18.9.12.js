@@ -32,8 +32,6 @@
     const ta=hypothesisTextarea();if(ta)ta.readOnly=false;
     const apply=byId('applyRxMissingDataBtn');if(apply)apply.disabled=false;
     document.body?.removeAttribute('data-nexa-plan-busy');
-    // The core owns the exact plan-button gate. Trigger its existing state refresh indirectly.
-    // If a button is still disabled here, the core's hypothesis state intentionally controls it.
   }
 
   function cancelActive(reason='context-changed'){
@@ -80,7 +78,8 @@
       if(callerSignal.aborted)controller.abort(callerSignal.reason);
       else callerSignal.addEventListener('abort',()=>controller.abort(callerSignal.reason),{once:true});
     }
-    active={id,controller,reason:''};
+    const request={id,controller,reason:''};
+    active=request;
     lockUi();
 
     try{
@@ -96,7 +95,7 @@
         }
       });
     }catch(error){
-      const reason=active?.id===id?active.reason:'';
+      const reason=request.reason;
       if(active?.id===id)active=null;
       setTimeout(()=>{if(!active)unlockUi()},0);
       if(error?.name==='AbortError'){
