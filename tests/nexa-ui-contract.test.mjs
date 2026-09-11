@@ -15,14 +15,18 @@ const timerGuard=read('nexa-recording-timer-state-v18.9.8.js');
 const sicRule=read('nexa-sic-documentation-rule-v18.9.8.js');
 const radarBridge=read('nexa-radar-state-bridge-v18.9.9.js');
 const summaryGuard=read('nexa-summary-state-guard-v18.9.10.js');
+const hypothesisGuard=read('nexa-hypothesis-cid-guard-v18.9.11.js');
+const planGuard=read('nexa-clinical-plan-guard-v18.9.12.js');
 const html=read('index.html');
 const sw=read('sw.js');
-const required=['nexa-hotfix-v1.js','nexa-ui-v3.js','nexa-radar-v4.js','nexa-final-ui-v18.js','nexa-layout-static-v18.6.5.js','nexa-record-draft-history-v18.6.6.js','nexa-mobile-shell-v18.6.7.js','nexa-mobile-flow-v18.8.1.js','nexa-auditor-exact-v18.9.js','nexa-auditor-panel-queue-v18.9.2.js','nexa-medical-layout-state-v18.9.3.js','nexa-radar-stable-state-v18.9.4.js','nexa-history-style-audit-v18.9.7.js','nexa-recording-timer-state-v18.9.8.js','nexa-sic-documentation-rule-v18.9.8.js','nexa-radar-state-bridge-v18.9.9.js','nexa-summary-state-guard-v18.9.10.js'];
+const required=['nexa-hotfix-v1.js','nexa-ui-v3.js','nexa-radar-v4.js','nexa-final-ui-v18.js','nexa-layout-static-v18.6.5.js','nexa-record-draft-history-v18.6.6.js','nexa-mobile-shell-v18.6.7.js','nexa-mobile-flow-v18.8.1.js','nexa-auditor-exact-v18.9.js','nexa-auditor-panel-queue-v18.9.2.js','nexa-medical-layout-state-v18.9.3.js','nexa-radar-stable-state-v18.9.4.js','nexa-history-style-audit-v18.9.7.js','nexa-recording-timer-state-v18.9.8.js','nexa-sic-documentation-rule-v18.9.8.js','nexa-radar-state-bridge-v18.9.9.js','nexa-summary-state-guard-v18.9.10.js','nexa-hypothesis-cid-guard-v18.9.11.js','nexa-clinical-plan-guard-v18.9.12.js'];
 for(const mod of required)assert.ok(loader.includes(mod),`loader sem ${mod}`);
 for(const forbidden of ['nexa-audit-autosave-v18.5.js','nexa-history-lifecycle-v18.6.9.js','nexa-history-native-v18.9.5.js','nexa-audit-clear-safety-v18.9.5.js','nexa-history-style-v18.9.6.js','nexa-auditor-functional-v18.9.1.js','nexa-auditor-native-v18.8.js','nexa-auditor-workspace-v18.7.js','nexa-auditor-mobile-fix-v18.7.1.js'])assert.ok(!loader.includes(forbidden),`loader não pode carregar camada antiga/conflitante: ${forbidden}`);
-assert.ok(loader.includes('20260911-v18910'));
+assert.ok(loader.includes('20260911-v18912'));
 assert.ok(loader.lastIndexOf('nexa-radar-state-bridge-v18.9.9.js')>loader.lastIndexOf('nexa-radar-stable-state-v18.9.4.js'));
 assert.ok(loader.lastIndexOf('nexa-summary-state-guard-v18.9.10.js')>loader.lastIndexOf('nexa-radar-state-bridge-v18.9.9.js'));
+assert.ok(loader.lastIndexOf('nexa-hypothesis-cid-guard-v18.9.11.js')>loader.lastIndexOf('nexa-summary-state-guard-v18.9.10.js'));
+assert.ok(loader.lastIndexOf('nexa-clinical-plan-guard-v18.9.12.js')>loader.lastIndexOf('nexa-hypothesis-cid-guard-v18.9.11.js'));
 for(const id of ['recBtn','consent','timer','processBtn','resetBtn','workspaceHistoryPane','refreshHistoryBtn','updateHistoryBtn','submitAuditBtn','workspaceExamplesPane','useExamples'])assert.ok(html.includes(`id="${id}"`));
 assert.ok(!layout.includes('MutationObserver')&&!layout.includes('setInterval'));
 for(const token of ['__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__','window.nexaRefreshDraftHistory'])assert.ok(draft.includes(token));
@@ -35,7 +39,7 @@ for(const token of ['__NEXA_RADAR_STABLE_STATE_V18_9_4__','Disposição do PS'])
 for(const token of ['__NEXA_HISTORY_STYLE_AUDIT_V18_9_7__','persistCase','localMirror','styleBackfill','auditQueue','directPersistence','consultation_history','style_examples','submitAuditPath','nexaFinalizeCaseSafely197','nexaRefreshHistory197','nexaOpenMyStyle197'])assert.ok(hsa.includes(token),`v18.9.7 sem ${token}`);
 for(const token of ['__NEXA_RECORDING_TIMER_STATE_V18_9_8__','parseTimer','recBtn','nexaStopGhostRecordingTimer','nexaRecordingTimerState198'])assert.ok(timerGuard.includes(token),`timer v18.9.8 sem ${token}`);
 assert.ok(!timerGuard.includes('active=!!recording'),'timer guard não pode depender do escopo léxico do index');
-for(const token of ['__NEXA_SIC_DOCUMENTATION_RULE_V18_9_8__','documentation_instructions','sic_policy','(SIC)','system_rule_sic','nexaDocumentationSicRule198'])assert.ok(sicRule.includes(token),`SIC v18.9.8 sem ${token}`);
+for(const token of ['__NEXA_SIC_DOCUMENTATION_RULE_V18_9_8__','documentation_instructions','sic_policy','(SIC)','system_rule_sic','nexaDocumentationSicRule198'])assert.ok(sicRule.includes(token),`SIC rule v18.9.8 sem ${token}`);
 for(const token of ['__NEXA_RADAR_STATE_BRIDGE_V18_9_9__','window.radarState','nexa:radar-state','MutationObserver','nexaRadarStateBridge199'])assert.ok(radarBridge.includes(token),`Radar bridge v18.9.9 sem ${token}`);
 assert.ok(radarBridge.includes('#radarQuestions .radar-question:not(.nexa-question-done)'));
 assert.ok(radarBridge.includes('#resetBtn,#nexaRadarResetBtn,#nexaRadarClearProxy,#nfClear'));
@@ -57,7 +61,25 @@ for(const key of summaryKeys)assert.ok(summaryGuard.includes(`'${key}'`),`Summar
 assert.ok(summaryGuard.includes("banner.querySelector('.banner.error')"),'Summary guard precisa restaurar somente em erro real');
 assert.ok(summaryGuard.includes("resetBtn?.addEventListener('click'"),'Summary guard precisa invalidar snapshot no reset');
 
+// Hipótese/CID
+for(const token of ['__NEXA_HYPOTHESIS_CID_GUARD_V18_9_11__','physicianCid','physicianCidOptions','nexaHypothesisCidGuard18911'])assert.ok(hypothesisGuard.includes(token),`Hypothesis guard v18.9.11 sem ${token}`);
+
+// Plano Clínico — Exames e Prescrição
+for(const id of ['generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn','suggestedExams','copySuggestedExamsBtn','rxOptions','selectSuggestedRxBtn','addManualRxBtn','rxMRoute','rxMName','rxMQty','rxMHow','copyPrescriptionBtn','copyGuidanceBtn','copyPrescriptionGuidanceBtn','informRxDataBtn','rxMissingDataInput','applyRxMissingDataBtn','cancelRxMissingDataBtn'])assert.ok(html.includes(`id="${id}"`),`Plano sem controle ${id}`);
+assert.ok(html.includes("const examsOK=['confirmed','altered','undefined'].includes(st),rxOK=['confirmed','altered'].includes(st)"),'gate de hipótese do Plano ausente');
+assert.ok(html.includes("if(st==='undefined'&&kind!=='exams')"),'prescrição precisa permanecer bloqueada com hipótese indefinida');
+for(const token of ["action:kind","hypothesis,cid:hypothesisReview.cid||''","context:[contextText(),extraRxContext?","case_mode:mode()","clinicalPlanCache[kind]=d","revealClinicalPlan(kind,d,false)"])assert.ok(html.includes(token),`fluxo do Plano sem ${token}`);
+assert.ok(html.includes("clearPlanOutputs();updateHypothesisReviewUI()"),'mudança de hipótese deve invalidar plano anterior');
+assert.ok(html.includes("$('copySuggestedExamsBtn').onclick"));
+assert.ok(html.includes("$('copyPrescriptionBtn').onclick"));
+assert.ok(html.includes("$('copyGuidanceBtn').onclick"));
+assert.ok(html.includes("$('copyPrescriptionGuidanceBtn').onclick"));
+for(const token of ['__NEXA_CLINICAL_PLAN_GUARD_V18_9_12__','/functions/v1/clinical-plan','AbortController','superseded','hypothesis-changed','reset','nexaClinicalPlanGuard18912'])assert.ok(planGuard.includes(token),`Plan guard v18.9.12 sem ${token}`);
+assert.ok(planGuard.includes("generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn"),'guard deve bloquear gerações concorrentes');
+assert.ok(planGuard.includes("applyRxMissingDataBtn"),'guard deve cobrir atualização por dado adicional');
+assert.ok(planGuard.includes("hipotese_diagnostica"),'guard deve cancelar geração se a hipótese mudar');
+
 assert.ok(!sicRule.includes('MutationObserver')&&!sicRule.includes('setInterval'),'SIC rule não pode usar loops contínuos');
 assert.ok(sw.includes('cache:"no-store"'));
-new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(summaryGuard);new Function(sw);
-console.log('NEXA v18.9.10 Resumo Clínico contract: PASS');
+new Function(loader);new Function(layout);new Function(draft);new Function(mobile);new Function(mobileFlow);new Function(exact);new Function(panelQueue);new Function(medicalState);new Function(radarStable);new Function(hsa);new Function(timerGuard);new Function(sicRule);new Function(radarBridge);new Function(summaryGuard);new Function(hypothesisGuard);new Function(planGuard);new Function(sw);
+console.log('NEXA v18.9.12 Plano Clínico contract: PASS');
