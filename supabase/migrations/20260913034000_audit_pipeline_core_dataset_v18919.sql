@@ -1,20 +1,13 @@
 begin;
 
 alter table public.audit_cases add column if not exists snapshot_version text not null default 'final-v1';
-
 comment on column public.audit_cases.snapshot_version is 'Immutable audit snapshot version; logical identity is source_consultation_id + snapshot_version.';
 
 do $$
 declare r record;
 begin
-  for r in
-    select conname from pg_constraint
-    where conrelid='public.audit_cases'::regclass
-      and contype='u'
-      and pg_get_constraintdef(oid)='UNIQUE (source_consultation_id)'
-  loop
-    execute format('alter table public.audit_cases drop constraint %I',r.conname);
-  end loop;
+  for r in select conname from pg_constraint where conrelid='public.audit_cases'::regclass and contype='u' and pg_get_constraintdef(oid)='UNIQUE (source_consultation_id)'
+  loop execute format('alter table public.audit_cases drop constraint %I',r.conname); end loop;
 end $$;
 
 do $$
@@ -27,10 +20,7 @@ end $$;
 create index if not exists audit_cases_status_submitted_idx on public.audit_cases(status,submitted_at desc);
 
 create or replace function public.submit_audit_review(case_id uuid, decision text, corrected_fields jsonb default null, note text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path=public,pg_temp
+returns jsonb language plpgsql security definer set search_path=public,pg_temp
 as $$
 declare
   v_actor uuid:=auth.uid();
@@ -51,16 +41,14 @@ begin
   if decision='corrected' then
     if corrected_fields is null or jsonb_typeof(corrected_fields)<>'object' then raise sqlstate '22023' using message='CORRECTED_FIELDS_REQUIRED'; end if;
     v_reviewed:=corrected_fields;
-  elsif decision='approved' then
-    v_reviewed:=v_case.deidentified_fields;
-  else
-    v_reviewed:=null;
+  elsif decision='approved' then v_reviewed:=v_case.deidentified_fields;
+  else v_reviewed:=null;
   end if;
 
-  update public.audit_cases ac set status=decision,reviewer_id=v_actor,reviewed_fields=v_reviewed,review_note=nullif(btrim(note),''),reviewed_at=now() where ac.id=v_case.id;
+  update public.audit_cases set status=decision,reviewer_id=v_actor,reviewed_fields=v_reviewed,review_note=nullif(btrim(note),''),reviewed_at=now() where id=v_case.id;
 
   if decision='discarded' then
-    delete from public.nexa_core_cases nc where nc.audit_case_id=v_case.id;
+    delete from public.nexa_core_cases where audit_case_id=v_case.id;
     return jsonb_build_object('ok',true,'case_id',v_case.id,'status','discarded','eligible_for_learning',false);
   end if;
 
@@ -87,6 +75,14 @@ $$;
 revoke all on function public.submit_audit_review(uuid,text,jsonb,text) from public;
 revoke all on function public.submit_audit_review(uuid,text,jsonb,text) from anon;
 grant execute on function public.submit_audit_review(uuid,text,jsonb,text) to authenticated;
+
+revoke all on function public.get_audit_queue(text) from public;
+revoke all on function public.get_audit_queue(text) from anon;
+grant execute on function public.get_audit_queue(text) to authenticated;
+
+revoke all on function public.get_core_dataset_summary() from public;
+revoke all on function public.get_core_dataset_summary() from anon;
+grant execute on function public.get_core_dataset_summary() to authenticated;
 
 alter table public.audit_cases enable row level security;
 alter table public.nexa_core_cases enable row level security;
