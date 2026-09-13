@@ -20,7 +20,7 @@ end $$;
 create index if not exists audit_cases_status_submitted_idx on public.audit_cases(status,submitted_at desc);
 
 create or replace function public.submit_audit_review(case_id uuid, decision text, corrected_fields jsonb default null, note text default null)
-returns jsonb language plpgsql security definer set search_path=public,pg_temp
+returns void language plpgsql security definer set search_path=public,pg_temp
 as $$
 declare
   v_actor uuid:=auth.uid();
@@ -49,7 +49,7 @@ begin
 
   if decision='discarded' then
     delete from public.nexa_core_cases where audit_case_id=v_case.id;
-    return jsonb_build_object('ok',true,'case_id',v_case.id,'status','discarded','eligible_for_learning',false);
+    return;
   end if;
 
   v_layers:=coalesce(v_case.deidentified_core_context->'learning_layers','{}'::jsonb);
@@ -67,8 +67,6 @@ begin
   insert into public.nexa_core_cases(audit_case_id,case_mode,quality_status,case_data,learning_profile,core_schema_version,audit_reviewed_at,updated_at)
   values(v_case.id,nullif(v_case.deidentified_core_context->>'case_mode',''),decision,v_reviewed,v_learning,'3',now(),now())
   on conflict(audit_case_id) do update set case_mode=excluded.case_mode,quality_status=excluded.quality_status,case_data=excluded.case_data,learning_profile=excluded.learning_profile,core_schema_version=excluded.core_schema_version,audit_reviewed_at=excluded.audit_reviewed_at,updated_at=excluded.updated_at;
-
-  return jsonb_build_object('ok',true,'case_id',v_case.id,'status',decision,'eligible_for_learning',true);
 end;
 $$;
 
