@@ -2,7 +2,9 @@ name: NEXA UI CI
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - audit/admin-users-slots-functional-20260911
   push:
     branches: [main]
 
