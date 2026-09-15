@@ -97,9 +97,9 @@
       setHtml('ngClarified',clarified.length?clarified.map(i=>`<details class="ng-evidence-row"><summary><span>${esc(i.label)}</span><span>${i.state==='known_absent'?'Negado':'Informado'}${i.temporal==='resolved'?' · resolvido':i.temporal==='prior'?' · prévio':''}${state.alerts.some(a=>a.concept===i.id)?' · Alerta':''}</span></summary>${evidenceHtml(i.evidence)}</details>`).join(''):'<p class="ng-muted">Os esclarecimentos aparecerão conforme a conversa evolui.</p>');
       setText('ngConfirmTitle',`A confirmar (${confirm.length})`);
       setHtml('ngConfirm',confirm.length?confirm.map(i=>`<div class="ng-confirm-row"><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button><span>${i.category==='contradiction'?'Informações conflitantes.':'Resposta ambígua ou não compreendida.'}</span></div>`).join(''):'<p class="ng-muted">Nenhum ponto a confirmar identificado.</p>');
-      setHtml('ngFindings',state.alerts.length?state.alerts.map(a=>`<article class="ng-finding"><span class="ng-priority">Achado identificado</span><h4>${esc(E.concepts[a.concept].label)}</h4>${evidenceHtml(a.evidence)}<p>${esc(a.reason)}</p><button type="button" data-tab="questions">Ver perguntas relacionadas</button></article>`).join(''):`<p class="ng-muted">${!state.hasContext||stale||state.error?'Dados insuficientes ou análise indisponível para avaliar alertas.':'Nenhum achado de alerta identificado nos dados disponíveis. Isso não determina o destino.'}</p>`);
+      setHtml('ngFindings',state.alerts.length?state.alerts.map(a=>`<article class="ng-finding"><span class="ng-priority">Achado identificado</span><h4>${esc(E.concepts[a.concept].label)}</h4>${evidenceHtml(a.evidence)}<p>${esc(a.reason)}</p>${a.related?.length?`<button type="button" data-question="${esc(a.related[0])}">Ver perguntas relacionadas</button>`:''}</article>`).join(''):`<p class="ng-muted">${!state.hasContext||stale||state.error?'Dados insuficientes ou análise indisponível para avaliar alertas.':'Nenhum achado de alerta identificado nos dados disponíveis. Isso não determina o destino.'}</p>`);
       const gaps=state.items.filter(i=>i.redFlag||i.priority==='critical'||i.status==='confirm');
-      setHtml('ngRiskGaps',gaps.length?`<div class="ng-risk-gaps"><h4>Ainda precisa ser esclarecido</h4>${gaps.slice(0,5).map(i=>`<div>${esc(E.concepts[i.concept].label)} <small>${states[i.status]||states.to_ask}</small></div>`).join('')}<button type="button" data-tab="questions">Ver perguntas relacionadas →</button></div>`:'');
+      setHtml('ngRiskGaps',gaps.length?`<div class="ng-risk-gaps"><h4>Ainda precisa ser esclarecido</h4>${gaps.slice(0,5).map(i=>`<div><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button> <small>${states[i.status]||states.to_ask}</small></div>`).join('')}</div>`:'');
       disposition(state);
     }
     api.subscribe(render);
@@ -107,7 +107,7 @@
       const btn=event.target.closest('button');if(!btn)return;
       if(btn.id==='ngQuestionsTab'||btn.id==='ngRisksTab')return selectTab(btn.id==='ngQuestionsTab'?'questions':'risks');
       if(btn.dataset.tab)return selectTab(btn.dataset.tab);
-      if(btn.dataset.question){selectTab('questions');if(!api.expanded)api.toggle();card.querySelector(`[data-item="${btn.dataset.question}"]`)?.scrollIntoView({block:'nearest'});return;}
+      if(btn.dataset.question){selectTab('questions');if(!api.expanded&&api.state.items.findIndex(i=>i.id===btn.dataset.question)>=5)api.toggle();const row=[...card.querySelectorAll('[data-item]')].find(el=>el.dataset.item===btn.dataset.question);if(row){row.tabIndex=-1;row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'});}return;}
       if(btn.id==='nexaRadarMore')return api.toggle();if(btn.id==='nexaRadarRetry'){adapter.retryTranscript?.();return api.analyzeRemote();}
       const row=btn.closest('[data-item]');if(!row)return;
       const action=btn.dataset.action||'answer',value=btn.dataset.value||(btn.dataset.save?row.querySelector('textarea').value:btn.textContent);

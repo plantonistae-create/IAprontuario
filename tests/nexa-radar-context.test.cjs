@@ -43,3 +43,29 @@ test('conversation: yes does not resolve a question with alternative answers',()
 test('AI cannot evade question or third-party exclusion by shortening its quote',()=>{for(const transcript of ['Cefaleia. Médico: Teve febre?','Cefaleia. Minha mãe teve febre.']){const r=E.analyze({transcript},{},[],[{concept:'fever',subject:'patient',section:'transcript',quote:'teve febre',state:'known_present',temporal:'current'}]);assert.equal(r.facts.fever.state,'not_asked');}});
 
 test('spontaneous sudden onset and affirmative trauma are findings, not questions',()=>{const E=require('../nexa-radar-engine');const s=E.analyze({transcript:'Cefaleia desde hoje. Médico: Teve febre?\nPaciente: Não.\nA dor começou de repente. Houve trauma ontem.'});assert.equal(s.facts.sudden.state,'known_present');assert.equal(s.facts.trauma.state,'known_present');assert.ok(s.alerts.some(a=>a.concept==='sudden'));assert.ok(!s.items.some(i=>i.concept==='trauma'));});
+
+test('consciousness: abnormal findings persist while normal and invalid results do not become alarms',()=>{
+ for(const quote of ['Confusão mental.','Glasgow 14.','Rebaixamento de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.ok(r.alerts.some(a=>a.concept==='consciousness'));assert.ok(!has(r,'consciousness'));}
+ for(const quote of ['Lúcido.','Glasgow 15.','Nega alteração de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.equal(r.facts.consciousness.state,'known_absent');assert.ok(!r.alerts.some(a=>a.concept==='consciousness'));}
+ const invalid=E.analyze({transcript:'Cefaleia. Glasgow 99.'});assert.equal(invalid.items.find(i=>i.concept==='consciousness').status,'confirm');
+});
+test('demographics: explicit patient speech informs context without borrowing ages from history or relatives',()=>{
+ const r=E.analyze({transcript:'Mulher, 32 anos. Dor abdominal. Cirurgia há 10 anos. Minha mãe tem 70 anos.'});assert.equal(r.demographics.age,32);assert.equal(r.demographics.sex,'feminino');assert.ok(has(r,'pregnancy'));assert.match(r.demographics.evidence.age[0].quote,/32 anos/);
+ assert.equal(E.demographics({transcript:'Qual sua idade? Minha mãe tem 70 anos. Cirurgia há 10 anos.'}).age,'');
+ assert.equal(E.demographics({transcript:'Paciente de 30 anos. Paciente de 60 anos.'}).age,'');
+ assert.equal(E.demographics({transcript:'Paciente de 30 anos. Corrigindo, idade 60 anos.'}).age,60);
+ assert.ok(!has(E.analyze({transcript:'Mulher, 70 anos. Dor abdominal.'}),'pregnancy'));
+});
+test('documented adult extreme vitals are alerts with exact evidence, normal values are not',()=>{
+ const text='Paciente de 40 anos. Dor torácica. PA 80/50; FC 140; FR 30; SatO2 85%; temperatura 34,5 °C.';
+ const r=E.analyze({transcript:text});for(const id of ['bp','hr','rr','spo2','temperature']){const a=r.alerts.find(a=>a.concept===id);assert.ok(a,id);assert.ok(text.includes(a.evidence[0].quote));}
+ const normal=E.analyze({transcript:'Paciente de 40 anos. Dor torácica. PA 120/80; FC 80; FR 16; SatO2 98%; temperatura 36,5 °C.'});assert.equal(normal.alerts.length,0);assert.ok(has(normal,'dyspnea'));
+});
+test('vital alerts respect corrections and the documented population instead of applying adult criteria universally',()=>{
+ for(const transcript of ['Paciente de 5 anos. Tosse. FC 140.','Tosse. FC 140.','Mulher, 32 anos. Gestante. FC 140.','Paciente de 40 anos. Tosse. Hipercapnia com meta 88 a 92%. SatO2 90%.'])assert.equal(E.analyze({transcript}).alerts.length,0,transcript);
+ const r=E.analyze({transcript:'Paciente de 40 anos. Dor torácica. PA 80/50. Corrigindo, PA 120/80.'});assert.ok(!r.alerts.some(a=>a.concept==='bp'));
+ const corrected=E.analyze({transcript:'Cefaleia. Glasgow 14. Corrigindo, Glasgow 15.'});assert.ok(!corrected.alerts.some(a=>a.concept==='consciousness'));
+});
+test('alert links point to actual pending questions and do not resurrect the clarified finding',()=>{
+ const r=E.analyze({transcript:'Cefaleia. A dor começou de repente.'}),a=r.alerts.find(a=>a.concept==='sudden');assert.ok(a.related.length);assert.ok(!a.related.includes('sudden'));for(const id of a.related)assert.ok(r.items.some(i=>i.id===id));
+});

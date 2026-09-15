@@ -2671,7 +2671,7 @@ function renderHistory(){
   $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
   if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clinicalEpoch++;stopRealtimeRadar();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.reset(currentProf?.id||'');fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -3858,7 +3858,7 @@ function pauseSession(){
     const host=q('nexaRecentCases');if(!host)return;
     let rows=[];try{rows=(history||[]).slice(0,5)}catch{}
     if(!rows.length){host.innerHTML='<div style="color:var(--nexa-muted)">Nenhum atendimento recente.</div>';return}
-    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{clinicalEpoch++;stopRealtimeRadar();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.reset(currentProf?.id||'');fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
+    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
   }
 
   const more=q('nexaMoreSheet');q('nexaMoreBtn')?.addEventListener('click',()=>more?.classList.add('open'));q('nexaCloseMore')?.addEventListener('click',()=>more?.classList.remove('open'));more?.addEventListener('click',e=>{if(e.target===more)more.classList.remove('open')});
@@ -4388,12 +4388,12 @@ Object.defineProperty(window,'currentProf',{configurable:true,get:()=>currentPro
 Object.defineProperty(window,'activeHistoryId',{configurable:true,get:()=>activeHistoryId,set:value=>activeHistoryId=value});
 Object.defineProperty(window,'lastProcessedMeta',{configurable:true,get:()=>lastProcessedMeta,set:value=>lastProcessedMeta=value});
 window.sb=sb;window.collect=collect;window.sessionHeaders=sessionHeaders;
-window.fill=data=>{clinicalEpoch++;stopRealtimeRadar();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.reset(currentProf?.id||'');fill(data);};
+window.fill=data=>{clearClinicalSession();fill(data);};
 
 // Adapter uses the actual lexical application state, not DOM scraping or a second clinical store.
 const vitalField=document.createElement('div');vitalField.className='field';vitalField.dataset.key='sinais_vitais';vitalField.innerHTML='<label for="nexaVitalSigns">Sinais vitais registrados</label><textarea id="nexaVitalSigns" placeholder="Registre apenas os valores efetivamente avaliados"></textarea>';$('examPhysicalBlock').before(vitalField);
 window.NexaRadarController.mount({
-  context:()=>({fields:collect(),transcript:realtimeTranscript.trim(),age:'',sex:''}),
+  context:()=>({fields:collect(),transcript:realtimeTranscript.trim()}),
   apply:fields=>{for(const [key,value] of Object.entries(fields)){const el=ta(key);if(el&&el.value!==value){el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))}}},
   publish:state=>{radarState=state;window.radarState=state;window.dispatchEvent(new CustomEvent('nexa:radar-state',{detail:{state,reason:'context'}}));},
   persist:nexaPersistSession,
