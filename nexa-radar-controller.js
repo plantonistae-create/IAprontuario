@@ -7,7 +7,7 @@
   const states={to_ask:'A perguntar',asked:'Perguntada · aguardando resposta',confirm:'A confirmar'};
   const cats={history:'História',red_flags:'Sinais de alarme',exam:'Exame físico',vitals:'Sinais vitais',risk:'Antecedentes / riscos',medications:'Medicações',contradiction:'Contradição',differential:'Diferencial'};
   function create(adapter){
-    let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',lastRequestAt=0;
+    let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
     const listeners=new Set();
     function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger)};}
     function invalidate(){revision++;controller?.abort();controller=null;busy=false;clearTimeout(aiTimer);}
@@ -15,7 +15,7 @@
     function recalculate({remote=false,force=false}={}){
       const context=adapter.context(),key=JSON.stringify(context);
       if(key!==lastKey){invalidate();lastKey=key;aiKey='';}
-      state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.revision=revision;state.encounter=encounter;
+      state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;
       publish();if(remote&&(force||aiKey!==key)&&state.hasContext){clearTimeout(aiTimer);aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(650,12000-(Date.now()-lastRequestAt)));}
       return state;
     }
@@ -36,11 +36,11 @@
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);ledger={};aiItems=[];observations=[];lastKey='';aiKey='';error='';transcriptStatus='idle',lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function reset(user=owner){invalidate();clearTimeout(timer);ledger={};aiItems=[];observations=[];lastKey='';aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){invalidate();clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),220);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){transcriptStatus=value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
+    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}transcriptStatus=value==='live'&&transcriptIncomplete?'stale':value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
     const api=create(adapter),q=id=>document.getElementById(id);
@@ -75,7 +75,7 @@
     }
     function disposition(state){
       const d=root.nexaDestinationFlow18915?.state||{},names={alta:'Alta',reavaliacao:'Reavaliação',internacao:'Internação'};
-      const uncertain=!!state.error||['connecting','unavailable','stale'].includes(state.transcriptStatus);
+      const uncertain=!!state.error||state.transcriptIncomplete||['connecting','unavailable','stale'].includes(state.transcriptStatus);
       const eligible=d.recommended&&!d.recommendation_stale&&!uncertain&&!(state.dispositionCaution&&d.recommended==='alta');
       setText('ngSeverity',state.alerts.length?'Atenção: achado de alerta identificado.':state.dispositionCaution?'Gravidade: dados importantes ainda não esclarecidos.':'Gravidade: em avaliação.');
       setText('ngDestination',eligible?names[d.recommended]+' a considerar':'Em avaliação / dados insuficientes');
@@ -88,8 +88,8 @@
       setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
       setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} achado(s) de alerta identificado(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:'');
-      const stale=['unavailable','stale'].includes(state.transcriptStatus);
-      setHtml('ngAnalysisStatus',state.error||stale?`<p class="ng-error">${esc(state.error||'Acompanhamento da conversa indisponível. Os dados exibidos podem estar desatualizados. A gravação continua.')} <button type="button" id="nexaRadarRetry">Tentar novamente</button></p>`:'');
+      const stale=state.transcriptIncomplete||['unavailable','stale'].includes(state.transcriptStatus);
+      setHtml('ngAnalysisStatus',state.error||stale?`<p class="ng-error">${esc(state.error||'Há trechos da conversa sem análise. Os dados podem estar desatualizados; revise a transcrição final.')} <button type="button" id="nexaRadarRetry">Tentar novamente</button></p>`:'');
       const visible=api.expanded?state.items:state.items.slice(0,5);updateRows(visible);
       if(!state.items.length)setHtml('radarQuestions',`<p class="ng-muted">${!state.hasContext?'Aguardando informações clínicas.':state.error||stale?'Análise incompleta; não é possível afirmar ausência de lacunas.':'Sem lacunas clínicas relevantes identificadas no momento.'}</p>`);else delete q('radarQuestions').dataset.rendered;
       q('nexaRadarMore').hidden=state.items.length<=5;setText('nexaRadarMore',api.expanded?'Mostrar menos':`Ver outras ${state.items.length-5} sugestões`);

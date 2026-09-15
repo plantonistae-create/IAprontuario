@@ -195,6 +195,7 @@
 
   function markContextChanged(reason='context-changed'){
     requestEpoch++;activeController?.abort();activeController=null;
+    const btn=q('nexaDestinationRefreshBtn');if(btn){btn.disabled=false;btn.textContent='Atualizar recomendação';}
     if(!state.recommended&&!state.final)return;
     state.recommendation_stale=true;
     if(!['confirmed','altered'].includes(state.status)){state.status='pending';state.recommended='';state.reason='Contexto clínico alterado; aguardando nova recomendação.'}

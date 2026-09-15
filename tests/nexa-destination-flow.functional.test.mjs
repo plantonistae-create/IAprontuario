@@ -70,7 +70,9 @@ assert.equal(api.state.final,'internacao','resposta posterior da IA não pode so
 assert.equal(api.state.status,'altered');
 
 // 3) mudança de contexto não apaga silenciosamente decisão já confirmada
+ids.nexaDestinationRefreshBtn.disabled=true;
 api.markContextChanged('hypothesis');
+assert.equal(ids.nexaDestinationRefreshBtn.disabled,false,'context change releases a cancelled request button');
 assert.equal(api.state.final,'internacao');
 assert.equal(api.state.status,'altered');
 assert.equal(api.state.recommendation_stale,true);
