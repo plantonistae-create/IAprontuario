@@ -79,10 +79,10 @@
       const third=/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|sente|apresenta)/.test(t);
       const proposed=/^(?:investigar|considerar|avaliar|perguntar|se (?:tiver|apresentar)|caso (?:tenha|apresente))\b/.test(t);
       if(third||proposed){pending=[];continue;}
-      if(question){pending=ids.filter(id=>!symptomIds.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript'});continue;}
+      if(question){pending=ids.filter(id=>!symptomIds.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript',alternatives:/\bou\b/.test(t)});continue;}
       const short=/^(?:sim|nao|nunca|nenhum[a]?|nao sei|nao lembro|talvez|acho que|nao entendi)(?:[,.!\s]|$)/.test(t);
       if(pending.length&&short){
-        const ambiguous=pending.length!==1||/nao sei|nao lembro|talvez|acho que|nao entendi/.test(t);
+        const ambiguous=pending.length!==1||pending.some(id=>asked[id].alternatives)||/nao sei|nao lembro|talvez|acho que|nao entendi/.test(t);
         for(const id of pending){
           const c=concepts[id],state=ambiguous?'unknown':/^(?:nao|nunca|nenhum)/.test(t)?'known_absent':/^sim\b/.test(t)?'known_present':'unknown';
           if(c.type!=='boolean'||ambiguous){uncertain[id]={quote,questionQuote:asked[id].quote,section:'transcript',state:'unknown',temporal:'current'};}
@@ -127,11 +127,12 @@
         if(observation.concept!==concept.id||observation.subject!=='patient'||!['known_present','known_absent','unknown'].includes(observation.state))continue;
         const source=observation.section==='transcript'?String(context.transcript||''):String(fields[observation.section]||'');
         const quote=String(observation.quote||''),t=norm(quote);
-        if(quote.length<3||!source.includes(quote)||/\?|^(?:investigar|considerar|avaliar)|\b(?:minha|meu) (?:mae|pai|irma|irmao|filh[oa]|esposa|marido)\b/.test(t))continue;
+        const patientSegments=conversation(source).evidence.filter(e=>e.text).map(e=>e.text);
+        if(quote.length<3||!patientSegments.some(text=>norm(text).includes(norm(quote).replace(/[.!;]+$/,'')))||/\?|^(?:investigar|considerar|avaliar)|\b(?:minha|meu) (?:mae|pai|irma|irmao|filh[oa]|esposa|marido)\b/.test(t))continue;
         // Reassuring negatives require explicit negative language; uncertainty never becomes absence.
         if(observation.state==='known_absent'&&(!/\b(?:nao|nega|negou|sem|nunca|ausen|negad)/.test(t)||/nao sei|talvez|acho que|nao lembro/.test(t)))continue;
         if(observation.state!=='unknown'&&/talvez|acho que|nao sei|nao lembro/.test(t))continue;
-        if(!evidence.some(e=>norm(e.quote)===t))evidence.push({state:observation.state,temporal:['current','recent','prior','resolved'].includes(observation.temporal)?observation.temporal:'current',quote,section:observation.section,interpretation:'ai'});
+        if(!evidence.some(e=>norm(e.quote)===t))evidence.push({state:observation.state,temporal:observation.temporal==='prior'&&/no passado|ha .+ anos|historico|previ[oa]/.test(t)?'prior':observation.temporal==='resolved'&&/resolvid|cessou|afebril|nao .+ mais|sem .+ ha/.test(t)?'resolved':observation.temporal==='recent'?'recent':'current',quote,section:observation.section,interpretation:'ai'});
       }
       // Positive past and negative current can coexist. Undated opposite statements require confirmation.
       const correction=evidence.findLastIndex(e=>/retificacao|corrigindo|na verdade|corrijo/.test(norm(e.quote)));

@@ -14,7 +14,7 @@
     function publish(){adapter.publish?.(state);listeners.forEach(fn=>fn(state));}
     function recalculate({remote=false,force=false}={}){
       const context=adapter.context(),key=JSON.stringify(context);
-      if(key!==lastKey){invalidate();aiItems=[];observations=[];lastKey=key;aiKey='';error='';}
+      if(key!==lastKey){invalidate();lastKey=key;aiKey='';}
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.revision=revision;state.encounter=encounter;
       publish();if(remote&&(force||aiKey!==key)&&state.hasContext){clearTimeout(aiTimer);aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(650,12000-(Date.now()-lastRequestAt)));}
       return state;
