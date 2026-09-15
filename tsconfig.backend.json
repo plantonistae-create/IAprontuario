@@ -15,6 +15,7 @@
     ]
   },
   "include": [
-    "supabase/functions/realtime-radar/index.ts"
+    "supabase/functions/realtime-radar/index.ts",
+    "supabase/functions/realtime-call/index.ts"
   ]
 }

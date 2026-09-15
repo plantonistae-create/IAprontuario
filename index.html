@@ -3251,7 +3251,7 @@ function radarRender(data=radarState){
     }
   }
   if($('nexaRadarQuestionSync')){
-    $('nexaRadarQuestionSync').textContent=recording?(paused?'Pausado':'Atualizando em tempo real'):'Aguardando gravação';
+    $('nexaRadarQuestionSync').textContent=recording?(sessionPaused?'Pausado':'Atualizando em tempo real'):'Aguardando gravação';
   }
 
   $('radarAlerts').innerHTML=alerts.length
@@ -4246,16 +4246,16 @@ function pauseSession(){
     const txt=q('nexaDesktopRecordingText');
     if(rec&&txt){
       rec.classList.toggle('idle',!recording);
-      txt.textContent=recording?(paused?`Pausado · ${q('timer')?.textContent||'00:00'}`:`Gravando · ${q('timer')?.textContent||'00:00'}`):'Sem gravação ativa';
+      txt.textContent=recording?(sessionPaused?`Pausado · ${q('timer')?.textContent||'00:00'}`:`Gravando · ${q('timer')?.textContent||'00:00'}`):'Sem gravação ativa';
     }
-    if(recording)nexaSetSessionState(paused?'paused':'recording');else if(audioBlob)nexaSetSessionState('audio_saved');
+    if(recording)nexaSetSessionState(sessionPaused?'paused':'recording');else if(audioBlob)nexaSetSessionState('audio_saved');
     const rk=q('nexaRecordingKicker');
     if(rk){
-      rk.textContent=recording?(paused?'PAUSADO':'GRAVANDO'):'GRAVAÇÃO';
-      rk.style.color=recording&&!paused?'#d83b3b':'var(--nexa-muted)';
+      rk.textContent=recording?(sessionPaused?'PAUSADO':'GRAVANDO'):'GRAVAÇÃO';
+      rk.style.color=recording&&!sessionPaused?'#d83b3b':'var(--nexa-muted)';
     }
-    if(q('nexaDesktopPause'))q('nexaDesktopPause').textContent=!recording&&!audioBlob?'Iniciar gravação':(paused?'Retomar':'Pausar');
-    if(q('nexaLocalPauseText'))q('nexaLocalPauseText').textContent=paused?'Retomar':'Pausar';
+    if(q('nexaDesktopPause'))q('nexaDesktopPause').textContent=!recording&&!audioBlob?'Iniciar gravação':(sessionPaused?'Retomar':'Pausar');
+    if(q('nexaLocalPauseText'))q('nexaLocalPauseText').textContent=sessionPaused?'Retomar':'Pausar';
     if(q('nexaLocalPauseBtn'))q('nexaLocalPauseBtn').disabled=!recording&&!!audioBlob;
     if(q('nexaLocalFinishBtn'))q('nexaLocalFinishBtn').disabled=!recording;
 
