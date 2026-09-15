@@ -6,7 +6,7 @@
 
   const SUMMARY_KEYS=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','exame_fisico'];
   const q=(sel,root=document)=>root.querySelector(sel);
-  const field=key=>q(`.field[data-key="${key}"] textarea`);
+  const field=key=>key==='conduta'?document.getElementById('conductRecordText'):q(`.field[data-key="${key}"] textarea`);
   const processBtn=document.getElementById('processBtn');
   const resetBtn=document.getElementById('resetBtn');
   const banner=document.getElementById('bannerArea');

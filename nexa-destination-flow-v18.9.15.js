@@ -13,7 +13,7 @@
   const OPTIONS=['alta','reavaliacao','internacao'];
   const LABELS={alta:'ALTA',reavaliacao:'REAVALIAÇÃO',internacao:'INTERNAÇÃO'};
   const q=id=>document.getElementById(id);
-  const ta=key=>document.querySelector(`.field[data-key="${key}"] textarea`);
+  const ta=key=>key==='conduta'?q('conductRecordText'):document.querySelector(`.field[data-key="${key}"] textarea`);
   const now=()=>new Date().toISOString();
   const originalFetch=window.fetch.bind(window);
   const storageProto=window.Storage?.prototype;

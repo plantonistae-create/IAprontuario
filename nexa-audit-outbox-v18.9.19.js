@@ -15,7 +15,7 @@ const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16
 const nowIso=()=>new Date().toISOString();
 function currentAuth(){let access='',userId='';try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i)||'';if(!key.includes('auth-token'))continue;const parsed=JSON.parse(localStorage.getItem(key)||'{}'),session=parsed?.currentSession||parsed?.session||parsed;if(session?.access_token){access=session.access_token;userId=session.user?.id||parsed?.user?.id||'';break}}}catch{}if(!userId)userId=String(window.currentProf?.id||'');return{access,userId:String(userId||'')}}
 function owner(){return currentAuth().userId}
-function field(k){return String(document.querySelector(`.field[data-key="${k}"] textarea`)?.value||'').trim()}
+function field(k){return String((k==='conduta'?document.getElementById('conductRecordText'):document.querySelector(`.field[data-key="${k}"] textarea`))?.value||'').trim()}
 function collect(){const out={};for(const k of KEYS)out[k]=field(k);return out}
 function valid(fields){const core=['queixa_principal','hda','exame_fisico','hipotese_diagnostica','conduta'].map(k=>String(fields?.[k]||'').trim()),meaningful=core.filter(v=>v.length>=5).length;return core[1].length>=20||(core[0].length>=5&&meaningful>=2)||meaningful>=3}
 function redact(value){return String(value??'').replace(/\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g,'[E-MAIL REMOVIDO]').replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g,'[CPF REMOVIDO]').replace(/(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?(?:9\s*)?\d{4}[-\s]?\d{4}\b/g,'[TELEFONE REMOVIDO]')}

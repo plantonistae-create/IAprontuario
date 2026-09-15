@@ -23,6 +23,7 @@ const ids={};
 for(const id of ['nexaDestinationMedicalCard','nexaDestinationStatus','nexaDestinationRecommendation','nexaDestinationReason','nexaDestinationFinal','nexaDestinationConfirmBtn','nexaDestinationChangeBtn','nexaDestinationRefreshBtn','nexaDestinationChangePanel','nexaDestinationCancelChangeBtn','resetBtn','nexaRestoreSessionBtn','copyBtn','updateHistoryBtn','historyList','includeDiagnosis','generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn','applyRxMissingDataBtn','suggestedExams','suggestedPrescription'])ids[id]=new El();
 const fields={};
 for(const key of ['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico','hipotese_diagnostica','conduta'])fields[key]=new El();
+ids.conductRecordText=fields.conduta;
 ids.includeDiagnosis.checked=true;
 fields.queixa_principal.value='Dor abdominal';fields.hda.value='Dor há 6 horas';fields.hipotese_diagnostica.value='Apendicite';fields.conduta.value='Avaliação cirúrgica';
 

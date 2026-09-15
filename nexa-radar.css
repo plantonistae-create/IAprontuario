@@ -1,5 +1,5 @@
 /* Scoped to the contextual Radar. Recording, Summary, Hypothesis and Plan retain their styles. */
-body[data-contextual-radar] .nexa-stage-view[data-stage="radar"].active{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'record' 'radar'!important}
+html body.nexa-v340.nexa-doctor-view[data-contextual-radar]:not(.doctor-home-open) #nexaStageHost>.nexa-stage-view[data-stage="radar"].active{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'record' 'radar'!important}
 body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] #nfSummary,
 body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] #nexaLiveSummary,
 body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] .field[data-key="sugestoes_perguntas"],
@@ -58,3 +58,5 @@ body[data-contextual-radar] #realtimeRadarCard{padding:20px!important}
 #realtimeRadarCard .ng-error{color:#996508;border-left:3px solid #d79316;padding:8px}
 @media(max-width:1050px){#realtimeRadarCard .ng-layout{grid-template-columns:minmax(0,1fr)}#realtimeRadarCard .ng-side{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#realtimeRadarCard #ngDisposition{grid-column:1/-1}}
 @media(max-width:560px){body[data-contextual-radar] #realtimeRadarCard{padding:12px!important}#realtimeRadarCard #nfRadarHead strong{font-size:21px}#realtimeRadarCard .ng-side{grid-template-columns:1fr}#realtimeRadarCard #nfRadarTabs button{font-size:11px;padding:7px}#realtimeRadarCard .ng-panel{padding:10px}#realtimeRadarCard #nexaContextualStatus{gap:10px}}
+
+body[data-contextual-radar] #nexaStageHost .nexa-stage-view[data-stage="radar"]>[data-moved-consent="1"]{display:none!important}

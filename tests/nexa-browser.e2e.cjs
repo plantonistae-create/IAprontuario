@@ -37,7 +37,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.equal(await page.evaluate(()=>window.nexaDestinationFlow18915.state.final),'internacao');
   page.once('dialog',d=>d.accept());await page.locator('#resetBtn').evaluate(el=>el.click());
   await page.waitForFunction(()=>window.radarState.items.length===0);
-  for(const key of ['hda','exame_fisico','sinais_vitais','hipotese_diagnostica','conduta'])assert.equal(await page.locator(`.field[data-key="${key}"] textarea`).inputValue(),'');
+  for(const key of ['hda','exame_fisico','sinais_vitais','hipotese_diagnostica','conduta'])for(const el of await page.locator(`.field[data-key="${key}"] textarea`).all())assert.equal(await el.inputValue(),'');
   assert.equal(await page.evaluate(()=>window.nexaDestinationFlow18915.state.final),'');
   assert.deepEqual(await page.evaluate(()=>window.nexaRadar.snapshot().ledger),{});
 
@@ -60,6 +60,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   const total=await page.evaluate(()=>window.radarState.clarified.length);
   await page.evaluate(()=>window.__qa.speak('3','A dor começou de repente.'));
   assert.equal(await page.evaluate(()=>window.radarState.clarified.length),total);
+  const widths=await page.evaluate(()=>({radar:document.getElementById('realtimeRadarCard').getBoundingClientRect().width,recorder:document.querySelector('.card.rec-zone').getBoundingClientRect().width}));
+  assert.ok(Math.abs(widths.radar-widths.recorder)<4,'Radar occupies the same available width as the recorder');
   fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
   await page.locator('#realtimeRadarCard').screenshot({path:path.join(root,`test-results/radar-questions-${viewport.width}.png`)});
   await page.getByRole('tab',{name:'Riscos e alertas',exact:true}).click();
@@ -72,12 +74,37 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.locator('#processBtn').click();await page.waitForFunction(()=>document.querySelector('.field[data-key="hda"] textarea').value.includes('Cefaleia'));
   assert.match(await page.locator('.field[data-key="hipotese_diagnostica"] textarea').inputValue(),/Cefaleia/);
   assert.equal(await page.locator('.field[data-key="hda"] textarea').inputValue().then(v=>v.includes('Teve febre?')),false);
+  // Summary, reviewed hypothesis, plan generation and all copy contracts stay in the existing flow.
+  const copied=async(id)=>{await page.locator('#'+id).evaluate(el=>el.click());return page.evaluate(()=>window.__qa.clipboard);};
+  assert.match(await copied('copyFieldHdaBtn'),/cefaleia/i);
+  assert.match(await copied('copyHdaBtn'),/ALERGIAS/i);
+  await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="hypothesis"]')?.click());
+  await page.locator('#confirmHypothesisBtn').evaluate(el=>el.click());
+  await page.waitForFunction(()=>!document.getElementById('generateBothPlanBtn').disabled);
+  await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="plan"]')?.click());
+  await page.locator('#generateBothPlanBtn').evaluate(el=>el.click());
+  await page.waitForFunction(()=>document.getElementById('suggestedExams').value.includes('Exame de teste')&&document.getElementById('rxOptions').textContent.includes('Medicamento QA'));
+  assert.match(await copied('copySuggestedExamsBtn'),/Exame de teste/);
+  await page.locator('#selectSuggestedRxBtn').evaluate(el=>el.click());
+  assert.match(await copied('copyPrescriptionBtn'),/MEDICAMENTO QA/);
+  assert.match(await copied('copyPrescriptionGuidanceBtn'),/Orientação de teste/);
+  // The nested template editor is not the patient's clinical conduct field.
+  await page.locator('#conductContentInput').evaluate(el=>{el.value='RASCUNHO DE MODELO NÃO INCORPORADO';});
+  await page.locator('#conductRecordText').evaluate(el=>{el.value='Conduta revisada do caso sintético.';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await copied('copyConductBtn'),'Conduta revisada do caso sintético.');
+  const note=await copied('copyBtn');assert.match(note,/CONDUTAS:[\s\S]*Conduta revisada/);assert.doesNotMatch(note,/RASCUNHO DE MODELO/);
+  for(const section of ['QUEIXA PRINCIPAL','HISTÓRIA DA DOENÇA ATUAL','ALERGIAS','COMORBIDADES','MEDICAÇÕES','ANTECEDENTES','EXAME FÍSICO','HIPÓTESE DIAGNÓSTICA','CONDUTAS'])assert.ok(note.includes(section),section);
+  console.log('Summary, hypothesis, plan and copies checked',viewport.width);
   await page.evaluate(()=>window.__qa.switchUser('qa-physician-b'));
   await page.waitForFunction(()=>window.currentProf.id==='qa-physician-b');
   await page.evaluate(()=>window.__qa.speak('late','Dor torácica com síncope.',0));
   assert.equal(await page.locator('.field[data-key="hda"] textarea').inputValue(),'');
   assert.equal(await page.evaluate(()=>window.radarState.hasContext),false);
   assert.deepEqual(await page.evaluate(()=>window.nexaRadar.snapshot().ledger),{});
+  for(const id of ['suggestedExams','suggestedPrescription','conductRecordText'])assert.equal(await page.locator('#'+id).inputValue(),'');
+  // A capabilities failure must remove access, never inherit the previous physician's permission.
+  await page.evaluate(()=>{window.__qa.denyCapabilities=true;window.__qa.switchUser('qa-permission-failure');});
+  await page.waitForFunction(()=>!window.currentProf?.clinical_access&&document.getElementById('mainApp').style.display==='none');
   assert.deepEqual(errors,[],'Browser runtime errors');
   console.log(`Browser regression (synthetic external services) ${viewport.width}px: PASS`);await page.close();
  }

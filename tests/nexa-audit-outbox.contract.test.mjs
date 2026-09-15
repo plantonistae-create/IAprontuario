@@ -18,7 +18,7 @@ let fetchMode='success',fetchCount=0,uuidN=0;
 const document={
   hidden:false,documentElement:{dataset:{}},body:{appendChild(){}},
   querySelector(sel){const m=sel.match(/data-key="([^"]+)"/);return m?{value:fieldValues[m[1]]||''}:null},
-  getElementById(id){if(id==='aiHypothesisOriginal')return{textContent:'Síndrome coronariana aguda'};if(id==='physicianHypothesis')return{value:'Dor torácica a esclarecer'};if(id==='physicianCid')return{value:'R07.4'};return null},
+  getElementById(id){if(id==='conductRecordText')return{value:fieldValues.conduta};if(id==='aiHypothesisOriginal')return{textContent:'Síndrome coronariana aguda'};if(id==='physicianHypothesis')return{value:'Dor torácica a esclarecer'};if(id==='physicianCid')return{value:'R07.4'};return null},
   createElement(){return{style:{},remove(){}}},addEventListener(){}
 };
 const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},fetch:async()=>{fetchCount++;if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
@@ -32,6 +32,7 @@ const s1=await api.buildSnapshot('manual_early_submit');
 const s2=await api.buildSnapshot('reset_safety_net');
 assert.equal(s1.source_consultation_id,s2.source_consultation_id,'same encounter must keep source id');
 assert.equal(s1.idempotency_key,s2.idempotency_key,'manual + reset must share idempotency key');
+assert.equal(s1.payload.fields.conduta,fieldValues.conduta);
 assert.equal(s1.payload.core_context.destination.recommended,'alta');
 assert.equal(s1.payload.core_context.destination.final,'internacao');
 await api.enqueue(s1);await api.enqueue(s2);assert.equal(memory.size,1,'duplicate trigger must keep one outbox item');

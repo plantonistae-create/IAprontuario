@@ -9,7 +9,7 @@
   const copyBtn=document.getElementById('copyConductBtn');
   const banner=document.getElementById('bannerArea');
   const saveState=document.getElementById('saveState');
-  const conduct=()=>document.querySelector('.field[data-key="conduta"] textarea');
+  const conduct=()=>document.getElementById('conductRecordText');
   if(!processBtn||!banner||!conduct())return;
 
   let snapshot=null;
