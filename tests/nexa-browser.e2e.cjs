@@ -75,9 +75,9 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.equal(await page.evaluate(()=>window.__qa.track.readyState),'live');
   console.log('Recording and Radar views checked',viewport.width);
   await page.locator('#nfFinish').click();await page.waitForFunction(()=>!document.getElementById('processBtn').disabled);
-  await page.locator('#processBtn').click();await page.waitForFunction(()=>document.querySelector('.field[data-key="hda"] textarea').value.includes('Cefaleia'));
-  assert.match(await page.locator('.field[data-key="hipotese_diagnostica"] textarea').inputValue(),/Cefaleia/);
-  assert.equal(await page.locator('.field[data-key="hda"] textarea').inputValue().then(v=>v.includes('Teve febre?')),false);
+  await page.locator('#processBtn').click();await page.waitForFunction(()=>/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea').value));
+  assert.match(await page.locator('.field[data-key="hipotese_diagnostica"] textarea').inputValue(),/cefaleia/i);
+  assert.doesNotMatch(await page.locator('.field[data-key="hda"] textarea').inputValue(),/teve febre\?/i);
   // Summary, reviewed hypothesis, plan generation and all copy contracts stay in the existing flow.
   const copied=async(id)=>{await page.locator('#'+id).evaluate(el=>el.click());return page.evaluate(()=>window.__qa.clipboard);};
   assert.match(await copied('copyFieldHdaBtn'),/cefaleia/i);
