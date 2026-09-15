@@ -23,7 +23,9 @@ const reviewInflight=new Map();
 
 // Fail closed until capabilities are resolved. The legacy auditor used to fail open
 // when currentProf was outside its lexical scope.
-window.currentProf=window.currentProf&&typeof window.currentProf==='object'?window.currentProf:{id:'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'unknown'};
+let auditProfile=window.currentProf&&typeof window.currentProf==='object'?window.currentProf:{id:'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'unknown'};
+function setAuditProfile(profile){auditProfile=profile;if(!Object.getOwnPropertyDescriptor(window,'currentProf')?.get)window.currentProf=profile;}
+setAuditProfile(auditProfile);
 window.currentProf.is_admin=!!window.currentProf.is_admin;
 window.currentProf.is_reviewer=!!window.currentProf.is_reviewer;
 
@@ -109,29 +111,29 @@ window.sb={...(previousSb||{}),rpc:guardedRpc};
 
 async function refreshCapabilities(){
   const auth=currentAuth();
-  if(!auth.access){capabilitiesReady=false;window.currentProf={id:'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'signed_out'};syncRoleUi();return false}
+  if(!auth.access){capabilitiesReady=false;setAuditProfile({id:'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'signed_out'});syncRoleUi();return false}
   try{
     const data=await rpcFetch('get_my_capabilities',{});
     const p=Array.isArray(data)?data[0]:data;
-    window.currentProf={
+    setAuditProfile({
       id:auth.userId||'',
       clinical_access:!!p?.clinical_access,
       is_admin:!!p?.is_admin,
       is_reviewer:!!p?.is_reviewer,
-      access_status:String(p?.access_status||'active')
-    };
+      access_status:String(p?.access_status||'pending')
+    });
     capabilitiesReady=true;syncRoleUi();
     window.dispatchEvent(new CustomEvent('nexa:audit-capabilities',{detail:{is_admin:window.currentProf.is_admin,is_reviewer:window.currentProf.is_reviewer}}));
     return window.currentProf.is_admin||window.currentProf.is_reviewer;
   }catch{
     capabilitiesReady=false;
-    window.currentProf={id:auth.userId||'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'unverified'};
+    setAuditProfile({id:auth.userId||'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'unverified'});
     syncRoleUi();return false;
   }
 }
 function syncRoleUi(){
   const role=window.currentProf?.is_admin?'Administrador':window.currentProf?.is_reviewer?'Revisor':'Sem acesso à Auditoria';
-  const user=q('#nexaAuditExact .ax-user');if(user)user.innerHTML=`<b>${role}</b>NEXA Core`;
+  const user=q('#nexaAuditExact .ax-user');if(user&&user.innerHTML!==`<b>${role}</b>NEXA Core`)user.innerHTML=`<b>${role}</b>NEXA Core`;
 }
 
 function normalizeDestination(value){
@@ -196,7 +198,7 @@ function normalizeAuditDom(){
   syncRoleUi();
   qa('#axReview .ax-actions').forEach(el=>el.remove()); // legacy per-field buttons had no handler/backend contract
   qa('#axReview .ax-rnav button:not([data-ax-back])').forEach(el=>el.remove()); // legacy prev/next were inert
-  const back=q('#axReview .ax-return');if(back)back.textContent='↶ Voltar para a fila';
+  const back=q('#axReview .ax-return');if(back&&back.textContent!=='↶ Voltar para a fila')back.textContent='↶ Voltar para a fila';
   injectDestinationSnapshot();
   const success=q('#axReview .ax-success');if(success&&!success.dataset.nexaGuardBound){
     success.dataset.nexaGuardBound='1';const btn=success.querySelector('button');btn?.addEventListener('click',()=>setTimeout(repairReviewShell,0),{once:true});
@@ -217,6 +219,7 @@ function bind(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 
 window.nexaAuditFunctionalGuard18916={
+  get profile(){return {...auditProfile}},
   get capabilitiesReady(){return capabilitiesReady},
   get activeCaseId(){return activeCaseId},
   sanitizeFields,sanitizeAuditCase,augmentAuditPayload,refreshCapabilities,repairReviewShell,reviewShellMarkup,

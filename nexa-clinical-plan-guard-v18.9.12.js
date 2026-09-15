@@ -57,11 +57,12 @@
       queueMicrotask(lockUi);
       return;
     }
-    if(target.id==='resetBtn'||hypothesisIds.includes(target.id)){
+    if((target.id==='resetBtn'&&!window.NexaRadarEngine)||hypothesisIds.includes(target.id)){
       if(active)cancelActive(target.id==='resetBtn'?'reset':'hypothesis-changed');
     }
   },true);
 
+  window.addEventListener?.('nexa:consultation-reset',()=>cancelActive('reset'));
   hypothesisTextarea()?.addEventListener('input',()=>{if(active)cancelActive('hypothesis-changed')},true);
 
   window.fetch=async function guardedFetch(input,init={}){
@@ -87,7 +88,7 @@
       return new Proxy(response,{
         get(target,prop){
           if(prop==='json')return async()=>{
-            try{return await target.json()}
+            try{const data=await target.json();if(id!==epoch)throw new DOMException('Obsolete clinical plan','AbortError');return data;}
             finally{setTimeout(()=>{if(active?.id===id){active=null;unlockUi()}},0)}
           };
           const value=Reflect.get(target,prop,target);

@@ -23,6 +23,7 @@ const ids={};
 for(const id of ['nexaDestinationMedicalCard','nexaDestinationStatus','nexaDestinationRecommendation','nexaDestinationReason','nexaDestinationFinal','nexaDestinationConfirmBtn','nexaDestinationChangeBtn','nexaDestinationRefreshBtn','nexaDestinationChangePanel','nexaDestinationCancelChangeBtn','resetBtn','nexaRestoreSessionBtn','copyBtn','updateHistoryBtn','historyList','includeDiagnosis','generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn','applyRxMissingDataBtn','suggestedExams','suggestedPrescription'])ids[id]=new El();
 const fields={};
 for(const key of ['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico','hipotese_diagnostica','conduta'])fields[key]=new El();
+ids.conductRecordText=fields.conduta;
 ids.includeDiagnosis.checked=true;
 fields.queixa_principal.value='Dor abdominal';fields.hda.value='Dor há 6 horas';fields.hipotese_diagnostica.value='Apendicite';fields.conduta.value='Avaliação cirúrgica';
 
@@ -39,7 +40,7 @@ globalThis.Storage=StorageMock;
 globalThis.localStorage=new StorageMock();
 globalThis.window=globalThis;
 globalThis.document=documentMock;
-globalThis.dispatchEvent=()=>true;
+const events=new EventTarget();globalThis.addEventListener=(...args)=>events.addEventListener(...args);globalThis.dispatchEvent=()=>true;
 globalThis.CustomEvent=class{constructor(type,init={}){this.type=type;this.detail=init.detail}};
 globalThis.Event=class{constructor(type){this.type=type}preventDefault(){}stopImmediatePropagation(){}};
 Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async()=>{}}},configurable:true});
@@ -69,14 +70,18 @@ assert.equal(api.state.final,'internacao','resposta posterior da IA não pode so
 assert.equal(api.state.status,'altered');
 
 // 3) mudança de contexto não apaga silenciosamente decisão já confirmada
+ids.nexaDestinationRefreshBtn.disabled=true;
 api.markContextChanged('hypothesis');
+assert.equal(ids.nexaDestinationRefreshBtn.disabled,false,'context change releases a cancelled request button');
 assert.equal(api.state.final,'internacao');
 assert.equal(api.state.status,'altered');
 assert.equal(api.state.recommendation_stale,true);
 
-// 4) prontuário final usa a decisão médica, não a recomendação
+// 4) pedido atual: copiar somente seções clínicas; decisão médica permanece no estado e autosave
 const note=api.noteTextWithDestination();
-assert.match(note,/DESTINO:\nINTERNAÇÃO/);
+assert.doesNotMatch(note,/DESTINO:/);
+assert.match(note,/HIPÓTESE DIAGNÓSTICA:\nApendicite/);
+assert.equal(api.state.final,'internacao');
 assert.doesNotMatch(note,/DESTINO:\nREAVALIAÇÃO/);
 
 // 5) autosave da sessão incorpora destinationState

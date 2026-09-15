@@ -6,7 +6,7 @@
 
   const SUMMARY_KEYS=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','exame_fisico'];
   const q=(sel,root=document)=>root.querySelector(sel);
-  const field=key=>q(`.field[data-key="${key}"] textarea`);
+  const field=key=>key==='conduta'?document.getElementById('conductRecordText'):q(`.field[data-key="${key}"] textarea`);
   const processBtn=document.getElementById('processBtn');
   const resetBtn=document.getElementById('resetBtn');
   const banner=document.getElementById('bannerArea');
@@ -57,7 +57,8 @@
   observer.observe(banner,{childList:true,subtree:true,characterData:true});
   observer.observe(processBtn,{attributes:true,attributeFilter:['disabled'],childList:true,characterData:true,subtree:true});
 
-  resetBtn?.addEventListener('click',()=>{snapshot=null;processing=false},true);
+  window.addEventListener?.('nexa:consultation-reset',()=>{snapshot=null;processing=false});
+  resetBtn?.addEventListener('click',()=>{if(!window.NexaRadarEngine){snapshot=null;processing=false}},true);
 
   window.nexaSummaryStateGuard1910={
     keys:[...SUMMARY_KEYS],

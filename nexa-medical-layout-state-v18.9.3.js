@@ -14,7 +14,7 @@ function repair(){
   const host=$('#nexaStageHost');
   if(host){host.style.removeProperty('display');host.style.removeProperty('position');host.style.removeProperty('left');host.style.removeProperty('right');host.style.removeProperty('top');host.style.removeProperty('bottom');host.style.removeProperty('width');host.style.removeProperty('height');host.style.removeProperty('margin');host.style.removeProperty('transform')}
   $$('.nexa-stage-view').forEach(v=>{v.style.removeProperty('left');v.style.removeProperty('right');v.style.removeProperty('width');v.style.removeProperty('margin');v.style.removeProperty('transform')});
-  window.dispatchEvent(new Event('resize'));
+  // Native resize already schedules repair; emitting another resize here creates an endless timer loop.
 }
 function returnMedicalHard(){
   $('#axReview')?.classList.remove('open');

@@ -1,6 +1,7 @@
 /* NEXA v18.9.9 · Radar DOM/state bridge · 2026-09-11 */
 (()=>{
 'use strict';
+if(window.NexaRadarEngine)return;
 if(window.__NEXA_RADAR_STATE_BRIDGE_V18_9_9__)return;
 window.__NEXA_RADAR_STATE_BRIDGE_V18_9_9__=true;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];

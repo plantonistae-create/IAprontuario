@@ -1,4 +1,4 @@
-/* NEXA loader v18.9.19 */
+/* NEXA loader v18.10.0 */
 (async()=>{
 if(typeof window.paused==='undefined')window.paused=false;
 if(typeof window.Pause!=='function')window.Pause=()=>document.getElementById('nexaLocalPauseBtn')?.click()||false;
