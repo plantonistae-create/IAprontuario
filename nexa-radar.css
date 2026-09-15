@@ -1,0 +1,60 @@
+/* Scoped to the contextual Radar. Recording, Summary, Hypothesis and Plan retain their styles. */
+body[data-contextual-radar] .nexa-stage-view[data-stage="radar"].active{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'record' 'radar'!important}
+body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] #nfSummary,
+body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] #nexaLiveSummary,
+body[data-contextual-radar] .nexa-stage-view[data-stage="radar"] .field[data-key="sugestoes_perguntas"],
+body[data-contextual-radar] #nexaRadarStableDock,body[data-contextual-radar] #nexaDispositionCard,body[data-contextual-radar] #nexaRadarAlertsDock{display:none!important}
+body[data-contextual-radar] #realtimeRadarCard{padding:20px!important}
+#realtimeRadarCard [hidden]{display:none!important}
+#realtimeRadarCard #nfRadarHead{margin-bottom:12px;flex-wrap:wrap}
+#realtimeRadarCard #nfRadarHead strong{font-size:24px;letter-spacing:-.03em}
+#realtimeRadarCard #nfRadarHead small{font-size:13px}
+#realtimeRadarCard #radarLiveText{font-size:11px;color:var(--nf-muted,#51657d);padding:8px 10px;background:var(--nf-card2,#f5f9fb);border-radius:8px}
+#realtimeRadarCard #nexaContextualStatus{display:flex;flex-wrap:wrap;gap:18px;margin:12px 0;font-size:12px}
+#realtimeRadarCard .ng-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(285px,1fr);gap:18px;align-items:start}
+#realtimeRadarCard .ng-main,#realtimeRadarCard .ng-side{min-width:0}
+#realtimeRadarCard .ng-side{display:grid;gap:12px}
+#realtimeRadarCard #nfRadarTabs{display:grid!important;grid-template-columns:1fr 1fr;margin:0 0 10px}
+#realtimeRadarCard #nfRadarTabs button{height:auto;min-height:42px;font-size:12px;padding:8px 12px;cursor:pointer}
+#realtimeRadarCard #nfRadarTabs button[aria-selected=true]{background:linear-gradient(120deg,#0aabb0,#008b8c);color:white;border-color:#009e9e}
+#realtimeRadarCard .ng-panel{padding:14px;border:1px solid var(--nf-line,#dde6eb);background:var(--nf-card,#fff);border-radius:10px;color:var(--nf-text,#142d49)}
+#realtimeRadarCard h4{font-size:15px;margin:0 0 6px}
+#realtimeRadarCard p{font-size:12px;line-height:1.5;margin:7px 0}
+#realtimeRadarCard .ng-muted,#realtimeRadarCard .ng-reason{color:var(--nf-muted,#687d95);font-size:11px}
+#realtimeRadarCard .ng-green{color:#087e76}#realtimeRadarCard .ng-orange{color:#bc750a}#realtimeRadarCard .ng-red{color:#c31a3c}
+#realtimeRadarCard .ng-item{padding:12px;border:1px solid var(--nf-line,#dde6eb);border-left:4px solid #98adb9;border-radius:8px;margin:10px 0;background:var(--nf-card,#fff)}
+#realtimeRadarCard .ng-item[data-priority=critical]{border-left-color:#e9a01a}#realtimeRadarCard .ng-item[data-priority=high]{border-left-color:#459cdb}
+#realtimeRadarCard .ng-row-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap}
+#realtimeRadarCard .ng-priority{font-size:10px;text-transform:uppercase;font-weight:800;color:var(--nf-muted,#64758c)}
+#realtimeRadarCard .ng-item[data-priority=critical] .ng-priority{color:#a56605;background:#fff5e7;padding:4px 7px;border-radius:15px}
+#realtimeRadarCard .ng-item[data-priority=high] .ng-priority{color:#1475ae;background:#edf6ff;padding:4px 7px;border-radius:15px}
+#realtimeRadarCard .ng-state{font-size:10px;border-radius:14px;background:#fff6e5;color:#a56908;padding:5px 8px}
+#realtimeRadarCard .ng-state[data-status=asked]{background:#edf6ff;color:#126fac}#realtimeRadarCard .ng-state[data-status=confirm]{background:#fff0e2;color:#975400}
+#realtimeRadarCard .ng-question{font-weight:750;font-size:13px;line-height:1.5;margin-bottom:5px}
+#realtimeRadarCard summary{cursor:pointer;font-size:11px;color:var(--nf-muted,#526a85);padding:6px 0}
+#realtimeRadarCard blockquote{margin:8px 0;padding:7px 10px;border-left:2px solid var(--nf-line,#dde6eb);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+#realtimeRadarCard cite{display:block;font-size:10px;color:var(--nf-muted,#64758c);font-style:normal;margin-top:4px}
+#realtimeRadarCard .ng-actions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+#realtimeRadarCard button:not([role=tab]){border:1px solid var(--nf-line,#dde6eb);border-radius:7px;padding:6px 10px;background:var(--nf-card,#fff);color:var(--nf-text,#14314e);cursor:pointer;font-size:11px;min-height:32px}
+#realtimeRadarCard button:focus-visible,#realtimeRadarCard summary:focus-visible{outline:2px solid #009c9c;outline-offset:2px}
+#realtimeRadarCard .ng-answer{width:100%;box-sizing:border-box;min-height:60px;margin:6px 0;background:var(--nf-card,#fff);color:var(--nf-text,#14314e);border:1px solid var(--nf-line,#dde6eb);border-radius:6px}
+#realtimeRadarCard .ng-conversation{background:#eff8ff;padding:10px;color:#246eaa;border-radius:7px}
+#realtimeRadarCard .ng-confirm,#realtimeRadarCard .ng-risk-gaps{background:var(--nf-card2,#fffaf1);border-color:#edcf96}
+#realtimeRadarCard .ng-confirm h4{color:#986210}
+#realtimeRadarCard #ngClarified{max-height:290px;overflow:auto}
+#realtimeRadarCard .ng-evidence-row{border-bottom:1px solid var(--nf-line,#dde6eb)}
+#realtimeRadarCard .ng-evidence-row summary{display:flex;gap:8px;justify-content:space-between;font-size:12px;color:var(--nf-text,#183956)}
+#realtimeRadarCard .ng-evidence-row summary span:last-child{font-size:11px;color:#087e76}
+#realtimeRadarCard .ng-confirm-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;font-size:11px;margin-top:8px}
+#realtimeRadarCard .ng-destinations{display:flex;gap:6px;margin:10px 0}
+#realtimeRadarCard .ng-destinations span{flex:1;text-align:center;border:1px solid var(--nf-line,#dbe4ec);border-radius:6px;padding:6px 3px;font-size:11px}
+#realtimeRadarCard .ng-destinations .ng-selected{border-color:#039891;background:#e7f8f5;color:#046c65;font-weight:700}
+#realtimeRadarCard .ng-alert-banner{background:#fff0f2;color:#b11936;border:1px solid #f4d5db;border-radius:7px;padding:8px 12px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#realtimeRadarCard .ng-finding{border:1px solid #f0cbd3;border-left:4px solid #ef526c;border-radius:8px;padding:12px;margin:10px 0}
+#realtimeRadarCard .ng-finding .ng-priority{color:#b31937}
+#realtimeRadarCard .ng-finding h4{margin-top:6px}
+#realtimeRadarCard .ng-risk-gaps{border:1px solid #edcf96;border-left:4px solid #e9a01a;border-radius:8px;padding:12px;margin:10px 0}
+#realtimeRadarCard .ng-risk-gaps>div{font-size:12px;border-top:1px solid var(--nf-line,#dde6eb);padding:8px 0}#realtimeRadarCard .ng-risk-gaps small{display:block;color:var(--nf-muted,#687d95);font-size:11px}
+#realtimeRadarCard .ng-error{color:#996508;border-left:3px solid #d79316;padding:8px}
+@media(max-width:1050px){#realtimeRadarCard .ng-layout{grid-template-columns:minmax(0,1fr)}#realtimeRadarCard .ng-side{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#realtimeRadarCard #ngDisposition{grid-column:1/-1}}
+@media(max-width:560px){body[data-contextual-radar] #realtimeRadarCard{padding:12px!important}#realtimeRadarCard #nfRadarHead strong{font-size:21px}#realtimeRadarCard .ng-side{grid-template-columns:1fr}#realtimeRadarCard #nfRadarTabs button{font-size:11px;padding:7px}#realtimeRadarCard .ng-panel{padding:10px}#realtimeRadarCard #nexaContextualStatus{gap:10px}}

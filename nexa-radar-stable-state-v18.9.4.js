@@ -1,6 +1,7 @@
 /* NEXA v18.9.4 · stable Radar answered state + disposition summary · 2026-09-06 */
 (()=>{
 'use strict';
+if(window.NexaRadarEngine)return;
 if(window.__NEXA_RADAR_STABLE_STATE_V18_9_4__)return;
 window.__NEXA_RADAR_STABLE_STATE_V18_9_4__=true;
 

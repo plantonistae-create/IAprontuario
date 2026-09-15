@@ -30,9 +30,9 @@
 
   function normalizeDestination(value){
     const s=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    if(/intern/.test(s))return 'internacao';
-    if(/reavali|observa|avaliacao/.test(s))return 'reavaliacao';
-    if(/\balta\b/.test(s))return 'alta';
+    if(/^(?:internacao|internar|admissao hospitalar)$/.test(s.trim()))return 'internacao';
+    if(/^(?:reavaliacao|reavaliar|observacao)$/.test(s.trim()))return 'reavaliacao';
+    if(/^(?:alta|alta hospitalar)$/.test(s.trim()))return 'alta';
     return '';
   }
   function safeState(value){
@@ -72,7 +72,7 @@
           <button class="btn ghost" id="nexaDestinationCancelChangeBtn" type="button">Cancelar</button>
         </div>
       </div>`;
-    anchor.insertAdjacentElement?.('afterend',root) || anchor.appendChild(root);
+    const plan=q('clinicalPlanBlock');if(plan)plan.before(root);else anchor.insertAdjacentElement?.('afterend',root)||anchor.appendChild(root);
     q('nexaDestinationConfirmBtn')?.addEventListener('click',confirmRecommendation);
     q('nexaDestinationChangeBtn')?.addEventListener('click',()=>{q('nexaDestinationChangePanel').style.display='block'});
     q('nexaDestinationCancelChangeBtn')?.addEventListener('click',()=>{q('nexaDestinationChangePanel').style.display='none'});
@@ -92,6 +92,7 @@
     }
     if(rec)rec.textContent=state.recommended?`Recomendação da IA: ${LABELS[state.recommended]}`:'Aguardando recomendação da IA.';
     if(reason)reason.textContent=(state.reason||'')+(state.recommendation_stale?' · Contexto mudou; recomendação pode precisar ser atualizada.':'');
+    let caution=q('nexaRadarDecisionCaution');if(!caution&&rec){caution=document.createElement('div');caution.id='nexaRadarDecisionCaution';rec.after?.(caution);}if(caution){caution.hidden=!window.radarState?.dispositionCaution;caution.textContent='Radar: há lacunas críticas, informações de segurança não esclarecidas ou achados que exigem reavaliação. Uma sugestão de alta exige revisão desses pontos; a decisão permanece médica.';}
     if(fin)fin.innerHTML=state.final?`<strong>DECISÃO MÉDICA FINAL: ${LABELS[state.final]}</strong>`:'<span class="hint">Nenhum desfecho final confirmado.</span>';
     if(confirm)confirm.disabled=!state.recommended;
     document.body?.setAttribute('data-nexa-destination-status',state.status);
@@ -112,7 +113,7 @@
   function reset(reason='reset'){
     if(activeController)try{activeController.abort(reason)}catch{}
     activeController=null;requestEpoch++;
-    state=blank();lastProcessSeen=false;
+    clearTimeout(recommendationTimer);authHeaders={};state=blank();lastProcessSeen=false;
     try{localStorage.removeItem(STATE_KEY)}catch{}
     persist();emit('nexa:destination-reset',{reason});
   }
@@ -148,7 +149,8 @@
     const parts=fields.map(([label,key])=>{const v=ta(key)?.value?.trim();return v?`${label}: ${v}`:''}).filter(Boolean);
     const exams=q('suggestedExams')?.value?.trim();const rx=q('suggestedPrescription')?.value?.trim();
     if(exams)parts.push(`EXAMES SUGERIDOS: ${exams}`);if(rx)parts.push(`PRESCRIÇÃO: ${rx}`);
-    return parts.join('\n\n').slice(0,12000);
+    if(window.radarState?.version===1)parts.push('RADAR — LACUNAS, NÃO ACHADOS CONFIRMADOS: '+JSON.stringify({critical:window.radarState.items.filter(i=>i.priority==='critical').map(i=>i.question),unresolvedSafety:window.radarState.unresolvedSafety,documentedAlerts:window.radarState.alerts,caution:window.radarState.dispositionCaution}));
+    return parts.join('\n\n').slice(0,24000);
   }
   function currentAuth(){
     let access='';let userId='';
@@ -163,8 +165,8 @@
   }
   function parseAssistantAnswer(answer){
     const text=String(answer||'').trim();
-    try{const m=text.match(/\{[\s\S]*\}/);if(m){const obj=JSON.parse(m[0]);return {destination:normalizeDestination(obj.destination||obj.destino||obj.final),reason:String(obj.reason||obj.rationale||obj.justificativa||'')}}}catch{}
-    return {destination:normalizeDestination(text),reason:''};
+    try{const m=text.match(/\{[\s\S]*\}/);if(m){const obj=JSON.parse(m[0]);return {destination:normalizeDestination(obj.destination||obj.destino||obj.final),insufficient:['em_avaliacao','dados_insuficientes'].includes(obj.destination),reason:String(obj.reason||obj.rationale||obj.justificativa||'')}}}catch{}
+    return {destination:'',reason:''};
   }
   function extractFromProcess(payload){
     const candidates=[payload?.destination,payload?.destino,payload?.disposition,payload?.desfecho,payload?.fields?.destination,payload?.fields?.destino,payload?.fields?.disposition,payload?.fields?.desfecho];
@@ -175,23 +177,24 @@
     if(!lastProcessSeen&&trigger!=='manual-refresh')return false;
     const context=contextText();if(context.length<20)return false;
     if(activeController)try{activeController.abort('superseded')}catch{}
-    const epoch=++requestEpoch;const controller=new AbortController();activeController=controller;
+    const epoch=++requestEpoch;const controller=new AbortController();activeController=controller;const timeout=setTimeout(()=>controller.abort(),22000);
     const btn=q('nexaDestinationRefreshBtn');if(btn){btn.disabled=true;btn.textContent='Atualizando…'}
     try{
       const local=currentAuth();const authorization=authHeaders.Authorization||authHeaders.authorization||(local.access?`Bearer ${local.access}`:'');
       if(!authorization)throw new Error('Sessão indisponível para recomendar destino.');
-      const r=await originalFetch(SUPABASE_URL+ASSISTANT_PATH,{method:'POST',headers:{Authorization:authorization,apikey:authHeaders.apikey||SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:'Com base exclusivamente no contexto clínico, recomende UM destino entre ALTA, REAVALIAÇÃO ou INTERNAÇÃO. Responda somente JSON no formato {"destination":"alta|reavaliacao|internacao","reason":"justificativa clínica curta"}. Não trate a recomendação como decisão médica final.',source_mode:'hybrid',specialty:'auto',context,history:[]}),signal:controller.signal});
-      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha ao recomendar destino (${r.status}).`);if(epoch!==requestEpoch)return false;
-      const parsed=parseAssistantAnswer(d.answer||d);if(!parsed.destination)throw new Error('A IA não retornou um destino válido.');
+      const r=await originalFetch(SUPABASE_URL+ASSISTANT_PATH,{method:'POST',headers:{Authorization:authorization,apikey:authHeaders.apikey||SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({question:'Com base exclusivamente no contexto clínico, recomende UM destino entre ALTA, REAVALIAÇÃO, INTERNAÇÃO ou EM_AVALIACAO quando faltarem dados para recomendação. Informação ausente não indica internação e ausência de alertas não indica alta. Avalie achados relatados separadamente de lacunas. Responda somente JSON no formato {"destination":"alta|reavaliacao|internacao|em_avaliacao","reason":"justificativa clínica curta"}. Não trate a recomendação como decisão médica final.',source_mode:'hybrid',specialty:'auto',context,history:[]}),signal:controller.signal});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha ao recomendar destino (${r.status}).`);if(epoch!==requestEpoch||context!==contextText())return false;
+      const parsed=parseAssistantAnswer(typeof d.answer==='string'?d.answer:JSON.stringify(d));if(parsed.insufficient){state.recommended='';state.reason=parsed.reason;state.status=state.final?state.status:'pending';persist();return true;}if(!parsed.destination)throw new Error('A IA não retornou um destino válido.');
       return setRecommendation(parsed.destination,'ai_clinical_assistant',parsed.reason);
     }catch(error){
       if(error?.name!=='AbortError'&&epoch===requestEpoch){state.reason=`Recomendação indisponível: ${error.message}`;persist();emit('nexa:destination-recommendation-error',{message:error.message})}
       return false;
-    }finally{if(epoch===requestEpoch)activeController=null;if(btn){btn.disabled=false;btn.textContent='Atualizar recomendação'}}
+    }finally{clearTimeout(timeout);if(epoch===requestEpoch){activeController=null;if(btn){btn.disabled=false;btn.textContent='Atualizar recomendação'}}}
   }
   function scheduleRecommendation(trigger='context',delay=500){clearTimeout(recommendationTimer);recommendationTimer=setTimeout(()=>requestRecommendation(trigger),delay)}
 
   function markContextChanged(reason='context-changed'){
+    requestEpoch++;activeController?.abort();activeController=null;
     if(!state.recommended&&!state.final)return;
     state.recommendation_stale=true;
     if(!['confirmed','altered'].includes(state.status)){state.status='pending';state.recommended='';state.reason='Contexto clínico alterado; aguardando nova recomendação.'}
@@ -202,9 +205,9 @@
     const url=typeof input==='string'?input:(input?.url||'');
     if(url.includes(PROCESS_PATH)){
       const headers=init?.headers||{};authHeaders={Authorization:headers.Authorization||headers.authorization||authHeaders.Authorization,apikey:headers.apikey||authHeaders.apikey};
-      const response=await originalFetch(input,init);
+      const epoch=requestEpoch;const response=await originalFetch(input,init);
       if(response.ok){
-        response.clone().json().then(payload=>{
+        response.clone().json().then(payload=>{if(epoch!==requestEpoch)return;
           lastProcessSeen=true;
           if(!['confirmed','altered'].includes(state.status)){state=blank();render()}
           const direct=extractFromProcess(payload);
@@ -219,9 +222,9 @@
 
   function noteTextWithDestination(){
     const labels={queixa_principal:'QUEIXA PRINCIPAL',hda:'HISTÓRIA DA DOENÇA ATUAL',alergias:'ALERGIAS',comorbidades:'COMORBIDADES',medicacoes:'MEDICAÇÕES EM USO',antecedentes:'ANTECEDENTES',exame_fisico:'EXAME FÍSICO',hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA',conduta:'CONDUTAS'};
-    const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico'];if(q('includeDiagnosis')?.checked)keys.push('hipotese_diagnostica');keys.push('conduta');
+    const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico'];keys.push('hipotese_diagnostica');keys.push('conduta');
     const parts=keys.filter(k=>ta(k)?.value?.trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`);
-    if(state.final)parts.push(`DESTINO:\n${LABELS[state.final]}`);
+    // Final record follows the requested nine clinical sections. Destination remains separately documented.
     return parts.join('\n\n');
   }
 
@@ -267,8 +270,10 @@
 
   function bind(){
     ensureUi();
-    q('resetBtn')?.addEventListener('click',()=>reset('new-consultation'),true);
-    q('nexaRestoreSessionBtn')?.addEventListener('click',()=>setTimeout(()=>{try{const snap=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(snap.destinationState)restore(snap.destinationState,'autosave')}catch{}},0));
+    q('resetBtn')?.addEventListener('click',()=>{if(!window.NexaRadarEngine)reset('new-consultation')},true);
+    window.addEventListener('nexa:consultation-reset',()=>reset('new-consultation'));
+    let radarSignature='';window.addEventListener('nexa:radar-state',()=>{const next=JSON.stringify({items:window.radarState?.items,alerts:window.radarState?.alerts,unresolved:window.radarState?.unresolvedSafety});if(next!==radarSignature){radarSignature=next;markContextChanged('radar');}render();});
+    q('nexaRestoreSessionBtn')?.addEventListener('click',()=>setTimeout(()=>{try{const snap=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(snap.destinationState&&(!window.nexaRadar||snap.owner===window.nexaRadar.snapshot().owner))restore(snap.destinationState,'autosave')}catch{}},0));
     q('copyBtn')?.addEventListener('click',copyFinalRecord,true);
     q('updateHistoryBtn')?.addEventListener('click',()=>setTimeout(()=>persistDestinationToHistory(),900));
     q('historyList')?.addEventListener('click',()=>setTimeout(()=>restoreDestinationFromHistory(),80));
@@ -276,7 +281,7 @@
     hyp?.addEventListener('input',()=>markContextChanged('hypothesis'));
     conduct?.addEventListener('input',()=>markContextChanged('conduct'));
     ['generateExamsBtn','generatePrescriptionBtn','generateBothPlanBtn','applyRxMissingDataBtn'].forEach(id=>q(id)?.addEventListener('click',()=>markContextChanged('plan')));
-    try{const snap=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(snap.destinationState)restore(snap.destinationState,'boot-autosave')}catch{}
+    try{const snap=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(!window.NexaRadarEngine&&snap.destinationState)restore(snap.destinationState,'boot-autosave')}catch{}
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();

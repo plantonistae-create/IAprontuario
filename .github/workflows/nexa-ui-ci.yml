@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - audit/admin-users-slots-functional-20260911
+      - "audit/**"
   push:
     branches: [main]
 
@@ -21,10 +21,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned dependencies
+        run: npm ci
       - name: JavaScript syntax
         run: npm run check:js
       - name: UI contract tests
         run: npm test
+      - name: Lint, backend typecheck and static build
+        run: npm run lint && npm run typecheck && npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Desktop and mobile browser regression
+        run: npm run test:e2e
+      - name: Save real browser captures from synthetic regression
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-browser-regression
+          path: test-results/
+          retention-days: 7
       - name: Guard against duplicate visual loaders
         shell: bash
         run: |

@@ -57,7 +57,8 @@
   observer.observe(banner,{childList:true,subtree:true,characterData:true});
   observer.observe(processBtn,{attributes:true,attributeFilter:['disabled'],childList:true,characterData:true,subtree:true});
 
-  resetBtn?.addEventListener('click',()=>{snapshot=null;processing=false},true);
+  window.addEventListener?.('nexa:consultation-reset',()=>{snapshot=null;processing=false});
+  resetBtn?.addEventListener('click',()=>{if(!window.NexaRadarEngine){snapshot=null;processing=false}},true);
 
   window.nexaSummaryStateGuard1910={
     keys:[...SUMMARY_KEYS],

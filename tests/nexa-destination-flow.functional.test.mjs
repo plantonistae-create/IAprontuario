@@ -39,7 +39,7 @@ globalThis.Storage=StorageMock;
 globalThis.localStorage=new StorageMock();
 globalThis.window=globalThis;
 globalThis.document=documentMock;
-globalThis.dispatchEvent=()=>true;
+const events=new EventTarget();globalThis.addEventListener=(...args)=>events.addEventListener(...args);globalThis.dispatchEvent=()=>true;
 globalThis.CustomEvent=class{constructor(type,init={}){this.type=type;this.detail=init.detail}};
 globalThis.Event=class{constructor(type){this.type=type}preventDefault(){}stopImmediatePropagation(){}};
 Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async()=>{}}},configurable:true});
@@ -74,9 +74,11 @@ assert.equal(api.state.final,'internacao');
 assert.equal(api.state.status,'altered');
 assert.equal(api.state.recommendation_stale,true);
 
-// 4) prontuário final usa a decisão médica, não a recomendação
+// 4) pedido atual: copiar somente seções clínicas; decisão médica permanece no estado e autosave
 const note=api.noteTextWithDestination();
-assert.match(note,/DESTINO:\nINTERNAÇÃO/);
+assert.doesNotMatch(note,/DESTINO:/);
+assert.match(note,/HIPÓTESE DIAGNÓSTICA:\nApendicite/);
+assert.equal(api.state.final,'internacao');
 assert.doesNotMatch(note,/DESTINO:\nREAVALIAÇÃO/);
 
 // 5) autosave da sessão incorpora destinationState
