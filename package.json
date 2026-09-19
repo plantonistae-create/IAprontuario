@@ -8,7 +8,8 @@
     "lint": "node scripts/validate.cjs",
     "build": "node scripts/validate.cjs --build",
     "test:e2e": "node tests/nexa-browser.e2e.cjs",
-    "typecheck": "tsc -p tsconfig.backend.json"
+    "typecheck": "tsc -p tsconfig.backend.json",
+    "test:staging-auth": "node scripts/staging-auth-smoke.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.49.8",
