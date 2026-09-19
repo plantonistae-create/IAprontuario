@@ -72,7 +72,7 @@
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
     const parts=String(text).match(/[^!?;\n]+[!?;\n]?/g)||[];
-    const sentences=parts.flatMap(p=>p.split(/(?<!\d)\.(?!\d)/).filter(x=>x.trim()));
+    const sentences=parts.flatMap(p=>p.split(/\.(?!\d)/).filter(x=>x.trim()));
     for(const raw of sentences){
       const quote=raw.trim(),t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
       const question=/\?\s*$/.test(quote)||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
@@ -134,7 +134,7 @@
         if(['medicines','allergies'].includes(concept.id)&&source.section!==concept.section)continue;
         // Historical diseases do not become current complaints; explicit old trauma is retained as prior only.
         if(symptomIds.has(concept.id)&&['antecedentes','comorbidades','medicacoes','alergias'].includes(source.section))continue;
-        for(const raw of source.text.replace(/[^.!?\n]*\?/g,'').split(/(?<!\d)[.;!?\n]+|\bmas\b|\bporem\b/i)){
+        for(const raw of source.text.replace(/[^.!?\n]*\?/g,'').split(/\.(?!\d)|[;!?\n]+|\bmas\b|\bporem\b/i)){
           const text=norm(raw),re=new RegExp(concept.pattern.source,'g');let m;
           if(/\b(?:minha|meu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa])\b|^(?:investigar|considerar|perguntar)\b/.test(text))continue;
           while((m=re.exec(text))){
