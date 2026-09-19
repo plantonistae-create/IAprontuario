@@ -18,7 +18,7 @@ const mutationInflight=new Map();
 function parsePayload(init){try{return typeof init?.body==='string'?JSON.parse(init.body):null}catch{return null}}
 function capabilitiesReady(){return !!window.nexaAuditFunctionalGuard18916?.capabilitiesReady}
 function verifiedProfile(){
-  const p=window.currentProf;
+  const p=window.nexaAuditFunctionalGuard18916?.profile||window.currentProf;
   if(!capabilitiesReady()||!p||p.access_status!=='active')return null;
   return p;
 }

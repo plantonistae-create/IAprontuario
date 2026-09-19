@@ -24,7 +24,7 @@ function querySelector(sel){
   if(sel==='.field[data-key="conduta"] textarea')return conduct;
   return null;
 }
-function getElementById(id){return ({processBtn,resetBtn,copyConductBtn:copyBtn,bannerArea:banner,saveState})[id]||null}
+function getElementById(id){return ({conductRecordText:conduct,processBtn,resetBtn,copyConductBtn:copyBtn,bannerArea:banner,saveState})[id]||null}
 
 globalThis.window={dispatchEvent:e=>events.push(e)};
 globalThis.document={querySelector,getElementById};
