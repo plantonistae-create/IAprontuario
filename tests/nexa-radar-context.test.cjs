@@ -61,6 +61,7 @@ test('documented adult extreme vitals are alerts with exact evidence, normal val
  const r=E.analyze({transcript:text});for(const id of ['bp','hr','rr','spo2','temperature']){const a=r.alerts.find(a=>a.concept===id);assert.ok(a,id);assert.ok(text.includes(a.evidence[0].quote));}
  const normal=E.analyze({transcript:'Paciente de 40 anos. Dor torácica. PA 120/80; FC 80; FR 16; SatO2 98%; temperatura 36,5 °C.'});assert.equal(normal.alerts.length,0);assert.ok(has(normal,'dyspnea'));
 });
+test('numeric sentence boundaries preserve vitals before a following question',()=>{const r=E.analyze({transcript:'Paciente de 40 anos. Cefaleia desde hoje. PA 80/50. Médico: Teve rigidez de nuca? Paciente: Não entendi.'});assert.ok(r.alerts.some(a=>a.concept==='bp'));assert.ok(r.confirm.some(i=>i.concept==='meningism'));assert.equal(r.facts.bp.currentEvidence.value,80);assert.equal(E.analyze({transcript:'Paciente de 40 anos. Febre 38.5 °C.'}).facts.temperature.currentEvidence.value,38.5);});
 test('vital alerts respect corrections and the documented population instead of applying adult criteria universally',()=>{
  for(const transcript of ['Paciente de 5 anos. Tosse. FC 140.','Tosse. FC 140.','Mulher, 32 anos. Gestante. FC 140.','Paciente de 40 anos. Tosse. Hipercapnia com meta 88 a 92%. SatO2 90%.'])assert.equal(E.analyze({transcript}).alerts.length,0,transcript);
  const r=E.analyze({transcript:'Paciente de 40 anos. Dor torácica. PA 80/50. Corrigindo, PA 120/80.'});assert.ok(!r.alerts.some(a=>a.concept==='bp'));
