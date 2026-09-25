@@ -17,6 +17,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   const radarControl=viewport.width<=820?'#nexaMobileBottomNav [data-mobile-stage="radar"]':'#nfShell [data-go="radar"]';
   await page.locator(historyControl).click();
   await page.waitForFunction(()=>document.getElementById('nexaCommandWorkspace')?.classList.contains('workspace-open')&&document.querySelector('.nexa-stage-view[data-stage="summary"]')?.classList.contains('active'));
+  await page.waitForFunction(()=>document.getElementById('nexa197History')&&document.getElementById('n197Status'));
   assert.equal(await page.evaluate(()=>document.querySelector('.nexa-stage-view[data-stage="summary"]').hidden),false,'History must not hide the real summary stage');
   assert.equal(await page.evaluate(()=>document.body.classList.contains('nexa-workspace-only')),true,'History must open the existing workspace');
   await page.locator(radarControl).click();
