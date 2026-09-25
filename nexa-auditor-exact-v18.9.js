@@ -8,7 +8,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const DOC=['queixa_principal','hda','antecedentes','comorbidades','medicacoes','alergias','exame_fisico','hipotese_diagnostica','conduta','orientacoes_alta'];
 const LABEL={queixa_principal:'Queixa principal',hda:'História da doença atual',antecedentes:'Antecedentes',comorbidades:'Comorbidades',medicacoes:'Medicações',alergias:'Alergias',exame_fisico:'Exame físico',hipotese_diagnostica:'Hipótese diagnóstica',cid_medico_final:'CID final',conduta:'Conduta e plano',orientacoes_alta:'Orientações de alta',exames_sugeridos:'Exames',prescricao:'Prescrição'};
 let rows=[],summary=null,dashboard=null,current=null,filter='all',search='',tab='documentacao',activeView='panel',periodDays=7;
-function privileged(){try{return !!(currentProf?.is_admin||currentProf?.is_reviewer)}catch{return true}}
+function privileged(){try{const guard=window.nexaAuditFunctionalGuard18916;if(guard){if(!guard.capabilitiesReady)return false;const p=guard.profile||{};return !!(p.is_admin||p.is_reviewer)}const p=window.currentProf||null;return !!(p?.is_admin||p?.is_reviewer)}catch{return false}}
 function statusClass(s){return ['approved','corrected','discarded'].includes(s)?s:'pending'}
 function statusText(s){return s==='approved'?'Aprovado':s==='corrected'?'Corrigido':s==='discarded'?'Descartado':'Pendente'}
 function field(c,k){return c?.deidentified_fields?.[k]??''}
