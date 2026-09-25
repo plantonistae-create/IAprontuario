@@ -13,7 +13,7 @@ const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.strin
 const nowIso=()=>new Date().toISOString();
 let storeAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
 
-function client(){try{return typeof sb!=='undefined'?sb:null}catch{return null}}
+function client(){try{return window.nexaClinicalSupabase18101||null}catch{return null}}
 function prof(){try{return typeof currentProf!=='undefined'?currentProf:null}catch{return null}}
 function owner(){return String(prof()?.id||'')}
 function activeKey(userId=owner()){return `${ACTIVE}:${userId||'anon'}`}
