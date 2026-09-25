@@ -86,6 +86,7 @@ async function buildLocal(reason='autosave',forcedId=''){
  const state=(wasReady||ready)?'ready_for_audit':'draft';
  const rec={
    encounter_id:id,owner_user_id:userId,fields,encounter_state:state,
+   protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__||previous?.protocol_usage||[]),
    audit_priority:Number(previous?.audit_priority||0),
    audit_ready_at:state==='ready_for_audit'?(previous?.audit_ready_at||ts):null,
    consent_recorded_at:previous?.consent_recorded_at||(()=>{try{return lastProcessedMeta?.consentRecordedAt||null}catch{return null}})(),
@@ -100,6 +101,7 @@ async function buildLocal(reason='autosave',forcedId=''){
 function remotePayload(rec){return{
  id:rec.encounter_id,encounter_id:rec.encounter_id,user_id:rec.owner_user_id,
  fields:rec.fields||{},status:rec.legacy_status||'draft',encounter_state:rec.encounter_state,
+ protocol_usage:Array.isArray(rec.protocol_usage)?rec.protocol_usage:[],
  audit_priority:Number(rec.audit_priority||0),audit_ready_at:rec.audit_ready_at||null,
  consent_recorded_at:rec.consent_recorded_at||null,last_client_saved_at:rec.last_client_saved_at||nowIso(),
  processing_meta:rec.processing_meta||{},created_at:rec.created_at||nowIso()
@@ -136,7 +138,7 @@ async function adoptExisting(rowOrId){
  const existing=await store.get(id);if(existing)return existing;
  const userId=owner();if(!userId)return null;
  const row=typeof rowOrId==='object'?rowOrId:{};
- const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),legacy_status:row.status||'draft'};
+ window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),legacy_status:row.status||'draft'};
  await store.put(rec);return rec;
 }
 async function prioritize(){
