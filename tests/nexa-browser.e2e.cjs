@@ -8,7 +8,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
  let browser,activePage;try{
  browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
-  const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(15000);activePage=page;console.log('Opening browser regression',viewport.width);const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('Browser runtime:',e.message);});
+  const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(15000);activePage=page;console.log('Opening browser regression',viewport.width);const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('Browser runtime:',e.stack||e.message);});
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.nexaRadar&&window.nexaDestinationFlow18915&&window.currentProf?.clinical_access&&document.getElementById('nfStart'));
   if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
   await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
