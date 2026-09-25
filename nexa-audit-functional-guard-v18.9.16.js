@@ -65,10 +65,20 @@ function sanitizeFields(fields){
   }
   return out;
 }
+function sanitizeValue(value){
+  if(typeof value==='string')return redactText(value);
+  if(Array.isArray(value))return value.map(sanitizeValue);
+  if(value&&typeof value==='object'){
+    const out={};for(const [key,item] of Object.entries(value)){if(directIdentifierKey(key))continue;out[key]=sanitizeValue(item)}return out;
+  }
+  return value;
+}
 function sanitizeAuditCase(row){
   const out=clone(row||{});if(!out||typeof out!=='object')return out;
   for(const key of ['user_id','doctor_id','medico_id','physician_id','reviewer_id','submitted_by'])delete out[key];
   out.deidentified_fields=sanitizeFields(out.deidentified_fields||{});
+  out.deidentified_core_context=sanitizeValue(out.deidentified_core_context||{});
+  out.reviewed_fields=sanitizeFields(out.reviewed_fields||{});
   return out;
 }
 function sanitizeQueue(data){
@@ -85,7 +95,7 @@ async function rpcFetch(name,args={}){
 }
 async function guardedRpc(name,args={}){
   try{
-    if(name==='get_audit_queue'){
+    if(name==='get_audit_queue'||name==='get_audit_queue_v2'){
       const epoch=++queueEpoch;
       const p=rpcFetch(name,args).then(sanitizeQueue);
       latestQueuePromise=p;
