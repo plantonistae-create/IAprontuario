@@ -61,6 +61,16 @@ end $$;
 
 create index if not exists nexa_protocol_versions_protocol_status_idx
   on public.nexa_protocol_versions(protocol_id,status,version_no desc);
+create index if not exists nexa_clinical_protocols_active_version_idx
+  on public.nexa_clinical_protocols(active_version_id);
+create index if not exists nexa_clinical_protocols_created_by_idx
+  on public.nexa_clinical_protocols(created_by);
+create index if not exists nexa_protocol_versions_created_by_idx
+  on public.nexa_protocol_versions(created_by);
+create index if not exists nexa_protocol_versions_reviewed_by_idx
+  on public.nexa_protocol_versions(reviewed_by);
+create index if not exists nexa_protocol_versions_published_by_idx
+  on public.nexa_protocol_versions(published_by);
 
 create table if not exists public.nexa_protocol_audit_log(
   id bigint generated always as identity primary key,
@@ -73,6 +83,10 @@ create table if not exists public.nexa_protocol_audit_log(
 );
 create index if not exists nexa_protocol_audit_log_protocol_idx
   on public.nexa_protocol_audit_log(protocol_id,occurred_at desc);
+create index if not exists nexa_protocol_audit_log_version_idx
+  on public.nexa_protocol_audit_log(version_id);
+create index if not exists nexa_protocol_audit_log_actor_idx
+  on public.nexa_protocol_audit_log(actor_id);
 
 alter table public.consultation_history
   add column if not exists protocol_usage jsonb not null default '[]'::jsonb;
