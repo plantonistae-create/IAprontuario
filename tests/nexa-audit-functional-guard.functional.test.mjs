@@ -26,7 +26,7 @@ Object.defineProperty(globalThis,'localStorage',{value:localStorage,configurable
 const elements=new Map();
 const documentElement=new El('html');
 const document={
-  readyState:'complete',documentElement,
+  readyState:'loading',documentElement,
   getElementById:id=>elements.get(id)||null,
   querySelector:()=>null,
   querySelectorAll:()=>[],
@@ -131,6 +131,8 @@ assert.equal(await guard.refreshCapabilities(),false,'RPC failure must fail clos
 assert.equal(guard.profile.is_reviewer,false);
 
 localStorage.removeItem('sb-auth-token');
+assert.equal(guard.capabilitiesReady,false,'logout/session removal must invalidate privileges immediately');
+assert.equal(guard.profile.is_reviewer,false);
 assert.equal(await guard.refreshCapabilities(),false,'invalid/signed-out session must fail closed');
 assert.equal(guard.profile.access_status,'signed_out');
 
