@@ -129,6 +129,27 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.locator('#selectSuggestedRxBtn').evaluate(el=>el.click());
   assert.match(await copied('copyPrescriptionBtn'),/MEDICAMENTO QA/);
   assert.match(await copied('copyPrescriptionGuidanceBtn'),/Orientação de teste/);
+  // Published Protocol Library uses the same prescription composer and records the exact version used.
+  await page.locator('#searchProtocolRxBtn').evaluate(el=>el.click());
+  await page.waitForFunction(()=>document.getElementById('nexaProtocolLibrary18101')?.classList.contains('open')&&/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
+  await page.locator('#nplSearch').fill('J45');await page.locator('#nplSearchBtn').click();
+  await page.waitForFunction(()=>/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
+  assert.match(await page.locator('#nplList').innerText(),/J45/);
+  await page.locator('#nplSearch').fill('Condição QA');await page.locator('#nplSearchBtn').click();
+  await page.waitForFunction(()=>/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
+  await page.locator('[data-npl-id="11111111-1111-4111-8111-111111111111"]').click();
+  assert.match(await page.locator('#nplDetail').innerText(),/Versão 3/);
+  await page.locator('#nplUse').click();
+  await page.waitForFunction(()=>/ITEM QA/.test(document.getElementById('rxOptions')?.textContent||'')&&/ITEM QA/.test(document.getElementById('suggestedPrescription')?.value||''));
+  const protocolUsage=await page.evaluate(()=>window.__NEXA_PROTOCOL_USAGE__);
+  assert.equal(protocolUsage.length,1);
+  assert.equal(protocolUsage[0].protocol_id,'11111111-1111-4111-8111-111111111111');
+  assert.equal(protocolUsage[0].protocol_version_id,'22222222-2222-4222-8222-222222222222');
+  await page.waitForTimeout(450);
+  const protocolEncounter=await page.evaluate(async()=>{const id=window.nexaEncounterAutosave18101.currentEncounterId();return window.nexaEncounterAutosave18101.get(id)});
+  assert.equal(protocolEncounter.protocol_usage[0].protocol_version_id,'22222222-2222-4222-8222-222222222222');
+  assert.match(await copied('copyPrescriptionBtn'),/ITEM QA/);
+  console.log('Published protocol search and prescription integration checked',viewport.width);
   // The nested template editor is not the patient's clinical conduct field.
   await page.locator('#conductContentInput').evaluate(el=>{el.value='RASCUNHO DE MODELO NÃO INCORPORADO';});
   await page.locator('#conductRecordText').evaluate(el=>{el.value='Conduta revisada do caso sintético.';el.dispatchEvent(new Event('input',{bubbles:true}));});
