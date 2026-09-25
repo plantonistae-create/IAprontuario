@@ -5,14 +5,12 @@ if(window.__NEXA_PROTOCOL_LIBRARY_V18_10_1__)return;
 window.__NEXA_PROTOCOL_LIBRARY_V18_10_1__=true;
 const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let timer=null,current=null,items=[];
-async function session(){try{const {data}=await sb.auth.getSession();return data?.session||null}catch{return null}}
+function client(){return window.nexaClinicalSupabase18101||null}
 async function api(payload){
- const s=await session();if(!s?.access_token)throw new Error('Sessão inválida.');
- const base=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'';
- const path=typeof APP_CONFIG!=='undefined'&&APP_CONFIG.protocolLibraryPath?APP_CONFIG.protocolLibraryPath:'/functions/v1/protocol-library';
- const key=typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'';
- const r=await fetch(base+path,{method:'POST',headers:{Authorization:`Bearer ${s.access_token}`,apikey:key,'Content-Type':'application/json'},body:JSON.stringify(payload)});
- const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Falha na Biblioteca Clínica.');return d
+ const c=client();if(!c?.functions?.invoke)throw new Error('Sessão inválida.');
+ const {data,error}=await c.functions.invoke('protocol-library',{body:payload});
+ if(error)throw new Error(error?.message||'Falha na Biblioteca Clínica.');
+ return data||{}
 }
 function style(){if($('nexaProtocolLibraryStyle18101'))return;const s=document.createElement('style');s.id='nexaProtocolLibraryStyle18101';s.textContent=`
 #nexaProtocolLibrary18101{position:fixed;z-index:78000;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(4,17,28,.62);backdrop-filter:blur(5px)}
