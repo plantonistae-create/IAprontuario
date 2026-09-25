@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 
 const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
-for(const token of ['indexedDB.open','reset_safety_net','manual_early_submit','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-submission-deduplicated'])assert.ok(code.includes(token),`missing ${token}`);
+for(const token of ['indexedDB.open','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-submission-deduplicated'])assert.ok(code.includes(token),`missing ${token}`);
+assert.ok(code.includes('nexaEncounterAutosave18101'),'audit outbox must share encounter identity with autosave');
 for(const sel of ['#resetBtn','#nexaRadarResetBtn','#nfClear','#nfTopClear','#nexaNewCaseBtn','#nexaTopReset','#submitAuditBtn'])assert.ok(code.includes(sel),`missing ${sel}`);
 assert.ok(loader.includes('nexa-audit-outbox-v18.9.19.js'),'outbox not loaded');
 assert.ok(loader.indexOf('nexa-audit-outbox-v18.9.19.js')<loader.indexOf('nexa-history-style-audit-v18.9.7.js'),'outbox must bind before legacy finalize handler');
@@ -28,7 +29,7 @@ const api=context.nexaAuditOutbox18919;
 api.setStoreAdapter({get:async k=>memory.get(k)||null,put:async x=>{memory.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...memory.values()].map(structuredClone)});
 
 assert.equal(api.valid({}),false,'empty case must not be valid');
-const s1=await api.buildSnapshot('manual_early_submit');
+const s1=await api.buildSnapshot('manual_priority');
 const s2=await api.buildSnapshot('reset_safety_net');
 assert.equal(s1.source_consultation_id,s2.source_consultation_id,'same encounter must keep source id');
 assert.equal(s1.idempotency_key,s2.idempotency_key,'manual + reset must share idempotency key');
