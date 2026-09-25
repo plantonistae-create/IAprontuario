@@ -39,7 +39,7 @@ function rotateEncounter(){setActiveId('');return''}
 
 function collectFields(){
  let out={};
- try{if(typeof collect==='function')out=clone(collect()||{})}catch{}
+ try{out=clone(window.nexaClinicalBridge18101?.collect?.()||window.collect?.()||{})}catch{}
  document.querySelectorAll?.('.field[data-key]').forEach?.(field=>{
    const key=field.dataset?.key;if(!key)return;
    const input=field.querySelector?.('textarea,input,select');if(input&&typeof input.value==='string')out[key]=input.value;
@@ -59,13 +59,14 @@ function eligible(fields){
  const n=core.filter(v=>v.length>=5).length;
  return core[1].length>=20||(core[0].length>=5&&n>=2)||n>=3;
 }
-function sessionState(){try{return typeof nexaSessionState!=='undefined'?String(nexaSessionState||'idle'):'idle'}catch{return'idle'}}
+function sessionState(){try{return String(window.nexaClinicalBridge18101?.state?.()||'idle')}catch{return'idle'}}
 function processingMeta(reason){
- let base={};try{base=clone(typeof lastProcessedMeta!=='undefined'&&lastProcessedMeta?lastProcessedMeta:{})}catch{}
- let hypothesis={};try{hypothesis=clone(typeof hypothesisReview!=='undefined'&&hypothesisReview?hypothesisReview:{})}catch{}
- let alternatives=[];try{alternatives=clone(typeof nexaAlternativeHypotheses!=='undefined'?nexaAlternativeHypotheses:[])}catch{}
- let discarded=[];try{discarded=clone(typeof nexaDiscardedHypotheses!=='undefined'?nexaDiscardedHypotheses:[])}catch{}
- let plan={};try{plan=clone(typeof clinicalPlanCache!=='undefined'&&clinicalPlanCache?clinicalPlanCache:{})}catch{}
+ let bridge={};try{bridge=window.nexaClinicalBridge18101?.meta?.()||{}}catch{}
+ let base={};try{base=clone(bridge.lastProcessedMeta||window.lastProcessedMeta||{})}catch{}
+ let hypothesis={};try{hypothesis=clone(bridge.hypothesisReview||{})}catch{}
+ let alternatives=[];try{alternatives=clone(bridge.alternatives||[])}catch{}
+ let discarded=[];try{discarded=clone(bridge.discarded||[])}catch{}
+ let plan={};try{plan=clone(bridge.clinicalPlan||{})}catch{}
  let radar={};try{radar=clone(window.nexaRadar?.snapshot?.()||{})}catch{}
  let destination={};try{destination=clone(window.nexaDestinationFlow18915?.state||{})}catch{}
  return {...base,encounter_autosave:{version:'18.10.1',reason,state:sessionState(),saved_at:nowIso(),radar,hypothesisReview:hypothesis,alternatives,discarded,clinicalPlan:plan,destination}};
