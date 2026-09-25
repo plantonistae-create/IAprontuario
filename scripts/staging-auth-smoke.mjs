@@ -51,6 +51,55 @@ async function anonymousRegression(){
     console.log(`anon ${slug}: denied (${res.status})`);
   }
 }
+async function anonymousEncounterRegression(){
+  const supabase=createClient(STAGING_URL,PUBLISHABLE_KEY,{
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+  });
+  const id=crypto.randomUUID();
+  const {error}=await supabase.from('consultation_history').insert({
+    id,encounter_id:id,user_id:id,fields:{queixa_principal:'QA anon must fail'},status:'draft',encounter_state:'draft',
+  });
+  if(!error) fail('Anonymous consultation_history INSERT unexpectedly succeeded.');
+  console.log('anon consultation_history insert: denied');
+}
+
+async function encounterPersistenceSmoke(supabase,userId){
+  const id=crypto.randomUUID(),now=new Date().toISOString();
+  let inserted=false;
+  try{
+    const {data:create,error:createError}=await supabase.from('consultation_history').insert({
+      id,encounter_id:id,user_id:userId,fields:{queixa_principal:'QA autosave encounter'},
+      status:'draft',encounter_state:'draft',audit_priority:0,last_client_saved_at:now,
+      processing_meta:{qa:true,source:'staging-auth-smoke'},created_at:now,updated_at:now,
+    }).select('id,encounter_id,encounter_state,sync_version').single();
+    if(createError) fail(`encounter create failed: ${createError.message}`);
+    inserted=true;
+    if(create.id!==id||create.encounter_id!==id||create.encounter_state!=='draft')fail('encounter create identity/state mismatch.');
+    console.log('encounter create: PASS');
+
+    const {data:update,error:updateError}=await supabase.from('consultation_history').update({
+      fields:{queixa_principal:'QA autosave encounter',hda:'Synthetic QA history long enough for audit readiness validation.'},
+      encounter_state:'ready_for_audit',last_client_saved_at:new Date().toISOString(),
+    }).eq('id',id).eq('user_id',userId).select('id,encounter_id,encounter_state,sync_version,audit_ready_at').single();
+    if(updateError)fail(`encounter autosave update failed: ${updateError.message}`);
+    if(update.id!==id||update.encounter_state!=='ready_for_audit'||Number(update.sync_version)<1||!update.audit_ready_at)fail('encounter autosave did not update same row/state/version.');
+    console.log('encounter autosave same-row update: PASS');
+
+    const {data:monotonic,error:monoError}=await supabase.from('consultation_history').update({
+      encounter_state:'draft',last_client_saved_at:new Date().toISOString(),
+    }).eq('id',id).eq('user_id',userId).select('encounter_state,sync_version').single();
+    if(monoError)fail(`encounter monotonic state check failed: ${monoError.message}`);
+    if(monotonic.encounter_state!=='ready_for_audit')fail('ready_for_audit regressed to draft.');
+    console.log('encounter ready state monotonic: PASS');
+  } finally {
+    if(inserted){
+      const {error}=await supabase.from('consultation_history').delete().eq('id',id).eq('user_id',userId);
+      if(error)console.warn(`QA encounter cleanup failed: ${error.message}`);
+      else console.log('encounter QA cleanup: PASS');
+    }
+  }
+}
+
 async function authenticatedSmoke(){
   if(!EMAIL || !PASSWORD){
     console.log('authenticated staging smoke: SKIPPED (NEXA_STAGING_EMAIL/PASSWORD not configured)');
@@ -70,6 +119,8 @@ async function authenticatedSmoke(){
     fail('Configured staging account is not an active clinical account.');
   }
   console.log('authenticated capabilities: active clinical access');
+
+  await encounterPersistenceSmoke(supabase,login.user.id);
 
   const cidStatus=await call('cid10-catalog',token,{action:'status'});
   if(!cidStatus.res.ok) fail(`cid10 status failed: HTTP ${cidStatus.res.status}`);
@@ -110,5 +161,6 @@ async function authenticatedSmoke(){
 }
 
 await anonymousRegression();
+await anonymousEncounterRegression();
 console.log('anonymous staging regression: PASS');
 await authenticatedSmoke();
