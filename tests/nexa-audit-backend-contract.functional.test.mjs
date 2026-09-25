@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { normalizeSnapshotVersion, safeCoreContext, validateDeidentifiedEnvelope } from '../supabase/functions/submit-audit-case/audit-contract.mjs';
 
-const migration=fs.readFileSync(new URL('../supabase/migrations/20260913034000_audit_pipeline_core_dataset_v18919.sql',import.meta.url),'utf8');
+const migration=fs.readFileSync(new URL('../supabase/migrations/20260913034000_audit_pipeline_core_dataset_v18919.sql',import.meta.url),'utf8')+'\n'+fs.readFileSync(new URL('../supabase/migrations/20260925174500_audit_auto_queue_v18101.sql',import.meta.url),'utf8');
 const edge=fs.readFileSync(new URL('../supabase/functions/submit-audit-case/index.ts',import.meta.url),'utf8');
 
 assert.equal(normalizeSnapshotVersion(undefined),'final-v1');
@@ -28,7 +28,7 @@ for(const bad of [
 const good={fields:{hda:'Paciente adulto relata dor toracica ha duas horas.'},core_context:{learning_layers:{original_ai:{hypothesis:'dor toracica'},physician_final:{hypothesis:'dor toracica'},audit_corrected:null}}};
 assert.equal(validateDeidentifiedEnvelope(good,{requireLearningLayers:true}).ok,true);
 
-for(const token of ["eq('snapshot_version',snapshotVersion)","validateDeidentifiedEnvelope","audit_schema_version:'3'","ALREADY_SUBMITTED"])assert.ok(edge.includes(token),`edge missing ${token}`);
-for(const token of ['snapshot_version text not null','unique(source_consultation_id,snapshot_version)','returns void','for update','AUDIT_REVIEW_CONFLICT',"decision='discarded'",'delete from public.nexa_core_cases',"decision='corrected'","'{audit_corrected}'","'original_ai'","'physician_final'","'target'",'security definer','set search_path=public,pg_temp','grant execute on function public.submit_audit_review','revoke all on function public.get_audit_queue(text) from anon','grant execute on function public.get_audit_queue(text) to authenticated','revoke all on function public.get_core_dataset_summary() from anon','grant execute on function public.get_core_dataset_summary() to authenticated','quality_status','case_data','learning_profile'])assert.ok(migration.toLowerCase().includes(token.toLowerCase()),`migration missing ${token}`);
+for(const token of ["eq('snapshot_version',snapshotVersion)","validateDeidentifiedEnvelope","audit_schema_version:'3'","ALREADY_SUBMITTED","ALREADY_REVIEWED","SOURCE_NOT_READY","source_sync_version","encounter_state","AUDIT_UPDATE_FAILED"])assert.ok(edge.includes(token),`edge missing ${token}`);
+for(const token of ['snapshot_version text not null','unique(source_consultation_id,snapshot_version)','returns void','for update','AUDIT_REVIEW_CONFLICT',"decision='discarded'",'delete from public.nexa_core_cases',"decision='corrected'","'{audit_corrected}'","'original_ai'","'physician_final'","'target'",'security definer','set search_path=public,pg_temp','grant execute on function public.submit_audit_review','revoke all on function public.get_audit_queue(text) from anon','grant execute on function public.get_audit_queue(text) to authenticated','revoke all on function public.get_core_dataset_summary() from anon','grant execute on function public.get_core_dataset_summary() to authenticated','quality_status','case_data','learning_profile','get_audit_queue_v2','get_audit_dashboard','DISCARD_REASON_REQUIRED','encounter_state','audit_cases_queue_priority_idx'])assert.ok(migration.toLowerCase().includes(token.toLowerCase()),`migration missing ${token}`);
 assert.ok(!migration.includes("returns jsonb"));
 console.log('NEXA Audit backend contract: PASS');
