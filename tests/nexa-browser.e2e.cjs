@@ -219,7 +219,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.locator('#axReview [data-ax-decision="approved"]').click();
   await page.waitForFunction(()=>window.__qa.auditDecisions.some(x=>x.case_id==='33333333-3333-4333-8333-333333333332'&&x.decision==='approved'));
   await page.locator('#axReview .ax-success button').click();
-  await page.waitForFunction(()=>!document.getElementById('axReview')?.classList.contains('open'));
+  await page.waitForFunction(()=>!document.getElementById('axReview')?.classList.contains('open')&&!!document.querySelector('[data-ax-open="33333333-3333-4333-8333-333333333333"]'));
 
   await page.evaluate(()=>document.querySelector('[data-ax-open="33333333-3333-4333-8333-333333333333"]')?.click());
   await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
