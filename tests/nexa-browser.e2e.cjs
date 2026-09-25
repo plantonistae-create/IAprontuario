@@ -11,6 +11,16 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(15000);activePage=page;console.log('Opening browser regression',viewport.width);const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('Browser runtime:',e.message);});
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.nexaRadar&&window.nexaDestinationFlow18915&&window.currentProf?.clinical_access&&document.getElementById('nfStart'));
   if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
+  await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
+  assert.equal(await page.evaluate(()=>document.body.classList.contains('doctor-home-open')),false,'New encounter must leave home and reveal Radar');
+  await page.locator('#nfQuickHistory').click();
+  await page.waitForFunction(()=>document.getElementById('nexaCommandWorkspace')?.classList.contains('workspace-open')&&document.querySelector('.nexa-stage-view[data-stage="summary"]')?.classList.contains('active'));
+  assert.equal(await page.evaluate(()=>document.querySelector('.nexa-stage-view[data-stage="summary"]').hidden),false,'History must not hide the real summary stage');
+  assert.equal(await page.evaluate(()=>document.body.classList.contains('nexa-workspace-only')),true,'History must open the existing workspace');
+  await page.locator('#nfShell [data-go="radar"]').click();
+  await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
+  assert.equal(await page.evaluate(()=>document.body.classList.contains('nexa-workspace-only')),false,'Returning to a clinical stage must leave history-only mode');
+  console.log('New encounter and history navigation checked',viewport.width);
   // Drive the real fields and the rendered Radar; external services alone are synthetic.
   await page.locator('.field[data-key="hda"] textarea').evaluate(el=>{el.value='Dor torácica, nega dispneia, síncope e sudorese.';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await page.waitForFunction(()=>window.radarState?.facts?.dyspnea?.state==='known_absent');
