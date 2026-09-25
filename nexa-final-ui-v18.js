@@ -24,19 +24,20 @@ function recoverClinicalStages(){qa('.nexa-stage-view').forEach(v=>{v.hidden=fal
 function openHistory(){
  recoverClinicalStages();
  document.body.classList.remove('doctor-home-open');
- const nativeHistory=q('#nexaMoreSheet [data-quick="history"]')||q('[data-desk="history"]');
- if(nativeHistory){
-  nativeHistory.click();
- }else{
-  const ws=$('nexaCommandWorkspace');
+ const ws=$('nexaCommandWorkspace');
+ ws?.classList.add('workspace-open');
+ document.body.classList.add('nexa-workspace-only');
+ const nativeSummary=q('.nexa-session-tab[data-stage="summary"]');
+ if(nativeSummary){nativeSummary.click()}
+ else{
   const summary=q('.nexa-stage-view[data-stage="summary"]');
   qa('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v===summary));
   document.body.dataset.nexaStage='summary';
   document.body.setAttribute('data-nexa-stage','summary');
-  document.body.classList.add('nexa-workspace-only');
-  ws?.classList.add('workspace-open');
-  $('workspaceHistoryTab')?.click();
  }
+ qa('.nexa-command-tab[data-pane]').forEach(t=>t.classList.toggle('active',t.id==='workspaceHistoryTab'));
+ qa('.nexa-workspace-pane').forEach(p=>p.classList.toggle('active',p.id==='workspaceHistoryPane'));
+ ws?.classList.remove('is-collapsed');
  qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go==='history'));
  try{scrollTo({top:0,left:0,behavior:'auto'})}catch{}
 }
