@@ -6,6 +6,7 @@ const EXPLICIT_NAME=/(?:\b(?:nome|paciente)\s*[:=-]\s*)(?:[A-ZÁÀÂÃÉÈÊÍÏ
 
 export function isPlainObject(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
 export function cleanStringArray(value,max=12){if(!Array.isArray(value))return[];return value.filter(x=>typeof x==='string').map(x=>String(x).trim().slice(0,800)).filter(Boolean).slice(0,max)}
+export function cleanObjectArray(value,max=80){if(!Array.isArray(value))return[];return value.filter(isPlainObject).slice(0,max).map(x=>({...x}))}
 export function normalizeSnapshotVersion(value){const v=String(value||'final-v1').trim();return /^[A-Za-z0-9._-]{1,80}$/.test(v)?v:'final-v1'}
 
 function safeObject(value){return isPlainObject(value)?value:{}}
@@ -17,10 +18,11 @@ export function safeCoreContext(input={}){
     case_mode:String(input.case_mode||'').slice(0,40),
     hypothesis_validation:{status:String(hv.status||'').slice(0,40),ai:String(hv.ai||'').slice(0,4000),final:String(hv.final||'').slice(0,4000),cid:String(hv.cid||'').slice(0,80),source:String(hv.source||'').slice(0,120)},
     clinical_plan:isPlainObject(input.clinical_plan)?input.clinical_plan:{},
-    radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts)},
+    protocol_usage:cleanObjectArray(input.protocol_usage,24),
+    radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts),items:cleanObjectArray(radar.items,100),answers:safeObject(radar.answers)},
     destination:{recommended:String(destination.recommended||'').slice(0,40),final:String(destination.final||'').slice(0,40),status:String(destination.status||'').slice(0,40),source:String(destination.source||'').slice(0,120),updated_at:String(destination.updated_at||'').slice(0,80),recommendation_stale:!!destination.recommendation_stale,reason:String(destination.reason||'').slice(0,2000)},
     learning_layers:{original_ai:safeObject(layers.original_ai),physician_final:safeObject(layers.physician_final),audit_corrected:layers.audit_corrected==null?null:safeObject(layers.audit_corrected)},
-    audit_submission_snapshot:{captured_at:String(snapshot.captured_at||'').slice(0,80),source_consultation_id:String(snapshot.source_consultation_id||'').slice(0,80),immutable_submission:snapshot.immutable_submission!==false,capture_reason:String(snapshot.capture_reason||'').slice(0,80),frontend_version:String(snapshot.frontend_version||'').slice(0,80)},
+    audit_submission_snapshot:{captured_at:String(snapshot.captured_at||'').slice(0,80),source_consultation_id:String(snapshot.source_consultation_id||'').slice(0,80),source_updated_at:String(snapshot.source_updated_at||'').slice(0,80),source_sync_version:Math.max(0,Number(snapshot.source_sync_version||0)),immutable_submission:snapshot.immutable_submission!==false,capture_reason:String(snapshot.capture_reason||'').slice(0,80),frontend_version:String(snapshot.frontend_version||'').slice(0,80),reviewed_at:String(snapshot.reviewed_at||'').slice(0,80)},
     provenance:{app_version:String(provenance.app_version||snapshot.frontend_version||'').slice(0,120),reviewed_documentation:true,radar_raw_transcript_saved:false,official_source:'final_review'}
   }
 }
