@@ -77,47 +77,56 @@ for each row execute function public.touch_consultation_history_encounter();
 grant select, insert, update, delete on public.consultation_history to authenticated;
 revoke all on public.consultation_history from anon;
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='consultation_history'
-      and policyname='consultations_insert_own'
-  ) then
-    create policy consultations_insert_own
-      on public.consultation_history
-      for insert
-      to authenticated
-      with check (
-        (select auth.uid()) is not null
-        and has_active_clinical_access()
-        and (select auth.uid()) = user_id
-        and encounter_state in ('draft','ready_for_audit')
-      );
-  end if;
+drop policy if exists consultations_select_own on public.consultation_history;
+create policy consultations_select_own
+on public.consultation_history
+for select
+to authenticated
+using (
+  (select auth.uid()) is not null
+  and (select has_active_clinical_access())
+  and (select auth.uid()) = user_id
+);
 
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='consultation_history'
-      and policyname='consultations_update_own'
-  ) then
-    create policy consultations_update_own
-      on public.consultation_history
-      for update
-      to authenticated
-      using (
-        (select auth.uid()) is not null
-        and has_active_clinical_access()
-        and (select auth.uid()) = user_id
-        and encounter_state in ('draft','ready_for_audit')
-      )
-      with check (
-        (select auth.uid()) is not null
-        and has_active_clinical_access()
-        and (select auth.uid()) = user_id
-        and encounter_state in ('draft','ready_for_audit')
-      );
-  end if;
-end $$;
+drop policy if exists consultations_delete_own on public.consultation_history;
+create policy consultations_delete_own
+on public.consultation_history
+for delete
+to authenticated
+using (
+  (select auth.uid()) is not null
+  and (select has_active_clinical_access())
+  and (select auth.uid()) = user_id
+);
+
+drop policy if exists consultations_insert_own on public.consultation_history;
+create policy consultations_insert_own
+on public.consultation_history
+for insert
+to authenticated
+with check (
+  (select auth.uid()) is not null
+  and (select has_active_clinical_access())
+  and (select auth.uid()) = user_id
+  and encounter_state in ('draft','ready_for_audit')
+);
+
+drop policy if exists consultations_update_own on public.consultation_history;
+create policy consultations_update_own
+on public.consultation_history
+for update
+to authenticated
+using (
+  (select auth.uid()) is not null
+  and (select has_active_clinical_access())
+  and (select auth.uid()) = user_id
+  and encounter_state in ('draft','ready_for_audit')
+)
+with check (
+  (select auth.uid()) is not null
+  and (select has_active_clinical_access())
+  and (select auth.uid()) = user_id
+  and encounter_state in ('draft','ready_for_audit')
+);
 
 commit;
