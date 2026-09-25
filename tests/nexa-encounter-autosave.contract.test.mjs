@@ -57,7 +57,7 @@ const context={
   collect:()=>structuredClone(fields),
   lastProcessedMeta:{consentRecordedAt:'2026-09-25T10:00:00.000Z'},
   hypothesisReview:{status:'pending'},nexaAlternativeHypotheses:[],nexaDiscardedHypotheses:[],clinicalPlanCache:{},
-  sb
+  sb,nexaClinicalSupabase18101:sb
 };
 context.window=context;
 vm.runInNewContext(code,context);
