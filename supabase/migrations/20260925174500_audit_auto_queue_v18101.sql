@@ -287,7 +287,7 @@ returns table(
 language plpgsql
 security definer
 set search_path=public,pg_temp
-as $
+as $$
 declare
   v_actor uuid:=auth.uid();
 begin
@@ -313,7 +313,7 @@ begin
     max(audit_reviewed_at)
   from public.nexa_core_cases;
 end;
-$;
+$$;
 
 revoke all on function public.get_core_dataset_summary() from public,anon;
 grant execute on function public.get_core_dataset_summary() to authenticated;
