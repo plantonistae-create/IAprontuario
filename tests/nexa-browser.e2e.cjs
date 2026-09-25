@@ -167,6 +167,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
   await page.locator('[data-ax-tab="comparacao"]').click();
   const comparison=await page.locator('#axRBody').innerText();assert.match(comparison,/NEXA ORIGINAL/);assert.match(comparison,/VERSÃO FINAL DO MÉDICO/);assert.match(comparison,/ORIGINAL QA A/);assert.match(comparison,/FINAL QA A/);
+  await page.locator('[data-ax-tab="radar"]').click();const radarAudit=await page.locator('#axRBody').innerText();assert.match(radarAudit,/Hipotensão/);assert.match(radarAudit,/known_present/);assert.match(radarAudit,/Transcript bruto não é armazenado/);
+  await page.locator('[data-ax-tab="conduta"]').click();const planAudit=await page.locator('#axRBody').innerText();assert.match(planAudit,/EXAME QA/);assert.match(planAudit,/PRESCRIÇÃO QA/);assert.match(planAudit,/internacao/i);assert.match(planAudit,/Versões|Protocolos/i);
   await page.locator('[data-ax-decision="approved"]').click();
   await page.waitForFunction(()=>window.__qa.auditDecisions.length===1&&/Auditoria registrada/.test(document.getElementById('axReview')?.textContent||''));
   assert.equal(await page.evaluate(()=>window.__qa.auditDecisions[0].decision),'approved');
