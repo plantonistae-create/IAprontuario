@@ -6,7 +6,7 @@ const STAGING_ORIGIN = 'http://127.0.0.1:4173';
 const EMAIL = process.env.NEXA_STAGING_EMAIL || '';
 const PASSWORD = process.env.NEXA_STAGING_PASSWORD || '';
 
-const endpoints = ['process-consultation','clinical-assistant','realtime-radar','realtime-call','clinical-plan','cid10-catalog'];
+const endpoints = ['process-consultation','clinical-assistant','realtime-radar','realtime-call','clinical-plan','cid10-catalog','protocol-library','admin-protocols','audit-backfill'];
 const authErrors = /UNAUTHORIZED|CLINICAL_ACCESS_REQUIRED|ACTIVE_CLINICAL_ACCESS_REQUIRED|ACCESS_REQUIRED|Sessão inválida|Acesso clínico/i;
 
 function fail(message){ throw new Error(message); }
@@ -42,6 +42,9 @@ async function anonymousRegression(){
     ['realtime-call', {}, {}],
     ['clinical-plan', {}, {}],
     ['cid10-catalog', {action:'search',q:'R51',limit:3}, {}],
+    ['protocol-library', {action:'search',q:'J45',limit:3}, {}],
+    ['admin-protocols', {action:'list'}, {}],
+    ['audit-backfill', {action:'report'}, {}],
   ];
   for(const [slug,body,opts] of cases){
     const {res,text}=await call(slug,'',body,opts);
@@ -63,7 +66,7 @@ async function anonymousEncounterRegression(){
   console.log('anon consultation_history insert: denied');
 }
 
-async function encounterPersistenceSmoke(supabase,userId){
+async function encounterPersistenceSmoke(supabase,userId,token){
   const id=crypto.randomUUID(),now=new Date().toISOString();
   let inserted=false;
   try{
@@ -76,6 +79,10 @@ async function encounterPersistenceSmoke(supabase,userId){
     inserted=true;
     if(create.id!==id||create.encounter_id!==id||create.encounter_state!=='draft')fail('encounter create identity/state mismatch.');
     console.log('encounter create: PASS');
+
+    const draftAudit=await call('submit-audit-case',token,{source_consultation_id:id,snapshot_version:'final-v1',fields:{queixa_principal:'QA'}});
+    if(draftAudit.res.status!==409 || draftAudit.json?.error!=='SOURCE_NOT_READY') fail(`draft audit handoff must be rejected before deidentification: HTTP ${draftAudit.res.status}`);
+    console.log('submit-audit-case draft guard: PASS');
 
     const {data:update,error:updateError}=await supabase.from('consultation_history').update({
       fields:{queixa_principal:'QA autosave encounter',hda:'Synthetic QA history long enough for audit readiness validation.'},
@@ -120,7 +127,7 @@ async function authenticatedSmoke(){
   }
   console.log('authenticated capabilities: active clinical access');
 
-  await encounterPersistenceSmoke(supabase,login.user.id);
+  await encounterPersistenceSmoke(supabase,login.user.id,token);
 
   const cidStatus=await call('cid10-catalog',token,{action:'status'});
   if(!cidStatus.res.ok) fail(`cid10 status failed: HTTP ${cidStatus.res.status}`);
@@ -133,6 +140,20 @@ async function authenticatedSmoke(){
   const cidItems=Array.isArray(cidSearch.json?.items)?cidSearch.json.items:[];
   if(!cidItems.some(item=>String(item?.code||'').toUpperCase().startsWith('R51'))) fail('CID R51 not returned by staging catalog.');
   console.log('cid10 search R51: PASS');
+
+  const protocolSearch=await call('protocol-library',token,{action:'search',q:'J45',limit:5});
+  if(!protocolSearch.res.ok || !Array.isArray(protocolSearch.json?.items)) fail(`protocol-library search failed: HTTP ${protocolSearch.res.status}`);
+  console.log(`protocol-library: authenticated search PASS (${protocolSearch.json.items.length} published match(es))`);
+
+  if(cap?.is_admin===true || cap?.is_reviewer===true){
+    const adminProtocols=await call('admin-protocols',token,{action:'list'});
+    if(!adminProtocols.res.ok || !Array.isArray(adminProtocols.json?.protocols)) fail(`admin-protocols list failed: HTTP ${adminProtocols.res.status}`);
+    console.log('admin-protocols: staff list PASS');
+
+    const backfill=await call('audit-backfill',token,{action:'report'});
+    if(!backfill.res.ok || !backfill.json?.report) fail(`audit-backfill report failed: HTTP ${backfill.res.status}`);
+    console.log('audit-backfill: staff read-only report PASS');
+  }
 
   const assistant=await call('clinical-assistant',token,{action:'catalog'});
   if(!assistant.res.ok || !assistant.json?.version) fail(`clinical-assistant catalog smoke failed: HTTP ${assistant.res.status}`);
