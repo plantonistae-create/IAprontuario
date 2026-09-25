@@ -293,6 +293,8 @@ revoke all on function public.submit_audit_review(uuid,text,jsonb,text) from pub
 grant execute on function public.submit_audit_review(uuid,text,jsonb,text) to authenticated;
 
 
+drop function if exists public.get_core_dataset_summary();
+
 create or replace function public.get_core_dataset_summary()
 returns table(
   total_cases bigint,
