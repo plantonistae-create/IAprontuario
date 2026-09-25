@@ -29,6 +29,9 @@ const api=context.nexaAuditOutbox18919;
 api.setStoreAdapter({get:async k=>memory.get(k)||null,put:async x=>{memory.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...memory.values()].map(structuredClone)});
 
 assert.equal(api.valid({}),false,'empty case must not be valid');
+const savedFields=structuredClone(fieldValues);for(const k of Object.keys(fieldValues))fieldValues[k]='';
+assert.equal(await api.buildSnapshot('stable_encounter'),null,'empty encounter must not enter audit outbox');
+Object.assign(fieldValues,savedFields);
 const s1=await api.buildSnapshot('manual_priority');
 const s2=await api.buildSnapshot('reset_safety_net');
 assert.equal(s1.source_consultation_id,s2.source_consultation_id,'same encounter must keep source id');
@@ -37,6 +40,9 @@ assert.equal(s1.payload.fields.conduta,fieldValues.conduta);
 assert.equal(s1.payload.core_context.destination.recommended,'alta');
 assert.equal(s1.payload.core_context.destination.final,'internacao');
 await api.enqueue(s1);await api.enqueue(s2);assert.equal(memory.size,1,'duplicate trigger must keep one outbox item');
+for(let i=0;i<5;i++){fieldValues.hda=`Paciente com dor torácica revisada no autosave ${i} e evolução clínica estável.`;await api.enqueue(await api.buildSnapshot('stable_encounter'))}
+assert.equal(memory.size,1,'five autosaves must keep exactly one audit identity');
+assert.match(memory.get(s1.idempotency_key).payload.fields.hda,/autosave 4/,'latest pending snapshot must replace older pending payload');
 fieldValues.hda='Texto alterado depois do snapshot.';assert.notEqual(memory.get(s1.idempotency_key).payload.fields.hda,fieldValues.hda,'stored snapshot must be immutable from later UI edits');
 
 fetchMode='success';let result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).state,'sent');
