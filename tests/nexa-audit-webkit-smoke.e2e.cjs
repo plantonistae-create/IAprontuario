@@ -36,6 +36,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
       await page.evaluate(async()=>{
         document.documentElement.setAttribute('data-theme','light');
         document.documentElement.setAttribute('data-nexa-theme','light');
+        document.body.classList.add('nexa-auditor-view');
         window.__qa.capabilities={access_status:'active',clinical_access:true,is_admin:true,is_reviewer:true,display_name:'Auditor QA'};
         await window.nexaAuditFunctionalGuard18916.refreshCapabilities();
         window.nexaOpenProfessionalAuditExact();
@@ -48,7 +49,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
         const content=document.getElementById('axContent');
         const mr=main.getBoundingClientRect(),tr=top.getBoundingClientRect(),cr=content.getBoundingClientRect();
         return {
-          mainWidth:mr.width,mainDisplay:getComputedStyle(main).display,
+          mainWidth:mr.width,mainDisplay:getComputedStyle(main).display,mainTag:main.tagName,
           topWidth:tr.width,topDisplay:getComputedStyle(top).display,
           contentWidth:cr.width,contentText:content.textContent.trim(),
           rootOverflow:document.getElementById('nexaAuditExact').scrollWidth-document.getElementById('nexaAuditExact').clientWidth,
@@ -62,6 +63,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
         assert.ok(state.mainWidth>360,'Safari mobile auditor main pane must fill viewport');
       }
       assert.notEqual(state.mainDisplay,'none');
+      assert.notEqual(state.mainTag,'MAIN','Auditor pane must not use a MAIN element hidden by legacy .nexa-auditor-view main rule');
       assert.notEqual(state.topDisplay,'none');
       assert.ok(state.contentWidth>300,'Audit content must retain measurable width');
       assert.match(state.contentText,/Painel de Auditoria/);
