@@ -20,11 +20,15 @@ function sourceCoreContext(body:any,source:any){
     ...base,
     schema_version:'3',
     clinical_plan:isPlainObject(base.clinical_plan)?base.clinical_plan:(isPlainObject(autosave.clinicalPlan)?autosave.clinicalPlan:{}),
+    protocol_usage:Array.isArray(source?.protocol_usage)?source.protocol_usage:(Array.isArray(base.protocol_usage)?base.protocol_usage:[]),
+    radar_learning:isPlainObject(base.radar_learning)?base.radar_learning:(isPlainObject(autosave.radar)?{items:Array.isArray(autosave.radar.items)?autosave.radar.items:[],answers:isPlainObject(autosave.radar.ledger)?autosave.radar.ledger:{}}:{}),
     destination:isPlainObject(base.destination)?base.destination:(isPlainObject(autosave.destination)?autosave.destination:{}),
     audit_submission_snapshot:{
       ...(isPlainObject(base.audit_submission_snapshot)?base.audit_submission_snapshot:{}),
       captured_at:new Date().toISOString(),
       source_consultation_id:String(source?.encounter_id||body?.source_consultation_id||''),
+      source_updated_at:String(source?.updated_at||''),
+      source_sync_version:Math.max(0,Number(source?.sync_version||0)),
       immutable_submission:false,
       capture_reason:String(body?.core_context?.audit_submission_snapshot?.capture_reason||'automatic_handoff'),
       frontend_version:String(body?.core_context?.audit_submission_snapshot?.frontend_version||'18.10.1'),
@@ -50,7 +54,7 @@ serve(async(req)=>{
 
   const {data:source,error:sourceError}=await userClient
     .from('consultation_history')
-    .select('id,encounter_id,user_id,fields,encounter_state,audit_priority,updated_at,sync_version,processing_meta')
+    .select('id,encounter_id,user_id,fields,encounter_state,audit_priority,updated_at,sync_version,processing_meta,protocol_usage')
     .eq('encounter_id',sourceId)
     .maybeSingle();
   if(sourceError)return json({error:'SOURCE_LOOKUP_FAILED'},500);
