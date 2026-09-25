@@ -1,6 +1,7 @@
 begin;
 
 alter table public.audit_cases
+  add column if not exists audit_changes jsonb not null default '{}'::jsonb,
   add column if not exists priority smallint not null default 0,
   add column if not exists source_sync_version bigint not null default 0,
   add column if not exists source_updated_at timestamptz,
@@ -41,6 +42,7 @@ returns table(
   deidentified_fields jsonb,
   deidentified_core_context jsonb,
   reviewed_fields jsonb,
+  audit_changes jsonb,
   review_note text,
   reviewer_id uuid,
   reviewed_at timestamptz,
@@ -82,7 +84,7 @@ begin
   )
   select f.id,f.source_consultation_id,f.status,f.priority,f.submitted_at,
          f.source_updated_at,f.source_sync_version,f.deidentified_fields,
-         f.deidentified_core_context,f.reviewed_fields,f.review_note,
+         f.deidentified_core_context,f.reviewed_fields,f.audit_changes,f.review_note,
          f.reviewer_id,f.reviewed_at,count(*) over()::bigint
   from filtered f
   order by f.priority desc,f.submitted_at asc
@@ -175,6 +177,8 @@ declare
   v_layers jsonb;
   v_learning jsonb;
   v_target jsonb;
+  v_changes jsonb := '{}'::jsonb;
+  v_key text;
 begin
   if v_actor is null then raise sqlstate '42501' using message='AUDIT_REVIEW_UNAUTHORIZED'; end if;
   if not exists(select 1 from public.profiles p where p.id=v_actor and p.access_status='active' and (p.is_admin or p.is_reviewer)) then
@@ -207,6 +211,20 @@ begin
       raise sqlstate '22023' using message='CORRECTED_FIELDS_REQUIRED';
     end if;
     v_reviewed:=corrected_fields;
+    for v_key in
+      select key from (
+        select jsonb_object_keys(coalesce(v_case.deidentified_fields,'{}'::jsonb)) key
+        union
+        select jsonb_object_keys(coalesce(v_reviewed,'{}'::jsonb)) key
+      ) q
+    loop
+      if coalesce(v_case.deidentified_fields->v_key,'null'::jsonb) is distinct from coalesce(v_reviewed->v_key,'null'::jsonb) then
+        v_changes:=v_changes||jsonb_build_object(v_key,jsonb_build_object(
+          'before',v_case.deidentified_fields->v_key,
+          'after',v_reviewed->v_key
+        ));
+      end if;
+    end loop;
   elsif decision='approved' then
     v_reviewed:=v_case.deidentified_fields;
   else
@@ -215,7 +233,7 @@ begin
 
   update public.audit_cases
   set status=decision,reviewer_id=v_actor,reviewed_fields=v_reviewed,
-      review_note=nullif(btrim(note),''),reviewed_at=now(),
+      audit_changes=v_changes,review_note=nullif(btrim(note),''),reviewed_at=now(),
       deidentified_core_context=v_core
   where id=v_case.id;
 
@@ -242,6 +260,7 @@ begin
     'original_ai',coalesce(v_layers->'original_ai','{}'::jsonb),
     'physician_final',coalesce(v_layers->'physician_final','{}'::jsonb),
     'audit_corrected',v_layers->'audit_corrected',
+    'audit_changes',v_changes,
     'target',v_target,
     'source_consultation_id',v_case.source_consultation_id,
     'snapshot_version',v_case.snapshot_version,
