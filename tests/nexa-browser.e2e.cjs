@@ -157,6 +157,21 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   const note=await copied('copyBtn');assert.match(note,/CONDUTAS:[\s\S]*Conduta revisada/);assert.doesNotMatch(note,/RASCUNHO DE MODELO/);
   for(const section of ['QUEIXA PRINCIPAL','HISTÓRIA DA DOENÇA ATUAL','ALERGIAS','COMORBIDADES','MEDICAÇÕES','ANTECEDENTES','EXAME FÍSICO','HIPÓTESE DIAGNÓSTICA','CONDUTAS'])assert.ok(note.includes(section),section);
   console.log('Summary, hypothesis, plan and copies checked',viewport.width);
+  // Auditor UI: real components/RPC bridge with synthetic external data, on both desktop and iPhone viewports.
+  await page.evaluate(async()=>{window.__qa.capabilities={...window.__qa.capabilities,is_reviewer:true};await window.nexaAuditFunctionalGuard18916.refreshCapabilities();window.nexaOpenProfessionalAuditExact();});
+  await page.waitForFunction(()=>document.getElementById('nexaAuditExact')?.classList.contains('open')&&/Painel de Auditoria/.test(document.getElementById('axContent')?.textContent||''));
+  assert.match(await page.locator('#axContent').innerText(),/Pendentes[\s\S]*3/);
+  await page.evaluate(()=>window.nexaAuditNavigate18101('queue'));
+  await page.waitForFunction(()=>/Fila de casos/.test(document.getElementById('axContent')?.textContent||'')&&document.querySelectorAll('[data-ax-open]').length>=3);
+  await page.locator('[data-ax-open="33333333-3333-4333-8333-333333333331"]').click();
+  await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
+  await page.locator('[data-ax-tab="comparacao"]').click();
+  const comparison=await page.locator('#axRBody').innerText();assert.match(comparison,/NEXA ORIGINAL/);assert.match(comparison,/VERSÃO FINAL DO MÉDICO/);assert.match(comparison,/ORIGINAL QA A/);assert.match(comparison,/FINAL QA A/);
+  await page.locator('[data-ax-decision="approved"]').click();
+  await page.waitForFunction(()=>window.__qa.auditDecisions.length===1&&/Auditoria registrada/.test(document.getElementById('axReview')?.textContent||''));
+  assert.equal(await page.evaluate(()=>window.__qa.auditDecisions[0].decision),'approved');
+  await page.evaluate(()=>{window.nexaCloseProfessionalAudit?.();});
+  console.log('Audit panel, queue, comparison and approval checked',viewport.width);
   // Reopening a saved consultation during recording must also stop the primary recorder.
   await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="radar"]')?.click());
   await page.locator('#nfStart').click();
