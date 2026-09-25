@@ -34,7 +34,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   const localEncounter=await page.evaluate(id=>window.nexaEncounterAutosave18101.get(id),encounterId);
   assert.equal(localEncounter.encounter_id,encounterId,'Autosave keeps the same encounter identity');
   assert.match(localEncounter.fields.hda,/Dor torácica/);
-  assert.equal((await page.evaluate(()=>window.nexaEncounterAutosave18101.all())).filter(x=>x.owner_user_id===window.currentProf.id).length,1,'Autosave must not create duplicate encounters');
+  assert.equal(await page.evaluate(async()=>{const rows=await window.nexaEncounterAutosave18101.all();return rows.filter(x=>x.owner_user_id===window.currentProf.id).length}),1,'Autosave must not create duplicate encounters');
   assert.equal(await page.locator('[data-item="dyspnea"]').count(),0);
   assert.equal(await page.locator('[data-item="syncope"]').count(),0);
   await page.locator('.field[data-key="hda"] textarea').evaluate(el=>{el.value='Dor no tornozelo esquerdo há dois dias.';el.dispatchEvent(new Event('input',{bubbles:true}));});
