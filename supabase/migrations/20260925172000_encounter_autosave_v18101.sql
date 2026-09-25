@@ -20,6 +20,31 @@ alter table public.consultation_history
   alter column encounter_id set default gen_random_uuid(),
   alter column encounter_id set not null;
 
+update public.consultation_history
+set encounter_state='ready_for_audit',
+    audit_ready_at=coalesce(audit_ready_at,updated_at,created_at,now())
+where encounter_state='draft'
+  and (
+    length(btrim(coalesce(fields->>'hda',''))) >= 20
+    or (
+      length(btrim(coalesce(fields->>'queixa_principal',''))) >= 5
+      and (
+        (case when length(btrim(coalesce(fields->>'queixa_principal',''))) >= 5 then 1 else 0 end) +
+        (case when length(btrim(coalesce(fields->>'hda',''))) >= 5 then 1 else 0 end) +
+        (case when length(btrim(coalesce(fields->>'exame_fisico',''))) >= 5 then 1 else 0 end) +
+        (case when length(btrim(coalesce(fields->>'hipotese_diagnostica',''))) >= 5 then 1 else 0 end) +
+        (case when length(btrim(coalesce(fields->>'conduta',''))) >= 5 then 1 else 0 end)
+      ) >= 2
+    )
+    or (
+      (case when length(btrim(coalesce(fields->>'queixa_principal',''))) >= 5 then 1 else 0 end) +
+      (case when length(btrim(coalesce(fields->>'hda',''))) >= 5 then 1 else 0 end) +
+      (case when length(btrim(coalesce(fields->>'exame_fisico',''))) >= 5 then 1 else 0 end) +
+      (case when length(btrim(coalesce(fields->>'hipotese_diagnostica',''))) >= 5 then 1 else 0 end) +
+      (case when length(btrim(coalesce(fields->>'conduta',''))) >= 5 then 1 else 0 end)
+    ) >= 3
+  );
+
 create unique index if not exists consultation_history_encounter_id_uidx
   on public.consultation_history(encounter_id);
 
