@@ -79,6 +79,7 @@ function sanitizeAuditCase(row){
   out.deidentified_fields=sanitizeFields(out.deidentified_fields||{});
   out.deidentified_core_context=sanitizeValue(out.deidentified_core_context||{});
   out.reviewed_fields=sanitizeFields(out.reviewed_fields||{});
+  out.audit_changes=sanitizeValue(out.audit_changes||{});
   return out;
 }
 function sanitizeQueue(data){
