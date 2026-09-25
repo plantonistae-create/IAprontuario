@@ -31,10 +31,12 @@ jobs:
         run: npm test
       - name: Lint, backend typecheck and static build
         run: npm run lint && npm run typecheck && npm run build
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
       - name: Desktop and mobile browser regression
         run: npm run test:e2e
+      - name: Safari WebKit auditor regression
+        run: npm run test:audit-webkit
       - name: Save real browser captures from synthetic regression
         if: always()
         uses: actions/upload-artifact@v4
