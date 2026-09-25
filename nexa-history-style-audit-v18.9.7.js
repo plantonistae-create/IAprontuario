@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),q=s=>document.querySelector(s),qa=s=>[..
 const CLEAR_SEL='#resetBtn,#nexaRadarResetBtn,#nfClear,#nfTopClear,#nexaNewCaseBtn';
 let busy=false,bypass=false,historyRefreshPromise=null;
 const prof=()=>{try{return typeof currentProf!=='undefined'?currentProf:null}catch{return null}};
-const client=()=>{try{return typeof sb!=='undefined'?sb:null}catch{return null}};
+const client=()=>{try{return window.nexaClinicalSupabase18101||null}catch{return null}};
 const fieldsNow=()=>{try{return typeof collect==='function'?collect():{}}catch{return{}}};
 const meaningful=f=>Object.values(f||{}).some(v=>typeof v==='string'&&v.trim());
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
