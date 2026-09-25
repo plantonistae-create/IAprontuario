@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 
 const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
-for(const token of ['indexedDB.open','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','ALREADY_REVIEWED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-outbox-refreshed','stable_encounter','visibility_hidden'])assert.ok(code.includes(token),`missing ${token}`);
+for(const token of ['indexedDB.open','auditSubmitUrl','AUDIT_SUBMIT_PATH','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','ALREADY_REVIEWED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-outbox-refreshed','stable_encounter','visibility_hidden'])assert.ok(code.includes(token),`missing ${token}`);
 assert.ok(code.includes('nexaEncounterAutosave18101'),'audit outbox must share encounter identity with autosave');
+assert.ok(!code.includes('https://fmkrcieubrlltiggyauc.supabase.co/functions/v1/submit-audit-case'),'audit outbox must not hardcode production endpoint');
 for(const sel of ['#resetBtn','#nexaRadarResetBtn','#nfClear','#nfTopClear','#nexaNewCaseBtn','#nexaTopReset','#submitAuditBtn'])assert.ok(code.includes(sel),`missing ${sel}`);
 assert.ok(loader.includes('nexa-audit-outbox-v18.9.19.js'),'outbox not loaded');
 assert.ok(loader.indexOf('nexa-audit-outbox-v18.9.19.js')<loader.indexOf('nexa-history-style-audit-v18.9.7.js'),'outbox must bind before legacy finalize handler');
