@@ -8,6 +8,7 @@ const $=id=>document.getElementById(id);
 const q=s=>document.querySelector(s);
 const qa=s=>[...document.querySelectorAll(s)];
 const STAGES=['radar','summary','hypothesis','plan','history'];
+const CLINICAL_STAGES=['radar','summary','hypothesis','plan'];
 const LABELS={radar:'Radar',summary:'Resumo',hypothesis:'Hipótese',plan:'Plano',history:'Histórico'};
 const clickFirst=(...ids)=>{for(const id of ids){const el=$(id);if(el&&typeof el.click==='function'){el.click();return true}}return false};
 const move=(el,target)=>{if(el&&target&&el.parentElement!==target)target.appendChild(el)};
@@ -19,7 +20,43 @@ function setTheme(t){t=t==='dark'?'dark':'light';document.documentElement.datase
 function toggleTheme(){setTheme(currentTheme()==='dark'?'light':'dark')}
 function metric(){let score=0,pending=0,alerts=0,covered=0;try{const text=$('realtimeRadarCard')?.innerText||'';const m=text.match(/(\d{1,3})\s*%/);if(m)score=Math.max(0,Math.min(100,+m[1]))}catch{};try{pending=Array.isArray(window.radarState?.questions)?window.radarState.questions.length:0;alerts=Array.isArray(window.radarState?.alerts)?window.radarState.alerts.length:0;covered=Array.isArray(window.radarState?.covered)?window.radarState.covered.length:0}catch{};return{score,pending,alerts,covered}}
 function dispositionText(){const c=$('nexaDispositionCard');const s=c?.querySelector('.nexa-disp-state strong')?.textContent?.trim()||c?.querySelector('strong')?.textContent?.trim();return s||'Em avaliação'}
-function goStage(stage){if(!STAGES.includes(stage))stage='radar';const native=q(`.nexa-session-tab[data-stage="${stage}"]`);if(native){native.click()}else{qa('.nexa-stage-view').forEach(v=>{const on=v.dataset.stage===stage;v.hidden=!on;v.classList.toggle('active',on)});document.body.dataset.nexaStage=stage;document.body.setAttribute('data-nexa-stage',stage)};qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===stage));try{scrollTo({top:0,left:0,behavior:'auto'})}catch{}}
+function recoverClinicalStages(){qa('.nexa-stage-view').forEach(v=>{v.hidden=false})}
+function openHistory(){
+ recoverClinicalStages();
+ document.body.classList.remove('doctor-home-open');
+ const ws=$('nexaCommandWorkspace');
+ ws?.classList.add('workspace-open');
+ document.body.classList.add('nexa-workspace-only');
+ const nativeSummary=q('.nexa-session-tab[data-stage="summary"]');
+ if(nativeSummary){nativeSummary.click()}
+ else{
+  const summary=q('.nexa-stage-view[data-stage="summary"]');
+  qa('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v===summary));
+  document.body.dataset.nexaStage='summary';
+  document.body.setAttribute('data-nexa-stage','summary');
+ }
+ qa('.nexa-command-tab[data-pane]').forEach(t=>t.classList.toggle('active',t.id==='workspaceHistoryTab'));
+ qa('.nexa-workspace-pane').forEach(p=>p.classList.toggle('active',p.id==='workspaceHistoryPane'));
+ ws?.classList.remove('is-collapsed');
+ qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go==='history'));
+ try{scrollTo({top:0,left:0,behavior:'auto'})}catch{}
+}
+function goStage(stage){
+ if(stage==='history'){openHistory();return}
+ if(!CLINICAL_STAGES.includes(stage))stage='radar';
+ recoverClinicalStages();
+ document.body.classList.remove('doctor-home-open','nexa-workspace-only');
+ $('nexaCommandWorkspace')?.classList.remove('workspace-open');
+ const native=q(`.nexa-session-tab[data-stage="${stage}"]`);
+ if(native){native.click()}
+ else{
+  qa('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v.dataset.stage===stage));
+  document.body.dataset.nexaStage=stage;
+  document.body.setAttribute('data-nexa-stage',stage);
+ }
+ qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===stage));
+ try{scrollTo({top:0,left:0,behavior:'auto'})}catch{}
+}
 function openModels(){if(clickFirst('workspaceModelsTab','workspaceExamplesTab'))return;const w=$('nexaCommandWorkspace');if(w){w.classList.remove('is-collapsed');w.scrollIntoView?.({block:'start'})}}
 function openProtocols(){if(clickFirst('navProtocolsBtn'))return;if(clickFirst('clinicalIntelligenceBtn'))setTimeout(()=>q('[data-pane="protocolPane"]')?.click(),40)}
 function openCalculators(){if(clickFirst('clinicalIntelligenceBtn'))setTimeout(()=>q('[data-pane="calcPane"]')?.click(),40)}
@@ -71,6 +108,6 @@ function syncTop(){const liveTimer=$('timer')?.textContent?.trim();if(liveTimer&
 function centerOtherStages(){qa('.nexa-stage-view').forEach(v=>{if(v.dataset.stage!=='radar'){v.style.removeProperty('width');v.style.removeProperty('max-width');v.style.removeProperty('margin')}})}
 function normalize(){if(!appReady())return;css();shell();normalizeRecorder();normalizeRadar();centerOtherStages();cleanupDuplicates();syncTheme();syncRecorder();syncSummary();syncTop();const current=document.body.dataset.nexaStage||document.body.getAttribute('data-nexa-stage')||'radar';qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===current))}
 function smoke(){const checks={shell:!!$('nfShell'),recorder:!!$('nfRecMain'),singleRadarActions:!$('nexaRadarRecActions')&&!q('.nexa-radar-rec-actions'),start:!!$('recBtn'),pause:!!($('nexaPauseBtn')||$('nexaDesktopPause')||$('nexaLocalPauseBtn')),finish:!!($('nexaFinishBtn')||$('nexaDesktopFinish')||$('nexaLocalFinishBtn')),process:!!$('processBtn'),clear:!!($('resetBtn')||$('clearAllBtn')||$('clearBtn')),radar:!!$('realtimeRadarCard'),summary:!!$('nfSummary'),alerts:!!$('nexaRadarAlertsDock')};checks.ok=Object.values(checks).every(Boolean);window.__NEXA_V18_SMOKE__=checks;return checks}
-function init(){css();normalize();let n=0;const boot=setInterval(()=>{normalize();if(++n>20){clearInterval(boot);smoke()}},350);setInterval(()=>{if(appReady()){syncRecorder();syncSummary();syncTop();cleanupDuplicates()}},1600);const obs=new MutationObserver(()=>{clearTimeout(window.__nf18Mut);window.__nf18Mut=setTimeout(()=>{if(appReady()){cleanupDuplicates();normalizeRadar();syncRecorder()}},35)});obs.observe(document.documentElement,{childList:true,subtree:true});addEventListener('resize',()=>setTimeout(normalize,90),{passive:true});addEventListener('pageshow',()=>setTimeout(normalize,50));document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(normalize,50)})}
+function init(){css();document.addEventListener('click',e=>{if(!e.target?.closest?.('#nexaNewCaseBtn'))return;recoverClinicalStages();document.body.classList.remove('doctor-home-open','nexa-workspace-only');$('nexaCommandWorkspace')?.classList.remove('workspace-open');setTimeout(()=>goStage('radar'),0)},true);normalize();let n=0;const boot=setInterval(()=>{normalize();if(++n>20){clearInterval(boot);smoke()}},350);setInterval(()=>{if(appReady()){syncRecorder();syncSummary();syncTop();cleanupDuplicates()}},1600);const obs=new MutationObserver(()=>{clearTimeout(window.__nf18Mut);window.__nf18Mut=setTimeout(()=>{if(appReady()){cleanupDuplicates();normalizeRadar();syncRecorder()}},35)});obs.observe(document.documentElement,{childList:true,subtree:true});addEventListener('resize',()=>setTimeout(normalize,90),{passive:true});addEventListener('pageshow',()=>setTimeout(normalize,50));document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(normalize,50)})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
