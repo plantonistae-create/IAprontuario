@@ -25,9 +25,14 @@ const bridgeFetch=(input,init={})=>{
 };
 const client=window.supabase.createClient(URL,KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:bridgeFetch}});
 const nativeRpc=client.rpc.bind(client);
+const GUARDED_AUDIT_RPCS=new Set([
+  'get_audit_queue','get_audit_queue_v2','get_audit_dashboard',
+  'get_core_dataset_summary','submit_audit_review','get_my_capabilities'
+]);
 client.rpc=(name,args)=>{
-  if(['get_audit_queue','get_core_dataset_summary','submit_audit_review','get_my_capabilities'].includes(String(name||'')))return guardedRpc(name,args);
-  return nativeRpc(name,args);
+  const rpcName=String(name||'');
+  if(GUARDED_AUDIT_RPCS.has(rpcName))return guardedRpc(rpcName,args);
+  return nativeRpc(rpcName,args);
 };
 window.sb=client;
 window.nexaAuditSupabaseCompat18916={client,accessToken};

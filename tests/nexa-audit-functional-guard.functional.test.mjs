@@ -26,7 +26,7 @@ Object.defineProperty(globalThis,'localStorage',{value:localStorage,configurable
 const elements=new Map();
 const documentElement=new El('html');
 const document={
-  readyState:'complete',documentElement,
+  readyState:'loading',documentElement,
   getElementById:id=>elements.get(id)||null,
   querySelector:()=>null,
   querySelectorAll:()=>[],
@@ -38,7 +38,7 @@ globalThis.MutationObserver=class{constructor(cb){this.cb=cb}observe(){}};
 globalThis.CustomEvent=class{constructor(type,init={}){this.type=type;this.detail=init.detail}};
 globalThis.setInterval=()=>1;globalThis.clearInterval=()=>{};
 
-let capabilityMode='reviewer';
+let capabilityMode='reviewer',capabilityResolve=null;
 let submitCount=0,reviewCount=0,queueCount=0;
 let capturedSubmit=null;
 let submitResolve,reviewResolve,queue1Resolve,queue2Resolve;
@@ -48,8 +48,12 @@ function jsonResponse(data,status=200){return new Response(JSON.stringify(data),
 async function originalFetch(url,init={}){
   const u=String(url);
   if(u.includes('/rest/v1/rpc/get_my_capabilities')){
+    if(capabilityMode==='loading')return await new Promise(resolve=>{capabilityResolve=value=>resolve(jsonResponse(value))});
+    if(capabilityMode==='error')return jsonResponse({message:'Unavailable'},{status:503});
+    if(capabilityMode==='empty')return jsonResponse([]);
     if(capabilityMode==='reviewer')return jsonResponse([{clinical_access:true,is_admin:false,is_reviewer:true,access_status:'active'}]);
     if(capabilityMode==='admin')return jsonResponse([{clinical_access:true,is_admin:true,is_reviewer:true,access_status:'active'}]);
+    if(capabilityMode==='inactive')return jsonResponse([{clinical_access:true,is_admin:true,is_reviewer:true,access_status:'disabled'}]);
     return jsonResponse([{clinical_access:true,is_admin:false,is_reviewer:false,access_status:'active'}]);
   }
   if(u.includes('/rest/v1/consultation_history?')){
@@ -80,19 +84,67 @@ globalThis.window={
 };
 
 const code=fs.readFileSync(new URL('../nexa-audit-functional-guard-v18.9.16.js',import.meta.url),'utf8');
+const auditorCode=fs.readFileSync(new URL('../nexa-auditor-exact-v18.9.js',import.meta.url),'utf8');
+assert.ok(auditorCode.includes('guard.capabilitiesReady'),'auditor workspace must depend on validated guard capabilities');
+assert.ok(auditorCode.includes('catch{return false}'),'auditor authorization must fail closed');
+assert.ok(auditorCode.includes('window.sb?.rpc'),'auditor workspace must route RPCs through the guarded bridge');
+assert.ok(auditorCode.includes("get_audit_queue_v2"),'auditor workspace must prefer the current queue RPC');
+assert.ok(auditorCode.includes('missingRpc(error)'),'legacy queue fallback must be limited to missing-function errors');
+assert.ok(auditorCode.includes('Métricas avançadas indisponíveis'),'KPI failures must be explicit instead of silently becoming zero');
+const compatCode=fs.readFileSync(new URL('../nexa-audit-supabase-compat-v18.9.16.js',import.meta.url),'utf8');
+for(const rpcName of ['get_audit_queue_v2','get_audit_dashboard','get_core_dataset_summary','submit_audit_review','get_my_capabilities'])assert.ok(compatCode.includes(rpcName),`compat bridge missing ${rpcName}`);
 new Function(code)();
 const guard=window.nexaAuditFunctionalGuard18916;
 assert.ok(guard,'guard de Auditoria não inicializado');
 
-// 1) Permissões começam fail-closed e são elevadas somente após capabilities reais.
-assert.equal(!!window.currentProf.is_admin,false);
-await guard.refreshCapabilities();
-assert.equal(window.currentProf.is_reviewer,true);
+// 1) Guard privilegiado: loading/ausência/erro/sessão inválida ficam fail-closed; reviewer/admin só entram após perfil ativo validado.
+assert.equal(guard.capabilitiesReady,false,'profile ainda não validado deve iniciar fechado');
+capabilityMode='loading';
+const loadingRefresh=guard.refreshCapabilities();
+await new Promise(r=>setTimeout(r,0));
+assert.equal(guard.capabilitiesReady,false,'profile carregando não pode liberar auditoria');
+assert.equal(guard.profile.is_reviewer,false);
+capabilityResolve([{clinical_access:true,is_admin:false,is_reviewer:true,access_status:'active'}]);
+assert.equal(await loadingRefresh,true);
+assert.equal(guard.profile.is_reviewer,true);
 assert.equal(guard.capabilitiesReady,true);
+
+capabilityMode='admin';
+assert.equal(await guard.refreshCapabilities(),true);
+assert.equal(guard.profile.is_admin,true);
+
 capabilityMode='doctor';
 assert.equal(await guard.refreshCapabilities(),false);
-assert.equal(window.currentProf.is_reviewer,false);
-assert.equal(window.currentProf.is_admin,false);
+assert.equal(guard.profile.is_reviewer,false);
+assert.equal(guard.profile.is_admin,false);
+
+capabilityMode='inactive';
+assert.equal(await guard.refreshCapabilities(),false,'inactive profile must not inherit admin/reviewer flags');
+assert.equal(guard.profile.is_admin,false);
+
+capabilityMode='empty';
+assert.equal(await guard.refreshCapabilities(),false,'empty capabilities response must fail closed');
+assert.equal(guard.capabilitiesReady,false);
+
+capabilityMode='error';
+assert.equal(await guard.refreshCapabilities(),false,'RPC failure must fail closed');
+assert.equal(guard.profile.is_reviewer,false);
+
+localStorage.removeItem('sb-auth-token');
+assert.equal(guard.capabilitiesReady,false,'logout/session removal must invalidate privileges immediately');
+assert.equal(guard.profile.is_reviewer,false);
+assert.equal(await guard.refreshCapabilities(),false,'invalid/signed-out session must fail closed');
+assert.equal(guard.profile.access_status,'signed_out');
+
+localStorage.setItem('sb-auth-token',JSON.stringify({access_token:'token-123',user:{id:'user-1'}}));
+capabilityMode='reviewer';
+assert.equal(await guard.refreshCapabilities(),true,'reload-equivalent session may restore reviewer only after validation');
+localStorage.setItem('sb-auth-token',JSON.stringify({access_token:'token-456',user:{id:'user-2'}}));
+assert.equal(guard.capabilitiesReady,false,'session switch must immediately invalidate previous privileges');
+assert.equal(guard.profile.is_reviewer,false,'new session must not inherit previous reviewer privilege');
+capabilityMode='doctor';
+assert.equal(await guard.refreshCapabilities(),false);
+localStorage.setItem('sb-auth-token',JSON.stringify({access_token:'token-123',user:{id:'user-1'}}));
 capabilityMode='reviewer';
 await guard.refreshCapabilities();
 
