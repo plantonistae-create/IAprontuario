@@ -101,14 +101,20 @@ function contrast(rgb1,rgb2){
           assert.ok(panel.tableScroll<=panel.tableClient+2,'Wide desktop table should fit without internal scroll at '+viewport.width);
           assert.ok(panel.actionRect.right<=panel.tableRect.right+1,'Action column must be visible at '+viewport.width);
         }else{
-          assert.ok(panel.tableScroll>panel.tableClient,'1024px may use table-only horizontal scroll');
-          await page.locator('.ax-table').evaluate(el=>{el.scrollLeft=el.scrollWidth;});
-          const visibleAction=await page.evaluate(()=>{
+          if(panel.tableScroll>panel.tableClient+2){
+            await page.locator('.ax-table').evaluate(el=>{el.scrollLeft=el.scrollWidth;});
+          }
+          const tableState=await page.evaluate(()=>{
             const t=document.querySelector('.ax-table').getBoundingClientRect();
             const b=document.querySelector('.ax-row:not(.head) .ax-reviewbtn').getBoundingClientRect();
-            return b.left>=t.left-1&&b.right<=t.right+1;
+            const c=document.getElementById('axContent').getBoundingClientRect();
+            return {
+              actionVisible:b.left>=t.left-1&&b.right<=t.right+1,
+              tableInsideContent:t.left>=c.left-1&&t.right<=c.right+1
+            };
           });
-          assert.equal(visibleAction,true,'Action column must be reachable by table-only scroll at 1024px');
+          assert.equal(tableState.tableInsideContent,true,'Table viewport must remain inside the content area at 1024px');
+          assert.equal(tableState.actionVisible,true,'Action column must remain visible or reachable inside the table at 1024px');
         }
       }else{
         assert.equal(panel.sideDisplay,'none','Mobile uses the existing hidden-sidebar behavior');
