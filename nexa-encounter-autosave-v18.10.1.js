@@ -82,8 +82,9 @@ async function buildLocal(reason='autosave',forcedId=''){
  const userId=owner();if(!userId)return null;
  let id=String(forcedId||currentEncounterId()||'').trim();if(!isUuid(id))id=uuid();setActiveId(id);
  const previous=await store.get(id),fields=collectFields(),ready=eligible(fields),ts=nowIso();
+ const terminal=['audited','discarded'].includes(previous?.encounter_state);
  const wasReady=previous?.encounter_state==='ready_for_audit';
- const state=(wasReady||ready)?'ready_for_audit':'draft';
+ const state=terminal?previous.encounter_state:(wasReady||ready)?'ready_for_audit':'draft';
  const rec={
    encounter_id:id,owner_user_id:userId,fields,encounter_state:state,
    protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__||previous?.protocol_usage||[]),
@@ -108,14 +109,24 @@ function remotePayload(rec){return{
 }}
 async function syncOne(rec){
  if(!rec||rec.owner_user_id!==owner())return{skipped:true};
+ if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='locked')return{locked:true,item:rec};
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
  const attempt=Number(rec.attempt_count||0)+1;
  try{
    const q=c.from('consultation_history').upsert(remotePayload(rec),{onConflict:'id'}).select('id,encounter_id,encounter_state,audit_priority,audit_ready_at,updated_at,sync_version,status').single();
    const {data,error}=await q;if(error)throw error;
-   const saved={...rec,sync_state:'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:data?.encounter_state||rec.encounter_state,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
-   await store.put(saved);window.dispatchEvent(new CustomEvent('nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:true,item:saved};
+   const remoteState=data?.encounter_state||rec.encounter_state;
+   const terminal=['audited','discarded'].includes(remoteState);
+   const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
+   await store.put(saved);window.dispatchEvent(new CustomEvent(terminal?'nexa:encounter-locked':'nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:!terminal,locked:terminal,item:saved};
  }catch(error){
+   try{
+     const {data:remote}=await c.from('consultation_history').select('id,encounter_id,encounter_state,updated_at,sync_version,status').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+     if(remote&&['audited','discarded'].includes(remote.encounter_state)){
+       const locked={...rec,sync_state:'locked',encounter_state:remote.encounter_state,attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:remote.updated_at||rec.server_updated_at||null,sync_version:Number(remote.sync_version||rec.sync_version||0),legacy_status:remote.status||rec.legacy_status||'draft'};
+       await store.put(locked);window.dispatchEvent(new CustomEvent('nexa:encounter-locked',{detail:{encounter_id:rec.encounter_id,state:locked.encounter_state}}));return{sent:false,locked:true,item:locked};
+     }
+   }catch{}
    const saved={...rec,sync_state:'pending',attempt_count:attempt,last_error:String(error?.message||error||'SYNC_FAILED'),next_attempt_at:new Date(Date.now()+backoff(attempt)).toISOString()};
    await store.put(saved);window.dispatchEvent(new CustomEvent('nexa:encounter-sync-failed',{detail:{encounter_id:rec.encounter_id,error:saved.last_error}}));return{sent:false,error:saved.last_error,item:saved};
  }
@@ -145,12 +156,12 @@ async function adoptExisting(rowOrId){
  await store.put(rec);return rec;
 }
 async function prioritize(){
- const rec=await buildLocal('manual_priority');if(!rec)return null;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
+ const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state))return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
 }
 function schedulePersist(reason='input'){clearTimeout(persistTimer);persistTimer=setTimeout(()=>void preserve(reason),350)}
-function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&x.sync_state!=='synced'&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
+function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
 async function flush(reason='manual'){
- if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&x.sync_state!=='synced'&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&x.sync_state!=='synced').length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
+ if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
 }
 function bind(){
  document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('input')},true);
