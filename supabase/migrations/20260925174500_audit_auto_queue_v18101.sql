@@ -171,6 +171,7 @@ declare
   v_actor uuid:=auth.uid();
   v_case public.audit_cases%rowtype;
   v_reviewed jsonb;
+  v_core jsonb;
   v_layers jsonb;
   v_learning jsonb;
   v_target jsonb;
@@ -188,6 +189,19 @@ begin
   if not found then raise sqlstate 'PT404' using message='AUDIT_CASE_NOT_FOUND'; end if;
   if v_case.status<>'pending' then raise sqlstate 'PT409' using message='AUDIT_REVIEW_CONFLICT'; end if;
 
+  v_core:=coalesce(v_case.deidentified_core_context,'{}'::jsonb);
+  v_core:=jsonb_set(
+    v_core,
+    '{audit_submission_snapshot}',
+    coalesce(v_core->'audit_submission_snapshot','{}'::jsonb)
+      || jsonb_build_object(
+        'immutable_submission',true,
+        'reviewed_at',now()::text,
+        'audited_source_sync_version',v_case.source_sync_version
+      ),
+    true
+  );
+
   if decision='corrected' then
     if corrected_fields is null or jsonb_typeof(corrected_fields)<>'object' then
       raise sqlstate '22023' using message='CORRECTED_FIELDS_REQUIRED';
@@ -201,7 +215,8 @@ begin
 
   update public.audit_cases
   set status=decision,reviewer_id=v_actor,reviewed_fields=v_reviewed,
-      review_note=nullif(btrim(note),''),reviewed_at=now()
+      review_note=nullif(btrim(note),''),reviewed_at=now(),
+      deidentified_core_context=v_core
   where id=v_case.id;
 
   update public.consultation_history
@@ -213,7 +228,7 @@ begin
     return;
   end if;
 
-  v_layers:=coalesce(v_case.deidentified_core_context->'learning_layers','{}'::jsonb);
+  v_layers:=coalesce(v_core->'learning_layers','{}'::jsonb);
   if jsonb_typeof(v_layers)<>'object' then v_layers:='{}'::jsonb; end if;
   if decision='corrected' then
     v_layers:=jsonb_set(v_layers,'{audit_corrected}',jsonb_build_object('fields',v_reviewed),true);
@@ -230,9 +245,13 @@ begin
     'target',v_target,
     'source_consultation_id',v_case.source_consultation_id,
     'snapshot_version',v_case.snapshot_version,
-    'destination',coalesce(v_case.deidentified_core_context->'destination','{}'::jsonb),
-    'hypothesis_validation',coalesce(v_case.deidentified_core_context->'hypothesis_validation','{}'::jsonb),
-    'audit_submission_snapshot',coalesce(v_case.deidentified_core_context->'audit_submission_snapshot','{}'::jsonb)
+    'source_sync_version',v_case.source_sync_version,
+    'destination',coalesce(v_core->'destination','{}'::jsonb),
+    'hypothesis_validation',coalesce(v_core->'hypothesis_validation','{}'::jsonb),
+    'clinical_plan',coalesce(v_core->'clinical_plan','{}'::jsonb),
+    'radar_learning',coalesce(v_core->'radar_learning','{}'::jsonb),
+    'protocol_usage',coalesce(v_core->'protocol_usage','[]'::jsonb),
+    'audit_submission_snapshot',coalesce(v_core->'audit_submission_snapshot','{}'::jsonb)
   );
 
   insert into public.nexa_core_cases(
@@ -253,5 +272,50 @@ $$;
 
 revoke all on function public.submit_audit_review(uuid,text,jsonb,text) from public,anon;
 grant execute on function public.submit_audit_review(uuid,text,jsonb,text) to authenticated;
+
+
+create or replace function public.get_core_dataset_summary()
+returns table(
+  total_cases bigint,
+  approved_cases bigint,
+  corrected_cases bigint,
+  documentation_ready_cases bigint,
+  clinical_plan_ready_cases bigint,
+  radar_ready_cases bigint,
+  last_published_at timestamptz
+)
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $
+declare
+  v_actor uuid:=auth.uid();
+begin
+  if v_actor is null then raise sqlstate '42501' using message='AUDIT_REVIEW_UNAUTHORIZED'; end if;
+  if not exists(select 1 from public.profiles p where p.id=v_actor and p.access_status='active' and (p.is_admin or p.is_reviewer)) then
+    raise sqlstate '42501' using message='AUDIT_REVIEW_FORBIDDEN';
+  end if;
+
+  return query
+  select
+    count(*)::bigint,
+    count(*) filter(where quality_status='approved')::bigint,
+    count(*) filter(where quality_status='corrected')::bigint,
+    count(*) filter(where jsonb_typeof(case_data)='object' and case_data<>'{}'::jsonb)::bigint,
+    count(*) filter(
+      where jsonb_typeof(learning_profile->'clinical_plan')='object'
+        and coalesce(learning_profile->'clinical_plan','{}'::jsonb)<>'{}'::jsonb
+    )::bigint,
+    count(*) filter(
+      where jsonb_typeof(learning_profile->'radar_learning')='object'
+        and coalesce(learning_profile->'radar_learning','{}'::jsonb)<>'{}'::jsonb
+    )::bigint,
+    max(audit_reviewed_at)
+  from public.nexa_core_cases;
+end;
+$;
+
+revoke all on function public.get_core_dataset_summary() from public,anon;
+grant execute on function public.get_core_dataset_summary() to authenticated;
 
 commit;
