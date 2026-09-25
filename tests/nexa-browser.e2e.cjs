@@ -168,6 +168,70 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.match(await page.locator('.field[data-key="hda"] textarea').inputValue(),/disúria/i);
   assert.equal(await page.evaluate(()=>window.radarState.facts.headache.state),'not_asked');
   assert.deepEqual(await page.evaluate(()=>window.nexaRadar.snapshot().ledger),{});
+
+  // Auditor mode uses real UI contracts with a synthetic, deidentified queue.
+  await page.evaluate(async()=>{
+    window.__qa.capabilities={access_status:'active',clinical_access:true,is_admin:true,is_reviewer:true,display_name:'Auditor QA'};
+    await window.nexaAuditFunctionalGuard18916.refreshCapabilities();
+    window.nexaOpenProfessionalAuditExact();
+  });
+  await page.waitForFunction(()=>document.getElementById('nexaAuditExact')?.classList.contains('open')&&/Painel de Auditoria/.test(document.getElementById('axContent')?.textContent||''));
+  assert.equal(await page.evaluate(()=>[...document.querySelectorAll('#axContent .ax-kpi')].find(x=>/Pendentes/.test(x.textContent))?.querySelector('strong')?.textContent),'3');
+  await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="queue"]')?.click());
+  await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Fila de casos');
+  await page.locator('#axSearch').fill('J45');
+  await page.waitForFunction(()=>/CASO QA A/.test(document.getElementById('axContent')?.textContent||''));
+  assert.doesNotMatch(await page.locator('#axContent').innerText(),/CASO QA B/);
+  await page.locator('#axSearch').fill('');
+  await page.waitForFunction(()=>/CASO QA B/.test(document.getElementById('axContent')?.textContent||''));
+
+  await page.evaluate(()=>document.querySelector('[data-ax-open="33333333-3333-4333-8333-333333333331"]')?.click());
+  await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
+  await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="comparacao"]')?.click());
+  await page.waitForFunction(()=>/ORIGINAL QA A/.test(document.getElementById('axRBody')?.textContent||'')&&/FINAL QA A/.test(document.getElementById('axRBody')?.textContent||''));
+  await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="documentacao"]')?.click());
+  const hdaEdit=page.locator('#axReview [data-ax-field="hda"]');
+  await hdaEdit.fill('FINAL QA A CORRIGIDO');
+  await page.locator('#axReview [data-ax-decision="corrected"]').click();
+  await page.waitForFunction(()=>window.__qa.auditDecisions.some(x=>x.case_id==='33333333-3333-4333-8333-333333333331'&&x.decision==='corrected'));
+  assert.equal((await page.evaluate(()=>window.__qa.auditDecisions.find(x=>x.case_id==='33333333-3333-4333-8333-333333333331').corrected_fields.hda)),'FINAL QA A CORRIGIDO');
+  await page.locator('#axReview .ax-success button').click();
+  await page.waitForFunction(()=>!document.getElementById('axReview')?.classList.contains('open')&&/Fila de casos/.test(document.getElementById('axContent')?.textContent||''));
+
+  await page.evaluate(()=>document.querySelector('[data-ax-open="33333333-3333-4333-8333-333333333332"]')?.click());
+  await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
+  await page.locator('#axReview [data-ax-decision="approved"]').click();
+  await page.waitForFunction(()=>window.__qa.auditDecisions.some(x=>x.case_id==='33333333-3333-4333-8333-333333333332'&&x.decision==='approved'));
+  await page.locator('#axReview .ax-success button').click();
+  await page.waitForFunction(()=>!document.getElementById('axReview')?.classList.contains('open'));
+
+  await page.evaluate(()=>document.querySelector('[data-ax-open="33333333-3333-4333-8333-333333333333"]')?.click());
+  await page.waitForFunction(()=>document.getElementById('axReview')?.classList.contains('open'));
+  page.once('dialog',d=>d.accept('MOTIVO QA'));
+  await page.locator('#axReview [data-ax-decision="discarded"]').click();
+  await page.waitForFunction(()=>window.__qa.auditDecisions.some(x=>x.case_id==='33333333-3333-4333-8333-333333333333'&&x.decision==='discarded'&&x.note==='MOTIVO QA'));
+  await page.locator('#axReview .ax-success button').click();
+  await page.waitForFunction(()=>!document.getElementById('axReview')?.classList.contains('open'));
+
+  await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="audited"]')?.click());
+  await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Auditados');
+  assert.match(await page.locator('#axContent').innerText(),/Corrigido/);
+  assert.match(await page.locator('#axContent').innerText(),/Aprovado/);
+  assert.match(await page.locator('#axContent').innerText(),/Descartado/);
+  await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="stats"]')?.click());
+  await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Estatísticas');
+  assert.match(await page.locator('#axContent').innerText(),/Correções/);
+  await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="learn"]')?.click());
+  await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Aprendizado');
+  assert.match(await page.locator('#axContent').innerText(),/Treinamento de modelo/);
+  assert.match(await page.locator('#axContent').innerText(),/Não realizado/);
+  console.log('Auditor approve/correct/discard, metrics and learning checked',viewport.width);
+  await page.evaluate(async()=>{
+    window.nexaCloseProfessionalAudit();
+    window.__qa.capabilities={access_status:'active',clinical_access:true,is_admin:false,is_reviewer:false,display_name:'Médico QA'};
+    await window.nexaAuditFunctionalGuard18916.refreshCapabilities();
+  });
+
   await page.evaluate(()=>window.__qa.switchUser('qa-physician-b'));
   await page.waitForFunction(()=>window.currentProf.id==='qa-physician-b');
   await page.evaluate(()=>window.__qa.speak('late','Dor torácica com síncope.',0));
