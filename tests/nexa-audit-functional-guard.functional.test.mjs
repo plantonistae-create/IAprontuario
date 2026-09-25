@@ -84,6 +84,11 @@ const auditorCode=fs.readFileSync(new URL('../nexa-auditor-exact-v18.9.js',impor
 assert.ok(auditorCode.includes('guard.capabilitiesReady'),'auditor workspace must depend on validated guard capabilities');
 assert.ok(auditorCode.includes('catch{return false}'),'auditor authorization must fail closed');
 assert.ok(auditorCode.includes('window.sb?.rpc'),'auditor workspace must route RPCs through the guarded bridge');
+assert.ok(auditorCode.includes("get_audit_queue_v2"),'auditor workspace must prefer the current queue RPC');
+assert.ok(auditorCode.includes('missingRpc(error)'),'legacy queue fallback must be limited to missing-function errors');
+assert.ok(auditorCode.includes('Métricas avançadas indisponíveis'),'KPI failures must be explicit instead of silently becoming zero');
+const compatCode=fs.readFileSync(new URL('../nexa-audit-supabase-compat-v18.9.16.js',import.meta.url),'utf8');
+for(const rpcName of ['get_audit_queue_v2','get_audit_dashboard','get_core_dataset_summary','submit_audit_review','get_my_capabilities'])assert.ok(compatCode.includes(rpcName),`compat bridge missing ${rpcName}`);
 new Function(code)();
 const guard=window.nexaAuditFunctionalGuard18916;
 assert.ok(guard,'guard de Auditoria não inicializado');
