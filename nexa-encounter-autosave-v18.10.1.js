@@ -121,6 +121,9 @@ async function syncOne(rec){
  }
 }
 async function preserve(reason='autosave',{sync=true}={}){
+ const existingId=currentEncounterId(),fields=collectFields();
+ const passiveWithoutEncounter=new Set(['before_reset','navigation','logout','pagehide','beforeunload','hidden','offline']);
+ if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
  const rec=await buildLocal(reason);if(!rec)return null;await store.put(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-local-saved',{detail:{encounter_id:rec.encounter_id,state:rec.encounter_state,reason}}));
  if(sync&&navigator.onLine!==false)void syncOne(rec);
