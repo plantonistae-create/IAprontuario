@@ -80,6 +80,9 @@ globalThis.window={
 };
 
 const code=fs.readFileSync(new URL('../nexa-audit-functional-guard-v18.9.16.js',import.meta.url),'utf8');
+const auditorCode=fs.readFileSync(new URL('../nexa-auditor-exact-v18.9.js',import.meta.url),'utf8');
+assert.ok(auditorCode.includes('guard.capabilitiesReady'),'auditor workspace must depend on validated guard capabilities');
+assert.ok(auditorCode.includes('catch{return false}'),'auditor authorization must fail closed');
 new Function(code)();
 const guard=window.nexaAuditFunctionalGuard18916;
 assert.ok(guard,'guard de Auditoria não inicializado');
