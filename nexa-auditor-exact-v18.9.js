@@ -16,7 +16,7 @@ function title(c){return String(field(c,'hipotese_diagnostica')||field(c,'queixa
 function date(v){try{return new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch{return'—'}}
 function coverage(c){const keys=['queixa_principal','hda','antecedentes','comorbidades','exame_fisico','hipotese_diagnostica','conduta'];return Math.round(keys.filter(k=>String(field(c,k)).trim()).length/keys.length*100)}
 function mode(c){return String(c?.deidentified_core_context?.case_mode||c?.core_context?.case_mode||c?.deidentified_fields?.case_mode||'PS').toUpperCase().startsWith('AMB')?'Amb.':'PS'}
-async function rpc(name,args){if(typeof sb==='undefined'||!sb)throw new Error('Sessão do NEXA Core indisponível.');const {data,error}=await sb.rpc(name,args);if(error)throw error;return data}
+async function rpc(name,args){const bridge=window.sb?.rpc?window.sb:(typeof sb!=='undefined'&&sb?sb:null);if(!bridge?.rpc)throw new Error('Sessão do NEXA Core indisponível.');const {data,error}=await bridge.rpc(name,args);if(error)throw error;return data}
 function installStyle(){if($('nexaAuditorExactStyle'))return;const s=document.createElement('style');s.id='nexaAuditorExactStyle';s.textContent=`
 :root{--ax-bg:#061623;--ax-side:#061522;--ax-panel:#0b2130;--ax-panel2:#0e293a;--ax-line:#17394a;--ax-text:#eef8fb;--ax-muted:#8ea6b5;--ax-teal:#1ad9bc;--ax-cyan:#23a8cf;--ax-green:#1ec58e;--ax-red:#ff5872;--ax-orange:#f5a43e;--ax-blue:#4b8cff;--ax-shadow:0 16px 40px rgba(0,0,0,.24)}
 html[data-theme="light"],html[data-nexa-theme="light"]{--ax-bg:#eef4f7;--ax-side:#f8fbfd;--ax-panel:#fff;--ax-panel2:#f6f9fb;--ax-line:#d7e3ea;--ax-text:#0b2034;--ax-muted:#6d8392;--ax-shadow:0 12px 30px rgba(20,52,70,.1)}
