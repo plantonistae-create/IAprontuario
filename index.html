@@ -3914,38 +3914,65 @@ function pauseSession(){
 
   function nexaPersistSession(){
     if(!currentProf?.id)return;
-    try{
-      localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify(nexaSessionSnapshot()));
-      const t=q('nexaSessionAutosaveText');if(t){t.textContent='Salvo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},900)}
-    }catch{}
+    const api=window.nexaEncounterAutosave18101;
+    if(api?.preserve){
+      try{localStorage.removeItem(NEXA_SESSION_KEY)}catch{}
+      Promise.resolve(api.preserve('session_autosave')).then(rec=>{
+        if(!rec?.encounter_id||rec.owner_user_id!==currentProf?.id)return;
+        try{localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify({
+          owner:currentProf.id,encounter_id:rec.encounter_id,version:'18.10.1-pointer',
+          saved_at:new Date().toISOString(),state:nexaSessionState,
+          stage:document.body.dataset.nexaStage||'radar'
+        }))}catch{}
+      }).catch(()=>{});
+    }else{
+      try{localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify(nexaSessionSnapshot()))}catch{}
+    }
+    const t=q('nexaSessionAutosaveText');if(t){t.textContent='Salvo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},900)}
   }
   function nexaPersistSessionSoon(){clearTimeout(nexaPersistTimer);nexaPersistTimer=setTimeout(nexaPersistSession,350)}
   function nexaHasMeaningfulSession(){
     const f=nexaSessionFields();return !!(recording||audioBlob||Object.values(f).some(v=>String(v||'').trim())||nexaSessionState!=='idle');
   }
-  function nexaClearPersistedSession(){try{localStorage.removeItem(NEXA_SESSION_KEY)}catch{}q('nexaRestoreBanner')?.setAttribute('hidden','')}
+  function nexaClearPersistedSession(){try{localStorage.removeItem(NEXA_SESSION_KEY)}catch{}try{window.nexaEncounterAutosave18101?.rotateEncounter?.()}catch{}q('nexaRestoreBanner')?.setAttribute('hidden','')}
   function nexaRestoreSession(snap){
     if(!snap||!currentProf?.id||snap.owner!==currentProf.id)return;
+    if(snap.encounter_id)window.nexaEncounterAutosave18101?.setActiveId?.(snap.encounter_id);
     Object.entries(snap.fields||{}).forEach(([k,v])=>{const el=ta(k);if(el)el.value=v||''});
     try{
+      if(snap.processing_meta)lastProcessedMeta=snap.processing_meta;
       hypothesisReview={...hypothesisReview,...(snap.hypothesisReview||{})};
       nexaAlternativeHypotheses=[...(snap.alternatives||[])];nexaDiscardedHypotheses=[...(snap.discarded||[])];
       updateHypothesisReviewUI();renderAlternativeHypotheses();
     }catch{}
-    window.nexaRadar?.restore(snap.radar,currentProf.id);
+    if(snap.radar)window.nexaRadar?.restore(snap.radar,currentProf.id);
     openSession();setStage(snap.stage||'summary');nexaSetSessionState(snap.state||'structured');
     q('nexaRestoreBanner')?.setAttribute('hidden','');show('Atendimento recuperado do autosave local.');
   }
-  function nexaCheckRecoverableSession(){
+  async function nexaCheckRecoverableSession(){
     try{
       const raw=localStorage.getItem(NEXA_SESSION_KEY);if(!raw)return;
-      const snap=JSON.parse(raw);if(!snap?.saved_at||!currentProf?.id||snap.owner!==currentProf.id)return;
+      const pointer=JSON.parse(raw);if(!pointer?.saved_at||!currentProf?.id||pointer.owner!==currentProf.id)return;
+      let snap=pointer,rec=null;
+      if(pointer.encounter_id){
+        const api=window.nexaEncounterAutosave18101;
+        if(!api?.get){setTimeout(()=>void nexaCheckRecoverableSession(),500);return}
+        rec=await api.get(pointer.encounter_id);
+        if(!rec||rec.owner_user_id!==currentProf.id)return;
+        const meta=rec.processing_meta?.encounter_autosave||{};
+        snap={owner:currentProf.id,encounter_id:rec.encounter_id,saved_at:pointer.saved_at,
+          state:pointer.state||meta.state||'structured',stage:pointer.stage||'summary',
+          fields:rec.fields||{},radar:meta.radar||null,processing_meta:rec.processing_meta||{},
+          hypothesisReview:meta.hypothesisReview||rec.processing_meta?.hypothesisReview||{},
+          alternatives:meta.alternatives||[],discarded:meta.discarded||[]};
+      }
       const hasContent=Object.values(snap.fields||{}).some(v=>String(v||'').trim())||snap.state!=='idle';
       if(!hasContent)return;
       q('nexaRestoreBanner')?.removeAttribute('hidden');
-      q('nexaRestoreSessionBtn')?.addEventListener('click',()=>nexaRestoreSession(snap),{once:true});
-      q('nexaDiscardSessionBtn')?.addEventListener('click',()=>nexaClearPersistedSession(),{once:true});
-    }catch{}
+      const restore=q('nexaRestoreSessionBtn'),discard=q('nexaDiscardSessionBtn');
+      if(restore)restore.onclick=async()=>{if(rec)await window.nexaEncounterAutosave18101?.adoptExisting?.({...rec,id:rec.encounter_id});nexaRestoreSession(snap)};
+      if(discard)discard.onclick=()=>nexaClearPersistedSession();
+    }catch(e){console.warn('NEXA autosave recovery unavailable',e)}
   }
   function nexaConfirmReset(){
     if(!nexaHasMeaningfulSession())return true;
@@ -4408,6 +4435,18 @@ Object.defineProperty(window,'currentProf',{configurable:true,get:()=>currentPro
 Object.defineProperty(window,'activeHistoryId',{configurable:true,get:()=>activeHistoryId,set:value=>activeHistoryId=value});
 Object.defineProperty(window,'lastProcessedMeta',{configurable:true,get:()=>lastProcessedMeta,set:value=>lastProcessedMeta=value});
 window.sb=sb;window.collect=collect;window.sessionHeaders=sessionHeaders;
+window.nexaClinicalBridge18101={
+  collect:()=>collect(),
+  state:()=>nexaSessionState,
+  meta:()=>({
+    lastProcessedMeta:structuredClone(lastProcessedMeta||{}),
+    hypothesisReview:structuredClone(hypothesisReview||{}),
+    alternatives:structuredClone(nexaAlternativeHypotheses||[]),
+    discarded:structuredClone(nexaDiscardedHypotheses||[]),
+    clinicalPlan:structuredClone(clinicalPlanCache||{})
+  }),
+  restore:snap=>nexaRestoreSession(snap)
+};
 window.fill=data=>{clearClinicalSession();fill(data);};
 
 // Adapter uses the actual lexical application state, not DOM scraping or a second clinical store.
