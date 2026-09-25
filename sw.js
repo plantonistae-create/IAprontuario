@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-9-8-timer-sic-20260907";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260907-v1898";
+const CACHE_NAME="nexa-v18-10-0-contextual-radar-20260914";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260914-v18100";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){

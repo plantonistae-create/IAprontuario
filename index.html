@@ -2360,7 +2360,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div class="plan-box"><h4>🧪 Exames sugeridos</h4><div class="clinical-validation-note plan-validation">⚠ Sujeito à validação pelo profissional</div><div class="plan-status" id="examsPlanStatus">Ainda não gerado.</div><div class="plan-missing" id="examsMissing"></div><textarea id="suggestedExams" placeholder="Os exames sugeridos aparecerão automaticamente após a validação da hipótese."></textarea><div class="copy-actions"><button class="btn ghost" id="copySuggestedExamsBtn">Copiar exames</button></div></div>
 <div class="plan-box"><h4>💊 Montagem da prescrição</h4><div class="clinical-validation-note plan-validation">⚠ Sujeito à validação pelo profissional</div><div class="plan-status" id="rxPlanStatus">Ainda não gerada.</div><div class="plan-missing" id="rxMissing"></div><div class="copy-actions" id="rxMissingActions" style="display:none;margin-top:8px"><button class="btn ghost" id="informRxDataBtn" type="button">Informar dado adicional</button></div><div id="rxMissingDataPanel" style="display:none;margin-top:8px"><label>Dados adicionais para a prescrição</label><textarea id="rxMissingDataInput" placeholder="Opcional: informe algum dado que possa modificar a prescrição, por exemplo gestação/lactação, função renal/hepática, alergia ou medicação em uso."></textarea><div class="copy-actions" style="margin-top:8px"><button class="btn" id="applyRxMissingDataBtn" type="button">Atualizar prescrição</button><button class="btn ghost" id="cancelRxMissingDataBtn" type="button">Cancelar</button></div></div><div class="rx-composer"><div class="rx-toolbar"><button class="btn ghost" id="selectSuggestedRxBtn" type="button">Usar esquema sugerido</button><button class="btn ghost" id="addManualRxBtn" type="button">+ Adicionar medicamento</button></div><div class="rx-options" id="rxOptions"><div class="hint">Gere a prescrição para ver opções selecionáveis.</div></div><div class="rx-manual" id="rxManualForm"><div class="rx-manual-grid"><select id="rxMRoute"><option value="oral">Via oral</option><option value="topica">Uso tópico</option><option value="inalatoria">Via inalatória</option><option value="intramuscular">Via intramuscular</option><option value="endovenosa">Via endovenosa</option><option value="subcutanea">Via subcutânea</option><option value="nasal">Via nasal</option><option value="oftalmica">Via oftálmica</option><option value="otologica">Via otológica</option><option value="retal">Via retal</option><option value="vaginal">Via vaginal</option><option value="sublingual">Via sublingual</option><option value="outra">Outra via</option></select><input id="rxMName" placeholder="Nome + dose/apresentação (ex.: Cefalexina 500 mg)"/><input id="rxMQty" placeholder="Quantidade (ex.: 28 comprimidos)"/></div><textarea id="rxMHow" placeholder="Como tomar/aplicar — escreva exatamente como deseja na receita (ex.: Tomar 1 comprimido, via oral, de 6 em 6 horas, por 7 dias.)" style="margin-top:7px;min-height:88px"></textarea><label style="display:flex;gap:7px;align-items:center;margin-top:8px;font-size:10px"><input id="rxMSaveFav" type="checkbox"/> Salvar como favorito pessoal</label><div class="rx-toolbar" style="margin-top:7px"><button class="btn" id="saveManualRxBtn" type="button">Adicionar à receita</button><button class="btn ghost" id="cancelManualRxBtn" type="button">Cancelar</button></div></div><div class="rx-final" id="rxFinal"></div><textarea id="suggestedPrescription" style="display:none" wrap="off"></textarea><div class="copy-actions"><button class="btn ghost" id="copyPrescriptionBtn">Copiar receita</button><button class="btn ghost" id="copyGuidanceBtn">Copiar orientações</button><button class="btn ghost" id="copyPrescriptionGuidanceBtn">Copiar receita + orientações</button></div><div class="plan-status" id="rxGuidancePreview"></div></div></div>
 </div>
-</div><div class="field workflow-step" data-key="conduta" id="conductBlock"><div class="field-head"><label>Condutas</label><button class="field-copy-btn" id="copyConductBtn" type="button">⧉ Copiar</button></div><div class="conduct-picker"><div class="conduct-picker-head"><strong>Condutas cadastradas</strong><button class="btn ghost" id="nexaTimestampConductBtn" type="button">+ Registrar horário</button><button class="btn ghost" id="toggleConductPickerBtn">Selecionar condutas</button></div><div class="conduct-picker-body" id="conductPickerBody"><div class="learning">Selecione uma ou mais condutas da sua biblioteca.</div><div id="conductList"></div><div class="conduct-actions"><button class="btn" id="insertSelectedConductsBtn">Adicionar selecionadas</button><button class="btn ghost" id="clearConductSelectionBtn">Desmarcar</button><button class="btn ghost" id="addConductTemplateBtn">+ Cadastrar conduta</button></div><div class="conduct-form" id="conductForm"><label for="conductContentInput">Nova conduta</label><textarea id="conductContentInput" placeholder="Digite a conduta exatamente como deseja utilizá-la..." style="min-height:120px"></textarea><div class="conduct-actions"><button class="btn" id="saveConductTemplateBtn">Salvar conduta</button><button class="btn ghost" id="cancelConductTemplateBtn">Cancelar</button></div></div></div></div><textarea placeholder="Selecione condutas ou digite/edite manualmente..." style="min-height:110px"></textarea></div><div class="field suggestions" data-key="orientacoes_alta"><div class="field-head"><label>Orientações para alta</label><button aria-label="Copiar Orientações para alta" class="field-copy-btn" data-copy-field="orientacoes_alta" id="copyFieldGuidanceTextBtn" type="button">⧉ Copiar</button></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea></div><div class="field suggestions" data-key="sugestoes_perguntas"><div class="field-head"><label>Sugestões de perguntas</label></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea></div><div class="final-record-actions" id="finalRecordActions"><div class="final-record-copy"><strong>Prontuário pronto para copiar</strong><span>QP, HDA, alergias, comorbidades, medicações, antecedentes, exame físico, hipótese validada e condutas.</span></div><button class="btn ghost full-copy-btn" id="copyBtn">Copiar prontuário completo</button></div>
+</div><div class="field workflow-step" data-key="conduta" id="conductBlock"><div class="field-head"><label>Condutas</label><button class="field-copy-btn" id="copyConductBtn" type="button">⧉ Copiar</button></div><div class="conduct-picker"><div class="conduct-picker-head"><strong>Condutas cadastradas</strong><button class="btn ghost" id="nexaTimestampConductBtn" type="button">+ Registrar horário</button><button class="btn ghost" id="toggleConductPickerBtn">Selecionar condutas</button></div><div class="conduct-picker-body" id="conductPickerBody"><div class="learning">Selecione uma ou mais condutas da sua biblioteca.</div><div id="conductList"></div><div class="conduct-actions"><button class="btn" id="insertSelectedConductsBtn">Adicionar selecionadas</button><button class="btn ghost" id="clearConductSelectionBtn">Desmarcar</button><button class="btn ghost" id="addConductTemplateBtn">+ Cadastrar conduta</button></div><div class="conduct-form" id="conductForm"><label for="conductContentInput">Nova conduta</label><textarea id="conductContentInput" placeholder="Digite a conduta exatamente como deseja utilizá-la..." style="min-height:120px"></textarea><div class="conduct-actions"><button class="btn" id="saveConductTemplateBtn">Salvar conduta</button><button class="btn ghost" id="cancelConductTemplateBtn">Cancelar</button></div></div></div></div><textarea id="conductRecordText" placeholder="Selecione condutas ou digite/edite manualmente..." style="min-height:110px"></textarea></div><div class="field suggestions" data-key="orientacoes_alta"><div class="field-head"><label>Orientações para alta</label><button aria-label="Copiar Orientações para alta" class="field-copy-btn" data-copy-field="orientacoes_alta" id="copyFieldGuidanceTextBtn" type="button">⧉ Copiar</button></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea></div><div class="field suggestions" data-key="sugestoes_perguntas"><div class="field-head"><label>Sugestões de perguntas</label></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea></div><div class="final-record-actions" id="finalRecordActions"><div class="final-record-copy"><strong>Prontuário pronto para copiar</strong><span>QP, HDA, alergias, comorbidades, medicações, antecedentes, exame físico, hipótese validada e condutas.</span></div><button class="btn ghost full-copy-btn" id="copyBtn">Copiar prontuário completo</button></div>
 
 
 
@@ -2542,6 +2542,9 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 
 
 </div>
+<link rel="stylesheet" href="./nexa-radar.css?v=20260915">
+<script src="./nexa-radar-engine.js?v=20260915"></script>
+<script src="./nexa-radar-controller.js?v=20260915"></script>
 <script>
 'use strict';
 (async function(){
@@ -2553,22 +2556,23 @@ function setBanner(container,msg,error=false){container.replaceChildren();if(!ms
 async function ensureSupabase(){if(window.supabase?.createClient)return;for(const src of ['https://unpkg.com/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js']){try{await new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});if(window.supabase?.createClient)return}catch(e){}}throw new Error('Não foi possível carregar a autenticação Supabase.')}
 try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);applyTheme(n)};
+let clinicalEpoch=0;
 let currentProf=null,authMode='signin',styleExamples=[],history=[],conductTemplates=[],activeHistoryId=null,lastProcessedMeta=null;
-const fieldKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica'],sideKeys=['orientacoes_alta','sugestoes_perguntas'],manualKeys=['exame_fisico','conduta'];
-const labels={queixa_principal:'QUEIXA PRINCIPAL',hda:'HISTÓRIA DA DOENÇA ATUAL',comorbidades:'COMORBIDADES',antecedentes:'ANTECEDENTES',medicacoes:'MEDICAÇÕES EM USO',alergias:'ALERGIAS',hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA',exame_fisico:'EXAME FÍSICO',conduta:'CONDUTAS'};
-function ta(k){return document.querySelector(`.field[data-key="${k}"] textarea`)}function mode(){return document.querySelector('input[name="caseMode"]:checked')?.value||'upper'}function applyCase(s){return mode()==='upper'?String(s||'').toUpperCase():String(s||'')}
+const fieldKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica'],sideKeys=['orientacoes_alta','sugestoes_perguntas'],manualKeys=['exame_fisico','sinais_vitais','conduta'];
+const labels={queixa_principal:'QUEIXA PRINCIPAL',hda:'HISTÓRIA DA DOENÇA ATUAL',comorbidades:'COMORBIDADES',antecedentes:'ANTECEDENTES',medicacoes:'MEDICAÇÕES EM USO',alergias:'ALERGIAS',hipotese_diagnostica:'HIPÓTESE DIAGNÓSTICA',exame_fisico:'EXAME FÍSICO',sinais_vitais:'SINAIS VITAIS',conduta:'CONDUTAS'};
+function ta(k){return k==='conduta'?$('conductRecordText'):document.querySelector(`.field[data-key="${k}"] textarea`)}function mode(){return document.querySelector('input[name="caseMode"]:checked')?.value||'upper'}function applyCase(s){return mode()==='upper'?String(s||'').toUpperCase():String(s||'')}
 function norm(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
 function esc(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;')}
 function normalizeHda(s){s=String(s||'').trim();if(!s)return s;s=s.replace(/\s*(?:Nega|Sem)\s+(?:outras|demais)\s+queixas\.?\s*$/i,'').trim();if(s&&!/[.!?]$/.test(s))s+='.';return s+' Sem demais queixas.'}function normalizeOutput(d){d={...(d||{})};if(d.hda)d.hda=normalizeHda(d.hda);return d}
 function saveState(k,t){$('saveState').className='save-state '+k;$('saveState').textContent=t}function show(msg,e=false){setBanner($('bannerArea'),msg,e)}
 function collect(){const o={};[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>o[k]=ta(k)?.value||'');o._include_hipotese=$('includeDiagnosis').checked;return o}
-function fill(d){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(!ta(k))return;ta(k).value=applyCase(d[k]||'');ta(k).closest('.field').classList.toggle('filled',!!d[k])});$('includeDiagnosis').checked=d._include_hipotese===true;updateWorkflow()}
+function fill(d){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(!ta(k))return;ta(k).value=applyCase(d[k]||'');ta(k).closest('.field').classList.toggle('filled',!!d[k])});$('includeDiagnosis').checked=d._include_hipotese===true;updateWorkflow();window.nexaRadar?.schedule()}
 function clearFields(){[...fieldKeys,...sideKeys,...manualKeys].forEach(k=>{if(ta(k)){ta(k).value='';ta(k).closest('.field').classList.remove('filled')}});$('includeDiagnosis').checked=false;updateWorkflow()}
 function updateWorkflow(){const h=!!ta('hda')?.value.trim(),e=!!ta('exame_fisico')?.value.trim();$('examPhysicalBlock').classList.toggle('ready',h);$('conductBlock').classList.toggle('ready',h||e)}document.querySelector('.panel-right').addEventListener('input',ev=>{if(ev.target instanceof HTMLTextAreaElement){saveState('unsaved','não salvo');updateWorkflow()}});
 function setAuthMode(m){authMode=m;const up=m==='signup';$('signInTab').classList.toggle('active',!up);$('signUpTab').classList.toggle('active',up);$('authName').style.display=up?'block':'none';$('authNameLabel').style.display=up?'block':'none';$('forgotPasswordBtn').style.display=up?'none':'block';$('authSubmitBtn').textContent=up?'Criar conta':'Entrar';setBanner($('loginBanner'),'')}$('signInTab').onclick=()=>setAuthMode('signin');$('signUpTab').onclick=()=>setAuthMode('signup');
-async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.rpc('get_my_capabilities');if(error)throw error;const p=Array.isArray(data)?data[0]:data;if(p)return{id:u.id,name:p.display_name||fallback,email:u.email||'',access_status:p.access_status||'pending',is_admin:!!p.is_admin,is_reviewer:!!p.is_reviewer,clinical_access:!!p.clinical_access};return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}catch(e){console.warn('Capacidades NEXA Core indisponíveis:',e);return{id:u.id,name:fallback,email:u.email||'',access_status:'active',is_admin:false,is_reviewer:false,clinical_access:true}}}
-async function enter(session){if(!session?.user)return;currentProf=await getProfile(session.user);if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
-async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};$('logoutBtn').onclick=async()=>{currentProf=null;await sb.auth.signOut()};$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_IN'&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){$('loginGate').style.display='flex';$('mainApp').style.display='none';$('nexaBottomNav').style.display='none';$('authPassword').value=''}});
+async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.rpc('get_my_capabilities');if(error)throw error;const p=Array.isArray(data)?data[0]:data;if(p)return{id:u.id,name:p.display_name||fallback,email:u.email||'',access_status:p.access_status||'pending',is_admin:!!p.is_admin,is_reviewer:!!p.is_reviewer,clinical_access:!!p.clinical_access};return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}catch(e){console.warn('Capacidades NEXA Core indisponíveis:',e);return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}}
+async function enter(session){if(!session?.user)return;if(currentProf?.id&&currentProf.id!==session.user.id)clearClinicalSession();const authEpoch=clinicalEpoch;const incomingProf=await getProfile(session.user);if(authEpoch!==clinicalEpoch)return;currentProf=incomingProf;window.nexaRadar?.setOwner(currentProf.id);nexaCheckRecoverableSession();if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
+async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};$('logoutBtn').onclick=async()=>{currentProf=null;await sb.auth.signOut()};$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_IN'&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){clearClinicalSession();currentProf=null;$('loginGate').style.display='flex';$('mainApp').style.display='none';$('nexaBottomNav').style.display='none';$('authPassword').value=''}});
 function item(container,title,preview,onopen,ondelete){const r=document.createElement('div');r.className='item';const b=document.createElement('div');b.style.cursor='pointer';const t=document.createElement('div');t.className='item-title';t.textContent=title;const p=document.createElement('div');p.className='item-preview';p.textContent=preview||'';b.append(t,p);if(onopen)b.onclick=onopen;r.appendChild(b);if(ondelete){const x=document.createElement('button');x.textContent='remover';x.onclick=e=>{e.stopPropagation();ondelete()};r.appendChild(x)}container.appendChild(r)}
 async function loadExamples(){
   if(!currentProf)return;
@@ -2667,7 +2671,7 @@ function renderHistory(){
   $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
   if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -3200,6 +3204,7 @@ let realtimePc=null,realtimeDc=null,realtimeTranscript='',realtimeTranscriptDelt
 function radarSetLive(state,text){const el=$('radarLive');if(!el)return;el.classList.remove('on','err');if(state)el.classList.add(state);$('radarLiveText').textContent=text}
 function radarEsc(x){return String(x??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
 function radarRender(data=radarState){
+  if(window.nexaRadar){window.nexaRadar.recalculate();return;}
   radarState=data||radarState;
   const allCovered=(data.covered||[]),allMissing=(data.missing||[]),allQuestions=(data.questions||[]),allAlerts=(data.alerts||[]);
   const covered=allCovered.slice(0,8),missing=allMissing.slice(0,8),questions=allQuestions.slice(0,4),alerts=allAlerts.slice(0,4);
@@ -3246,22 +3251,98 @@ function radarRender(data=radarState){
     }
   }
   if($('nexaRadarQuestionSync')){
-    $('nexaRadarQuestionSync').textContent=recording?(paused?'Pausado':'Atualizando em tempo real'):'Aguardando gravação';
+    $('nexaRadarQuestionSync').textContent=recording?(sessionPaused?'Pausado':'Atualizando em tempo real'):'Aguardando gravação';
   }
 
   $('radarAlerts').innerHTML=alerts.length
     ?`<div class="nexa-radar-alerts"><h4>Atenções / Alertas</h4>${alerts.map(x=>`<div class="nexa-radar-alert-row"><span>△</span><span>${radarEsc(x)}</span></div>`).join('')}</div>`
     :'';
 }
-function resetRealtimeRadar(){realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0;radarBusy=false;radarState={covered:[],missing:[],questions:[],alerts:[],chief_complaint:''};radarRender(radarState);if($('radarMeta'))$('radarMeta').textContent='Buffer temporário · não integra o prontuário.';radarSetLive('', 'Aguardando gravação')}
-async function radarAnalyze(force=false){if(radarBusy||!recording)return;const text=(realtimeTranscript+' '+realtimeTranscriptDelta).trim();if(text.length<30)return;if(!force&&text.length-radarLastChars<35)return;radarBusy=true;try{const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)return;const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeRadarPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({transcript:text.slice(-12000),previous_state:radarState,clinical_context:collect(),case_mode:mode(),app_version:APP_CONFIG.appVersion})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'RADAR_FAILED');radarLastChars=text.length;radarRender(d);if($('radarMeta'))$('radarMeta').textContent=`Radar atualizado · ${Math.round(text.length/100)*100}+ caracteres temporários.`}catch(e){console.warn('Radar:',e)}finally{radarBusy=false}}
-function handleRealtimeEvent(evt){let d;try{d=JSON.parse(evt.data)}catch{return}if(d.type==='conversation.item.input_audio_transcription.delta'){realtimeTranscriptDelta+=d.delta||'';return}if(d.type==='conversation.item.input_audio_transcription.completed'){const t=String(d.transcript||realtimeTranscriptDelta||'').trim();if(t)realtimeTranscript+=(realtimeTranscript?' ':'')+t;realtimeTranscriptDelta='';radarAnalyze(false);return}if(d.type==='error'){console.warn('Realtime error',d.error);radarSetLive('err','Radar indisponível');if($('radarMeta'))$('radarMeta').textContent='Falha na sessão em tempo real. A gravação principal continua normalmente.'}}
-async function startRealtimeRadar(mediaStream){try{if(!APP_CONFIG.realtimeCallPath||!window.RTCPeerConnection)throw new Error('WebRTC indisponível');radarSetLive('', 'Conectando radar…');const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada');const pc=new RTCPeerConnection();realtimePc=pc;const track=mediaStream.getAudioTracks()[0];if(!track)throw new Error('Áudio indisponível');pc.addTrack(track,mediaStream);const dc=pc.createDataChannel('oai-events');realtimeDc=dc;dc.onmessage=handleRealtimeEvent;let opened=false;dc.onopen=()=>{opened=true;radarSetLive('on','Radar ativo')};dc.onclose=()=>{if(recording&&!radarFallbackActive)startRadarChunkFallback(mediaStream)};const offer=await pc.createOffer();await pc.setLocalDescription(offer);const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeCallPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({sdp:offer.sdp,device_hint:matchMedia('(max-width:760px)').matches?'near_field':'far_field',app_version:APP_CONFIG.appVersion})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error((d.error||'REALTIME_SESSION_FAILED')+(d.detail?': '+d.detail:''));await pc.setRemoteDescription({type:'answer',sdp:d.sdp});radarTimer=setInterval(()=>radarAnalyze(false),4000);setTimeout(()=>{if(recording&&!opened&&!radarFallbackActive)startRadarChunkFallback(mediaStream)},3000)}catch(e){console.warn('Realtime radar startup',e);startRadarChunkFallback(mediaStream)}}
-async function sendRadarChunk(blob){if(!blob?.size||!recording)return;try{const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)return;const fd=new FormData();fd.append('audio',blob,'radar.webm');fd.append('mode','chunk');const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeCallPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:fd});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'RADAR_CHUNK_FAILED');const t=String(d.text||'').trim();if(t){realtimeTranscript+=(realtimeTranscript?' ':'')+t;radarSetLive('on','Radar ativo');if($('radarMeta'))$('radarMeta').textContent='Radar ativo · modo compatível iPhone.';radarAnalyze(false)}}catch(e){console.warn('Radar chunk fallback',e);radarSetLive('err','Radar indisponível');if($('radarMeta'))$('radarMeta').textContent='Falha no Radar. A gravação principal continua normalmente.'}}
-function startRadarChunkFallback(mediaStream){if(radarFallbackActive||!recording)return;radarFallbackActive=true;try{realtimeDc?.close()}catch{}try{realtimePc?.close()}catch{}realtimeDc=null;realtimePc=null;radarSetLive('', 'Ativando radar…');const loop=()=>{if(!recording||!radarFallbackActive)return;try{const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';const parts=[];const rec=new MediaRecorder(mediaStream,{mimeType:mime});radarChunkRecorder=rec;rec.ondataavailable=e=>e.data.size&&parts.push(e.data);rec.onstop=()=>{radarChunkRecorder=null;const blob=new Blob(parts,{type:mime});sendRadarChunk(blob).finally(()=>{if(recording&&radarFallbackActive)radarChunkStopper=setTimeout(loop,80)})};rec.start();radarChunkStopper=setTimeout(()=>{try{if(rec.state!=='inactive')rec.stop()}catch{}},3500)}catch(e){console.warn('Radar fallback recorder',e);radarSetLive('err','Radar indisponível')}};loop()}
-function stopRealtimeRadar({wipe=true}={}){radarFallbackActive=false;if(radarChunkStopper){clearTimeout(radarChunkStopper);radarChunkStopper=null}try{if(radarChunkRecorder&&radarChunkRecorder.state!=='inactive')radarChunkRecorder.stop()}catch{}radarChunkRecorder=null;if(radarTimer){clearInterval(radarTimer);radarTimer=null}try{realtimeDc?.close()}catch{}try{realtimePc?.close()}catch{}realtimeDc=null;realtimePc=null;if(wipe){realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0}radarSetLive('', 'Gravação finalizada');if($('radarMeta'))$('radarMeta').textContent='Buffer do Radar descartado. Áudio completo reservado à transcrição final.'}
+function resetRealtimeRadar(){window.nexaRadar?.reset(currentProf?.id||'');realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0;radarBusy=false;radarState={covered:[],missing:[],questions:[],alerts:[],chief_complaint:''};radarRender(radarState);if($('radarMeta'))$('radarMeta').textContent='Buffer temporário · não integra o prontuário.';radarSetLive('', 'Aguardando gravação')}
+async function radarAnalyze(force=false){window.nexaRadar?.recalculate({remote:true,force});}
 
-let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,seconds=0,timerInt=null,discardStoppedRecording=false;
+// Same microphone stream as the recorder. Complete utterances only enter clinical analysis.
+const radarTranscriptBuffer=NexaRadarController.createTranscriptBuffer();
+let radarTransportRevision=0,radarTransportAbort=null,radarConnectTimeout=null,radarChunkSequence=0,radarChunkQueue=[],radarChunkSending=false;
+function radarTransportStatus(status){window.nexaRadar?.setTranscriptStatus(status);}
+function handleRealtimeEvent(evt,revision=radarTransportRevision){
+  if(revision!==radarTransportRevision||!recording)return;
+  let d;try{d=JSON.parse(evt.data)}catch{return;}
+  if(d.type==='error'||d.type==='conversation.item.input_audio_transcription.failed'){radarTransportStatus('unavailable');return;}
+  if(['input_audio_buffer.committed','conversation.item.created','conversation.item.input_audio_transcription.completed'].includes(d.type)&&radarTranscriptBuffer.ingest(d)){
+    realtimeTranscript=radarTranscriptBuffer.text;realtimeTranscriptDelta='';radarTransportStatus(sessionPaused?'paused':'live');radarAnalyze(false);
+  }
+}
+async function startRealtimeRadar(mediaStream){
+  const revision=++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
+  const current=()=>revision===radarTransportRevision&&recording;
+  try{
+    if(!current()||!$('consent').checked)return;
+    if(!APP_CONFIG.realtimeCallPath||!window.RTCPeerConnection)throw new Error('WebRTC indisponível');
+    radarTransportStatus('connecting');const {data:{session}}=await sb.auth.getSession();if(!current())return;if(!session?.access_token)throw new Error('Sessão expirada');
+    const pc=new RTCPeerConnection();realtimePc=pc;const track=mediaStream.getAudioTracks()[0];if(!track)throw new Error('Áudio indisponível');pc.addTrack(track,mediaStream);
+    const dc=pc.createDataChannel('oai-events');realtimeDc=dc;dc.onmessage=evt=>handleRealtimeEvent(evt,revision);
+    let opened=false;dc.onopen=()=>{if(current()){opened=true;clearTimeout(radarConnectTimeout);radarTransportStatus(sessionPaused?'paused':'live');}};
+    dc.onclose=()=>{if(current()&&!radarFallbackActive)startRadarChunkFallback(mediaStream,revision);};
+    radarConnectTimeout=setTimeout(()=>{if(current()&&!opened)startRadarChunkFallback(mediaStream,revision);},10000);
+    const offer=await pc.createOffer();if(!current())return;await pc.setLocalDescription(offer);
+    const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeCallPath,{method:'POST',signal,headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({sdp:offer.sdp,device_hint:matchMedia('(max-width:760px)').matches?'near_field':'far_field',app_version:APP_CONFIG.appVersion})});
+    const d=await r.json();if(!current()||radarFallbackActive)return;if(!r.ok)throw new Error('REALTIME_SESSION_FAILED');await pc.setRemoteDescription({type:'answer',sdp:d.sdp});
+  }catch{if(current()&&!radarFallbackActive)startRadarChunkFallback(mediaStream,revision);}
+}
+async function drainRadarChunks(revision){
+  if(radarChunkSending||revision!==radarTransportRevision)return;
+  radarChunkSending=true;
+  try{
+    while(radarChunkQueue.length&&revision===radarTransportRevision&&recording){
+      const {blob,id}=radarChunkQueue.shift();
+      const timeout=new AbortController(),abort=()=>timeout.abort();radarTransportAbort?.signal.addEventListener('abort',abort,{once:true});const deadline=setTimeout(abort,18000);
+      try{
+        const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada');
+        if(revision!==radarTransportRevision)return;
+        const fd=new FormData();fd.append('audio',blob,blob.type.includes('mp4')?'radar.mp4':'radar.webm');fd.append('mode','chunk');
+        const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeCallPath,{method:'POST',signal:timeout.signal,headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:fd});
+        const d=await r.json();if(!r.ok)throw new Error('RADAR_CHUNK_FAILED');
+        if(revision!==radarTransportRevision||!recording)return;
+        handleRealtimeEvent({data:JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript:String(d.text||'')})},revision);
+      }catch{if(revision===radarTransportRevision)radarTransportStatus('unavailable');}
+      finally{clearTimeout(deadline);radarTransportAbort?.signal.removeEventListener('abort',abort);}
+    }
+  }finally{if(revision===radarTransportRevision)radarChunkSending=false;}
+}
+function radarAudioMime(){return ['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(type=>MediaRecorder.isTypeSupported(type))||'';}
+function startRadarChunkFallback(mediaStream,revision=radarTransportRevision){
+  if(radarFallbackActive||!recording||revision!==radarTransportRevision)return;
+  radarFallbackActive=true;clearTimeout(radarConnectTimeout);radarTransportStatus('stale');
+  if(realtimeDc){realtimeDc.onmessage=null;realtimeDc.onclose=null;}try{realtimeDc?.close();realtimePc?.close();}catch{}realtimeDc=null;realtimePc=null;
+  radarTransportStatus(sessionPaused?'paused':'connecting');
+  const loop=()=>{
+    if(!recording||!radarFallbackActive||revision!==radarTransportRevision)return;
+    if(sessionPaused){radarChunkStopper=setTimeout(loop,500);return;}
+    try{
+      const mime=radarAudioMime(),parts=[],rec=new MediaRecorder(mediaStream,mime?{mimeType:mime}:{});radarChunkRecorder=rec;
+      rec.ondataavailable=e=>{if(e.data.size)parts.push(e.data);};
+      rec.onstop=()=>{
+        if(revision!==radarTransportRevision||!radarFallbackActive||!recording)return;
+        radarChunkRecorder=null;const blob=new Blob(parts,{type:rec.mimeType||mime});
+        if(blob.size){if(radarChunkQueue.length<4){radarChunkQueue.push({blob,id:'chunk:'+revision+':'+(++radarChunkSequence)});void drainRadarChunks(revision);}else radarTransportStatus('stale');}
+        radarChunkStopper=setTimeout(loop,40);
+      };
+      rec.start();radarChunkStopper=setTimeout(()=>{if(rec.state!=='inactive')rec.stop();},8000);
+    }catch{radarTransportStatus('unavailable');}
+  };loop();
+}
+function stopRealtimeRadar({wipe=true}={}){
+  ++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=null;radarChunkQueue=[];radarChunkSending=false;radarFallbackActive=false;
+  clearTimeout(radarConnectTimeout);clearTimeout(radarChunkStopper);radarChunkStopper=null;
+  try{if(radarChunkRecorder&&radarChunkRecorder.state!=='inactive')radarChunkRecorder.stop();}catch{}radarChunkRecorder=null;
+  clearInterval(radarTimer);radarTimer=null;
+  if(realtimeDc){realtimeDc.onmessage=null;realtimeDc.onclose=null;}try{realtimeDc?.close();realtimePc?.close();}catch{}realtimeDc=null;realtimePc=null;
+  if(wipe){radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0;}
+  radarTransportStatus('stopped');
+}
+
+let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,recordingStarting=false,seconds=0,timerInt=null,discardStoppedRecording=false;
 function stopRecordingTimer({reset=false}={}){
   if(timerInt!==null){
     clearInterval(timerInt);
@@ -3272,17 +3353,21 @@ function stopRecordingTimer({reset=false}={}){
     $('timer').textContent='00:00';
   }
 }const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
+  if(recording||recordingStarting||!$('consent').checked||!currentProf?.clinical_access)return;
+  recordingStarting=true;try{
+  const startEpoch=clinicalEpoch;
   stopRecordingTimer();
   discardStoppedRecording=false;
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
   catch(e){return show('Não foi possível acessar o microfone.',true)}
+  if(startEpoch!==clinicalEpoch||!$('consent').checked){stream?.getTracks().forEach(t=>t.stop());stream=null;return;}
   chunks=[];audioBlob=null;$('processBtn').disabled=true;
   audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   const source=audioCtx.createMediaStreamSource(stream);
   analyser=audioCtx.createAnalyser();analyser.fftSize=1024;
   dataArray=new Uint8Array(analyser.frequencyBinCount);source.connect(analyser);wave();
-  const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
-  mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
+  const mime=radarAudioMime();
+  mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});
   mediaRecorder.ondataavailable=e=>e.data.size&&chunks.push(e.data);
   mediaRecorder.onstop=()=>{
     stopRecordingTimer();
@@ -3295,13 +3380,14 @@ function stopRecordingTimer({reset=false}={}){
     $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;
     flat();
   };
-  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';resetRealtimeRadar();startRealtimeRadar(stream);
+  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
   timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
   $('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';
   $('status').textContent='Gravando consulta…';
+  }catch{stopRec();show('Não foi possível iniciar a gravação.',true);}finally{recordingStarting=false;}
 }
 function stopRec({discard=false}={}){
-  stopRealtimeRadar({wipe:true});
+  stopRealtimeRadar({wipe:false});
   if(discard)discardStoppedRecording=true;
   recording=false;stopRecordingTimer();
   $('recBtn').classList.remove('recording');$('circleShape').style.display='block';$('stopShape').style.display='none';
@@ -3310,17 +3396,8 @@ function stopRec({discard=false}={}){
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
 }$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;recording?stopRec():startRec()};
-async function invoke(blob){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);try{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:form,signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha no backend (${r.status}).`);return d}finally{clearTimeout(to)}}async function processAudio(){stopRecordingTimer();if(recording)stopRec();if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);$('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';clearFields();activeHistoryId=null;try{const consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob),parsed=normalizeOutput(payload.fields||payload);fill(parsed);lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion};initHypothesisReview(parsed.hipotese_diagnostica||'');audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Revise os campos antes de copiar o prontuário completo.')}catch(e){show(e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message,true)}finally{stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'}}$('processBtn').onclick=processAudio;
-$('resetBtn').onclick=()=>{
-  const hasContent=
-    recording||
-    Boolean(audioBlob)||
-    [...fieldKeys,...sideKeys,...manualKeys].some(k=>ta(k)?.value?.trim())||
-    document.querySelectorAll('.conduct-template-check:checked').length>0||
-    Boolean(examType);
-
-  if(hasContent&&!confirm('Isso vai apagar o áudio gravado, os campos preenchidos e todas as seleções desta consulta. Confirma que quer limpar e começar uma nova consulta?'))return;
-
+async function invoke(blob){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);try{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:form,signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha no backend (${r.status}).`);return d}finally{clearTimeout(to)}}async function processAudio(){const processingEpoch=clinicalEpoch;stopRecordingTimer();if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);$('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';const prior=collect();try{const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob);if(epoch!==clinicalEpoch)return;const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion};initHypothesisReview(parsed.hipotese_diagnostica||'');audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Revise os campos antes de copiar o prontuário completo.')}catch(e){if(processingEpoch===clinicalEpoch)show(e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message,true)}finally{if(processingEpoch!==clinicalEpoch)return;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'}}$('processBtn').onclick=processAudio;
+function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);
   stopRecordingTimer({reset:true});
 
   if(recording||(mediaRecorder&&mediaRecorder.state!=='inactive')){
@@ -3332,6 +3409,8 @@ $('resetBtn').onclick=()=>{
     stream=null;audioCtx=null;
   }
 
+  stopRealtimeRadar();resetRealtimeRadar();window.nexaRadar?.reset(currentProf?.id||'');window.dispatchEvent(new CustomEvent('nexa:consultation-reset'));
+  nexaClearPersistedSession();
   audioBlob=null;
   chunks=[];
   seconds=0;
@@ -3348,7 +3427,7 @@ $('resetBtn').onclick=()=>{
   activeHistoryId=null;
   lastProcessedMeta=null;
   clinicalPlanCache={exams:null,prescription:null,both:null};
-  initHypothesisReview('');
+  initHypothesisReview('');clearPlanOutputs('Aguardando novo atendimento.');rxComposer={options:[],selected:new Map(),counter:0};$('rxOptions').replaceChildren();$('rxFinal').replaceChildren();
   ['suggestedExams','suggestedPrescription'].forEach(id=>{if($(id))$(id).value=''});
   ['examsMissing','rxMissing'].forEach(id=>{if($(id))$(id).style.display='none'});
   ['continueExamsWithoutDataBtn'].forEach(id=>{if($(id))$(id).style.display='none'});if($('rxMissingActions'))$('rxMissingActions').style.display='none';if($('rxMissingDataPanel'))$('rxMissingDataPanel').style.display='none';if($('rxMissingDataInput'))$('rxMissingDataInput').value='';
@@ -3379,8 +3458,9 @@ $('resetBtn').onclick=()=>{
   flat();
   updateWorkflow();
   show('Nova consulta iniciada. Campos e seleções foram limpos.',false);
-};
-function noteText(){const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico'];if($('includeDiagnosis').checked)keys.push('hipotese_diagnostica');keys.push('conduta');return keys.filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}function hdaText(){return['hda','alergias','comorbidades','medicacoes','antecedentes'].filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário completo');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'⧉ Copiar');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'⧉ Copiar');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
+}
+$('resetBtn').onclick=()=>{if(nexaConfirmReset())clearClinicalSession()};
+function noteText(){const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','sinais_vitais','exame_fisico'];keys.push('hipotese_diagnostica');keys.push('conduta');return keys.filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}function hdaText(){return['hda','alergias','comorbidades','medicacoes','antecedentes'].filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário completo');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'⧉ Copiar');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'⧉ Copiar');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
 document.querySelectorAll('[data-copy-field]').forEach(btn=>{btn.onclick=()=>{const key=btn.dataset.copyField;const value=ta(key)?.value||'';copy(value,btn,'⧉ Copiar')}});
 
 $('openAiUsageBtn').onclick=async()=>{$('usageModal').classList.add('open');$('usageBody').innerHTML='<div class="hint">Consultando…</div>';try{const {data:{session}}=await sb.auth.getSession();const r=await fetch(SUPABASE_URL+APP_CONFIG.openAiUsagePath+'?period=mtd',{headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY}}),d=await r.json();if(!r.ok)throw new Error(d.error||'Falha ao consultar uso.');const nf=new Intl.NumberFormat('pt-BR'),usd=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});$('usageBody').innerHTML=`<div class="usage-grid"><div class="stat"><span>Gasto no período</span><strong>${usd.format(+d.cost_usd||0)}</strong></div><div class="stat"><span>Requisições</span><strong>${nf.format(+d.requests||0)}</strong></div><div class="stat"><span>Tokens entrada</span><strong>${nf.format(+d.input_tokens||0)}</strong></div><div class="stat"><span>Tokens saída</span><strong>${nf.format(+d.output_tokens||0)}</strong></div></div>`}catch(e){$('usageBody').innerHTML=`<div class="banner error">${e.message}</div>`}};$('closeUsageBtn').onclick=()=>$('usageModal').classList.remove('open');
@@ -3422,7 +3502,7 @@ function updateHypothesisReviewUI(){
   const examsOK=['confirmed','altered','undefined'].includes(st),rxOK=['confirmed','altered'].includes(st);
   $('generateExamsBtn').disabled=!examsOK;$('generatePrescriptionBtn').disabled=!rxOK;$('generateBothPlanBtn').disabled=!rxOK;
   if(lock)lock.textContent=st==='pending'?'Confirme ou altere a hipótese para liberar exames e prescrição.':st==='undefined'?'Hipótese indefinida: investigação pode ser sugerida, mas prescrição específica permanece bloqueada.':`Plano liberado com hipótese ${st==='altered'?'alterada':'confirmada'}${hypothesisReview.cid?' · CID-10 '+hypothesisReview.cid:''}.`;
-  persistHypothesisReview();
+  persistHypothesisReview();window.nexaRadar?.schedule();
 
   try{syncHypothesisCards()}catch{}
 }
@@ -3748,11 +3828,11 @@ function pauseSession(){
         stream?.getAudioTracks().forEach(t=>t.enabled=false);
         if(timerInt!==null){clearInterval(timerInt);timerInt=null}
         cancelAnimationFrame(raf);flat();
-        q('status').textContent='Gravação pausada · toque em Retomar para continuar';radarSetLive('', 'Radar pausado');
+        q('status').textContent='Gravação pausada · toque em Retomar para continuar';radarTransportStatus('paused');if(radarChunkRecorder?.state==='recording'){clearTimeout(radarChunkStopper);radarChunkRecorder.stop();}
       }else if(sessionPaused && mediaRecorder.state==='paused'){
         stream?.getAudioTracks().forEach(t=>t.enabled=true);mediaRecorder.resume();sessionPaused=false;
         timerInt=setInterval(()=>{seconds+=1;q('timer').textContent=fmt(seconds)},1000);wave();
-        q('status').textContent='Gravando consulta…';radarSetLive('on','Radar ativo');
+        q('status').textContent='Gravando consulta…';radarTransportStatus('live');
       }
     }catch(e){console.warn('NEXA pause/resume',e);show('Não foi possível pausar ou retomar a gravação.',true)}
     syncRecordingUi();
@@ -3778,7 +3858,7 @@ function pauseSession(){
     const host=q('nexaRecentCases');if(!host)return;
     let rows=[];try{rows=(history||[]).slice(0,5)}catch{}
     if(!rows.length){host.innerHTML='<div style="color:var(--nexa-muted)">Nenhum atendimento recente.</div>';return}
-    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
+    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
   }
 
   const more=q('nexaMoreSheet');q('nexaMoreBtn')?.addEventListener('click',()=>more?.classList.add('open'));q('nexaCloseMore')?.addEventListener('click',()=>more?.classList.remove('open'));more?.addEventListener('click',e=>{if(e.target===more)more.classList.remove('open')});
@@ -3806,13 +3886,14 @@ function pauseSession(){
   }
 
   function nexaSessionSnapshot(){
-    return {version:'3.7.0',saved_at:new Date().toISOString(),state:nexaSessionState,
+    return {owner:currentProf?.id||'',radar:window.nexaRadar?.snapshot(),version:'3.7.0',saved_at:new Date().toISOString(),state:nexaSessionState,
       stage:document.body.dataset.nexaStage||'radar',fields:nexaSessionFields(),
       hypothesisReview:{...(hypothesisReview||{})},alternatives:[...(nexaAlternativeHypotheses||[])],
       discarded:[...(nexaDiscardedHypotheses||[])],hadRecording:!!recording,hadAudio:!!audioBlob};
   }
 
   function nexaPersistSession(){
+    if(!currentProf?.id)return;
     try{
       localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify(nexaSessionSnapshot()));
       const t=q('nexaSessionAutosaveText');if(t){t.textContent='Salvo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},900)}
@@ -3824,20 +3905,21 @@ function pauseSession(){
   }
   function nexaClearPersistedSession(){try{localStorage.removeItem(NEXA_SESSION_KEY)}catch{}q('nexaRestoreBanner')?.setAttribute('hidden','')}
   function nexaRestoreSession(snap){
-    if(!snap)return;
+    if(!snap||!currentProf?.id||snap.owner!==currentProf.id)return;
     Object.entries(snap.fields||{}).forEach(([k,v])=>{const el=ta(k);if(el)el.value=v||''});
     try{
       hypothesisReview={...hypothesisReview,...(snap.hypothesisReview||{})};
       nexaAlternativeHypotheses=[...(snap.alternatives||[])];nexaDiscardedHypotheses=[...(snap.discarded||[])];
       updateHypothesisReviewUI();renderAlternativeHypotheses();
     }catch{}
+    window.nexaRadar?.restore(snap.radar,currentProf.id);
     openSession();setStage(snap.stage||'summary');nexaSetSessionState(snap.state||'structured');
     q('nexaRestoreBanner')?.setAttribute('hidden','');show('Atendimento recuperado do autosave local.');
   }
   function nexaCheckRecoverableSession(){
     try{
       const raw=localStorage.getItem(NEXA_SESSION_KEY);if(!raw)return;
-      const snap=JSON.parse(raw);if(!snap?.saved_at)return;
+      const snap=JSON.parse(raw);if(!snap?.saved_at||!currentProf?.id||snap.owner!==currentProf.id)return;
       const hasContent=Object.values(snap.fields||{}).some(v=>String(v||'').trim())||snap.state!=='idle';
       if(!hasContent)return;
       q('nexaRestoreBanner')?.removeAttribute('hidden');
@@ -3862,10 +3944,7 @@ function pauseSession(){
   window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;nexaPersistSession();e.preventDefault();e.returnValue=''});
   nexaCheckRecoverableSession();
   if(!nexaHasMeaningfulSession()) nexaSetSessionState('idle');
-  q('resetBtn')?.addEventListener('click',e=>{
-    if(!nexaConfirmReset()){e.preventDefault();e.stopImmediatePropagation();return}
-    nexaClearPersistedSession();setTimeout(()=>nexaSetSessionState('idle'),0);
-  },true);
+  window.addEventListener('nexa:consultation-reset',()=>nexaSetSessionState('idle'));
 
 
   document.addEventListener('click',e=>{
@@ -4167,16 +4246,16 @@ function pauseSession(){
     const txt=q('nexaDesktopRecordingText');
     if(rec&&txt){
       rec.classList.toggle('idle',!recording);
-      txt.textContent=recording?(paused?`Pausado · ${q('timer')?.textContent||'00:00'}`:`Gravando · ${q('timer')?.textContent||'00:00'}`):'Sem gravação ativa';
+      txt.textContent=recording?(sessionPaused?`Pausado · ${q('timer')?.textContent||'00:00'}`:`Gravando · ${q('timer')?.textContent||'00:00'}`):'Sem gravação ativa';
     }
-    if(recording)nexaSetSessionState(paused?'paused':'recording');else if(audioBlob)nexaSetSessionState('audio_saved');
+    if(recording)nexaSetSessionState(sessionPaused?'paused':'recording');else if(audioBlob)nexaSetSessionState('audio_saved');
     const rk=q('nexaRecordingKicker');
     if(rk){
-      rk.textContent=recording?(paused?'PAUSADO':'GRAVANDO'):'GRAVAÇÃO';
-      rk.style.color=recording&&!paused?'#d83b3b':'var(--nexa-muted)';
+      rk.textContent=recording?(sessionPaused?'PAUSADO':'GRAVANDO'):'GRAVAÇÃO';
+      rk.style.color=recording&&!sessionPaused?'#d83b3b':'var(--nexa-muted)';
     }
-    if(q('nexaDesktopPause'))q('nexaDesktopPause').textContent=!recording&&!audioBlob?'Iniciar gravação':(paused?'Retomar':'Pausar');
-    if(q('nexaLocalPauseText'))q('nexaLocalPauseText').textContent=paused?'Retomar':'Pausar';
+    if(q('nexaDesktopPause'))q('nexaDesktopPause').textContent=!recording&&!audioBlob?'Iniciar gravação':(sessionPaused?'Retomar':'Pausar');
+    if(q('nexaLocalPauseText'))q('nexaLocalPauseText').textContent=sessionPaused?'Retomar':'Pausar';
     if(q('nexaLocalPauseBtn'))q('nexaLocalPauseBtn').disabled=!recording&&!!audioBlob;
     if(q('nexaLocalFinishBtn'))q('nexaLocalFinishBtn').disabled=!recording;
 
@@ -4257,7 +4336,7 @@ function pauseSession(){
     try{c=collect()||{}}catch{}
     const ef=String(c.exame_fisico||c.exameFisico||'').trim();
     const diagnosisValidated=!!(q('includeDiagnosis')?.checked || q('hypothesisReviewBlock')?.classList.contains('confirmed') || q('hypothesisReviewBlock')?.dataset?.status==='confirmed');
-    const diagnosis=diagnosisValidated?String(c.hipotese_diagnostica||'').trim():'';
+    const diagnosis=String(c.hipotese_diagnostica||'').trim();
     const conduct=String(c.conduta||'').trim();
     const parts=[
       ['QUEIXA PRINCIPAL',c.queixa_principal],
@@ -4266,7 +4345,7 @@ function pauseSession(){
       ['COMORBIDADES',c.comorbidades],
       ['MEDICAÇÕES EM USO',c.medicacoes],
       ['ANTECEDENTES',c.antecedentes],
-      ['EXAME FÍSICO',ef],
+      ['SINAIS VITAIS',c.sinais_vitais],['EXAME FÍSICO',ef],
       ['HIPÓTESE DIAGNÓSTICA',diagnosis],
       ['CONDUTAS',conduct]
     ];
@@ -4302,6 +4381,26 @@ function pauseSession(){
   syncDesktopShell();
   syncLiveSummary();
 
+
+
+
+Object.defineProperty(window,'currentProf',{configurable:true,get:()=>currentProf});
+Object.defineProperty(window,'activeHistoryId',{configurable:true,get:()=>activeHistoryId,set:value=>activeHistoryId=value});
+Object.defineProperty(window,'lastProcessedMeta',{configurable:true,get:()=>lastProcessedMeta,set:value=>lastProcessedMeta=value});
+window.sb=sb;window.collect=collect;window.sessionHeaders=sessionHeaders;
+window.fill=data=>{clearClinicalSession();fill(data);};
+
+// Adapter uses the actual lexical application state, not DOM scraping or a second clinical store.
+const vitalField=document.createElement('div');vitalField.className='field';vitalField.dataset.key='sinais_vitais';vitalField.innerHTML='<label for="nexaVitalSigns">Sinais vitais registrados</label><textarea id="nexaVitalSigns" placeholder="Registre apenas os valores efetivamente avaliados"></textarea>';$('examPhysicalBlock').before(vitalField);
+window.NexaRadarController.mount({
+  context:()=>({fields:collect(),transcript:realtimeTranscript.trim()}),
+  apply:fields=>{for(const [key,value] of Object.entries(fields)){const el=ta(key);if(el&&el.value!==value){el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))}}},
+  publish:state=>{radarState=state;window.radarState=state;window.dispatchEvent(new CustomEvent('nexa:radar-state',{detail:{state,reason:'context'}}));},
+  persist:nexaPersistSession,
+  retryTranscript:()=>{if(recording&&stream){stopRealtimeRadar({wipe:false});void startRealtimeRadar(stream);}},
+  analyze:async(context,signal)=>{const headers=await sessionHeaders();if(signal.aborted)throw new DOMException('Aborted','AbortError');const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeRadarPath,{method:'POST',headers,signal,body:JSON.stringify({transcript:context.transcript,clinical_context:context.fields,radar_contract:1,previous_state:window.nexaRadar?.snapshot(),app_version:APP_CONFIG.appVersion})});if(!r.ok)throw new Error('Radar indisponível');return r.json();}
+});
+window.nexaRadar.setOwner(currentProf?.id||'');
 
 flat();updateWorkflow();
 })();

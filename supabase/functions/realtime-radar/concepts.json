@@ -1,0 +1,302 @@
+[
+  {
+    "id": "trauma",
+    "label": "Trauma recente",
+    "section": "hda"
+  },
+  {
+    "id": "chest",
+    "label": "Dor torácica",
+    "section": "hda"
+  },
+  {
+    "id": "abdomen",
+    "label": "Dor abdominal",
+    "section": "hda"
+  },
+  {
+    "id": "headache",
+    "label": "Cefaleia",
+    "section": "hda"
+  },
+  {
+    "id": "back",
+    "label": "Lombalgia",
+    "section": "hda"
+  },
+  {
+    "id": "limb",
+    "label": "Queixa em membro",
+    "section": "hda"
+  },
+  {
+    "id": "urinary",
+    "label": "Sintomas urinários",
+    "section": "hda"
+  },
+  {
+    "id": "respiratory",
+    "label": "Sintomas respiratórios",
+    "section": "hda"
+  },
+  {
+    "id": "neuro",
+    "label": "Queixa neurológica",
+    "section": "hda"
+  },
+  {
+    "id": "fever",
+    "label": "Febre",
+    "section": "hda"
+  },
+  {
+    "id": "dyspnea",
+    "label": "Dispneia",
+    "section": "hda"
+  },
+  {
+    "id": "syncope",
+    "label": "Síncope",
+    "section": "hda"
+  },
+  {
+    "id": "sweating",
+    "label": "Sudorese",
+    "section": "hda"
+  },
+  {
+    "id": "focal",
+    "label": "Déficit neurológico focal",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "consciousness",
+    "label": "Alteração de consciência",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "sudden",
+    "label": "Início súbito / máxima intensidade",
+    "section": "hda"
+  },
+  {
+    "id": "meningism",
+    "label": "Rigidez de nuca / meningismo",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "peritonism",
+    "label": "Sinais de irritação peritoneal",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "vomiting",
+    "label": "Vômitos persistentes",
+    "section": "hda"
+  },
+  {
+    "id": "bleeding",
+    "label": "Sangramento",
+    "section": "hda"
+  },
+  {
+    "id": "pregnancy",
+    "label": "Possibilidade de gestação / puerpério",
+    "section": "antecedentes"
+  },
+  {
+    "id": "anticoagulant",
+    "label": "Uso de anticoagulante",
+    "section": "medicacoes"
+  },
+  {
+    "id": "cvRisk",
+    "label": "Fatores de risco cardiovascular",
+    "section": "comorbidades"
+  },
+  {
+    "id": "mechanism",
+    "label": "Mecanismo do trauma",
+    "section": "hda"
+  },
+  {
+    "id": "neurovascular",
+    "label": "Avaliação neurovascular distal",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "deformity",
+    "label": "Deformidade",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "weightThen",
+    "label": "Apoio imediatamente após o trauma",
+    "section": "hda"
+  },
+  {
+    "id": "fourSteps",
+    "label": "Capacidade atual de dar quatro passos",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "malleoli",
+    "label": "Palpação dos maléolos",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "midfoot",
+    "label": "Palpação do navicular e base do quinto metatarso",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "pulses",
+    "label": "Pulsos periféricos",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "perfusion",
+    "label": "Perfusão periférica",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "edema",
+    "label": "Edema / assimetria",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "dvtRisk",
+    "label": "Fatores de risco tromboembólico",
+    "section": "antecedentes"
+  },
+  {
+    "id": "saddle",
+    "label": "Anestesia em sela",
+    "section": "hda"
+  },
+  {
+    "id": "retention",
+    "label": "Retenção urinária / alteração esfincteriana",
+    "section": "hda"
+  },
+  {
+    "id": "weakness",
+    "label": "Fraqueza progressiva",
+    "section": "hda"
+  },
+  {
+    "id": "flank",
+    "label": "Dor em flancos",
+    "section": "hda"
+  },
+  {
+    "id": "hematuria",
+    "label": "Hematúria",
+    "section": "hda"
+  },
+  {
+    "id": "auscultation",
+    "label": "Ausculta respiratória",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "effort",
+    "label": "Esforço respiratório",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "hemoptysis",
+    "label": "Hemoptise",
+    "section": "hda"
+  },
+  {
+    "id": "immuno",
+    "label": "Imunossupressão",
+    "section": "comorbidades"
+  },
+  {
+    "id": "localization",
+    "label": "Localização da dor",
+    "section": "hda"
+  },
+  {
+    "id": "onset",
+    "label": "Início / duração",
+    "section": "hda"
+  },
+  {
+    "id": "character",
+    "label": "Caráter da dor",
+    "section": "hda"
+  },
+  {
+    "id": "intensity",
+    "label": "Intensidade da dor",
+    "section": "hda"
+  },
+  {
+    "id": "radiation",
+    "label": "Irradiação da dor",
+    "section": "hda"
+  },
+  {
+    "id": "aggravation",
+    "label": "Fatores de piora",
+    "section": "hda"
+  },
+  {
+    "id": "relief",
+    "label": "Fatores de melhora",
+    "section": "hda"
+  },
+  {
+    "id": "evolution",
+    "label": "Evolução da dor",
+    "section": "hda"
+  },
+  {
+    "id": "medicines",
+    "label": "Medicações utilizadas",
+    "section": "medicacoes"
+  },
+  {
+    "id": "allergies",
+    "label": "Alergias",
+    "section": "alergias"
+  },
+  {
+    "id": "bp",
+    "label": "Pressão arterial",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "hr",
+    "label": "Frequência cardíaca",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "rr",
+    "label": "Frequência respiratória",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "spo2",
+    "label": "Saturação de oxigênio",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "temperature",
+    "label": "Temperatura aferida",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "glucose",
+    "label": "Glicemia",
+    "section": "sinais_vitais"
+  },
+  {
+    "id": "dvt",
+    "label": "TVP no diagnóstico diferencial",
+    "section": "sugestoes_perguntas"
+  }
+]

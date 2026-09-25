@@ -1,0 +1,13 @@
+export const categories=['history','red_flags','exam','vitals','risk','medications','differential'];
+export function schema(concepts){const result= {type:'object',additionalProperties:false,properties:{items:{type:'array',maxItems:16,items:{type:'object',additionalProperties:false,properties:{concept:{type:'string',enum:concepts},priority:{type:'string',enum:['critical','high','moderate','low']},category:{type:'string',enum:categories},contextEvidence:{type:'string'}},required:['concept','priority','category','contextEvidence']}}},required:['items']};result.properties.observations={type:'array',maxItems:32,items:{type:'object',additionalProperties:false,properties:{concept:{type:'string',enum:concepts},state:{type:'string',enum:['known_present','known_absent','unknown']},temporal:{type:'string',enum:['current','recent','prior','resolved']},subject:{type:'string',enum:['patient','third_party','unclear']},section:{type:'string',enum:['transcript','queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico','sinais_vitais']},quote:{type:'string'}},required:['concept','state','temporal','subject','section','quote']}};result.required.push('observations');return result;}
+export function validate(payload,concepts,context){
+ if(!payload||!Array.isArray(payload.items))throw new Error('RADAR_SCHEMA_INVALID');
+ const seen=new Set();const text=String(context).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ return payload.items.slice(0,16).filter(i=>{if(!i||!concepts.includes(i.concept)||!['critical','high','moderate','low'].includes(i.priority)||!categories.includes(i.category)||typeof i.contextEvidence!=='string'||i.contextEvidence.length<5||!text.includes(i.contextEvidence.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||seen.has(i.concept))return false;seen.add(i.concept);return true;});
+}
+export function outputText(payload){if(typeof payload?.output_text==='string')return payload.output_text;return (payload?.output||[]).flatMap(i=>i.content||[]).filter(c=>c.type==='output_text').map(c=>c.text||'').join('');}
+export function authorized(profile){return profile?.access_status==='active'&&profile?.clinical_access===true;}
+
+export function validateObservations(payload,concepts,fields,transcript){
+ return (Array.isArray(payload?.observations)?payload.observations:[]).slice(0,32).filter(o=>o&&concepts.includes(o.concept)&&o.subject==='patient'&&['known_present','known_absent','unknown'].includes(o.state)&&['current','recent','prior','resolved'].includes(o.temporal)&&typeof o.quote==='string'&&o.quote.length>=3&&String(o.section==='transcript'?transcript:fields[o.section]||'').includes(o.quote)&&!o.quote.includes('?'));
+}
