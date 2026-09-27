@@ -3948,12 +3948,13 @@ function pauseSession(){
       const state=active?(paused?'paused':'recording'):(audioBlob?'stopped':'idle');
       rec.dataset.recordingState=state;rec.classList.toggle('recording',active);rec.classList.toggle('paused',paused);
       const label=state==='recording'?'Pausar gravação':state==='paused'?'Retomar gravação':state==='stopped'?'Gravação finalizada; use Transcrever e estruturar':'Iniciar gravação';
-      rec.setAttribute('aria-label',label);rec.title=label;
-      if(q('circleShape'))q('circleShape').style.display=state==='idle'?'block':'none';
+      rec.setAttribute('aria-label',label);rec.title=label;rec.disabled=!q('consent')?.checked||state==='stopped'||document.body.dataset.nexaProcessing==='1';
+      if(q('circleShape'))q('circleShape').style.display=(state==='idle'||state==='stopped')?'block':'none';
       if(q('pauseShape'))q('pauseShape').style.display=state==='recording'?'block':'none';
       if(q('resumeShape'))q('resumeShape').style.display=state==='paused'?'block':'none';
       if(q('stopShape'))q('stopShape').style.display='none';
     }
+    try{window.nexaFinalUiSyncRecorder18122?.()}catch{}
   }
 
   function renderRecentCases(){
