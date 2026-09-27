@@ -189,7 +189,20 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     console.error('HOTFIX_HISTORY_VISIBILITY_DIAGNOSTIC',JSON.stringify(diagnostic));
    }
    assert.equal(historyVisible,true,'Persistent History must be visible from the History navigation');
-   await page.locator('#n197List .n197-item button').first().click();
+
+   const legacyItem=page.locator('#n197List .n197-item').filter({hasText:'Atendimento legado QA'}).first();
+   await legacyItem.locator('button').click();
+   await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+
+   if(viewport.width<=820){
+    const mobileHistory='#nexaMobileBottomNav [data-mobile-stage="history"]';
+    await page.locator(mobileHistory).click();
+   }else{
+    await page.locator('#nfSide [data-go="history"]').click();
+   }
+   await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
+   const structuredItem=page.locator('#n197List .n197-item').filter({hasText:/Cefaleia/i}).first();
+   await structuredItem.locator('button').click();
    await page.waitForFunction(()=>/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
 
    await page.screenshot({path:path.join(root,'test-results',`clinical-regression-hotfix-${viewport.width}.png`),fullPage:true});
