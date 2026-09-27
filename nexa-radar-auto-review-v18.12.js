@@ -145,10 +145,10 @@ function renderPriorities(state){
 }
 function parseVital(id,quote){
  const t=String(quote||'');let m;
- if(id==='bp'&&(m=t.match(/\b(?:pa|press[aã]o(?: arterial)?)\s*[:=]?\s*(\d{2,3})\s*(?:x|\/|por)\s*(\d{2,3})/i)))return`${+m[1]}/${+m[2]}`;
- if(id==='hr'&&(m=t.match(/\b(?:fc|frequ[eê]ncia card[ií]aca)\s*[:=]?\s*(\d{2,3})/i)))return String(+m[1]);
- if(id==='rr'&&(m=t.match(/\b(?:fr|frequ[eê]ncia respirat[oó]ria)\s*[:=]?\s*(\d{1,3})/i)))return String(+m[1]);
- if(id==='spo2'&&(m=t.match(/\b(?:spo2|sato2|satura[cç][aã]o(?: de oxig[eê]nio)?)\s*[:=]?\s*(\d{2,3})/i)))return String(+m[1]);
+ if(id==='bp'&&(m=t.match(/\b(?:pa|press[aã]o(?: arterial)?)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})\s*(?:x|\/|por)\s*(\d{2,3})/i)))return`${+m[1]}/${+m[2]}`;
+ if(id==='hr'&&(m=t.match(/\b(?:fc|frequ[eê]ncia card[ií]aca)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})/i)))return String(+m[1]);
+ if(id==='rr'&&(m=t.match(/\b(?:fr|frequ[eê]ncia respirat[oó]ria)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{1,3})/i)))return String(+m[1]);
+ if(id==='spo2'&&(m=t.match(/\b(?:spo2|sato2|satura[cç][aã]o(?: de oxig[eê]nio)?)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})/i)))return String(+m[1]);
  if(id==='temperature'&&(m=t.match(/\b(?:temperatura|temp\.?|febre|t)\s*(?:de|:|=)?\s*(3\d|4[0-3])(?:(?:[,.](\d))|(?:\s+e\s+meio))?/i))){const decimal=/\s+e\s+meio/i.test(m[0])?'5':(m[2]||'');return decimal?`${+m[1]}.${decimal}`:String(+m[1])}
  return'';
 }
