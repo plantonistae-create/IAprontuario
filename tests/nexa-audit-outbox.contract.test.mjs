@@ -16,7 +16,7 @@ const local=new Map(),session=new Map(),memory=new Map();
 const fieldValues={queixa_principal:'Dor torácica',hda:'Paciente com dor torácica iniciada há duas horas, sem síncope.',exame_fisico:'BEG, eupneico.',hipotese_diagnostica:'Dor torácica a esclarecer',conduta:'ECG e reavaliação.',comorbidades:'HAS',antecedentes:'',medicacoes:'',alergias:'',orientacoes_alta:'',sugestoes_perguntas:''};
 const storage=map=>({get length(){return map.size},key:i=>[...map.keys()][i]??null,getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)});
 local.set('sb-auth-token',JSON.stringify({access_token:'token-A',user:{id:'doctor-A'}}));
-let fetchMode='success',fetchCount=0,uuidN=0,sessionUserId='doctor-A',sessionToken='real-session-token';
+let fetchMode='success',fetchCount=0,fetchUrls=[],uuidN=0,sessionUserId='doctor-A',sessionToken='real-session-token';
 const document={
   hidden:false,documentElement:{dataset:{}},body:{appendChild(){}},
   querySelector(sel){const m=sel.match(/data-key="([^"]+)"/);return m?{value:fieldValues[m[1]]||''}:null},
@@ -25,7 +25,7 @@ const document={
 };
 const remoteReady=[{encounter_id:'11111111-1111-4111-8111-111111111111',audit_priority:0,updated_at:'2026-09-27T10:00:00Z',sync_version:3}];
 const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:remoteReady,error:null})};
-const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},nexaClinicalSupabase18101:{auth:{getSession:async()=>({data:{session:{access_token:sessionToken,user:{id:sessionUserId}}},error:null})},from:()=>query},fetch:async()=>{fetchCount++;if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
+const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},nexaClinicalSupabase18101:{supabaseUrl:'https://synthetic.supabase.co',supabaseKey:'synthetic-publishable-key',auth:{getSession:async()=>({data:{session:{access_token:sessionToken,user:{id:sessionUserId}}},error:null})},from:()=>query},fetch:async url=>{fetchCount++;fetchUrls.push(String(url));if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
 context.window=context;context.currentProf={id:'doctor-A'};context.nexaDestinationFlow18915={state:{recommended:'alta',final:'internacao',status:'altered',source:'physician'}};context.dispatchEvent=()=>true;
 vm.runInNewContext(code,context);
 const api=context.nexaAuditOutbox18919;
@@ -49,7 +49,7 @@ assert.equal(memory.size,1,'five autosaves must keep exactly one audit identity'
 assert.match(memory.get(s1.idempotency_key).payload.fields.hda,/autosave 4/,'latest pending snapshot must replace older pending payload');
 fieldValues.hda='Texto alterado depois do snapshot.';assert.notEqual(memory.get(s1.idempotency_key).payload.fields.hda,fieldValues.hda,'stored snapshot must be immutable from later UI edits');
 
-fetchMode='success';let result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).state,'sent');
+fetchMode='success';let result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).state,'sent');assert.equal(fetchUrls.at(-1),'https://synthetic.supabase.co/functions/v1/submit-audit-case','audit outbox must submit to the active Supabase project, never the GitHub Pages origin');
 fieldValues.hda='Paciente com dor torácica revisada e evolução atualizada.';
 const refreshed=await api.buildSnapshot('stable_encounter');await api.enqueue(refreshed);assert.equal(memory.get(s1.idempotency_key).state,'queued','later encounter changes must requeue the same audit identity');assert.equal(memory.size,1);
 fetchMode='updated';result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).server_result,'updated');
