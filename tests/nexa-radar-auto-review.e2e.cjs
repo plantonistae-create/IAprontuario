@@ -51,8 +51,8 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.ok(await page.evaluate(n=>window.radarState.clarified.length>n,clarifiedBefore),'Spontaneous answer must move an item to clarified');
    assert.doesNotMatch(await page.locator('#nexaNextBest').innerText(),/teve febre nas últimas horas ou dias/i,'Resolved item must no longer be the next-best question');
 
-   await page.evaluate(()=>window.__qa.speak('auto-3','Médico: Teve síncope? Paciente: Talvez.'));
-   await page.waitForFunction(()=>window.radarState.confirm.some(i=>i.concept==='syncope'));
+   await page.evaluate(()=>window.__qa.speak('auto-3','Médico: Teve rigidez de nuca? Paciente: Não entendi.'));
+   await page.waitForFunction(()=>window.radarState.confirm.some(i=>i.concept==='meningism'));
    assert.ok(+await page.locator('#nexaAutoStatus .nexa-auto-metric.confirm strong').innerText()>=1,'Ambiguous answer must be summarized as confirmation needed');
 
    await page.evaluate(()=>window.__qa.speak('auto-4','Saturação talvez 97 ou 94.'));
