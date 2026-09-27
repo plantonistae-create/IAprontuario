@@ -40,15 +40,16 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    await page.locator('#nfStart').click();
    await page.waitForFunction(()=>window.__qa.channels.length>0&&window.nexaRadar.state.transcriptStatus==='live');
 
-   await page.evaluate(()=>window.__qa.speak('auto-1','Dor torácica.'));
-   await page.waitForFunction(()=>window.radarState.items.some(i=>i.concept==='dyspnea')&&/falta de ar|dispneia/i.test(document.getElementById('nexaNextBest')?.innerText||''));
+   await page.evaluate(()=>window.__qa.speak('auto-1','Cefaleia desde hoje. Médico: Teve febre?'));
+   await page.waitForFunction(()=>window.radarState.items.some(i=>i.concept==='fever'&&i.status==='asked')&&/Forma sugerida/i.test(document.getElementById('nexaNextBest')?.innerText||''));
+   assert.doesNotMatch(await page.locator('#nexaNextBest h3').innerText(),/Nenhuma pergunta prioritária/i,'Radar must expose a next-best question while relevant gaps remain');
    assert.match(await page.locator('#nexaNextBest').innerText(),/Forma sugerida/i,'Next question must include practical phrasing');
 
    const clarifiedBefore=await page.evaluate(()=>window.radarState.clarified.length);
-   await page.evaluate(()=>window.__qa.speak('auto-2','Paciente: Nega falta de ar.'));
-   await page.waitForFunction(()=>window.radarState.facts.dyspnea.state==='known_absent');
+   await page.evaluate(()=>window.__qa.speak('auto-2','Paciente: Não teve febre.'));
+   await page.waitForFunction(()=>window.radarState.facts.fever.state==='known_absent');
    assert.ok(await page.evaluate(n=>window.radarState.clarified.length>n,clarifiedBefore),'Spontaneous answer must move an item to clarified');
-   assert.doesNotMatch(await page.locator('#nexaNextBest').innerText(),/falta de ar/i,'Resolved item must no longer be the next-best question');
+   assert.doesNotMatch(await page.locator('#nexaNextBest').innerText(),/teve febre nas últimas horas ou dias/i,'Resolved item must no longer be the next-best question');
 
    await page.evaluate(()=>window.__qa.speak('auto-3','Médico: Teve síncope? Paciente: Talvez.'));
    await page.waitForFunction(()=>window.radarState.confirm.some(i=>i.concept==='syncope'));
