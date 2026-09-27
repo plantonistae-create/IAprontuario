@@ -4445,6 +4445,28 @@ window.nexaClinicalBridge18101={
     discarded:structuredClone(nexaDiscardedHypotheses||[]),
     clinicalPlan:structuredClone(clinicalPlanCache||{})
   }),
+  assessment:()=>({
+    text:String(ta('hipotese_diagnostica')?.value||'').trim(),
+    ai:String(hypothesisReview?.ai||'').trim(),
+    suggested_cid:String(lastProcessedMeta?.suggestedCid||'').trim(),
+    confirmed_cid:String(hypothesisReview?.cid||'').trim(),
+    status:String(hypothesisReview?.status||'pending')
+  }),
+  setSuggestedCid:cid=>{lastProcessedMeta=lastProcessedMeta||{};lastProcessedMeta.suggestedCid=String(cid||'').trim().toUpperCase();nexaPersistSessionSoon();return lastProcessedMeta.suggestedCid},
+  setAssessment:(text,cid='')=>{
+    const value=String(text||'').trim(),code=String(cid||'').trim().toUpperCase(),field=ta('hipotese_diagnostica');
+    hypothesisInternalWrite=true;
+    if(field){field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}))}
+    hypothesisInternalWrite=false;
+    if(value){
+      if(!hypothesisReview.ai)hypothesisReview.ai=value;
+      hypothesisReview={...hypothesisReview,status:'altered',final:value,cid:code,source:code?'physician_free_text_cid':'physician_free_text'};
+    }else hypothesisReview={...hypothesisReview,status:'pending',final:'',cid:'',source:''};
+    if($('physicianCid'))$('physicianCid').value=code;
+    if($('physicianHypothesis'))$('physicianHypothesis').value=value;
+    updateHypothesisReviewUI();nexaPersistSessionSoon();
+    return structuredClone(hypothesisReview);
+  },
   restore:snap=>nexaRestoreSession(snap)
 };
 window.fill=data=>{clearClinicalSession();fill(data);};
