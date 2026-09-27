@@ -46,7 +46,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.match(await page.locator('#nexaNextBest').innerText(),/Forma sugerida/i,'Next question must include practical phrasing');
 
    const clarifiedBefore=await page.evaluate(()=>window.radarState.clarified.length);
-   await page.evaluate(()=>window.__qa.speak('auto-2','Paciente: Não teve febre.'));
+   await page.evaluate(()=>window.__qa.speak('auto-2','Paciente: Não.'));
    await page.waitForFunction(()=>window.radarState.facts.fever.state==='known_absent');
    assert.ok(await page.evaluate(n=>window.radarState.clarified.length>n,clarifiedBefore),'Spontaneous answer must move an item to clarified');
    assert.doesNotMatch(await page.locator('#nexaNextBest').innerText(),/teve febre nas últimas horas ou dias/i,'Resolved item must no longer be the next-best question');
