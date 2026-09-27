@@ -14,7 +14,7 @@ const nowIso=()=>new Date().toISOString();
 let storeAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
 
 function client(){try{return window.nexaClinicalSupabase18101||null}catch{return null}}
-function prof(){try{return typeof currentProf!=='undefined'?currentProf:null}catch{return null}}
+function prof(){try{return window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)}catch{return window.currentProf||null}}
 function owner(){return String(prof()?.id||'')}
 function activeKey(userId=owner()){return `${ACTIVE}:${userId||'anon'}`}
 function isUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''))}
