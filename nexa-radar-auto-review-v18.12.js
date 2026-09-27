@@ -132,6 +132,10 @@ function renderMetrics(state){
   <div class="nexa-auto-metric confirm"><strong>${confirm.length}</strong><span>A confirmar</span></div>
   <div class="nexa-auto-metric alert"><strong>${alerts.length}</strong><span>Alertas</span></div>
   <div class="nexa-auto-metric critical"><strong>${essential}</strong><span>Essencial agora</span></div>`;
+ const topPending=$('nfPending'),topAlerts=$('nfAlerts'),topScore=$('nfScore');
+ if(topPending)topPending.textContent=`${pending} pendência${pending===1?'':'s'}`;
+ if(topAlerts)topAlerts.textContent=`${alerts.length} alerta${alerts.length===1?'':'s'}`;
+ if(topScore)topScore.textContent='Radar contextual';
 }
 function renderNext(state){
  const host=$('nexaNextBest');if(!host)return;
