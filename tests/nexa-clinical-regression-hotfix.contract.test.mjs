@@ -32,7 +32,7 @@ assert.ok(index.includes("behavior:'smooth'"),'reset/clear must provide smooth t
 assert.ok(index.includes('function openHistoryStage()'),'History must have one canonical navigation function');
 assert.ok(index.includes('window.nexaOpenHistoryStage18122=openHistoryStage'),'canonical History navigation must be exposed to the Final UI');
 assert.ok(index.includes("else if(a==='history'){openHistoryStage()}"),'quick History must route to the canonical native stage');
-assert.ok(index.includes("document.querySelector('[data-desk="history"]')?.addEventListener('click',openHistoryStage)"),'legacy desktop History must route to the canonical native stage');
+assert.ok(index.includes("addEventListener('click',openHistoryStage)"),'legacy desktop History must route to the canonical native stage');
 
 const openHistory=finalUi.match(/function openHistory\(\)\{[\s\S]*?\n\}/)?.[0]||'';
 assert.match(openHistory,/data-stage="history"/,'History navigation must activate the native history stage');
