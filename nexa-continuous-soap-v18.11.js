@@ -240,9 +240,10 @@ function setMode(next){
 }
 function syncNavigation(){
  const soap=mode==='soap';
- const radar=q('.nexa-side-item[data-desk-stage="radar"]');if(radar)radar.innerHTML=soap?'▤ <span>SOAP rápido</span>':'◉ <span>Contínuo</span>';
+ const radar=q('.nexa-side-item[data-desk-stage="radar"]');if(radar){radar.innerHTML='↕ <span>Contínuo</span>';radar.classList.toggle('active',!soap)}
+ const soapSide=$('nexaSoapSideNav');if(soapSide)soapSide.classList.toggle('active',soap);
  qa('.nexa-desktop-tab[data-desk-stage]').forEach((b,i)=>{if(i===0){b.textContent='Contínuo';b.classList.toggle('active',!soap);b.style.display=''}else if(i===1){b.textContent='SOAP rápido';b.classList.toggle('active',soap);b.style.display=''}else b.style.display='none'});
- const mobile=qa('#nexaDoctorBottom .nexa-docnav[data-stage]');mobile.forEach((b,i)=>{if(i===0){b.innerHTML='<span class="ico">↕</span>Contínuo';b.style.display=''}else if(i===1){b.innerHTML='<span class="ico">S/O</span>SOAP';b.style.display=''}else b.style.display='none'});
+ const mobile=qa('#nexaDoctorBottom .nexa-docnav[data-stage]');mobile.forEach((b,i)=>{if(i===0){b.innerHTML='<span class="ico">↕</span>Contínuo';b.classList.toggle('active',!soap);b.style.display=''}else if(i===1){b.innerHTML='<span class="ico">S/O</span>SOAP';b.classList.toggle('active',soap);b.style.display=''}else b.style.display='none'});
 }
 
 function mount(){
@@ -250,6 +251,8 @@ function mount(){
  const host=$('nexaStageHost'),radar=q('.nexa-stage-view[data-stage="radar"]',host),summary=q('.nexa-stage-view[data-stage="summary"]',host),hyp=q('.nexa-stage-view[data-stage="hypothesis"]',host),plan=q('.nexa-stage-view[data-stage="plan"]',host);
  if(!host||!radar||!summary||!hyp||!plan||!$('examPhysicalBlock')||!field('hipotese_diagnostica')||!$('conductBlock'))return false;
  style();
+ const sideRadar=q('.nexa-side-item[data-desk-stage="radar"]');
+ if(sideRadar&&!$('nexaSoapSideNav')){const soapNav=document.createElement('button');soapNav.type='button';soapNav.id='nexaSoapSideNav';soapNav.className='nexa-side-item';soapNav.innerHTML='S/O <span>SOAP rápido</span>';soapNav.onclick=()=>{sideRadar.click();setTimeout(()=>setMode('soap'),0)};sideRadar.after(soapNav)}
  const bar=document.createElement('div');bar.id='nexaFlowModeBar';bar.innerHTML='<div class="nexa-flow-mode-group"><button type="button" class="nexa-flow-mode" data-flow-mode="continuous">Contínuo</button><button type="button" class="nexa-flow-mode" data-flow-mode="soap">SOAP rápido</button></div><div class="nexa-flow-mode-hint">Mesmo atendimento · mesma persistência</div>';
  const root=document.createElement('div');root.id='nexaUnifiedFlow';
  const live=section('nexaFlowLive','ATENDIMENTO','Consulta em andamento','Gravação, transcrição e Radar acompanham o caso em tempo real.','');
@@ -317,6 +320,7 @@ function mount(){
 }
 
 document.addEventListener('click',e=>{
+ const side=e.target.closest?.('.nexa-side-item[data-desk-stage="radar"]');if(side)setTimeout(()=>setMode('continuous'),0);
  const desk=e.target.closest?.('.nexa-desktop-tab[data-desk-stage]');if(desk){
   const tabs=qa('.nexa-desktop-tab[data-desk-stage]'),idx=tabs.indexOf(desk);if(idx===0)setTimeout(()=>setMode('continuous'),0);if(idx===1)setTimeout(()=>setMode('soap'),0);
  }
