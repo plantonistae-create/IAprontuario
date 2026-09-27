@@ -21,6 +21,7 @@ for(const token of [
 ]) assert.ok(index.includes(token),`index missing hotfix contract: ${token}`);
 
 assert.ok(index.includes("const valid=['radar','summary','hypothesis','plan','history'];"),'History must remain a first-class clinical stage');
+assert.ok(index.includes("['history','HISTÓRICO','Consultas salvas'"),'buildClinicalStages must create a native History host');
 
 const openHistory=finalUi.match(/function openHistory\(\)\{[\s\S]*?\n\}/)?.[0]||'';
 assert.match(openHistory,/data-stage="history"/,'History navigation must activate the native history stage');
