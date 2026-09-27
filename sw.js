@@ -1,5 +1,5 @@
 const CACHE_NAME="nexa-v18-11-0-continuous-soap-20260927";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260927-v18110";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260927-v18111";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
