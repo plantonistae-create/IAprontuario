@@ -4459,7 +4459,6 @@ window.nexaClinicalBridge18101={
     if(field){field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}))}
     hypothesisInternalWrite=false;
     if(value){
-      if(!hypothesisReview.ai)hypothesisReview.ai=value;
       hypothesisReview={...hypothesisReview,status:'altered',final:value,cid:code,source:code?'physician_free_text_cid':'physician_free_text'};
     }else hypothesisReview={...hypothesisReview,status:'pending',final:'',cid:'',source:''};
     if($('physicianCid'))$('physicianCid').value=code;
