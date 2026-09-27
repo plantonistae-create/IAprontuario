@@ -6,7 +6,7 @@ window.__NEXA_HISTORY_STYLE_AUDIT_V18_9_7__=true;
 const $=id=>document.getElementById(id),q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const CLEAR_SEL='#resetBtn,#nexaRadarResetBtn,#nfClear,#nfTopClear,#nexaNewCaseBtn';
 let busy=false,bypass=false,historyRefreshPromise=null;
-const prof=()=>{try{return typeof currentProf!=='undefined'?currentProf:null}catch{return null}};
+const prof=()=>{try{return window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)}catch{return window.currentProf||null}};
 const client=()=>{try{return window.nexaClinicalSupabase18101||null}catch{return null}};
 const fieldsNow=()=>{try{return typeof collect==='function'?collect():{}}catch{return{}}};
 const meaningful=f=>Object.values(f||{}).some(v=>typeof v==='string'&&v.trim());
