@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const index=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const finalUi=fs.readFileSync(new URL('../nexa-final-ui-v18.js',import.meta.url),'utf8');
+const mobileShell=fs.readFileSync(new URL('../nexa-mobile-shell-v18.6.7.js',import.meta.url),'utf8');
 const review=fs.readFileSync(new URL('../nexa-radar-auto-review-v18.12.js',import.meta.url),'utf8');
 const autosave=fs.readFileSync(new URL('../nexa-encounter-autosave-v18.10.1.js',import.meta.url),'utf8');
 const history=fs.readFileSync(new URL('../nexa-history-style-audit-v18.9.7.js',import.meta.url),'utf8');
@@ -41,8 +42,10 @@ assert.ok(history.includes('function auditEndpoint()'),'legacy History/Audit fal
 assert.ok(history.includes('runtime.supabaseUrl'),'legacy History/Audit fallback must use runtime Supabase config');
 assert.ok(outbox.includes('c?.supabaseUrl||runtime.supabaseUrl'),'Audit outbox must use the active Supabase project URL');
 assert.ok(outbox.includes('c?.supabaseKey||runtime.publishableKey'),'Audit outbox must use the active Supabase publishable key');
-assert.ok(finalUi.includes('id="nfMobileHistory" data-mobile-go="history"'),'Final UI must expose a stable mobile History control');
-assert.ok(finalUi.includes("#nfMobileNav{position:fixed"),'mobile clinical navigation must be visibly rendered by Final UI');
+assert.ok(mobileShell.includes("nav.id='nexaMobileBottomNav'"),'canonical mobile shell must expose its bottom navigation');
+assert.ok(mobileShell.includes('data-mobile-stage="${stage}"'),'canonical mobile shell must render stable stage-addressable tabs');
+assert.ok(mobileShell.includes("const stages=['radar','summary','hypothesis','plan','history']"),'canonical mobile shell must include History');
+assert.ok(!finalUi.includes('nfMobileNav'),'Final UI must not create a duplicate mobile navigation');
 
 new Function(review);
 new Function(autosave);
