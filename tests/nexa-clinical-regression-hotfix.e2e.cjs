@@ -107,7 +107,16 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
    await page.evaluate(()=>window.nexaRefreshHistory197?.());
    await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===3);
-   assert.equal(await page.locator('#nexa197History').isVisible(),true,'Persistent History must be visible from the History navigation');
+   const historyVisible=await page.locator('#nexa197History').isVisible();
+   if(!historyVisible){
+    const diagnostic=await page.evaluate(()=>{
+      const root=document.getElementById('nexa197History'),chain=[];let el=root;
+      while(el&&chain.length<10){const s=getComputedStyle(el);chain.push({tag:el.tagName,id:el.id||'',className:el.className||'',display:s.display,visibility:s.visibility,opacity:s.opacity,hidden:!!el.hidden,rect:{w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height}});el=el.parentElement}
+      return{stage:document.body.dataset.nexaStage||'',bodyClass:document.body.className,chain};
+    });
+    console.error('HOTFIX_HISTORY_VISIBILITY_DIAGNOSTIC',JSON.stringify(diagnostic));
+   }
+   assert.equal(historyVisible,true,'Persistent History must be visible from the History navigation');
    await page.locator('#n197List .n197-item button').first().click();
    await page.waitForFunction(()=>/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
 
