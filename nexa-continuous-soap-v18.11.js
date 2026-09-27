@@ -40,6 +40,8 @@ function style(){
  body[data-nexa-flow="soap"] .nexa-flow-copy{display:inline-flex}
  .nexa-flow-body{display:grid;gap:10px}.nexa-flow-body>.field,.nexa-flow-body>.card,.nexa-flow-body>.radar-card,.nexa-flow-body>.hyp-review,.nexa-flow-body>.clinical-plan,.nexa-flow-body>.final-record-actions{margin:0!important}
  #nexaFlowLive .nexa-live-summary{display:none!important}
+ #nexaFlowLive>.nexa-flow-body>.card,#nexaFlowLive>.nexa-flow-body>.radar-card{width:100%!important;max-width:none!important;min-width:0!important;justify-self:stretch!important}
+ #nexaFlowLive #realtimeRadarCard,#nexaFlowLive .card.rec-zone{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important}
  #nexaFlowLive #processBtn,#nexaFlowLive #resetBtn{width:auto!important;margin:0!important}
  .nexa-flow-process-row{display:flex;gap:8px;flex-wrap:wrap}
  .nexa-flow-process-row>button{flex:1 1 180px;min-height:42px}
