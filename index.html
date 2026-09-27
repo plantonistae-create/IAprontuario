@@ -4332,7 +4332,11 @@ function pauseSession(){
   // Quick actions now open the correct screen instead of scrolling through one giant document.
   document.querySelectorAll('[data-quick="plan"]').forEach(b=>b.addEventListener('click',()=>{openSession();setStage('plan')}));
   document.querySelectorAll('[data-quick="guidance"]').forEach(b=>b.addEventListener('click',()=>{openSession();setStage('plan','clinicalPlanBlock')}));
-  document.querySelectorAll('[data-quick="history"],[data-quick="writing"]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-quick="history"]').forEach(b=>b.addEventListener('click',()=>{
+    openSession();setStage('history');q('nexaMoreSheet')?.classList.remove('open');
+    setTimeout(()=>{try{window.nexaRefreshSevenDayHistory?.();window.nexaRefreshHistory197?.()}catch{}},40);
+  }));
+  document.querySelectorAll('[data-quick="writing"]').forEach(b=>b.addEventListener('click',()=>{
     openSession();setStage('summary');
     const ws=q('nexaCommandWorkspace');ws?.classList.add('workspace-open');
   }));
