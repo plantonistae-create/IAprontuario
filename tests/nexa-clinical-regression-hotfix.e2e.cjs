@@ -61,7 +61,23 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       await sleep(1250);
       const before=parseTimer(await page.locator('#timer').innerText());assert.ok(before>=1,'timer must advance while recording');
       await page.locator('#recBtn').click();
-      await page.waitForFunction(()=>document.getElementById('recBtn')?.dataset.recordingState==='paused'&&/pausada/i.test(document.getElementById('status')?.textContent||''));
+      try{
+        await page.waitForFunction(()=>document.getElementById('recBtn')?.dataset.recordingState==='paused'&&/pausada/i.test(document.getElementById('status')?.textContent||''));
+      }catch(error){
+        const diagnostic=await page.evaluate(()=>({
+          recState:document.getElementById('recBtn')?.dataset.recordingState||'',
+          recClass:document.getElementById('recBtn')?.className||'',
+          recDisabled:!!document.getElementById('recBtn')?.disabled,
+          recAria:document.getElementById('recBtn')?.getAttribute('aria-label')||'',
+          status:document.getElementById('status')?.textContent||'',
+          pauseText:document.getElementById('nfPause')?.textContent||'',
+          nativePauseText:document.getElementById('nexaPauseBtn')?.textContent||'',
+          processDisabled:!!document.getElementById('processBtn')?.disabled
+        }));
+        console.error('V18122_CIRCULAR_PAUSE_DIAGNOSTIC',JSON.stringify(diagnostic));
+        console.error('V18122_CIRCULAR_PAUSE_PAGE_ERRORS',JSON.stringify(errors));
+        throw error;
+      }
       assert.equal(await page.locator('#processBtn').isDisabled(),true,'circular pause must not finalize the recording');
       assert.match(await page.locator('#recBtn').getAttribute('aria-label'),/Retomar gravação/i);
       const paused=parseTimer(await page.locator('#timer').innerText());await sleep(1250);
