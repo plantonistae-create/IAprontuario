@@ -7,6 +7,7 @@ const assert=require('node:assert/strict');
 const watchdog=setTimeout(()=>{console.error('Continuous/SOAP E2E exceeded 150 seconds');process.exit(1);},150000);watchdog.unref();
 const root=path.resolve(__dirname,'..');
 const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
+fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
 
 (async()=>{
  const server=http.createServer((req,res)=>{
@@ -84,12 +85,14 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
    await page.locator('#nexaPlanQuickComposer').getByRole('button',{name:'Orientações',exact:true}).click();
    plan=await page.locator('#conductRecordText').inputValue();assert.match(plan,/Orientações\./);assert.match(plan,/Reavaliar após resultado\./,'Manual plan text must coexist with quick actions');
 
+   await page.screenshot({path:path.join(root,'test-results',`continuous-flow-${viewport.width}.png`),fullPage:true});
    const before=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,exam:document.querySelector('.field[data-key="exame_fisico"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,plan:document.getElementById('conductRecordText').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
    await page.locator('[data-flow-mode="soap"]').click();
    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='soap');
    const soap=await page.evaluate(()=>window.nexaContinuousSoap1811.composeSoap());
    assert.match(soap,/S — SUBJETIVO/);assert.match(soap,/O — OBJETIVO/);assert.match(soap,/A — AVALIAÇÃO/);assert.match(soap,/P — PLANO/);assert.match(soap,/GECA/);assert.doesNotMatch(soap,/CID:/,'SOAP assessment must remain valid without confirmed CID');
 
+   await page.screenshot({path:path.join(root,'test-results',`soap-flow-${viewport.width}.png`),fullPage:true});
    const after=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,exam:document.querySelector('.field[data-key="exame_fisico"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,plan:document.getElementById('conductRecordText').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
    assert.deepEqual(after,before,'Continuous → SOAP must preserve the same encounter and fields');
 
