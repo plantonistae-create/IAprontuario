@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const code=fs.readFileSync(new URL('../nexa-continuous-soap-v18.11.js',import.meta.url),'utf8');
+const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
+const index=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+
+for(const token of [
+  'nexaUnifiedFlow','nexaFlowModeBar','continuous','soap',
+  'nexaExamQuickComposer','nexaPlanQuickComposer','nexaPlanPresets',
+  'composeS','composeO','composeA','composeP','composeSoap','composeContinuous',
+  'nexaAssociateCid','physicianCid','nexaClinicalBridge18101',
+  'nexaEncounterAutosave18101','continuous_soap_edit',
+  'nexaFlowCopyAll','nexaFlowPreview','nexaSoapSideNav'
+]) assert.ok(code.includes(token),`missing ${token}`);
+
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260927-v18110'),'workflow module must be loaded with cache bust');
+assert.ok(index.includes('setAssessment:(text,cid=\'\')'),'clinical bridge must expose free assessment setter');
+assert.ok(index.includes("source:code?'physician_free_text_cid':'physician_free_text'"),'manual assessment must preserve explicit provenance');
+assert.ok(index.includes("status:'altered',final:value,cid:code"),'free physician text must become usable without requiring CID');
+assert.ok(!code.includes('CID →'),'workflow must not imply automatic CID prescription mapping');
+new Function(code);
+console.log('NEXA Continuous + SOAP contract: PASS');
