@@ -97,6 +97,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    const before=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,exam:document.querySelector('.field[data-key="exame_fisico"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,plan:document.getElementById('conductRecordText').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
    await page.locator('[data-flow-mode="soap"]').click();
    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='soap');
+   if(viewport.width>820){assert.equal(await page.locator('#nfShell [data-go="summary"]').evaluate(el=>el.classList.contains('active')),true,'SOAP sidebar item must be active');assert.equal(await page.locator('#nfShell [data-go="radar"]').evaluate(el=>el.classList.contains('active')),false,'Continuous sidebar item must be inactive in SOAP mode')}
    const soap=await page.evaluate(()=>window.nexaContinuousSoap1811.composeSoap());
    assert.match(soap,/S — SUBJETIVO/);assert.match(soap,/O — OBJETIVO/);assert.match(soap,/A — AVALIAÇÃO/);assert.match(soap,/P — PLANO/);assert.match(soap,/GECA/);assert.doesNotMatch(soap,/CID:/,'SOAP assessment must remain valid without confirmed CID');
 
@@ -109,6 +110,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.match(await page.locator('#nexaFlowPreview').textContent(),/A — AVALIAÇÃO/);
    await page.locator('[data-flow-mode="continuous"]').click();
    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='continuous');
+   if(viewport.width>820){assert.equal(await page.locator('#nfShell [data-go="radar"]').evaluate(el=>el.classList.contains('active')),true,'Continuous sidebar item must be active after swap back');assert.equal(await page.locator('#nfShell [data-go="summary"]').evaluate(el=>el.classList.contains('active')),false,'SOAP sidebar item must be inactive after swap back')}
    const back=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
    assert.equal(back.hda,before.hda);assert.equal(back.hyp,'GECA');assert.equal(back.encounter,before.encounter);
 
