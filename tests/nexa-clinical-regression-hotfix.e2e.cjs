@@ -39,6 +39,8 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     throw error;
    }
    assert.equal(await page.evaluate(()=>window.nexaClinicalRuntime18121?.getProfile?.()?.id),await page.evaluate(()=>window.currentProf.id),'runtime profile contract must expose the active physician to external modules');
+   if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
+   await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden&&!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
 
    const ids=[];
    for(let n=1;n<=3;n++){
