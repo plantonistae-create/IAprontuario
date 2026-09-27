@@ -132,7 +132,24 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
         await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
         await page.waitForFunction(()=>scrollY>0);
         await page.locator('#nfTopClear').click();
-        await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+        try{
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+        }catch(error){
+          const diagnostic=await page.evaluate(()=>({
+            phase:document.body.dataset.nexaClinicalPhase||'',
+            stage:document.body.dataset.nexaStage||'',
+            hda:document.querySelector('.field[data-key="hda"] textarea')?.value||'',
+            scrollY,
+            scrollHeight:document.documentElement.scrollHeight,
+            timer:document.getElementById('timer')?.textContent||'',
+            recState:document.getElementById('recBtn')?.dataset.recordingState||'',
+            status:document.getElementById('status')?.textContent||'',
+            scrollCalls:window.__nexaWindowScrollCalls?.slice(-12)||[]
+          }));
+          console.error('V18122_CLEAR_TOP_DIAGNOSTIC',JSON.stringify(diagnostic));
+          console.error('V18122_CLEAR_TOP_PAGE_ERRORS',JSON.stringify(errors));
+          throw error;
+        }
         assert.ok(await page.evaluate(()=>window.__nexaWindowScrollCalls.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth')),'Limpar consulta must scroll smoothly to the top after reset');
       }else{
         await page.locator('#resetBtn').evaluate(el=>el.click());
