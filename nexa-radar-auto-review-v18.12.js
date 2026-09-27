@@ -67,6 +67,18 @@ function style(){
  body[data-nexa-clinical-phase="review"] #nexaFlowModeBar{display:flex!important}
  body[data-nexa-clinical-phase="review"] #nexaReviewHeader{display:flex!important}
  body[data-nexa-clinical-phase="review"] #nexaFlowLive{display:none!important}
+ body[data-nexa-clinical-phase="processing"] #nexaFlowHistory,
+ body[data-nexa-clinical-phase="processing"] #nexaFlowExam,
+ body[data-nexa-clinical-phase="processing"] #nexaFlowAssessment,
+ body[data-nexa-clinical-phase="processing"] #nexaFlowPlan,
+ body[data-nexa-clinical-phase="processing"] #nexaFlowFinal,
+ body[data-nexa-clinical-phase="error"] #nexaFlowHistory,
+ body[data-nexa-clinical-phase="error"] #nexaFlowExam,
+ body[data-nexa-clinical-phase="error"] #nexaFlowAssessment,
+ body[data-nexa-clinical-phase="error"] #nexaFlowPlan,
+ body[data-nexa-clinical-phase="error"] #nexaFlowFinal{display:block!important}
+ body[data-nexa-clinical-phase="processing"] #nexaReviewHeader,
+ body[data-nexa-clinical-phase="error"] #nexaReviewHeader{display:flex!important}
  #nexaReviewHeader{display:none;align-items:flex-start;justify-content:space-between;gap:14px;border:1px solid var(--nexa-line);background:var(--nexa-surface);border-radius:18px;padding:15px 16px;margin:0 0 14px}
  #nexaReviewHeader strong{font-size:17px;color:var(--nexa-text)}#nexaReviewHeader p{margin:3px 0 0;font-size:11px;color:var(--nexa-muted);line-height:1.45}
  #nexaReviewHeader span{font-size:10px;font-weight:850;color:var(--nexa-brand);white-space:nowrap}
@@ -106,11 +118,13 @@ function phaseFromUi(){
  const status=String($('status')?.textContent||'');
  let processed=false;try{processed=!!window.lastProcessedMeta}catch{}
  if(processed||/processamento conclu[ií]do|rascunho gerado/i.test(status))return'review';
+ if(document.body.dataset.nexaProcessing==='1'||/transcrevendo|estruturando/i.test(status))return'processing';
+ if(/falha ao transcrever|falha ao estruturar|sess[aã]o expirou/i.test(status))return'error';
  return'consult';
 }
 function setPhase(next,reason='manual'){
- phase=next==='review'?'review':'consult';document.body.dataset.nexaClinicalPhase=phase;
- if(phase==='review')renderFinalPending(lastState);
+ phase=['review','processing','error'].includes(next)?next:'consult';document.body.dataset.nexaClinicalPhase=phase;
+ if(phase==='review'||phase==='error')renderFinalPending(lastState);
  const header=$('nexaReviewHeader');if(header)header.dataset.reason=reason;
  window.dispatchEvent(new CustomEvent('nexa:clinical-phase',{detail:{phase,reason}}));return phase;
 }
@@ -255,7 +269,7 @@ function mergePreProcessVitals(){
 }
 function observeStatus(){
  const status=$('status');if(!status||statusObserver)return;
- statusObserver=new MutationObserver(()=>{if(/processamento conclu[ií]do/i.test(status.textContent||'')){mergePreProcessVitals();setPhase('review','structured');renderFinalPending(lastState)}else syncPhase('status')});
+ statusObserver=new MutationObserver(()=>{const value=status.textContent||'';if(/processamento conclu[ií]do/i.test(value)){mergePreProcessVitals();setPhase('review','structured');renderFinalPending(lastState)}else if(/transcrevendo|estruturando/i.test(value))setPhase('processing','processing');else if(/falha ao transcrever|falha ao estruturar|sess[aã]o expirou/i.test(value))setPhase('error','processing-error');else syncPhase('status')});
  statusObserver.observe(status,{childList:true,subtree:true,characterData:true});
 }
 function bind(){
@@ -267,6 +281,7 @@ function bind(){
   if(e.target?.closest?.('#recBtn,#nfStart,#nexaLocalStartBtn,#nexaDesktopStart,#nexaRadarFinishProxy,#nfFinish,#nexaDesktopFinish'))setTimeout(()=>syncPhase('recording-control'),120);
  },true);
  window.addEventListener('nexa:consultation-reset',()=>{vitalCache.clear();vitalAmbiguities.clear();preProcessVitals='';const pending=$('nexaFinalPending');if(pending)pending.style.display='';setPhase('consult','reset');setTimeout(()=>render(window.nexaRadar?.state),30)});
+ window.addEventListener('nexa:clinical-processing',e=>{const state=e.detail?.state;if(state==='processing')setPhase('processing','processing-event');else if(state==='structured'){mergePreProcessVitals();setPhase('review','structured-event');renderFinalPending(lastState)}else if(state==='error')setPhase('error','processing-error-event')});
  observeStatus();mounted=true;syncPhase('mount');render(window.nexaRadar.state);return true;
 }
 let tries=0;const timer=setInterval(()=>{if(bind()||++tries>120)clearInterval(timer)},100);
