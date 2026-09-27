@@ -70,3 +70,19 @@ test('vital alerts respect corrections and the documented population instead of 
 test('alert links point to actual pending questions and do not resurrect the clarified finding',()=>{
  const r=E.analyze({transcript:'Cefaleia. A dor começou de repente.'}),a=r.alerts.find(a=>a.concept==='sudden');assert.ok(a.related.length);assert.ok(!a.related.includes('sudden'));for(const id of a.related)assert.ok(r.items.some(i=>i.id===id));
 });
+
+
+test('spoken vitals: natural Portuguese forms are recognized without manual entry',()=>{
+ const transcript='Dor torácica. Pressão 120 por 80. Frequência cardíaca 88. Saturação 97. Frequência respiratória 20. Temperatura 37 e meio.';
+ const r=E.analyze({transcript});
+ for(const id of ['bp','hr','spo2','rr','temperature']){
+   assert.equal(r.facts[id].state,'known_present',id+' must be recognized as measured');
+   assert.ok(!has(r,id),id+' must leave pending gaps once clearly spoken');
+ }
+ assert.equal(r.facts.temperature.currentEvidence.value,37.5);
+});
+test('spoken vitals: uncertainty stays explicit instead of becoming a reassuring value',()=>{
+ const r=E.analyze({transcript:'Dor torácica. Saturação talvez 97 ou 94.'});
+ assert.notEqual(r.facts.spo2.state,'known_absent');
+ assert.ok(has(r,'spo2'),'ambiguous saturation must remain actionable');
+});
