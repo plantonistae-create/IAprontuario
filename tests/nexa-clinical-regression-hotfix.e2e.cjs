@@ -129,8 +129,11 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
 
     if(n<3){
       if(n===1&&viewport.width>820){
-        await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
-        await page.waitForFunction(()=>scrollY>0);
+        await page.evaluate(()=>{
+          const spacer=document.createElement('div');spacer.id='nexaClearScrollProbe';spacer.setAttribute('aria-hidden','true');spacer.style.height='1600px';document.body.appendChild(spacer);
+          window.scrollTo(0,document.documentElement.scrollHeight);
+        });
+        await page.waitForFunction(()=>scrollY>100);
         await page.locator('#nfTopClear').click();
         try{
           await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
@@ -151,6 +154,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
           throw error;
         }
         assert.ok(await page.evaluate(()=>window.__nexaWindowScrollCalls.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth')),'Limpar consulta must scroll smoothly to the top after reset');
+        await page.evaluate(()=>document.getElementById('nexaClearScrollProbe')?.remove());
       }else{
         await page.locator('#resetBtn').evaluate(el=>el.click());
         await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
