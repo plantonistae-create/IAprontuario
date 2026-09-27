@@ -30,7 +30,14 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(25000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
    await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
-   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaEncounterAutosave18101&&window.nexaAuditOutbox18919&&window.nexaRadarAutoReview1812&&document.getElementById('nfStart'));
+   try{
+    await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaEncounterAutosave18101&&window.nexaAuditOutbox18919&&window.nexaRadarAutoReview1812&&document.getElementById('nfStart'));
+   }catch(error){
+    const diagnostic=await page.evaluate(()=>({currentProf:window.currentProf||null,runtime:!!window.nexaClinicalRuntime18121,autosave:!!window.nexaEncounterAutosave18101,outbox:!!window.nexaAuditOutbox18919,review:!!window.nexaRadarAutoReview1812,nfStart:!!document.getElementById('nfStart'),loginDisplay:document.getElementById('loginGate')?.style?.display,mainDisplay:document.getElementById('mainApp')?.style?.display,phase:document.body.dataset.nexaClinicalPhase||'',status:document.getElementById('status')?.textContent||''}));
+    console.error('HOTFIX_BOOT_DIAGNOSTIC',JSON.stringify(diagnostic));console.error('HOTFIX_PAGE_ERRORS',JSON.stringify(errors));
+    await page.screenshot({path:path.join(root,'test-results',`clinical-regression-boot-failure-${viewport.width}.png`),fullPage:true}).catch(()=>{});
+    throw error;
+   }
    assert.equal(await page.evaluate(()=>window.nexaClinicalRuntime18121?.getProfile?.()?.id),await page.evaluate(()=>window.currentProf.id),'runtime profile contract must expose the active physician to external modules');
 
    const ids=[];
