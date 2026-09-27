@@ -18,6 +18,7 @@ assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260927-v18111'),'w
 assert.ok(index.includes('setAssessment:(text,cid=\'\')'),'clinical bridge must expose free assessment setter');
 assert.ok(index.includes("source:code?'physician_free_text_cid':'physician_free_text'"),'manual assessment must preserve explicit provenance');
 assert.ok(index.includes("status:'altered',final:value,cid:code"),'free physician text must become usable without requiring CID');
+assert.ok(!index.includes("if(!hypothesisReview.ai)hypothesisReview.ai=value"),'physician free text must never be relabeled as AI output');
 assert.ok(!code.includes('CID →'),'workflow must not imply automatic CID prescription mapping');
 new Function(code);
 console.log('NEXA Continuous + SOAP contract: PASS');
