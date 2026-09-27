@@ -262,7 +262,7 @@ function bind(){
   if(e.target?.closest?.('#processBtn,#nfProcess,#nexaRadarProcessProxy,#nexaTopProcess'))preProcessVitals=String(vitalField()?.value||'');
   if(e.target?.closest?.('#recBtn,#nfStart,#nexaLocalStartBtn,#nexaDesktopStart,#nexaRadarFinishProxy,#nfFinish,#nexaDesktopFinish'))setTimeout(()=>syncPhase('recording-control'),120);
  },true);
- window.addEventListener('nexa:consultation-reset',()=>{vitalCache.clear();vitalAmbiguities.clear();preProcessVitals='';setPhase('consult','reset');setTimeout(()=>render(window.nexaRadar?.state),30)});
+ window.addEventListener('nexa:consultation-reset',()=>{vitalCache.clear();vitalAmbiguities.clear();preProcessVitals='';const pending=$('nexaFinalPending');if(pending)pending.style.display='';setPhase('consult','reset');setTimeout(()=>render(window.nexaRadar?.state),30)});
  observeStatus();mounted=true;syncPhase('mount');render(window.nexaRadar.state);return true;
 }
 let tries=0;const timer=setInterval(()=>{if(bind()||++tries>120)clearInterval(timer)},100);
