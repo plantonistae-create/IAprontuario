@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-12-0-radar-auto-review-20260927";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260927-v18120";
+const CACHE_NAME="nexa-v18-12-1-clinical-flow-hotfix-20260927";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260927-v18121";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
