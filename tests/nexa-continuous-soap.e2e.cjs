@@ -27,9 +27,11 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(18000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
-   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaContinuousSoap1811&&window.nexaEncounterAutosave18101);
+   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaContinuousSoap1811&&window.nexaEncounterAutosave18101&&window.nexaRadarAutoReview1812);
    if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
    await page.waitForFunction(()=>document.getElementById('nexaUnifiedFlow')&&document.body.dataset.nexaFlow==='continuous');
+   await page.evaluate(()=>window.nexaRadarAutoReview1812.setPhase('review','continuous-soap-e2e'));
+   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review');
    assert.equal(await page.locator('#nexaUnifiedFlow').isVisible(),true,'Unified clinical flow must be visible');
    assert.equal(await page.locator('#nexaFlowHistory').isVisible(),true);
    assert.equal(await page.locator('#nexaFlowExam').isVisible(),true);
@@ -45,6 +47,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    }
 
    await page.locator('.field[data-key="hda"] textarea').fill('Dor abdominal há um dia, sem outros sintomas relevantes.');
+   if(await page.locator('#nexaExamOptional').count())await page.locator('#nexaExamOptional').evaluate(el=>{el.open=true;});
    await page.locator('[data-exam-chip="beg"]').click();
    await page.locator('[data-exam-chip="hydrated"]').click();
    let exam=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();

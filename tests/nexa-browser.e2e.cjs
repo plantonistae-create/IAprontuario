@@ -52,6 +52,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   console.log('Fields and local Radar initialized',viewport.width);
   // Navigation is through production controls, not a mocked view.
   await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="radar"]')?.click());
+  if(await page.locator('#nexaRadarFullDetails').count())await page.locator('#nexaRadarFullDetails').evaluate(el=>{el.open=true;});
   const trauma=page.locator('[data-item="trauma"]');await trauma.locator('.ng-manual summary').click();
   await trauma.locator('textarea').fill('Sim, queda da própria altura ontem.');await trauma.getByRole('button',{name:'Registrar resposta',exact:true}).click();
   await page.waitForFunction(()=>!window.radarState.items.some(i=>i.id==='trauma'));
@@ -169,7 +170,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   for(const section of ['QUEIXA PRINCIPAL','HISTÓRIA DA DOENÇA ATUAL','ALERGIAS','COMORBIDADES','MEDICAÇÕES','ANTECEDENTES','EXAME FÍSICO','HIPÓTESE DIAGNÓSTICA','CONDUTAS'])assert.ok(note.includes(section),section);
   console.log('Summary, hypothesis, plan and copies checked',viewport.width);
   // Reopening a saved consultation during recording must also stop the primary recorder.
-  await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="radar"]')?.click());
+  await page.evaluate(()=>{document.querySelector('.nexa-session-tab[data-stage="radar"]')?.click();window.nexaRadarAutoReview1812?.setPhase('consult','history-reopen-regression');});
   await page.locator('#nfStart').click();
   await page.waitForFunction(()=>window.__qa.channels.length===2);
   await page.evaluate(()=>{window.__qa.previousTrack=window.__qa.track;window.fill({hda:'Disúria há dois dias.'});});
