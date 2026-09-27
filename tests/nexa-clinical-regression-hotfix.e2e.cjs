@@ -94,7 +94,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     assert.equal(await page.evaluate(()=>new Set(window.__qa.auditSubmissions.map(x=>x.source_consultation_id)).size),n,'Audit submissions must remain idempotent across sequential encounters');
 
     if(n<3){
-      await page.locator('#nfClear').click();
+      await page.locator('#resetBtn').evaluate(el=>el.click());
       await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
     }
    }
