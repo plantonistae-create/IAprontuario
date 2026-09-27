@@ -23,22 +23,18 @@ function dispositionText(){const c=$('nexaDispositionCard');const s=c?.querySele
 function recoverClinicalStages(){qa('.nexa-stage-view').forEach(v=>{v.hidden=false})}
 function openHistory(){
  recoverClinicalStages();
- document.body.classList.remove('doctor-home-open');
- const ws=$('nexaCommandWorkspace');
- ws?.classList.add('workspace-open');
- document.body.classList.add('nexa-workspace-only');
- const nativeSummary=q('.nexa-session-tab[data-stage="summary"]');
- if(nativeSummary){nativeSummary.click()}
+ document.body.classList.remove('doctor-home-open','nexa-workspace-only');
+ $('nexaCommandWorkspace')?.classList.remove('workspace-open');
+ const native=q('.nexa-session-tab[data-stage="history"]');
+ if(native){native.click()}
  else{
-  const summary=q('.nexa-stage-view[data-stage="summary"]');
-  qa('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v===summary));
-  document.body.dataset.nexaStage='summary';
-  document.body.setAttribute('data-nexa-stage','summary');
+  const history=q('.nexa-stage-view[data-stage="history"]');
+  qa('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v===history));
+  document.body.dataset.nexaStage='history';
+  document.body.setAttribute('data-nexa-stage','history');
  }
- qa('.nexa-command-tab[data-pane]').forEach(t=>t.classList.toggle('active',t.id==='workspaceHistoryTab'));
- qa('.nexa-workspace-pane').forEach(p=>p.classList.toggle('active',p.id==='workspaceHistoryPane'));
- ws?.classList.remove('is-collapsed');
  qa('#nfShell [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go==='history'));
+ setTimeout(()=>{try{window.nexaRefreshSevenDayHistory?.();window.nexaRefreshHistory197?.()}catch{}},40);
  try{scrollTo({top:0,left:0,behavior:'auto'})}catch{}
 }
 function goStage(stage){
