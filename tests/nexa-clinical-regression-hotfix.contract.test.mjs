@@ -10,7 +10,6 @@ const outbox=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.m
 
 for(const token of [
  'window.nexaClinicalRuntime18121',
- 'window.currentProf=currentProf',
  'requireClinicalSession',
  'sb.auth.getUser',
  'sb.auth.refreshSession',
@@ -31,8 +30,8 @@ assert.ok(review.includes("return'error'"),'review phase machine must expose pro
 assert.ok(review.includes('body[data-nexa-clinical-phase="processing"] #nexaFlowHistory'),'structured sections must remain mounted during processing');
 assert.ok(review.includes("nexa:clinical-processing"),'review flow must listen to processing lifecycle events');
 
-assert.ok(autosave.includes("window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)"),'autosave must bind to exposed active profile');
-assert.ok(history.includes("window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)"),'History must bind to exposed active profile');
+assert.ok(autosave.includes("window.nexaClinicalRuntime18121?.getProfile?.()"),'autosave must bind to the clinical runtime profile');
+assert.ok(history.includes("window.nexaClinicalRuntime18121?.getProfile?.()"),'History must bind to the clinical runtime profile');
 assert.ok(history.includes('function auditEndpoint()'),'legacy History/Audit fallback must derive a real endpoint');
 assert.ok(history.includes('runtime.supabaseUrl'),'legacy History/Audit fallback must use runtime Supabase config');
 assert.ok(outbox.includes('c?.supabaseUrl||runtime.supabaseUrl'),'Audit outbox must use the active Supabase project URL');
