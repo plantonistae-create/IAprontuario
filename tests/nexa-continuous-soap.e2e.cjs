@@ -54,6 +54,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
    await page.waitForFunction(()=>window.nexaClinicalBridge18101.assessment().text==='GECA'&&window.nexaClinicalBridge18101.assessment().status==='altered');
    let a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
    assert.equal(a.confirmed_cid,'','Free assessment must proceed without CID');
+   assert.equal(a.ai,'','Manual assessment must not be relabeled as AI output');
+   assert.equal(await page.locator('#hypothesisEditPanel').isVisible(),false,'Typing free assessment must not force the legacy edit panel open');
 
    await page.locator('#physicianCid').fill('A09');
    await page.locator('#nexaAssociateCid').click();
@@ -61,6 +63,20 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
    a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
    assert.equal(a.text,'GECA','Associating CID must not overwrite physician text');
    assert.equal(a.confirmed_cid,'A09');
+
+   await page.locator('#physicianCid').fill('J06.9');
+   await page.locator('#nexaAssociateCid').click();
+   await page.waitForFunction(()=>window.nexaClinicalBridge18101.assessment().confirmed_cid==='J06.9');
+   a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
+   assert.equal(a.text,'GECA','Changing CID must not overwrite physician text');
+   assert.equal(a.confirmed_cid,'J06.9');
+
+   await page.locator('#physicianCid').fill('');
+   await page.locator('#nexaAssociateCid').click();
+   await page.waitForFunction(()=>window.nexaClinicalBridge18101.assessment().confirmed_cid==='');
+   a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
+   assert.equal(a.text,'GECA','Removing CID must preserve physician assessment');
+   assert.equal(a.confirmed_cid,'');
 
    await page.locator('#nexaPlanQuickComposer').getByRole('button',{name:'Solicito exames',exact:true}).click();
    let plan=await page.locator('#conductRecordText').inputValue();assert.match(plan,/Solicito exames\./);
@@ -72,7 +88,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
    await page.locator('[data-flow-mode="soap"]').click();
    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='soap');
    const soap=await page.evaluate(()=>window.nexaContinuousSoap1811.composeSoap());
-   assert.match(soap,/S — SUBJETIVO/);assert.match(soap,/O — OBJETIVO/);assert.match(soap,/A — AVALIAÇÃO/);assert.match(soap,/P — PLANO/);assert.match(soap,/GECA/);assert.match(soap,/A09/);
+   assert.match(soap,/S — SUBJETIVO/);assert.match(soap,/O — OBJETIVO/);assert.match(soap,/A — AVALIAÇÃO/);assert.match(soap,/P — PLANO/);assert.match(soap,/GECA/);assert.doesNotMatch(soap,/CID:/,'SOAP assessment must remain valid without confirmed CID');
 
    const after=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,exam:document.querySelector('.field[data-key="exame_fisico"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,plan:document.getElementById('conductRecordText').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
    assert.deepEqual(after,before,'Continuous → SOAP must preserve the same encounter and fields');
