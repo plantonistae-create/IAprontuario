@@ -104,9 +104,8 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    assert.equal(await page.evaluate(()=>window.__qa.auditSubmissions.length),3,'Three eligible sequential visits must produce three Audit submissions');
 
    if(viewport.width<=820){
-    await page.locator('#nexaMoreBtn').click();
-    await page.waitForFunction(()=>document.getElementById('nexaMoreSheet')?.classList.contains('open'));
-    await page.locator('#nexaMoreSheet [data-quick="history"]').click();
+    await page.waitForFunction(()=>{const el=document.getElementById('nfMobileHistory');return !!el&&getComputedStyle(el).display!=='none'&&el.getBoundingClientRect().width>0});
+    await page.locator('#nfMobileHistory').click();
    }else{
     await page.locator('#nfSide [data-go="history"]').click();
    }
