@@ -103,7 +103,13 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    assert.equal(await page.evaluate(()=>window.__qa.consultationRows.length),3,'Three sequential visits must persist as three History encounters');
    assert.equal(await page.evaluate(()=>window.__qa.auditSubmissions.length),3,'Three eligible sequential visits must produce three Audit submissions');
 
-   await page.locator('#nfSide [data-go="history"]').click();
+   if(viewport.width<=820){
+    await page.locator('#nexaMoreBtn').click();
+    await page.waitForFunction(()=>document.getElementById('nexaMoreSheet')?.classList.contains('open'));
+    await page.locator('#nexaMoreSheet [data-quick="history"]').click();
+   }else{
+    await page.locator('#nfSide [data-go="history"]').click();
+   }
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
    await page.evaluate(()=>window.nexaRefreshHistory197?.());
    await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===3);
