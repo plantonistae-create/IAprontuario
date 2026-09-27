@@ -10,15 +10,16 @@ const qa=(sel,root=document)=>[...root.querySelectorAll(sel)];
 const text=v=>String(v??'').trim();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MODE_KEY='nexa_flow_mode_v18_11';
-let mounted=false,mode='continuous',assessmentTimer=null,previewTimer=null,presetObserver=null;
+let mounted=false,mode='continuous',assessmentTimer=null,previewTimer=null,presetObserver=null,assessmentSyncing=false;
 
 function field(key){return key==='conduta'?$('conductRecordText'):q(`.field[data-key="${key}"] textarea`)}
 function emit(el){if(!el)return;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
 function clinical(){try{return window.nexaClinicalBridge18101?.collect?.()||{}}catch{return{}}}
 function assessment(){try{return window.nexaClinicalBridge18101?.assessment?.()||{text:text(field('hipotese_diagnostica')?.value)}}catch{return{text:text(field('hipotese_diagnostica')?.value)}}}
 function setAssessment(){
+  if(assessmentSyncing)return;
   const value=text(field('hipotese_diagnostica')?.value),cid=text($('physicianCid')?.value).toUpperCase();
-  try{window.nexaClinicalBridge18101?.setAssessment?.(value,cid)}catch{}
+  assessmentSyncing=true;try{window.nexaClinicalBridge18101?.setAssessment?.(value,cid)}catch{}finally{assessmentSyncing=false}
   updatePreview();
 }
 function persistSoon(){try{window.nexaEncounterAutosave18101?.preserve?.('continuous_soap_edit')}catch{}}
@@ -304,7 +305,7 @@ function mount(){
  qa('.nexa-flow-copy',root).forEach(b=>b.onclick=()=>{const key=b.dataset.copy;copyText(key==='S'?composeS():key==='O'?composeO():key==='A'?composeA():composeP(),key)});
  $('nexaFlowCopyAll').onclick=()=>copyText(mode==='soap'?composeSoap():composeContinuous(),mode==='soap'?'SOAP completo':'Prontuário completo');
  $('nexaAssociateCid').onclick=()=>setAssessment();
- field('hipotese_diagnostica')?.addEventListener('input',()=>{clearTimeout(assessmentTimer);assessmentTimer=setTimeout(setAssessment,260)});
+ field('hipotese_diagnostica')?.addEventListener('input',()=>{if(assessmentSyncing)return;clearTimeout(assessmentTimer);assessmentTimer=setTimeout(setAssessment,260)});
  field('exame_fisico')?.addEventListener('input',()=>{parseExamSelection();renderExamChips();updatePreview()});
  field('conduta')?.addEventListener('input',()=>{renderPlanQuick();renderPlanLines();updatePreview()});
  document.addEventListener('input',e=>{if(e.target instanceof HTMLTextAreaElement||e.target instanceof HTMLInputElement)updatePreview()},true);
