@@ -22,6 +22,8 @@ for(const token of [
 
 assert.ok(index.includes("const valid=['radar','summary','hypothesis','plan','history'];"),'History must remain a first-class clinical stage');
 assert.ok(index.includes("['history','HISTÓRICO','Consultas salvas'"),'buildClinicalStages must create a native History host');
+assert.ok(index.includes(`document.querySelectorAll('[data-quick="history"]')`),'mobile quick History must have its own native-stage handler');
+assert.ok(index.includes(`openSession();setStage('history');q('nexaMoreSheet')?.classList.remove('open')`),'mobile History must route to the native History stage');
 
 const openHistory=finalUi.match(/function openHistory\(\)\{[\s\S]*?\n\}/)?.[0]||'';
 assert.match(openHistory,/data-stage="history"/,'History navigation must activate the native history stage');
