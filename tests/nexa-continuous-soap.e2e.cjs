@@ -47,6 +47,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    }
 
    await page.locator('.field[data-key="hda"] textarea').fill('Dor abdominal há um dia, sem outros sintomas relevantes.');
+   if(await page.locator('#nexaExamOptional').count())await page.locator('#nexaExamOptional').evaluate(el=>{el.open=true;});
    await page.locator('[data-exam-chip="beg"]').click();
    await page.locator('[data-exam-chip="hydrated"]').click();
    let exam=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();
