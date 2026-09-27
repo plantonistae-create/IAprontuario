@@ -20,6 +20,8 @@ for(const token of [
  'Falha ao transcrever/estruturar'
 ]) assert.ok(index.includes(token),`index missing hotfix contract: ${token}`);
 
+assert.ok(index.includes("const valid=['radar','summary','hypothesis','plan','history'];"),'History must remain a first-class clinical stage');
+
 const openHistory=finalUi.match(/function openHistory\(\)\{[\s\S]*?\n\}/)?.[0]||'';
 assert.match(openHistory,/data-stage="history"/,'History navigation must activate the native history stage');
 assert.doesNotMatch(openHistory,/data-stage="summary"/,'History navigation must not route through Summary');
