@@ -4267,7 +4267,7 @@ function pauseSession(){
   function setStage(stage,scrollTarget=null){
     buildClinicalStages();
     if(stage!=='summary'||!q('nexaCommandWorkspace')?.classList.contains('workspace-open'))document.body.classList.remove('nexa-workspace-only');
-    const valid=['radar','summary','hypothesis','plan'];
+    const valid=['radar','summary','hypothesis','plan','history'];
     if(!valid.includes(stage)) stage='radar';
     document.body.dataset.nexaStage=stage;
     document.querySelectorAll('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v.dataset.stage===stage));
