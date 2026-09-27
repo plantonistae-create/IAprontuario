@@ -28,7 +28,7 @@ assert.ok(!index.includes("recording?stopRec():startRec()"),'circular recorder m
 assert.ok(index.includes("window.dispatchEvent(new CustomEvent('nexa:recording-finalized'"),'finalization must publish the finalized recorder lifecycle event');
 assert.ok(index.includes('nexaScrollToProcessCta();'),'finalization must scroll to the structure CTA');
 assert.ok(index.includes("setStage('radar')"),'finish must keep the recorder stage available for the structure CTA');
-assert.ok(index.includes("behavior:'smooth'")),'reset/clear must provide smooth top scrolling');
+assert.ok(index.includes("behavior:'smooth'"),'reset/clear must provide smooth top scrolling');
 assert.ok(index.includes('function openHistoryStage()'),'History must have one canonical navigation function');
 assert.ok(index.includes('window.nexaOpenHistoryStage18122=openHistoryStage'),'canonical History navigation must be exposed to the Final UI');
 assert.ok(index.includes("else if(a==='history'){openHistoryStage()}"),'quick History must route to the canonical native stage');
