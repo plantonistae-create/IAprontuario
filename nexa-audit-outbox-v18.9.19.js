@@ -6,8 +6,8 @@ window.__NEXA_AUDIT_OUTBOX_V18_9_19__=true;
 const DB='nexa-audit-outbox-v18919',STORE='items',ENCOUNTER_KEY='nexa-audit-open-encounter-v18919';
 const RESET='#resetBtn,#nexaRadarResetBtn,#nfClear,#nfTopClear,#nexaNewCaseBtn,#nexaTopReset';
 const AUDIT_SUBMIT_PATH='/functions/v1/submit-audit-case';
-function auditSubmitUrl(){try{const base=typeof SUPABASE_URL!=='undefined'?String(SUPABASE_URL||''):'';const path=typeof APP_CONFIG!=='undefined'&&APP_CONFIG?.submitAuditPath?String(APP_CONFIG.submitAuditPath):AUDIT_SUBMIT_PATH;return base?base+path:path}catch{return AUDIT_SUBMIT_PATH}}
-function publishableKey(){try{return typeof SUPABASE_ANON_KEY!=='undefined'?String(SUPABASE_ANON_KEY||''):''}catch{return''}}
+function auditSubmitUrl(){try{const c=client(),runtime=window.nexaClinicalRuntime18121||{},base=String(c?.supabaseUrl||runtime.supabaseUrl||''),path=String(runtime.appConfig?.submitAuditPath||AUDIT_SUBMIT_PATH);return base?base+path:path}catch{return AUDIT_SUBMIT_PATH}}
+function publishableKey(){try{const c=client(),runtime=window.nexaClinicalRuntime18121||{};return String(c?.supabaseKey||runtime.publishableKey||'')}catch{return''}}
 const SNAPSHOT_VERSION='final-v1',SEND_TIMEOUT_MS=12000,STALE_SENDING_MS=60000;
 const KEYS=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica','orientacoes_alta','sugestoes_perguntas','exame_fisico','sinais_vitais','conduta'];
 let bypass=false,flushPromise=null,retryTimer=null,autoHandoffTimer=null,storeAdapter=null;
