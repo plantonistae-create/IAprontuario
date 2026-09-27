@@ -35,6 +35,14 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.equal(await page.locator('#nexaFlowExam').isVisible(),true);
    assert.equal(await page.locator('#nexaFlowAssessment').isVisible(),true);
    assert.equal(await page.locator('#nexaFlowPlan').isVisible(),true);
+   if(viewport.width>820){
+    const shellLabels=await page.locator('#nfShell [data-go]').allTextContents();
+    assert.deepEqual(shellLabels,['Contínuo','SOAP rápido','Histórico'],'Desktop sidebar must not expose legacy clinical pages');
+    await page.locator('#nfShell [data-go="summary"]').click();
+    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='soap'&&document.body.dataset.nexaStage==='radar');
+    await page.locator('#nfShell [data-go="radar"]').click();
+    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='continuous'&&document.body.dataset.nexaStage==='radar');
+   }
 
    await page.locator('.field[data-key="hda"] textarea').fill('Dor abdominal há um dia, sem outros sintomas relevantes.');
    await page.locator('[data-exam-chip="beg"]').click();
