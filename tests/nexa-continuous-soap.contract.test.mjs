@@ -14,7 +14,7 @@ for(const token of [
   'nexaFlowCopyAll','nexaFlowPreview','nexaSoapSideNav'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260927-v18110'),'workflow module must be loaded with cache bust');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260927-v18111'),'workflow module must be loaded with cache bust');
 assert.ok(index.includes('setAssessment:(text,cid=\'\')'),'clinical bridge must expose free assessment setter');
 assert.ok(index.includes("source:code?'physician_free_text_cid':'physician_free_text'"),'manual assessment must preserve explicit provenance');
 assert.ok(index.includes("status:'altered',final:value,cid:code"),'free physician text must become usable without requiring CID');
