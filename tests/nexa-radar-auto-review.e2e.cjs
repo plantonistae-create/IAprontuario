@@ -81,6 +81,12 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.equal(await page.locator('#nexaFinalPending').isVisible(),true,'Final pending review must be present');
    assert.equal(await page.locator('#nexaExamOptional').isVisible(),true,'Physical-exam quick composer remains optional in review');
 
+   await page.locator('#conductRecordText').evaluate(el=>{
+    el.value='Orientações, reavaliação e retorno se houver piora.';
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+   });
+
    const copy=async locator=>{await locator.click();return page.evaluate(()=>window.__qa.clipboard);};
    await page.locator('[data-flow-mode="soap"]').click();
    await page.waitForFunction(()=>document.body.dataset.nexaFlow==='soap');
