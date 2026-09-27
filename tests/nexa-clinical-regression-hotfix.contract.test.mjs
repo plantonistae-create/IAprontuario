@@ -41,6 +41,8 @@ assert.ok(history.includes('function auditEndpoint()'),'legacy History/Audit fal
 assert.ok(history.includes('runtime.supabaseUrl'),'legacy History/Audit fallback must use runtime Supabase config');
 assert.ok(outbox.includes('c?.supabaseUrl||runtime.supabaseUrl'),'Audit outbox must use the active Supabase project URL');
 assert.ok(outbox.includes('c?.supabaseKey||runtime.publishableKey'),'Audit outbox must use the active Supabase publishable key');
+assert.ok(finalUi.includes('id="nfMobileHistory" data-mobile-go="history"'),'Final UI must expose a stable mobile History control');
+assert.ok(finalUi.includes("#nfMobileNav{position:fixed"),'mobile clinical navigation must be visibly rendered by Final UI');
 
 new Function(review);
 new Function(autosave);
