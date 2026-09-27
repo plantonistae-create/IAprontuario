@@ -243,6 +243,9 @@ function setMode(next){
 }
 function syncNavigation(){
  const soap=mode==='soap';
+ const shellContinuous=q('#nfShell [data-go="radar"]'),shellSoap=q('#nfShell [data-go="summary"]');
+ if(shellContinuous){shellContinuous.textContent='Contínuo';shellContinuous.classList.toggle('active',!soap)}
+ if(shellSoap){shellSoap.textContent='SOAP rápido';shellSoap.classList.toggle('active',soap)}
  const radar=q('.nexa-side-item[data-desk-stage="radar"]');if(radar){radar.innerHTML='↕ <span>Contínuo</span>';radar.classList.toggle('active',!soap)}
  const soapSide=$('nexaSoapSideNav');if(soapSide)soapSide.classList.toggle('active',soap);
  qa('.nexa-desktop-tab[data-desk-stage]').forEach((b,i)=>{if(i===0){b.textContent='Contínuo';b.classList.toggle('active',!soap);b.style.display=''}else if(i===1){b.textContent='SOAP rápido';b.classList.toggle('active',soap);b.style.display=''}else b.style.display='none'});
