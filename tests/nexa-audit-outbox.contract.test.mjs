@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
-for(const token of ['indexedDB.open','auditSubmitUrl','AUDIT_SUBMIT_PATH','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','ALREADY_REVIEWED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-outbox-refreshed','stable_encounter','visibility_hidden'])assert.ok(code.includes(token),`missing ${token}`);
+for(const token of ['indexedDB.open','auditSubmitUrl','AUDIT_SUBMIT_PATH','sessionAuth','reconcileRemoteReady','remote_reconcile','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','ALREADY_REVIEWED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-outbox-refreshed','stable_encounter','visibility_hidden'])assert.ok(code.includes(token),`missing ${token}`);
 assert.ok(code.includes('nexaEncounterAutosave18101'),'audit outbox must share encounter identity with autosave');
 assert.ok(!code.includes('https://fmkrcieubrlltiggyauc.supabase.co/functions/v1/submit-audit-case'),'audit outbox must not hardcode production endpoint');
 for(const sel of ['#resetBtn','#nexaRadarResetBtn','#nfClear','#nfTopClear','#nexaNewCaseBtn','#nexaTopReset','#submitAuditBtn'])assert.ok(code.includes(sel),`missing ${sel}`);
@@ -23,10 +23,13 @@ const document={
   getElementById(id){if(id==='conductRecordText')return{value:fieldValues.conduta};if(id==='aiHypothesisOriginal')return{textContent:'Síndrome coronariana aguda'};if(id==='physicianHypothesis')return{value:'Dor torácica a esclarecer'};if(id==='physicianCid')return{value:'R07.4'};return null},
   createElement(){return{style:{},remove(){}}},addEventListener(){}
 };
-const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},fetch:async()=>{fetchCount++;if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
+const remoteReady=[{encounter_id:'11111111-1111-4111-8111-111111111111',audit_priority:0,updated_at:'2026-09-27T10:00:00Z',sync_version:3}];
+const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:remoteReady,error:null})};
+const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},nexaClinicalSupabase18101:{auth:{getSession:async()=>({data:{session:{access_token:'real-session-token',user:{id:'doctor-A'}}},error:null})},from:()=>query},fetch:async()=>{fetchCount++;if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
 context.window=context;context.currentProf={id:'doctor-A'};context.nexaDestinationFlow18915={state:{recommended:'alta',final:'internacao',status:'altered',source:'physician'}};context.dispatchEvent=()=>true;
 vm.runInNewContext(code,context);
 const api=context.nexaAuditOutbox18919;
+const sessionAuth=await api.sessionAuth();assert.equal(sessionAuth.access,'real-session-token','outbox must use Supabase client session token');assert.equal(sessionAuth.userId,'doctor-A');
 api.setStoreAdapter({get:async k=>memory.get(k)||null,put:async x=>{memory.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...memory.values()].map(structuredClone)});
 
 assert.equal(api.valid({}),false,'empty case must not be valid');
@@ -55,6 +58,8 @@ const lockedPayload=memory.get(s1.idempotency_key).payload.fields.hda;fieldValue
 const sentCount=fetchCount;
 local.set('sb-auth-token',JSON.stringify({access_token:'token-B',user:{id:'doctor-B'}}));result=await api.sendItem({...s1,state:'queued'});assert.equal(result.skipped,true);assert.equal(fetchCount,sentCount,'doctor B must not submit doctor A outbox');
 local.set('sb-auth-token',JSON.stringify({access_token:'token-A',user:{id:'doctor-A'}}));
+
+const remoteResult=await api.reconcileRemoteReady(5);assert.equal(remoteResult.processed,1,'remote reconciliation must inspect ready encounters');assert.equal(remoteResult.sent,1,'remote reconciliation must submit ready encounter idempotently');
 
 const oldId=s1.source_consultation_id;api.rotateEncounter('doctor-A');const s3=await api.buildSnapshot('new_case');assert.notEqual(s3.source_consultation_id,oldId,'new encounter must rotate identity');
 await api.enqueue(s3);fetchMode='already';result=await api.sendItem(memory.get(s3.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s3.idempotency_key).server_result,'ALREADY_SUBMITTED');
