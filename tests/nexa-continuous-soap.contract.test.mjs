@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const code=fs.readFileSync(new URL('../nexa-continuous-soap-v18.11.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
 const index=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const finalUi=fs.readFileSync(new URL('../nexa-final-ui-v18.js',import.meta.url),'utf8');
 
 for(const token of [
   'nexaUnifiedFlow','nexaFlowModeBar','continuous','soap',
@@ -21,5 +22,8 @@ assert.ok(index.includes("status:'altered',final:value,cid:code"),'free physicia
 assert.ok(!index.includes("if(!hypothesisReview.ai)hypothesisReview.ai=value"),'physician free text must never be relabeled as AI output');
 assert.ok(index.includes("if(!document.body.dataset.nexaFlow&&!hypothesisReview.ai&&current)"),'legacy invalidation must not relabel physician text while Continuous/SOAP is active');
 assert.ok(!code.includes('CID →'),'workflow must not imply automatic CID prescription mapping');
+assert.ok(finalUi.includes("const STAGES=['radar','summary','history'];"),'desktop shell must expose only Continuous, SOAP and History');
+assert.ok(finalUi.includes("radar:'Contínuo',summary:'SOAP rápido'"),'desktop shell labels must reflect the new flow');
+assert.ok(finalUi.includes("flow&&b.dataset.go==='summary'"),'SOAP sidebar action must swap mode instead of opening the legacy Summary page');
 new Function(code);
 console.log('NEXA Continuous + SOAP contract: PASS');
