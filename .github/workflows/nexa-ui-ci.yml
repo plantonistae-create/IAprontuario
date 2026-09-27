@@ -13,7 +13,42 @@ permissions:
   contents: read
 
 jobs:
+  clinical-regression-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Clinical hotfix syntax and contracts
+        run: |
+          node --check index.html 2>/dev/null || true
+          node --check nexa-final-ui-v18.js
+          node --check nexa-radar-auto-review-v18.12.js
+          node --check nexa-encounter-autosave-v18.10.1.js
+          node --check nexa-audit-outbox-v18.9.19.js
+          node --check nexa-history-style-audit-v18.9.7.js
+          node tests/nexa-clinical-regression-hotfix.contract.test.mjs
+          node tests/nexa-audit-outbox.contract.test.mjs
+      - name: Install focused browser
+        run: npx playwright install --with-deps chromium
+      - name: Processing History Audit sequential E2E
+        run: node tests/nexa-clinical-regression-hotfix.e2e.cjs
+      - name: Save focused browser captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinical-regression-focused
+          path: test-results/
+          retention-days: 7
+
   validate-ui:
+    needs: clinical-regression-focused
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

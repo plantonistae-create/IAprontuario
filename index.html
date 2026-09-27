@@ -2554,7 +2554,7 @@ const APP_CONFIG={appVersion:'3.7.1-nonintrusive-status',aiGatewayPath:'/functio
 function $(id){return document.getElementById(id)}
 function setBanner(container,msg,error=false){container.replaceChildren();if(!msg)return;const d=document.createElement('div');d.className='banner'+(error?' error':'');d.textContent=msg;container.appendChild(d)}
 async function ensureSupabase(){if(window.supabase?.createClient)return;for(const src of ['https://unpkg.com/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js']){try{await new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});if(window.supabase?.createClient)return}catch(e){}}throw new Error('Não foi possível carregar a autenticação Supabase.')}
-try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);window.nexaClinicalSupabase18101=sb;
+try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);window.nexaClinicalSupabase18101=sb;window.nexaClinicalRuntime18121={supabaseUrl:SUPABASE_URL,publishableKey:SUPABASE_ANON_KEY,appConfig:APP_CONFIG,client:sb,getProfile:()=>{try{return currentProf}catch{return null}}};
 function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);applyTheme(n)};
 let clinicalEpoch=0;
 let currentProf=null,authMode='signin',styleExamples=[],history=[],conductTemplates=[],activeHistoryId=null,lastProcessedMeta=null;
@@ -3396,7 +3396,64 @@ function stopRec({discard=false}={}){
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
 }$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;recording?stopRec():startRec()};
-async function invoke(blob){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);try{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY},body:form,signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Falha no backend (${r.status}).`);return d}finally{clearTimeout(to)}}async function processAudio(){const processingEpoch=clinicalEpoch;stopRecordingTimer();if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);$('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';const prior=collect();try{const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob);if(epoch!==clinicalEpoch)return;const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed)};initHypothesisReview(parsed.hipotese_diagnostica||'');audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Revise os campos antes de copiar o prontuário completo.')}catch(e){if(processingEpoch===clinicalEpoch)show(e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message,true)}finally{if(processingEpoch!==clinicalEpoch)return;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'}}$('processBtn').onclick=processAudio;
+async function requireClinicalSession(){
+  let {data:{session},error}=await sb.auth.getSession();if(error||!session?.access_token)throw new Error('Sessão expirada. Entre novamente no NEXA.');
+  const check=await sb.auth.getUser(session.access_token).catch(()=>({data:{user:null},error:new Error('AUTH_CHECK_FAILED')}));
+  if(check?.error||!check?.data?.user){
+    const refreshed=await sb.auth.refreshSession().catch(()=>({data:{session:null},error:new Error('REFRESH_FAILED')}));
+    session=refreshed?.data?.session||null;
+    if(!session?.access_token){
+      try{await sb.auth.signOut({scope:'local'})}catch{}
+      throw new Error('Sua sessão expirou ou foi encerrada em outra aba. Entre novamente para transcrever.');
+    }
+  }
+  return session;
+}
+function processingForm(blob){const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));return form}
+async function invoke(blob){
+  let session=await requireClinicalSession();
+  const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);
+  try{
+    const send=async access=>{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${access}`,apikey:SUPABASE_ANON_KEY},body:processingForm(blob),signal:controller.signal});const d=await r.json().catch(()=>({}));return{r,d}};
+    let {r,d}=await send(session.access_token);
+    if(r.status===401){
+      const refreshed=await sb.auth.refreshSession().catch(()=>({data:{session:null},error:new Error('REFRESH_FAILED')}));session=refreshed?.data?.session||null;
+      if(session?.access_token)({r,d}=await send(session.access_token));
+    }
+    if(!r.ok){
+      if(r.status===401){try{await sb.auth.signOut({scope:'local'})}catch{};throw new Error('Sua sessão expirou ou foi encerrada em outra aba. Entre novamente para transcrever.')}
+      throw new Error(d.error||`Falha no backend (${r.status}).`);
+    }
+    return d
+  }finally{clearTimeout(to)}
+}async function processAudio(){
+  const processingEpoch=clinicalEpoch;stopRecordingTimer();
+  if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}
+  if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);
+  $('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';$('status').textContent='Transcrevendo e estruturando…';
+  document.body.dataset.nexaProcessing='1';window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'processing'}}));
+  const prior=collect();
+  try{
+    const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString(),payload=await invoke(audioBlob);if(epoch!==clinicalEpoch)return;
+    const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
+    activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
+    fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
+    lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed)};
+    initHypothesisReview(parsed.hipotese_diagnostica||'');
+    try{await window.nexaEncounterAutosave18101?.preserve?.('structured');await window.nexaEncounterAutosave18101?.flush?.('structured')}catch(saveError){console.warn('NEXA structured autosave pending',saveError)}
+    window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
+    audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Revise os campos antes de copiar o prontuário completo.');
+    window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
+  }catch(e){
+    if(processingEpoch===clinicalEpoch){
+      const message=e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message;
+      $('status').textContent=`Falha ao transcrever/estruturar · ${message}`;show(message,true);
+      window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'error',message}}));
+    }
+  }finally{
+    if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'
+  }
+}$('processBtn').onclick=processAudio;
 function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);
   stopRecordingTimer({reset:true});
 
@@ -4107,7 +4164,8 @@ function pauseSession(){
       ['radar','RADAR CLÍNICO','Consulta em andamento','Acompanhe cobertura, lacunas e gravação sem sair do caso.'],
       ['summary','RESUMO CLÍNICO','Prontuário estruturado','Revise a documentação gerada antes de validar a hipótese.'],
       ['hypothesis','HIPÓTESE','Validação diagnóstica','Confirme, altere ou deixe a hipótese indefinida.'],
-      ['plan','PLANO CLÍNICO','Conduta, exames e prescrição','Revise as sugestões e mantenha a decisão final sob controle médico.']
+      ['plan','PLANO CLÍNICO','Conduta, exames e prescrição','Revise as sugestões e mantenha a decisão final sob controle médico.'],
+      ['history','HISTÓRICO','Consultas salvas','Revise atendimentos persistidos deste perfil sem sair do fluxo clínico.']
     ];
     const views={};
     defs.forEach(([key,kicker,title,desc])=>{
@@ -4210,7 +4268,7 @@ function pauseSession(){
   function setStage(stage,scrollTarget=null){
     buildClinicalStages();
     if(stage!=='summary'||!q('nexaCommandWorkspace')?.classList.contains('workspace-open'))document.body.classList.remove('nexa-workspace-only');
-    const valid=['radar','summary','hypothesis','plan'];
+    const valid=['radar','summary','hypothesis','plan','history'];
     if(!valid.includes(stage)) stage='radar';
     document.body.dataset.nexaStage=stage;
     document.querySelectorAll('.nexa-stage-view').forEach(v=>v.classList.toggle('active',v.dataset.stage===stage));
@@ -4274,7 +4332,11 @@ function pauseSession(){
   // Quick actions now open the correct screen instead of scrolling through one giant document.
   document.querySelectorAll('[data-quick="plan"]').forEach(b=>b.addEventListener('click',()=>{openSession();setStage('plan')}));
   document.querySelectorAll('[data-quick="guidance"]').forEach(b=>b.addEventListener('click',()=>{openSession();setStage('plan','clinicalPlanBlock')}));
-  document.querySelectorAll('[data-quick="history"],[data-quick="writing"]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-quick="history"]').forEach(b=>b.addEventListener('click',()=>{
+    openSession();setStage('history');q('nexaMoreSheet')?.classList.remove('open');
+    setTimeout(()=>{try{window.nexaRefreshSevenDayHistory?.();window.nexaRefreshHistory197?.()}catch{}},40);
+  }));
+  document.querySelectorAll('[data-quick="writing"]').forEach(b=>b.addEventListener('click',()=>{
     openSession();setStage('summary');
     const ws=q('nexaCommandWorkspace');ws?.classList.add('workspace-open');
   }));
@@ -4576,5 +4638,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20260927-v18120"></script>
+<script src="./nexa-hotfix.js?v=20260927-v18121"></script>
 </body></html>
