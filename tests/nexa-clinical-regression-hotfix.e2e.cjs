@@ -43,7 +43,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    const ids=[];
    for(let n=1;n<=3;n++){
     await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult');
-    if(!(await page.locator('#consent').isChecked()))await page.locator('#consent').check();
+    if(!(await page.locator('#consent').isChecked()))await page.locator('#consent').evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
     await page.locator('#nfStart').click();
     await page.waitForFunction(()=>document.getElementById('recBtn')?.classList.contains('recording'));
 
