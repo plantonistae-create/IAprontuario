@@ -12,7 +12,7 @@ for(const token of [
   'spoken_vitals','review','consult'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20260927-v18120'),'v18.12 module must be loaded with cache bust');
+assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20260927-v18121'),'v18.12 module must be loaded with the current cache bust');
 assert.ok(engine.includes('pressao')&&engine.includes('por')&&engine.includes('talvez'),'engine must accept spoken blood pressure using "por" and retain uncertainty markers');
 assert.ok(engine.includes('\\s+e\\s+meio'),'engine must recognize spoken half-degree temperature');
 assert.ok(code.includes("item.status==='confirm'"),'ambiguous Radar state must remain visible for confirmation');
