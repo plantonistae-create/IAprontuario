@@ -60,10 +60,10 @@
   c('evolution','Evolução da dor',/progressiv\w*|intermitente|recorrente|constante|melhorando|piorando|estavel desde/,'hda','text');
   c('medicines','Medicações utilizadas',/.+/,'medicacoes','text');
   c('allergies','Alergias',/.+/,'alergias','text');
-  c('bp','Pressão arterial',/\b(?:pa|pressao arterial|pressao)\s*[:=]?\s*\d{2,3}\s*(?:[x\/]|por)\s*\d{2,3}/,'sinais_vitais','text');
-  c('hr','Frequência cardíaca',/\b(?:fc|frequencia cardiaca)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
-  c('rr','Frequência respiratória',/\b(?:fr|frequencia respiratoria)\s*[:=]?\s*\d{1,3}/,'sinais_vitais','text');
-  c('spo2','Saturação de oxigênio',/\b(?:spo2|sato2|saturacao)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
+  c('bp','Pressão arterial',/\b(?:pa|pressao arterial|pressao)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*\d{2,3}\s*(?:[x\/]|por)\s*\d{2,3}/,'sinais_vitais','text');
+  c('hr','Frequência cardíaca',/\b(?:fc|frequencia cardiaca)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*\d{2,3}/,'sinais_vitais','text');
+  c('rr','Frequência respiratória',/\b(?:fr|frequencia respiratoria)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*\d{1,3}/,'sinais_vitais','text');
+  c('spo2','Saturação de oxigênio',/\b(?:spo2|sato2|saturacao)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*\d{2,3}/,'sinais_vitais','text');
   c('temperature','Temperatura aferida',/(?:\b(?:3\d|4[0-3])(?:[.,]\d)?\s*°\s*c?|(?:temperatura|febre|\bt\b)\s*(?:de|:|=)?\s*(?:3\d|4[0-3])(?:(?:[.,]\d)|(?:\s+e\s+meio))?)/,'sinais_vitais','text');
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
@@ -116,7 +116,7 @@
     return out;
   }
   function measurement(id,text){
-    const t=norm(text),patterns={bp:/(?:pa|pressao arterial|pressao)\s*[:=]?\s*(\d{2,3})\s*(?:[x\/]|por)\s*(\d{2,3})/,hr:/(?:fc|frequencia cardiaca)\s*[:=]?\s*(\d{2,3})/,rr:/(?:fr|frequencia respiratoria)\s*[:=]?\s*(\d{1,3})/,spo2:/(?:spo2|sato2|saturacao)\s*[:=]?\s*(\d{2,3})/,temperature:/(3\d|4[0-3])(?:([.,]\d)|(\s+e\s+meio))?/,consciousness:/glasgow\s*[:=]?\s*(\d+)/};
+    const t=norm(text),patterns={bp:/(?:pa|pressao arterial|pressao)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})\s*(?:[x\/]|por)\s*(\d{2,3})/,hr:/(?:fc|frequencia cardiaca)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})/,rr:/(?:fr|frequencia respiratoria)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{1,3})/,spo2:/(?:spo2|sato2|saturacao)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*(\d{2,3})/,temperature:/(3\d|4[0-3])(?:([.,]\d)|(\s+e\s+meio))?/,consciousness:/glasgow\s*[:=]?\s*(\d+)/};
     const m=patterns[id]?.exec(t);if(!m)return null;
     const value=Number(id==='temperature'?m[1]+(m[2]?m[2].replace(',','.'):(m[3]?'.5':'')):m[1]);
     if(id==='spo2'&&value>100||id==='consciousness'&&(value<3||value>15))return null;
