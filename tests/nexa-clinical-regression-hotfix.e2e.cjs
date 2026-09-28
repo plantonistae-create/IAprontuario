@@ -94,7 +94,8 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     assert.equal(await page.locator('#recBtn').getAttribute('data-recording-state'),'stopped','Finalizar must leave the recorder stopped');
     assert.equal(await page.locator('#recBtn').isDisabled(),true,'finalized circular control must not start a new recording');
     assert.match(await page.locator('#nfProcess').innerText(),/Transcrever e estruturar/i);
-    assert.equal(await page.evaluate(()=>{const r=document.getElementById('nfProcess').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}),true,'structure CTA must be fully visible after Finalizar');
+    const processVisibility=await page.evaluate(()=>{const el=document.getElementById('nfProcess'),r=el.getBoundingClientRect();const ancestors=[];for(let p=el.parentElement;p&&p!==document.body;p=p.parentElement){const s=getComputedStyle(p);if(/auto|scroll|overlay/.test(s.overflowY)||p.scrollHeight>p.clientHeight+1)ancestors.push({id:p.id||'',class:p.className||'',overflowY:s.overflowY,top:p.getBoundingClientRect().top,bottom:p.getBoundingClientRect().bottom,scrollTop:p.scrollTop,scrollHeight:p.scrollHeight,clientHeight:p.clientHeight})}return{rect:{top:r.top,bottom:r.bottom,height:r.height},innerHeight,scrollY,docScrollHeight:document.documentElement.scrollHeight,bodyScrollHeight:document.body.scrollHeight,ancestors}});console.error('STRUCTURE_CTA_VISIBILITY',JSON.stringify(processVisibility));
+    assert.equal(processVisibility.rect.top>=0&&processVisibility.rect.bottom<=processVisibility.innerHeight,true,'structure CTA must be fully visible after Finalizar');
     assert.ok(await page.evaluate(()=>window.__nexaScrollIntoViewCalls.some(x=>x.id==='nfProcess')),'Finalizar must scroll the visible structure CTA into view');
 
     await page.evaluate(()=>{window.__qa.processDelayMs=450;});
