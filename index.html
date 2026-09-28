@@ -3360,15 +3360,20 @@ function nexaVisibleProcessCta(){
 function nexaScrollToProcessCta(){
   requestAnimationFrame(()=>{
     const target=nexaVisibleProcessCta();if(!target)return;
+    const scroller=document.scrollingElement||document.documentElement;
+    const previousBehavior=scroller?.style?.scrollBehavior||'';
+    if(scroller?.style)scroller.style.scrollBehavior='auto';
     try{target.scrollIntoView({behavior:'auto',block:'center',inline:'nearest'})}catch{target.scrollIntoView?.()}
     requestAnimationFrame(()=>{
-      const rect=target.getBoundingClientRect();
       const topGuard=innerWidth<=820?132:84,bottomGuard=16;
-      if(rect.top<topGuard){
-        try{window.scrollBy({top:rect.top-topGuard,behavior:'auto'})}catch{}
-      }else if(rect.bottom>innerHeight-bottomGuard){
-        try{window.scrollBy({top:rect.bottom-(innerHeight-bottomGuard),behavior:'auto'})}catch{}
+      let rect=target.getBoundingClientRect();
+      if(scroller){
+        const visibleTop=topGuard,visibleBottom=innerHeight-bottomGuard;
+        if(rect.top<visibleTop)scroller.scrollTop+=rect.top-visibleTop-8;
+        else if(rect.bottom>visibleBottom)scroller.scrollTop+=rect.bottom-visibleBottom+8;
+        rect=target.getBoundingClientRect();
       }
+      if(scroller?.style)scroller.style.scrollBehavior=previousBehavior;
       try{target.focus({preventScroll:true})}catch{}
       target.setAttribute('data-nexa-autofocus','process');
     });
