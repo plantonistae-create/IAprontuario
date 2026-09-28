@@ -44,6 +44,10 @@ function style(){
  #nexaFlowLive>.nexa-flow-body>.card,#nexaFlowLive>.nexa-flow-body>.radar-card{width:100%!important;max-width:none!important;min-width:0!important;justify-self:stretch!important;align-self:stretch!important;flex:0 0 auto!important}
  #nexaFlowLive #realtimeRadarCard,#nexaFlowLive .card.rec-zone{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important}
  #nexaFlowLive #processBtn,#nexaFlowLive #resetBtn{width:auto!important;margin:0!important}
+ #nexaUnifiedConsent{display:flex;align-items:flex-start;gap:10px;width:min(760px,100%);margin:0 0 12px;padding:11px 12px;border:1px solid var(--nexa-line);border-radius:12px;background:var(--nexa-surface-2);color:var(--nexa-text);cursor:pointer}
+ #nexaUnifiedConsent input{width:22px!important;height:22px!important;min-width:22px!important;margin:1px 0 0!important;padding:0!important;accent-color:var(--nexa-brand);cursor:pointer}
+ #nexaUnifiedConsent span{display:flex;flex-direction:column;gap:2px;min-width:0}#nexaUnifiedConsent strong{font-size:11px}#nexaUnifiedConsent small{font-size:10px;line-height:1.35;color:var(--nexa-muted)}
+ #nexaUnifiedConsent:focus-within{border-color:var(--nexa-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--nexa-brand) 12%,transparent)}
  .nexa-flow-process-row{display:flex;gap:8px;flex-wrap:wrap}
  .nexa-flow-process-row>button{flex:1 1 180px;min-height:42px}
  .nexa-quick-composer{border:1px solid var(--nexa-line);background:var(--nexa-bg);border-radius:14px;padding:12px;margin:9px 0}
@@ -271,6 +275,16 @@ function mount(){
 
  const liveBody=q('.nexa-flow-body',live);
  for(const el of [...radar.children])if(!el.classList.contains('nexa-stage-head')&&!el.classList.contains('nexa-live-summary'))liveBody.appendChild(el);
+
+ // One consent source of truth: expose the existing native checkbox inside
+ // the recorder that is actually visible in the unified Continuous/SOAP flow.
+ const nativeConsent=$('consent'),recZone=q('.card.rec-zone',liveBody)||q('.card.rec-zone');
+ if(nativeConsent&&recZone&&!$('nexaUnifiedConsent')){
+  const consentHost=document.createElement('label');consentHost.id='nexaUnifiedConsent';
+  consentHost.innerHTML='<span><strong>Consentimento para gravação</strong><small>Confirmo que o paciente foi informado e autorizou a gravação desta consulta.</small></span>';
+  nativeConsent.style.removeProperty('display');nativeConsent.removeAttribute('hidden');nativeConsent.tabIndex=0;
+  consentHost.prepend(nativeConsent);recZone.prepend(consentHost);
+ }
  const processRow=document.createElement('div');processRow.className='nexa-flow-process-row';
  for(const id of ['processBtn','resetBtn'])if($(id))processRow.appendChild($(id));liveBody.appendChild(processRow);
 
