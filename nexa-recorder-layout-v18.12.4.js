@@ -140,10 +140,10 @@ function normalize(){
   if(!recZone)return;
   recZone.classList.add('nexa-rec-layout-fixed');
 
-  if(unified && unified.parentElement===recZone && kicker){
+  if(unified && unified.parentElement===recZone && kicker && kicker.nextElementSibling!==unified){
     kicker.insertAdjacentElement('afterend',unified);
   }
-  if(tip && tip.parentElement===recZone){
+  if(tip && tip.parentElement===recZone && recZone.lastElementChild!==tip){
     recZone.appendChild(tip);
   }
 }
