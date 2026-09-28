@@ -75,6 +75,10 @@ function style(){
   .nexa-plan-quick{grid-template-columns:1fr 1fr}.nexa-assessment-assist{grid-template-columns:1fr}.nexa-assessment-assist button{width:100%}
   .nexa-flow-final-actions{display:grid}.nexa-flow-final-actions button{width:100%;min-height:46px}
  }
+ @media(max-width:900px){
+  html.nexa-mobile-v1867 #nexaFlowModeBar{top:calc(var(--nm-header,116px) + env(safe-area-inset-top,0px) + 8px);left:10px;right:10px;width:auto;z-index:17900}
+  html.nexa-mobile-v1867 #nexaUnifiedFlow{padding-top:58px}
+ }
  `;document.head.appendChild(s)
 }
 
