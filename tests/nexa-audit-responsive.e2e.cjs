@@ -46,13 +46,14 @@ function contrast(rgb1,rgb2){
 
       await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>window.nexaAuditFunctionalGuard18916&&window.currentProf&&window.nexaOpenProfessionalAuditExact);
-      await page.evaluate(async()=>{
+      await page.evaluate(async width=>{
         document.documentElement.setAttribute('data-theme','light');
         document.documentElement.setAttribute('data-nexa-theme','light');
         window.__qa.capabilities={access_status:'active',clinical_access:true,is_admin:true,is_reviewer:true,display_name:'Auditor QA'};
         await window.nexaAuditFunctionalGuard18916.refreshCapabilities();
-        window.nexaOpenProfessionalAuditExact();
-      });
+        if(width>900)document.getElementById('nexaDesktopRoleSwitch')?.click();
+        else window.nexaOpenProfessionalAuditExact();
+      },viewport.width);
       await page.waitForFunction(()=>document.getElementById('nexaAuditExact')?.classList.contains('open')&&/Painel de Auditoria/.test(document.getElementById('axContent')?.textContent||''));
       await page.waitForTimeout(120);
 
@@ -93,7 +94,10 @@ function contrast(rgb1,rgb2){
       assert.equal(panel.metricCount,3,'All three dashboard metric cards stay visible at '+viewport.width);
 
       if(viewport.width>900){
+        assert.equal(panel.sideDisplay,'block','Professional Auditor sidebar must be visible after the real role switch');
         assert.ok(Math.abs(panel.sideWidth-220)<2,'Desktop sidebar stays stable at 220px');
+        const navText=await page.locator('#nexaAuditExact .ax-nav').innerText();
+        for(const item of ['Painel','Fila de casos','Auditados','Estatísticas','Aprendizado','Protocolos','Usuários','Configurações'])assert.match(navText,new RegExp(item),'Auditor sidebar must expose '+item);
         assert.ok(panel.activeScrollWidth<=panel.activeClientWidth+1,'Active sidebar label must not clip');
         assert.ok(contrast(panel.activeColor,panel.activeBg)>=4.5,'Active sidebar contrast must meet AA');
         assert.ok(panel.kpiSpan>=panel.content.width*0.88,'KPI grid must use the available content width');
@@ -159,6 +163,11 @@ function contrast(rgb1,rgb2){
       });
       assert.ok(audited.rootOverflow<=1&&audited.docOverflow<=1,'Audited view must not create global horizontal overflow at '+viewport.width);
       assert.equal(audited.filtersVisible,true,'Audited filters remain visible at '+viewport.width);
+      if(viewport.width>900){
+        await page.locator('#axBackMedical192').click();
+        await page.waitForFunction(()=>!document.getElementById('nexaAuditExact')?.classList.contains('open')&&!document.body.classList.contains('nexa-auditor-view'));
+        assert.equal(await page.locator('#nexaDesktopSidebar').count(),1,'Returning to doctor must preserve the medical shell');
+      }
       assert.deepEqual(errors,[],'No new JavaScript runtime errors at '+viewport.width);
 
       console.log('Audit responsive E2E '+viewport.width+'px: PASS');

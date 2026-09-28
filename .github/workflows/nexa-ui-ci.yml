@@ -34,11 +34,14 @@ jobs:
           node --check nexa-audit-outbox-v18.9.19.js
           node --check nexa-history-style-audit-v18.9.7.js
           node tests/nexa-clinical-regression-hotfix.contract.test.mjs
+          node tests/nexa-auditor-consent-hotfix.contract.test.mjs
           node tests/nexa-audit-outbox.contract.test.mjs
       - name: Install focused browser
         run: npx playwright install --with-deps chromium
       - name: Processing History Audit sequential E2E
         run: node tests/nexa-clinical-regression-hotfix.e2e.cjs
+      - name: Auditor sidebar and visible consent E2E
+        run: node tests/nexa-continuous-soap.e2e.cjs && node tests/nexa-audit-responsive.e2e.cjs
       - name: Save focused browser captures
         if: always()
         uses: actions/upload-artifact@v4
