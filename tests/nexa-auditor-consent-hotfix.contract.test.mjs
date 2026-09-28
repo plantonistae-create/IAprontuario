@@ -18,11 +18,11 @@ assert.ok(auditor.includes("document.body.classList.contains('nexa-auditor-view'
 assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reuse the existing medical role transition');
 
 assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20260928-v18123'),'Auditor module cache bust must be current');
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260928-v18125'),'Continuous/SOAP module cache bust must be current');
-assert.ok(sw.includes('nexa-v18-12-5-soap-copy-selector-hotfix-20260928'),'Service Worker cache must identify v18.12.5');
-assert.ok(index.includes('nexa-hotfix.js?v=20260928-v18125'),'HTML must load the v18.12.5 hotfix loader');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260928-v18126'),'Continuous/SOAP module cache bust must be current');
+assert.ok(sw.includes('nexa-v18-12-6-soap-copy-selector-mobile-hotfix-20260928'),'Service Worker cache must identify v18.12.5');
+assert.ok(index.includes('nexa-hotfix.js?v=20260928-v18126'),'HTML must load the v18.12.5 hotfix loader');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
 new Function(continuous);
 new Function(auditor);
-console.log('NEXA v18.12.5 Auditor + consent + SOAP selector contract: PASS');
+console.log('NEXA v18.12.6 Auditor + consent + SOAP selector contract: PASS');
