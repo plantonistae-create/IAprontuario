@@ -28,10 +28,10 @@ function style(){
  if($('nexaContinuousSoapStyle1811'))return;
  const s=document.createElement('style');s.id='nexaContinuousSoapStyle1811';s.textContent=`
  .nexa-v1811-hidden{display:none!important}
- #nexaFlowModeBar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:10px;border:1px solid var(--nexa-line);border-radius:16px;background:var(--nexa-surface);position:sticky;top:calc(var(--nexa-topbar-h,66px) + 10px);z-index:40}
- .nexa-flow-mode-group{display:flex;gap:6px;min-width:0}.nexa-flow-mode{border:1px solid var(--nexa-line);background:var(--nexa-surface-2);color:var(--nexa-muted);border-radius:11px;padding:10px 14px;font-weight:850;cursor:pointer}.nexa-flow-mode.active{background:color-mix(in srgb,var(--nexa-brand) 12%,var(--nexa-surface));border-color:color-mix(in srgb,var(--nexa-brand) 38%,var(--nexa-line));color:var(--nexa-brand)}
+ #nexaFlowModeBar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:8px 10px;border:1px solid var(--nexa-line);border-radius:14px;background:color-mix(in srgb,var(--nexa-surface) 96%,transparent);backdrop-filter:blur(14px);position:fixed;top:calc(var(--nexa-topbar-h,64px) + 8px);left:calc(var(--nexa-sidebar-w,206px) + max(18px,((100vw - var(--nexa-sidebar-w,206px) - 1160px)/2)));width:min(1160px,calc(100vw - var(--nexa-sidebar-w,206px) - 36px));box-sizing:border-box;z-index:1240;box-shadow:0 8px 22px rgba(12,35,48,.06)}
+ .nexa-flow-mode-group{display:flex;gap:6px;min-width:0}.nexa-flow-mode{border:1px solid var(--nexa-line);background:var(--nexa-surface-2);color:var(--nexa-muted);border-radius:10px;padding:9px 13px;font-weight:850;cursor:pointer}.nexa-flow-mode.active{background:color-mix(in srgb,var(--nexa-brand) 12%,var(--nexa-surface));border-color:color-mix(in srgb,var(--nexa-brand) 38%,var(--nexa-line));color:var(--nexa-brand)}
  .nexa-flow-mode-hint{font-size:11px;color:var(--nexa-muted);text-align:right}
- #nexaUnifiedFlow{display:grid;gap:14px}
+ #nexaUnifiedFlow{display:grid;gap:14px;padding-top:62px}
  .nexa-flow-section{border:1px solid var(--nexa-line);background:var(--nexa-surface);border-radius:18px;padding:16px;scroll-margin-top:145px}
  .nexa-flow-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
  .nexa-flow-kicker{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--nexa-brand);text-transform:uppercase}
@@ -69,8 +69,9 @@ function style(){
  #nexaUnifiedFlow #hypothesisReviewBlock{border-style:dashed!important}
  #nexaUnifiedFlow .toggle-row{display:none!important}
  @media(max-width:820px){
-  #nexaFlowModeBar{top:8px;border-radius:14px;padding:7px;position:sticky}.nexa-flow-mode-group{width:100%}.nexa-flow-mode{flex:1;padding:9px 8px;font-size:11px}.nexa-flow-mode-hint{display:none}
-  .nexa-flow-section{padding:12px;border-radius:15px;scroll-margin-top:84px}.nexa-flow-section h2{font-size:18px}.nexa-flow-section-head{margin-bottom:9px}.nexa-flow-section-head p{font-size:11px}
+  #nexaFlowModeBar{position:fixed;top:calc(58px + max(8px,env(safe-area-inset-top)));left:10px;right:10px;width:auto;border-radius:13px;padding:6px;z-index:1440}.nexa-flow-mode-group{width:100%}.nexa-flow-mode{flex:1;padding:9px 8px;font-size:11px}.nexa-flow-mode-hint{display:none}
+  #nexaUnifiedFlow{padding-top:58px}
+  .nexa-flow-section{padding:12px;border-radius:15px;scroll-margin-top:136px}.nexa-flow-section h2{font-size:18px}.nexa-flow-section-head{margin-bottom:9px}.nexa-flow-section-head p{font-size:11px}
   .nexa-plan-quick{grid-template-columns:1fr 1fr}.nexa-assessment-assist{grid-template-columns:1fr}.nexa-assessment-assist button{width:100%}
   .nexa-flow-final-actions{display:grid}.nexa-flow-final-actions button{width:100%;min-height:46px}
  }
@@ -198,7 +199,14 @@ function syncPresets(){
 }
 
 function composeS(c=clinical()){
- return [['QP',c.queixa_principal],['HDA',c.hda],['Antecedentes',c.antecedentes],['Comorbidades',c.comorbidades],['Medicações',c.medicacoes],['Alergias',c.alergias]].filter(([,v])=>text(v)).map(([k,v])=>`${k}: ${text(v)}`).join('\n');
+ return [
+  ['QP',c.queixa_principal],
+  ['HDA',c.hda],
+  ['ANTECEDENTES',c.antecedentes],
+  ['ALERGIAS',c.alergias],
+  ['COMORBIDADES',c.comorbidades],
+  ['MEDICAÇÕES EM USO',c.medicacoes]
+ ].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
 }
 function composeO(c=clinical()){return [['Sinais vitais',c.sinais_vitais],['Exame físico',c.exame_fisico]].filter(([,v])=>text(v)).map(([k,v])=>`${k}: ${text(v)}`).join('\n')}
 function composeA(c=clinical()){
