@@ -3360,9 +3360,18 @@ function nexaVisibleProcessCta(){
 function nexaScrollToProcessCta(){
   requestAnimationFrame(()=>{
     const target=nexaVisibleProcessCta();if(!target)return;
-    try{target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}catch{target.scrollIntoView?.()}
-    try{target.focus({preventScroll:true})}catch{}
-    target.setAttribute('data-nexa-autofocus','process');
+    try{target.scrollIntoView({behavior:'auto',block:'center',inline:'nearest'})}catch{target.scrollIntoView?.()}
+    requestAnimationFrame(()=>{
+      const rect=target.getBoundingClientRect();
+      const topGuard=innerWidth<=820?132:84,bottomGuard=16;
+      if(rect.top<topGuard){
+        try{window.scrollBy({top:rect.top-topGuard,behavior:'auto'})}catch{}
+      }else if(rect.bottom>innerHeight-bottomGuard){
+        try{window.scrollBy({top:rect.bottom-(innerHeight-bottomGuard),behavior:'auto'})}catch{}
+      }
+      try{target.focus({preventScroll:true})}catch{}
+      target.setAttribute('data-nexa-autofocus','process');
+    });
   });
 }
 const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
