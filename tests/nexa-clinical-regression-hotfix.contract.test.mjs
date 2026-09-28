@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const index=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const finalUi=fs.readFileSync(new URL('../nexa-final-ui-v18.js',import.meta.url),'utf8');
 const mobileShell=fs.readFileSync(new URL('../nexa-mobile-shell-v18.6.7.js',import.meta.url),'utf8');
+const draftHistory=fs.readFileSync(new URL('../nexa-record-draft-history-v18.6.6.js',import.meta.url),'utf8');
 const review=fs.readFileSync(new URL('../nexa-radar-auto-review-v18.12.js',import.meta.url),'utf8');
 const autosave=fs.readFileSync(new URL('../nexa-encounter-autosave-v18.10.1.js',import.meta.url),'utf8');
 const history=fs.readFileSync(new URL('../nexa-history-style-audit-v18.9.7.js',import.meta.url),'utf8');
@@ -23,13 +24,25 @@ for(const token of [
 
 assert.ok(index.includes("const valid=['radar','summary','hypothesis','plan','history'];"),'History must remain a first-class clinical stage');
 assert.ok(index.includes("['history','HISTÓRICO','Consultas salvas'"),'buildClinicalStages must create a native History host');
-assert.ok(index.includes(`document.querySelectorAll('[data-quick="history"]')`),'mobile quick History must have its own native-stage handler');
-assert.ok(index.includes(`openSession();setStage('history');q('nexaMoreSheet')?.classList.remove('open')`),'mobile History must route to the native History stage');
+assert.ok(index.includes("if(recording){pauseSession();return}"),'circular recorder must pause/resume through the shared pauseSession function');
+assert.ok(draftHistory.includes("rec.dataset.nexaCircularToggle='1'"),'recorder/history bridge must preserve circular pause/resume semantics');
+assert.ok(!draftHistory.includes("status.textContent='Gravação em andamento · use Pausar ou Finalizar'"),'legacy start-only recorder interception must be removed');
+assert.ok(!draftHistory.includes("rec.addEventListener('click',e=>{\n      if(!recordingActive())return;"),'bridge must not capture active circular clicks');
+assert.ok(!index.includes("recording?stopRec():startRec()"),'circular recorder must never finalize an active recording');
+assert.ok(index.includes("window.dispatchEvent(new CustomEvent('nexa:recording-finalized'"),'finalization must publish the finalized recorder lifecycle event');
+assert.ok(index.includes('nexaScrollToProcessCta();'),'finalization must scroll to the structure CTA');
+assert.ok(index.includes("setStage('radar')"),'finish must keep the recorder stage available for the structure CTA');
+assert.ok(index.includes("behavior:'smooth'"),'reset/clear must provide smooth top scrolling');
+assert.ok(index.includes('function openHistoryStage()'),'History must have one canonical navigation function');
+assert.ok(index.includes('window.nexaOpenHistoryStage18122=openHistoryStage'),'canonical History navigation must be exposed to the Final UI');
+assert.ok(index.includes("else if(a==='history'){openHistoryStage()}"),'quick History must route to the canonical native stage');
+assert.ok(index.includes("addEventListener('click',openHistoryStage)"),'legacy desktop History must route to the canonical native stage');
 
 const openHistory=finalUi.match(/function openHistory\(\)\{[\s\S]*?\n\}/)?.[0]||'';
 assert.match(openHistory,/data-stage="history"/,'History navigation must activate the native history stage');
 assert.doesNotMatch(openHistory,/data-stage="summary"/,'History navigation must not route through Summary');
-assert.ok(openHistory.includes('nexaRefreshHistory197'),'History navigation must refresh durable History');
+assert.ok(openHistory.includes('nexaOpenHistoryStage18122'),'Final UI History must use the canonical native History path');
+assert.ok(openHistory.includes('nexaRefreshHistory197')||openHistory.includes('nexaOpenHistoryStage18122'),'History navigation must refresh durable History');
 
 assert.ok(review.includes("return'processing'"),'review phase machine must expose processing');
 assert.ok(review.includes("return'error'"),'review phase machine must expose processing errors');
@@ -46,9 +59,11 @@ assert.ok(mobileShell.includes("nav.id='nexaMobileBottomNav'"),'canonical mobile
 assert.ok(mobileShell.includes('data-mobile-stage="${stage}"'),'canonical mobile shell must render stable stage-addressable tabs');
 assert.ok(mobileShell.includes("const stages=['radar','summary','hypothesis','plan','history']"),'canonical mobile shell must include History');
 assert.ok(!finalUi.includes('nfMobileNav'),'Final UI must not create a duplicate mobile navigation');
+assert.ok(finalUi.includes("state==='stopped'"),'Final UI must distinguish finalized recording from idle');
+assert.ok(finalUi.includes("recording.paused"),'Final UI must expose a paused visual state');
 
 new Function(review);
 new Function(autosave);
 new Function(history);
 new Function(outbox);
-console.log('NEXA v18.12.1 clinical regression hotfix contract: PASS');
+console.log('NEXA v18.12.2 recording/history hotfix contract: PASS');

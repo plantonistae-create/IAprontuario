@@ -1,7 +1,6 @@
-/* NEXA v18.6.6 · start-only recorder + draft history stage · 2026-09-05
-   The green recording control is START only. Pause/resume and finish stay on
-   their dedicated controls. History reuses the native authenticated draft store
-   already bound inside index.html, so there is no second clinical data path. */
+/* NEXA v18.6.6 · recorder guard + draft history stage · patched v18.12.2 · 2026-09-27
+   The circular recorder follows the canonical start/pause/resume handler in index.html.
+   Finish remains separate. History reuses the native authenticated draft store. */
 (()=>{
 'use strict';
 if(window.__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__)return;
@@ -23,20 +22,12 @@ function recordingActive(){
 
 function installStartOnlyRecorder(){
   const rec=$('recBtn');
-  if(rec&&!rec.dataset.nexaStartOnly){
-    rec.dataset.nexaStartOnly='1';
-    rec.setAttribute('aria-label','Iniciar gravação');
-    rec.title='Iniciar gravação';
-    rec.addEventListener('click',e=>{
-      if(!recordingActive())return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      const status=$('status');
-      if(status)status.textContent='Gravação em andamento · use Pausar ou Finalizar';
-    },true);
+  if(rec){
+    delete rec.dataset.nexaStartOnly;
+    rec.dataset.nexaCircularToggle='1';
   }
 
+  // The textual Start CTA is still start-only. The circular control is not.
   const start=$('nfStart');
   if(start&&!start.dataset.nexaStartOnly){
     start.dataset.nexaStartOnly='1';
@@ -55,7 +46,6 @@ function installStyles(){
   const style=document.createElement('style');
   style.id='nexaRecordDraftHistoryStyle';
   style.textContent=`
-    #recBtn[data-nexa-start-only="1"].recording{cursor:default!important}
     .nexa-stage-view[data-stage="history"]>#workspaceHistoryPane{
       display:block!important;width:100%!important;max-width:none!important;margin:0!important;
       padding:16px!important;border:1px solid var(--nf-line,var(--hair))!important;
@@ -160,5 +150,5 @@ document.addEventListener('visibilitychange',()=>{
 });
 
 window.nexaRefreshDraftHistory=refreshNativeHistory;
-window.__NEXA_V18_6_6_DRAFT_DIAGNOSTIC__={startOnly:true,historyStage:true,nativeDraftStore:true};
+window.__NEXA_V18_6_6_DRAFT_DIAGNOSTIC__={startOnly:false,circularToggle:true,historyStage:true,nativeDraftStore:true};
 })();

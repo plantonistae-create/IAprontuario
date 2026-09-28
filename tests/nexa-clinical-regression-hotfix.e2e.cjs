@@ -29,6 +29,11 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(25000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+   await page.addInitScript(()=>{
+     window.__nexaScrollIntoViewCalls=[];window.__nexaWindowScrollCalls=[];
+     const nativeInto=Element.prototype.scrollIntoView;Element.prototype.scrollIntoView=function(options){window.__nexaScrollIntoViewCalls?.push({id:this.id||'',options});return nativeInto?.call(this,options)};
+     const nativeScroll=window.scrollTo.bind(window);window.scrollTo=function(...args){window.__nexaWindowScrollCalls?.push(args[0]);return nativeScroll(...args)};
+   });
    await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
    try{
     await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaEncounterAutosave18101&&window.nexaAuditOutbox18919&&window.nexaRadarAutoReview1812&&document.getElementById('nfStart'));
@@ -44,6 +49,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
 
    const ids=[];
    for(let n=1;n<=3;n++){
+    const expectedMode=n===2?'soap':'continuous';
+    await page.evaluate(mode=>window.nexaContinuousSoap1811?.setMode?.(mode),expectedMode);
+    await page.waitForFunction(mode=>document.body.dataset.nexaFlow===mode,expectedMode);
     await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult');
     if(!(await page.locator('#consent').isChecked()))await page.locator('#consent').evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
     await page.locator('#nfStart').click();
@@ -52,16 +60,42 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     if(n===1){
       await sleep(1250);
       const before=parseTimer(await page.locator('#timer').innerText());assert.ok(before>=1,'timer must advance while recording');
-      await page.locator('#nfPause').click();await page.waitForFunction(()=>/Retomar/i.test(document.getElementById('nfPause')?.textContent||''));
+      await page.locator('#recBtn').click();
+      try{
+        await page.waitForFunction(()=>document.getElementById('recBtn')?.dataset.recordingState==='paused'&&/pausada/i.test(document.getElementById('status')?.textContent||''));
+      }catch(error){
+        const diagnostic=await page.evaluate(()=>({
+          recState:document.getElementById('recBtn')?.dataset.recordingState||'',
+          recClass:document.getElementById('recBtn')?.className||'',
+          recDisabled:!!document.getElementById('recBtn')?.disabled,
+          recAria:document.getElementById('recBtn')?.getAttribute('aria-label')||'',
+          status:document.getElementById('status')?.textContent||'',
+          pauseText:document.getElementById('nfPause')?.textContent||'',
+          nativePauseText:document.getElementById('nexaPauseBtn')?.textContent||'',
+          processDisabled:!!document.getElementById('processBtn')?.disabled
+        }));
+        console.error('V18122_CIRCULAR_PAUSE_DIAGNOSTIC',JSON.stringify(diagnostic));
+        console.error('V18122_CIRCULAR_PAUSE_PAGE_ERRORS',JSON.stringify(errors));
+        throw error;
+      }
+      assert.equal(await page.locator('#processBtn').isDisabled(),true,'circular pause must not finalize the recording');
+      assert.match(await page.locator('#recBtn').getAttribute('aria-label'),/Retomar gravação/i);
       const paused=parseTimer(await page.locator('#timer').innerText());await sleep(1250);
       assert.equal(parseTimer(await page.locator('#timer').innerText()),paused,'timer must stop while paused');
-      await page.locator('#nfPause').click();await page.waitForFunction(()=>/Pausar/i.test(document.getElementById('nfPause')?.textContent||''));
-      await sleep(1150);assert.ok(parseTimer(await page.locator('#timer').innerText())>paused,'timer must resume');
+      await page.locator('#recBtn').click();
+      await page.waitForFunction(()=>document.getElementById('recBtn')?.dataset.recordingState==='recording'&&/gravando consulta/i.test(document.getElementById('status')?.textContent||''));
+      assert.match(await page.locator('#recBtn').getAttribute('aria-label'),/Pausar gravação/i);
+      await sleep(1150);assert.ok(parseTimer(await page.locator('#timer').innerText())>paused,'timer must resume from the previous value');
     }
 
     await page.locator('#nfFinish').click();
     await page.waitForFunction(()=>!document.getElementById('processBtn').disabled&&/pronta para transcrever/i.test(document.getElementById('status')?.textContent||''));
+    await page.waitForFunction(()=>document.getElementById('nfProcess')?.dataset.nexaAutofocus==='process');
+    assert.equal(await page.locator('#recBtn').getAttribute('data-recording-state'),'stopped','Finalizar must leave the recorder stopped');
+    assert.equal(await page.locator('#recBtn').isDisabled(),true,'finalized circular control must not start a new recording');
     assert.match(await page.locator('#nfProcess').innerText(),/Transcrever e estruturar/i);
+    assert.equal(await page.evaluate(()=>{const r=document.getElementById('nfProcess').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}),true,'structure CTA must be fully visible after Finalizar');
+    assert.ok(await page.evaluate(()=>window.__nexaScrollIntoViewCalls.some(x=>x.id==='nfProcess')),'Finalizar must scroll the visible structure CTA into view');
 
     await page.evaluate(()=>{window.__qa.processDelayMs=450;});
     if(n===1){
@@ -94,8 +128,39 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     assert.equal(await page.evaluate(()=>new Set(window.__qa.auditSubmissions.map(x=>x.source_consultation_id)).size),n,'Audit submissions must remain idempotent across sequential encounters');
 
     if(n<3){
-      await page.locator('#resetBtn').evaluate(el=>el.click());
-      await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
+      if(n===1&&viewport.width>820){
+        await page.evaluate(()=>{
+          const spacer=document.createElement('div');spacer.id='nexaClearScrollProbe';spacer.setAttribute('aria-hidden','true');spacer.style.height='1600px';document.body.appendChild(spacer);
+          window.scrollTo(0,document.documentElement.scrollHeight);
+        });
+        await page.waitForFunction(()=>scrollY>100);
+        await page.locator('#nfTopClear').click();
+        try{
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+        }catch(error){
+          const diagnostic=await page.evaluate(()=>({
+            phase:document.body.dataset.nexaClinicalPhase||'',
+            stage:document.body.dataset.nexaStage||'',
+            hda:document.querySelector('.field[data-key="hda"] textarea')?.value||'',
+            scrollY,
+            scrollHeight:document.documentElement.scrollHeight,
+            timer:document.getElementById('timer')?.textContent||'',
+            recState:document.getElementById('recBtn')?.dataset.recordingState||'',
+            status:document.getElementById('status')?.textContent||'',
+            scrollCalls:window.__nexaWindowScrollCalls?.slice(-12)||[]
+          }));
+          console.error('V18122_CLEAR_TOP_DIAGNOSTIC',JSON.stringify(diagnostic));
+          console.error('V18122_CLEAR_TOP_PAGE_ERRORS',JSON.stringify(errors));
+          throw error;
+        }
+        assert.ok(await page.evaluate(()=>window.__nexaWindowScrollCalls.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth')),'Limpar consulta must scroll smoothly to the top after reset');
+        await page.evaluate(()=>document.getElementById('nexaClearScrollProbe')?.remove());
+      }else{
+        await page.locator('#resetBtn').evaluate(el=>el.click());
+        await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
+      }
+      assert.equal(await page.locator('#timer').innerText(),'00:00','timer must reset between encounters');
+      assert.equal(await page.locator('#recBtn').getAttribute('data-recording-state'),'idle','recorder must reset to idle between encounters');
     }
    }
 
@@ -111,8 +176,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     await page.locator('#nfSide [data-go="history"]').click();
    }
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
-   await page.evaluate(()=>window.nexaRefreshHistory197?.());
-   await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===3);
+   await page.evaluate(()=>{window.__qa.consultationRows.push({id:'55555555-5555-4555-8555-555555555555',user_id:'qa-physician-a',fields:{queixa_principal:'Atendimento legado QA',hda:'Registro antigo compatível.'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});return window.nexaRefreshHistory197?.()});
+   await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===4);
+   assert.match(await page.locator('#n197List').innerText(),/Atendimento legado QA/,'legacy History rows must remain visible alongside Continuous/SOAP encounters');
    const historyVisible=await page.locator('#nexa197History').isVisible();
    if(!historyVisible){
     const diagnostic=await page.evaluate(()=>{
@@ -123,7 +189,20 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     console.error('HOTFIX_HISTORY_VISIBILITY_DIAGNOSTIC',JSON.stringify(diagnostic));
    }
    assert.equal(historyVisible,true,'Persistent History must be visible from the History navigation');
-   await page.locator('#n197List .n197-item button').first().click();
+
+   const legacyItem=page.locator('#n197List .n197-item').filter({hasText:'Atendimento legado QA'}).first();
+   await legacyItem.locator('button').click();
+   await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+
+   if(viewport.width<=820){
+    const mobileHistory='#nexaMobileBottomNav [data-mobile-stage="history"]';
+    await page.locator(mobileHistory).click();
+   }else{
+    await page.locator('#nfSide [data-go="history"]').click();
+   }
+   await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
+   const structuredItem=page.locator('#n197List .n197-item').filter({hasText:/Cefaleia/i}).first();
+   await structuredItem.locator('button').click();
    await page.waitForFunction(()=>/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
 
    await page.screenshot({path:path.join(root,'test-results',`clinical-regression-hotfix-${viewport.width}.png`),fullPage:true});

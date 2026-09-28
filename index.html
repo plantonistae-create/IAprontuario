@@ -2254,7 +2254,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div class="grid2"><div class="box"><h4>IMC</h4><label>Peso (kg)</label><input id="bmiWeight" type="number"/><label>Altura (cm)</label><input id="bmiHeight" type="number"/><button class="btn ghost" id="calculateBmiBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bmiResult">—</div></div><div class="box"><h4>Superfície corporal · Mosteller</h4><label>Peso (kg)</label><input id="bsaWeight" type="number"/><label>Altura (cm)</label><input id="bsaHeight" type="number"/><button class="btn ghost" id="calculateBsaBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bsaResult">—</div></div></div></section><section class="pane" id="sourcesPane"><div class="box"><h4>Fontes clínicas e roteamento</h4><p class="hint">O assistente clínico pode usar protocolos privados NEXA e pesquisa web confiável conforme configuração do backend. A resposta deve manter rastreabilidade das fontes consultadas.</p><div class="learning"><strong>Prioridade:</strong> protocolos institucionais cadastrados → sociedades médicas e órgãos oficiais → literatura confiável quando permitida. O prontuário nunca recebe automaticamente o conteúdo do chat.</div><div class="badges"><span class="badge">MS / gov.br</span><span class="badge">Sociedades médicas</span><span class="badge">Protocolos NEXA</span><span class="badge">Fontes rastreáveis</span></div></div></section></div></div>
 <main><section class="panel-left"><div class="card system-status-card"><h3>Ambiente protegido</h3><div class="secure-note">Sessão autenticada · RLS ativo · IA via backend.</div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input id="consent" type="checkbox"/><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label></div><div class="card rec-zone">
 <div class="nexa-recording-kicker" id="nexaRecordingKicker">GRAVAÇÃO</div>
-<button class="rec-btn" disabled="" id="recBtn"><svg viewbox="0 0 24 24"><circle cx="12" cy="12" fill="currentColor" id="circleShape" r="7"></circle><rect fill="currentColor" height="8" id="stopShape" rx="1" style="display:none" width="8" x="8" y="8"></rect></svg></button><div class="timer mono" id="timer">00:00</div><div class="wave-wrap"><canvas height="54" id="wave" width="280"></canvas></div>
+<button class="rec-btn" disabled="" id="recBtn" aria-label="Iniciar gravação" data-recording-state="idle"><svg viewbox="0 0 24 24"><circle cx="12" cy="12" fill="currentColor" id="circleShape" r="7"></circle><g id="pauseShape" style="display:none"><rect fill="currentColor" height="10" rx="1" width="3" x="7" y="7"></rect><rect fill="currentColor" height="10" rx="1" width="3" x="14" y="7"></rect></g><path id="resumeShape" d="M9 7.5 17 12 9 16.5Z" fill="currentColor" style="display:none"></path><rect fill="currentColor" height="8" id="stopShape" rx="1" style="display:none" width="8" x="8" y="8"></rect></svg></button><div class="timer mono" id="timer">00:00</div><div class="wave-wrap"><canvas height="54" id="wave" width="280"></canvas></div>
 <div class="status" id="status">Aguardando início da gravação</div>
 <div class="nexa-rec-local-actions">
   <button type="button" id="nexaLocalPauseBtn"><span class="nexa-rec-action-icon">Ⅱ</span><span id="nexaLocalPauseText">Pausar</span></button>
@@ -3352,7 +3352,20 @@ function stopRecordingTimer({reset=false}={}){
     seconds=0;
     $('timer').textContent='00:00';
   }
-}const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
+}
+function nexaVisibleProcessCta(){
+  const candidates=[$('nfProcess'),$('nfTopProcess'),$('processBtn')].filter(Boolean);
+  return candidates.find(el=>!el.disabled&&el.getClientRects?.().length&&getComputedStyle(el).visibility!=='hidden')||candidates.find(el=>!el.disabled)||null;
+}
+function nexaScrollToProcessCta(){
+  requestAnimationFrame(()=>{
+    const target=nexaVisibleProcessCta();if(!target)return;
+    try{target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}catch{target.scrollIntoView?.()}
+    try{target.focus({preventScroll:true})}catch{}
+    target.setAttribute('data-nexa-autofocus','process');
+  });
+}
+const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
   if(recording||recordingStarting||!$('consent').checked||!currentProf?.clinical_access)return;
   recordingStarting=true;try{
   const startEpoch=clinicalEpoch;
@@ -3378,7 +3391,9 @@ function stopRecordingTimer({reset=false}={}){
     audioBlob=new Blob(chunks,{type:mime});
     $('processBtn').disabled=false;
     $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;
-    flat();
+    flat();syncRecordingUi();
+    window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
+    nexaScrollToProcessCta();
   };
   mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
   timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
@@ -3395,7 +3410,7 @@ function stopRec({discard=false}={}){
   try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
-}$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;recording?stopRec():startRec()};
+}$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
 async function requireClinicalSession(){
   let {data:{session},error}=await sb.auth.getSession();if(error||!session?.access_token)throw new Error('Sessão expirada. Entre novamente no NEXA.');
   const check=await sb.auth.getUser(session.access_token).catch(()=>({data:{user:null},error:new Error('AUTH_CHECK_FAILED')}));
@@ -3515,6 +3530,7 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);
   flat();
   updateWorkflow();
   show('Nova consulta iniciada. Campos e seleções foram limpos.',false);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'smooth'})));
 }
 $('resetBtn').onclick=()=>{if(nexaConfirmReset())clearClinicalSession()};
 function noteText(){const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','sinais_vitais','exame_fisico'];keys.push('hipotese_diagnostica');keys.push('conduta');return keys.filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}function hdaText(){return['hda','alergias','comorbidades','medicacoes','antecedentes'].filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário completo');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'⧉ Copiar');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'⧉ Copiar');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
@@ -3915,7 +3931,7 @@ function pauseSession(){
     syncRecordingUi();
   }
   q('nexaPauseBtn')?.addEventListener('click',pauseSession);
-  q('nexaFinishBtn')?.addEventListener('click',()=>{if(recording)stopRec();sessionPaused=false;syncRecordingUi();openSession();setStage('summary')});
+  q('nexaFinishBtn')?.addEventListener('click',()=>{if(recording)stopRec();sessionPaused=false;syncRecordingUi();openSession();setStage('radar')});
 
   const originalStartRec=startRec;
   startRec=async function(){openSession();sessionPaused=false;await originalStartRec();syncRecordingUi()};
@@ -3923,12 +3939,22 @@ function pauseSession(){
   stopRec=function(opts={}){sessionPaused=false;const r=originalStopRec(opts);setTimeout(syncRecordingUi,50);return r};
 
   function syncRecordingUi(){
-    const strip=q('nexaActiveStrip'); if(!strip)return;
-    const active=!!recording;
-    strip.classList.toggle('on',active);
-    q('nexaRecDot')?.classList.toggle('paused',sessionPaused);
-    if(q('nexaActiveText'))q('nexaActiveText').textContent=`${sessionPaused?'Pausado':'Gravando'} ${fmt(seconds||0)}`;
-    if(q('nexaPauseBtn'))q('nexaPauseBtn').textContent=sessionPaused?'Retomar':'Pausar';
+    const active=!!recording,paused=active&&sessionPaused,rec=q('recBtn'),strip=q('nexaActiveStrip');
+    if(strip)strip.classList.toggle('on',active);
+    q('nexaRecDot')?.classList.toggle('paused',paused);
+    if(q('nexaActiveText'))q('nexaActiveText').textContent=`${paused?'Pausado':active?'Gravando':'Parado'} ${fmt(seconds||0)}`;
+    if(q('nexaPauseBtn'))q('nexaPauseBtn').textContent=paused?'Retomar':'Pausar';
+    if(rec){
+      const state=active?(paused?'paused':'recording'):(audioBlob?'stopped':'idle');
+      rec.dataset.recordingState=state;rec.classList.toggle('recording',active);rec.classList.toggle('paused',paused);
+      const label=state==='recording'?'Pausar gravação':state==='paused'?'Retomar gravação':state==='stopped'?'Gravação finalizada; use Transcrever e estruturar':'Iniciar gravação';
+      rec.setAttribute('aria-label',label);rec.title=label;rec.disabled=!q('consent')?.checked||state==='stopped'||document.body.dataset.nexaProcessing==='1';
+      if(q('circleShape'))q('circleShape').style.display=(state==='idle'||state==='stopped')?'block':'none';
+      if(q('pauseShape'))q('pauseShape').style.display=state==='recording'?'block':'none';
+      if(q('resumeShape'))q('resumeShape').style.display=state==='paused'?'block':'none';
+      if(q('stopShape'))q('stopShape').style.display='none';
+    }
+    try{window.nexaFinalUiSyncRecorder18122?.()}catch{}
   }
 
   function renderRecentCases(){
@@ -4059,14 +4085,20 @@ function pauseSession(){
     },0);
   });
 
-  function openWorkspaceOnly(mode='history'){
+  function openHistoryStage(){
+    openSession();document.body.classList.remove('nexa-workspace-only');q('nexaCommandWorkspace')?.classList.remove('workspace-open');
+    setStage('history');
+    requestAnimationFrame(()=>{try{window.nexaRefreshSevenDayHistory?.();window.nexaRefreshHistory197?.()}catch{};window.scrollTo({top:0,left:0,behavior:'auto'})});
+  }
+  window.nexaOpenHistoryStage18122=openHistoryStage;
+  function openWorkspaceOnly(mode='examples'){
+    if(mode==='history'){openHistoryStage();return}
     openSession();
     document.body.classList.add('nexa-workspace-only');
     setStage('summary');
     const ws=q('nexaCommandWorkspace');
     ws?.classList.add('workspace-open');
-    if(mode==='examples') q('workspaceExamplesTab')?.click();
-    else q('workspaceHistoryTab')?.click();
+    q('workspaceExamplesTab')?.click();
     requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));
   }
 
@@ -4076,7 +4108,7 @@ function pauseSession(){
       if(a==='protocols'){if(currentProf?.is_admin||currentProf?.is_reviewer)openCorePane('coreProtocolsPane');else clinicalTab('protocolPane')}
       else if(a==='calculators')clinicalTab('calcPane');
       else if(a==='clinical')q('clinicalIntelligenceBtn')?.click();
-      else if(a==='history'){openWorkspaceOnly('history')}
+      else if(a==='history'){openHistoryStage()}
       else if(a==='writing'){openWorkspaceOnly('examples')}
       else if(a==='plan'){openSession();setStage('plan')}
       else if(a==='guidance'){openSession();setStage('plan')}
@@ -4415,7 +4447,7 @@ function pauseSession(){
     if(currentProf?.is_admin||currentProf?.is_reviewer) openCorePane('coreProtocolsPane'); else clinicalTab('protocolPane');
   });
   document.querySelector('[data-desk="calculators"]')?.addEventListener('click',()=>clinicalTab('calcPane'));
-  document.querySelector('[data-desk="history"]')?.addEventListener('click',()=>openWorkspaceOnly('history'));
+  document.querySelector('[data-desk="history"]')?.addEventListener('click',openHistoryStage);
   document.querySelector('[data-desk="preferences"]')?.addEventListener('click',()=>q('nexaMoreBtn')?.click());
 
   const oldSetStage=setStage;
@@ -4638,5 +4670,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20260927-v18121"></script>
+<script src="./nexa-hotfix.js?v=20260927-v18122"></script>
 </body></html>
