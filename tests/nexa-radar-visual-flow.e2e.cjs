@@ -68,11 +68,16 @@ async function chromiumFlow(browser,port,viewport){
   await page.waitForFunction(()=>/AO VIVO/i.test(document.getElementById('nexaRadarLiveSuffix18130')?.textContent||'')&&/GRAVANDO/i.test(document.getElementById('nexaRadarRecordingState18130')?.textContent||''));
   await page.waitForFunction(()=>document.getElementById('nexaRadarRecordingTimer18130')?.textContent===document.getElementById('timer')?.textContent);
 
+  await page.waitForFunction(()=>{
+    const el=document.getElementById('realtimeRadarCard');if(!el)return false;
+    const r=el.getBoundingClientRect(),offset=innerWidth<=820?82:88;
+    return r.bottom>offset&&r.top<innerHeight;
+  });
   const radarNowVisible=await page.evaluate(()=>{
     const el=document.getElementById('realtimeRadarCard'),r=el.getBoundingClientRect(),offset=innerWidth<=820?82:88;
     return r.bottom>offset&&r.top<innerHeight;
   });
-  assert.equal(radarNowVisible,true,'Recording start must leave the Radar in a comfortable visible area');
+  assert.equal(radarNowVisible,true,'Recording start must leave the Radar in a comfortable visible area after the smooth scroll settles');
   if(!radarWasVisible){
     assert.equal(await page.evaluate(()=>window.__nexaVisualScrolls.some(x=>x.kind==='window'&&x.value?.behavior==='smooth')),true,'Off-screen Radar must receive smooth auto-scroll');
   }
