@@ -48,7 +48,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden&&!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
 
    // Phase 1 probe runs in the real post-structure review phase, where Exam/Plan are exposed.
-   await page.evaluate(()=>document.body.dataset.nexaClinicalPhase='review');
+   await page.evaluate(()=>window.nexaRadarAutoReview1812.setPhase('review','phase1-test'));
 
    // Phase 1: one-click physical exam + deterministic undo.
    const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
@@ -107,7 +107,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    await page.locator('#nexaFlowCopyAll').click();
    const copiedSoap=await page.evaluate(()=>window.__qa.clipboard);
    for(const title of ['S — SUBJETIVO','O — OBJETIVO','A — AVALIAÇÃO','P — PLANO'])assert.match(copiedSoap,new RegExp(title));
-   await page.evaluate(()=>{window.clearLastQuickAction?.();for(const el of document.querySelectorAll('.field textarea')){el.value='';el.dispatchEvent(new Event('input',{bubbles:true}))}const c=document.getElementById('conductRecordText');if(c){c.value='';c.dispatchEvent(new Event('input',{bubbles:true}))}const q=document.getElementById('conductSearchInput');if(q)q.value='';document.body.dataset.nexaClinicalPhase='consult';});
+   await page.evaluate(()=>{window.clearLastQuickAction?.();for(const el of document.querySelectorAll('.field textarea')){el.value='';el.dispatchEvent(new Event('input',{bubbles:true}))}const c=document.getElementById('conductRecordText');if(c){c.value='';c.dispatchEvent(new Event('input',{bubbles:true}))}const q=document.getElementById('conductSearchInput');if(q)q.value='';window.nexaRadarAutoReview1812.setPhase('consult','phase1-test-done');});
 
    const ids=[];
    for(let n=1;n<=3;n++){
