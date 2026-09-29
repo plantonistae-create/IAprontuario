@@ -144,6 +144,17 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       assert.match(examAfterUndo,/BEG/i);assert.doesNotMatch(examAfterUndo,/AR:/i);
       assert.equal(await estadoGeral.isChecked(),true);assert.equal(await ar.isChecked(),false);
 
+      const conductVisibility=await page.evaluate(()=>{
+        const el=document.getElementById('toggleConductPickerBtn');
+        const chain=[];let n=el;
+        while(n&&chain.length<10){
+          const cs=getComputedStyle(n),r=n.getBoundingClientRect();
+          chain.push({tag:n.tagName,id:n.id||'',className:String(n.className||''),display:cs.display,visibility:cs.visibility,opacity:cs.opacity,width:r.width,height:r.height,hidden:!!n.hidden});
+          n=n.parentElement;
+        }
+        return {phase:document.body.dataset.nexaClinicalPhase||'',flow:document.body.dataset.nexaFlow||'',chain};
+      });
+      if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
       assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
       await page.locator('#toggleConductPickerBtn').click();
       await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
