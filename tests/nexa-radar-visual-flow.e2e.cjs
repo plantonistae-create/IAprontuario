@@ -65,7 +65,9 @@ async function chromiumFlow(browser,port,viewport){
   await page.evaluate(()=>window.__nexaVisualScrolls.length=0);
   await page.locator('#nfStart').click();
   await page.waitForFunction(()=>document.getElementById('recBtn')?.dataset.recordingState==='recording');
+  await page.waitForFunction(()=>document.body.dataset.nexaStage==='radar'&&!document.body.classList.contains('doctor-home-open'));
   await page.waitForFunction(()=>/AO VIVO/i.test(document.getElementById('nexaRadarLiveSuffix18130')?.textContent||'')&&/GRAVANDO/i.test(document.getElementById('nexaRadarRecordingState18130')?.textContent||''));
+  await page.waitForFunction(()=>/Gravação contínua ativa/i.test(document.getElementById('nexaRadarOpsSubtitle18131')?.textContent||''));
   await page.waitForFunction(()=>document.getElementById('nexaRadarRecordingTimer18130')?.textContent===document.getElementById('timer')?.textContent);
 
   await page.waitForFunction(()=>{
@@ -101,18 +103,18 @@ async function chromiumFlow(browser,port,viewport){
 
   await page.locator('#nexaRadarLiveFinish18130').click();
   await page.waitForFunction(()=>!document.getElementById('processBtn')?.disabled&&document.getElementById('recBtn')?.dataset.recordingState==='stopped');
-  await page.waitForFunction(()=>document.getElementById('nexaRadarPost18130')?.classList.contains('on')&&/CONCLUÍDA/i.test(document.getElementById('nexaRadarRecordingState18130')?.textContent||''));
-  assert.match(await page.locator('#nexaRadarPostTitle18130').innerText(),/Gravação concluída/i);
-  assert.equal(await page.locator('#nexaRadarPostAction18130').isEnabled(),true);
-  const processVisible=await page.evaluate(()=>{
-    const el=document.getElementById('nfProcess')||document.getElementById('processBtn'),r=el.getBoundingClientRect();
-    return r.top>=0&&r.bottom<=innerHeight;
+  assert.equal(await page.locator('#nexaRadarPost18130').count(),0,'Floating post-recording CTA must not exist');
+  await page.waitForFunction(()=>{
+    const process=document.getElementById('processBtn'),reset=document.getElementById('resetBtn');
+    if(!process||!reset)return false;
+    const pr=process.getBoundingClientRect(),rr=reset.getBoundingClientRect();
+    return pr.top>=0&&pr.bottom<=innerHeight&&rr.top>=0&&rr.bottom<=innerHeight;
   });
-  assert.equal(processVisible,true,'Finalization must bring the real structure action into view');
+  assert.equal(await page.locator('#processBtn').isVisible(),true,'Canonical Transcrever e estruturar action must be visible after finalization');
+  assert.equal(await page.locator('#resetBtn').isVisible(),true,'Canonical Limpar e começar nova consulta action must be visible after finalization');
 
-  await page.locator('#nexaRadarPostAction18130').click();
+  await page.locator('#processBtn').click();
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='processing');
-  assert.equal(await page.locator('#nexaRadarPost18130').isVisible(),false,'Contextual post-recording CTA must leave once processing starts');
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review'&&/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
   assert.equal(await page.locator('#nexaFlowHistory').isVisible(),true,'Existing structured review must remain the destination');
   const reviewVisible=await page.evaluate(()=>{

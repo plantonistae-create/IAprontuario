@@ -4067,7 +4067,15 @@ function pauseSession(){
   q('nexaFinishBtn')?.addEventListener('click',()=>{if(recording)stopRec();sessionPaused=false;syncRecordingUi();openSession();setStage('radar')});
 
   const originalStartRec=startRec;
-  startRec=async function(){openSession();sessionPaused=false;await originalStartRec();syncRecordingUi()};
+  startRec=async function(){
+    openSession();sessionPaused=false;
+    await originalStartRec();
+    syncRecordingUi();
+    if(recording){
+      setStage('radar','realtimeRadarCard');
+      requestAnimationFrame(()=>window.nexaRadarVisualFlow18130?.scrollToRadar?.());
+    }
+  };
   const originalStopRec=stopRec;
   stopRec=function(opts={}){sessionPaused=false;const r=originalStopRec(opts);setTimeout(syncRecordingUi,50);return r};
 
@@ -4445,6 +4453,10 @@ function pauseSession(){
       setTimeout(()=>window.scrollTo({top:0,behavior:'smooth'}),20);
     }
   }
+  window.nexaNavigateClinicalStage18131=(stage,target=null)=>{
+    openSession();
+    setStage(stage,target);
+  };
 
   // Reescreve a navegação do shell para atuar como telas.
   const stageMap={realtimeRadarCard:'radar',structuredRecordTitle:'summary',hypothesisReviewBlock:'hypothesis',clinicalPlanBlock:'plan'};
@@ -4803,5 +4815,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20260929-v18130"></script>
+<script src="./nexa-hotfix.js?v=20260929-v18131"></script>
 </body></html>

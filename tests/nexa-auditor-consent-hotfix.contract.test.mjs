@@ -19,10 +19,10 @@ assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reu
 
 assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20260928-v18123'),'Auditor module cache bust must be current');
 assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260929-v18128'),'Continuous/SOAP module cache bust must be current');
-assert.ok(sw.includes('nexa-v18-13-0-radar-flow-20260929'),'Service Worker cache must identify the current Radar-flow build');
-assert.ok(index.includes('nexa-hotfix.js?v=20260929-v18130'),'HTML must load the current v18.13.0 hotfix loader');
+assert.ok(sw.includes('nexa-v18-13-1-radar-flow-20260929'),'Service Worker cache must identify the current Radar-flow build');
+assert.ok(index.includes('nexa-hotfix.js?v=20260929-v18131'),'HTML must load the current v18.13.1 hotfix loader');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
 new Function(continuous);
 new Function(auditor);
-console.log('NEXA v18.13.0 Auditor + consent + SOAP selector regression contract: PASS');
+console.log('NEXA v18.13.1 Auditor + consent + SOAP selector regression contract: PASS');

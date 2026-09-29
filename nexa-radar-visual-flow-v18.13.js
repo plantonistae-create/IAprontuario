@@ -1,4 +1,4 @@
-/* NEXA v18.13.0 · Radar visual flow
+/* NEXA v18.13.1 · Radar visual flow hotfix
  * Presentation/integration layer only:
  * - reuses the existing Radar state and question ordering;
  * - mirrors the existing recording timer without creating another clock;
@@ -15,13 +15,11 @@ const q=(selector,root=document)=>root.querySelector(selector);
 const qa=(selector,root=document)=>[...root.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
-const fmt=seconds=>`${String(Math.floor(Math.max(0,Number(seconds)||0)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,Number(seconds)||0)%60)).padStart(2,'0')}`;
 
 let mounted=false;
 let radarObject=null;
 let lastQuestionKeys=null;
 let lastRecorderActive=false;
-let finalizedSeconds=0;
 let recorderObserver=null;
 
 function addStyle(){
@@ -91,8 +89,11 @@ function addStyle(){
     font-size:10px!important;font-weight:900!important;cursor:pointer
   }
   .nexa-radar-rec-control.finish{
-    color:#c52536!important;border-color:#efc4ca!important;background:#fff7f8!important
+    color:#fff!important;border-color:#d92f42!important;background:#df3247!important;
+    box-shadow:0 5px 14px rgba(190,38,56,.16)!important
   }
+  .nexa-radar-rec-control.finish:hover{background:#c9273b!important;border-color:#c9273b!important}
+  .nexa-radar-rec-control.finish:disabled{box-shadow:none!important}
   .nexa-radar-rec-control:disabled{opacity:.45;cursor:not-allowed}
   .nexa-radar-rec-control:focus-visible,
   #nexaRadarVisualFlow18130 button:focus-visible{
@@ -210,21 +211,6 @@ function addStyle(){
   }
   .nexa-radar-question-link18130.is-fresh{animation:nexaRadarFresh18130 .82s ease-out 1}
 
-  #nexaRadarPost18130{
-    display:none;position:sticky;bottom:max(10px,env(safe-area-inset-bottom));z-index:30;
-    align-items:center;gap:10px;margin:10px 0 0;padding:10px 11px;
-    border:1px solid #bfe2d8;border-radius:12px;background:rgba(244,252,249,.96);
-    backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(22,62,70,.08)
-  }
-  #nexaRadarPost18130.on{display:flex}
-  #nexaRadarPost18130 .post-copy{min-width:0;flex:1}
-  #nexaRadarPost18130 .post-copy strong{display:block;font-size:10px;color:#08755d}
-  #nexaRadarPost18130 .post-copy span{display:block;font-size:8.5px;color:var(--nf-muted,var(--nexa-muted,#687c8f));margin-top:2px}
-  #nexaRadarPostAction18130{
-    min-height:42px!important;border:1px solid #1976b8!important;border-radius:9px!important;
-    background:#1976b8!important;color:#fff!important;font-size:9.5px!important;font-weight:900!important;padding:0 12px!important
-  }
-
   body[data-nexa-radar-visual-flow="1"] #nexaAutoRadarWorkspace{
     grid-template-columns:minmax(0,1fr)!important;margin-top:8px!important
   }
@@ -260,15 +246,12 @@ function addStyle(){
     #nexaRadarVisualCovered18130{order:4}
     .nexa-radar-visual-panel18130{width:100%}
     body[data-nexa-radar-visual-flow="1"] #nexaAutoRadarWorkspace>.ng-side{grid-template-columns:1fr!important}
-    #nexaRadarPost18130{bottom:max(78px,calc(66px + env(safe-area-inset-bottom)))}
   }
   @media(max-width:420px){
     #nexaRadarOverview18130{grid-template-columns:repeat(3,minmax(0,1fr))}
     .nexa-radar-metric18130 span{min-height:19px}
     .nexa-radar-question-link18130{grid-template-columns:18px minmax(0,1fr)!important}
     .nexa-radar-question-link18130 .qpriority{grid-column:2;justify-self:start}
-    #nexaRadarPost18130{align-items:stretch;flex-direction:column}
-    #nexaRadarPostAction18130{width:100%}
   }
   `;
   document.head.appendChild(style);
@@ -352,12 +335,26 @@ function sourceProcessButton(){
 }
 
 function stickyOffset(){
-  return innerWidth<=820?82:88;
+  const bars=[
+    $('nexaDesktopSessionbar'),
+    $('nexaDoctorHeader'),
+    $('nexaFlowModeBar'),
+    q('.nexa-session-tabs')
+  ].filter(Boolean);
+  let bottom=0;
+  for(const el of bars){
+    if(!el.getClientRects?.().length)continue;
+    const style=getComputedStyle(el);
+    if(style.visibility==='hidden'||style.display==='none')continue;
+    const r=el.getBoundingClientRect();
+    if(r.bottom>0&&r.top<innerHeight)bottom=Math.max(bottom,r.bottom);
+  }
+  return Math.max(12,Math.round(bottom)+8);
 }
 function comfortablyVisible(el){
   if(!el||!el.getClientRects?.().length)return false;
   const r=el.getBoundingClientRect(),top=stickyOffset();
-  return r.top>=top&&r.bottom<=innerHeight-18;
+  return r.top>=top&&r.top<=Math.max(top+36,innerHeight*.45);
 }
 function scrollComfortably(el,block='start'){
   if(!el||!el.getClientRects?.().length||comfortablyVisible(el))return false;
@@ -369,14 +366,30 @@ function scrollComfortably(el,block='start'){
   window.scrollTo({top:Math.max(0,window.scrollY+r.top-stickyOffset()),left:0,behavior:'smooth'});
   return true;
 }
+function navigateToRadar(){
+  if(document.body.dataset.nexaStage==='radar'&&!document.body.classList.contains('doctor-home-open'))return true;
+  if(typeof window.nexaNavigateClinicalStage18131==='function'){
+    window.nexaNavigateClinicalStage18131('radar');
+    return true;
+  }
+  const nav=q('.nexa-desktop-tab[data-desk-stage="radar"],.nexa-session-tab[data-stage="radar"],.nexa-docnav[data-stage="radar"],#nfShell [data-go="radar"],[data-stage-target="radar"]');
+  nav?.click();
+  return !!nav;
+}
 function ensureRadarVisible(){
   const card=$('realtimeRadarCard');
   if(!card)return null;
-  if(!card.getClientRects?.().length){
-    const nav=q('#nfShell [data-go="radar"],[data-stage-target="radar"],.nexa-session-tab[data-stage="radar"]');
-    nav?.click();
-  }
+  navigateToRadar();
   return card;
+}
+function radarOperationsTarget(){
+  ensureRadarVisible();
+  return $('nexaRadarOpsHeader18130')||$('realtimeRadarCard');
+}
+function postRecordingTarget(){
+  const process=$('processBtn')||sourceProcessButton();
+  if(!process)return null;
+  return process.closest?.('.nexa-flow-process-row')||process;
 }
 
 function summaryHtml(items,tone){
@@ -472,7 +485,7 @@ function ensureShell(){
     header.innerHTML=`
       <div class="nexa-radar-ops-title">
         <strong>RADAR CLÍNICO <span id="nexaRadarLiveSuffix18130"></span></strong>
-        <span>Análise em tempo real da consulta</span>
+        <span id="nexaRadarOpsSubtitle18131">Análise em tempo real da consulta</span>
       </div>
       <div class="nexa-radar-ops-controls">
         <span id="nexaRadarRecordingBadge18130" role="status" aria-live="polite" data-state="idle"><span class="nexa-radar-rec-dot"></span><span id="nexaRadarRecordingState18130">AGUARDANDO</span><strong id="nexaRadarRecordingTimer18130">00:00</strong></span>
@@ -518,19 +531,6 @@ function ensureShell(){
     overview.insertAdjacentElement('afterend',grid);
   }
 
-  let post=$('nexaRadarPost18130');
-  if(!post||post.parentElement!==card){
-    post=document.createElement('section');
-    post.id='nexaRadarPost18130';
-    post.setAttribute('aria-live','polite');
-    post.innerHTML=`<div class="post-copy"><strong id="nexaRadarPostTitle18130">✓ Gravação concluída</strong><span>Áudio pronto para a próxima etapa.</span></div><button type="button" id="nexaRadarPostAction18130">Transcrever e estruturar →</button>`;
-    card.appendChild(post);
-    $('nexaRadarPostAction18130').onclick=()=>{
-      const source=sourceProcessButton();
-      if(source)source.click();
-    };
-  }
-
   integrateExistingRadarPieces();
   mounted=true;
   return true;
@@ -573,25 +573,11 @@ function renderRadar(source=currentState()){
   if(updated)updated.textContent=newKeys.length?'Atualizado agora':(keys.length?'Atualizado agora':'Aguardando atualização');
 }
 
-function updatePostVisibility(snapshot){
-  const post=$('nexaRadarPost18130');
-  if(!post)return;
-  const show=!!snapshot.blob&&!snapshot.active&&!snapshot.processing;
-  post.classList.toggle('on',show);
-  const action=$('nexaRadarPostAction18130'),source=sourceProcessButton();
-  if(action)action.disabled=!source;
-  if(show){
-    const duration=finalizedSeconds>0?fmt(finalizedSeconds):snapshot.timer;
-    const title=$('nexaRadarPostTitle18130');
-    if(title)title.textContent=`✓ Gravação concluída · ${duration}`;
-  }
-}
-
 function updateRecorder(){
   if(!ensureShell())return;
   const snapshot=recorderSnapshot();
   const badge=$('nexaRadarRecordingBadge18130'),stateText=$('nexaRadarRecordingState18130'),timer=$('nexaRadarRecordingTimer18130');
-  const pause=$('nexaRadarLivePause18130'),pauseText=$('nexaRadarLivePauseText18130'),finish=$('nexaRadarLiveFinish18130'),suffix=$('nexaRadarLiveSuffix18130');
+  const pause=$('nexaRadarLivePause18130'),pauseText=$('nexaRadarLivePauseText18130'),finish=$('nexaRadarLiveFinish18130'),suffix=$('nexaRadarLiveSuffix18130'),subtitle=$('nexaRadarOpsSubtitle18131');
 
   let state='idle',label='AGUARDANDO';
   if(snapshot.processing){state='processing';label='PROCESSANDO'}
@@ -606,21 +592,25 @@ function updateRecorder(){
   if(pause){pause.disabled=!snapshot.active;pause.setAttribute('aria-label',snapshot.paused?'Retomar gravação':'Pausar gravação')}
   if(pauseText)pauseText.textContent=snapshot.paused?'Retomar':'Pausar';
   if(finish)finish.disabled=!snapshot.active;
-  updatePostVisibility(snapshot);
+  if(subtitle){
+    subtitle.textContent=snapshot.active
+      ?(snapshot.paused?'Gravação pausada · retome quando estiver pronto':'Gravação contínua ativa · acompanhe o Radar e encerre por aqui')
+      :(snapshot.blob?'Gravação concluída · siga para Transcrever e estruturar':'Análise em tempo real da consulta');
+  }
 
   if(snapshot.active&&!lastRecorderActive){
-    const card=ensureRadarVisible();
-    requestAnimationFrame(()=>requestAnimationFrame(()=>scrollComfortably(card,'start')));
+    navigateToRadar();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>scrollComfortably(radarOperationsTarget(),'start')));
   }
   lastRecorderActive=!!snapshot.active;
 }
 
-function onFinalized(event){
-  finalizedSeconds=Math.max(0,Number(event?.detail?.seconds)||0);
+function onFinalized(){
   updateRecorder();
+  navigateToRadar();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    const target=sourceProcessButton()||$('nexaRadarPost18130');
-    scrollComfortably(target,'center');
+    const target=postRecordingTarget();
+    if(target)scrollComfortably(target,'center');
   }));
 }
 
@@ -632,9 +622,7 @@ function reviewTarget(){
 function onClinicalProcessing(event){
   const state=event?.detail?.state;
   updateRecorder();
-  if(state==='processing'){
-    $('nexaRadarPost18130')?.classList.remove('on');
-  }else if(state==='structured'){
+  if(state==='structured'){
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       updateRecorder();
       scrollComfortably(reviewTarget(),'start');
@@ -677,7 +665,7 @@ function boot(){
   window.addEventListener('nexa:recording-finalized',onFinalized);
   window.addEventListener('nexa:clinical-processing',onClinicalProcessing);
   window.addEventListener('nexa:consultation-reset',()=>{
-    finalizedSeconds=0;lastQuestionKeys=null;lastRecorderActive=false;
+    lastQuestionKeys=null;lastRecorderActive=false;
     requestAnimationFrame(()=>{renderRadar();updateRecorder();});
   });
   window.addEventListener('nexa:continuous-soap-mounted',()=>requestAnimationFrame(()=>{ensureShell();integrateExistingRadarPieces();renderRadar();updateRecorder()}));
@@ -699,6 +687,6 @@ window.nexaRadarVisualFlow18130={
   render:renderRadar,
   syncRecorder:updateRecorder,
   derive,
-  scrollToRadar:()=>scrollComfortably(ensureRadarVisible(),'start')
+  scrollToRadar:()=>scrollComfortably(radarOperationsTarget(),'start')
 };
 })();
