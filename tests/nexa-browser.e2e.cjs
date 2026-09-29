@@ -156,7 +156,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.locator('#searchProtocolRxBtn').evaluate(el=>el.click());
   await page.waitForFunction(()=>document.getElementById('nexaProtocolLibrary18101')?.classList.contains('open')&&/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
   await page.locator('#nplSearch').fill('J45');await page.locator('#nplSearchBtn').click();
-  await page.waitForFunction(()=>/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
+  await page.waitForFunction(()=>/J45/.test(document.getElementById('nplList')?.textContent||''));
   assert.match(await page.locator('#nplList').innerText(),/J45/);
   await page.locator('#nplSearch').fill('Condição QA');await page.locator('#nplSearchBtn').click();
   await page.waitForFunction(()=>/Condição QA/.test(document.getElementById('nplList')?.textContent||''));
