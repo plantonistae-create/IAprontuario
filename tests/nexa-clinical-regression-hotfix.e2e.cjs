@@ -48,6 +48,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden&&!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
 
    // Phase 1: one-click physical exam + deterministic undo.
+   const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
    await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
    const estadoGeral=page.locator('#examSystems .exam-check').filter({hasText:'Estado geral'}).locator('input');
    const ar=page.locator('#examSystems .exam-check').filter({hasText:'Aparelho respiratório'}).locator('input');
