@@ -35,6 +35,12 @@ assert.ok(index.includes("setStage('radar')"),'finish must keep the recorder sta
 assert.ok(index.includes("behavior:'smooth'"),'reset/clear must provide smooth top scrolling');
 assert.ok(index.includes("document.querySelectorAll('.exam-sys-check').forEach(input=>input.addEventListener('change',()=>insertExam({allowEmpty:true})))"),'physical exam system clicks must immediately update the exam text');
 assert.ok(index.includes("$('insertExamBtn').style.display='none'"),'legacy physical exam insert button must be hidden after enabling one-click insertion');
+assert.ok(index.includes('id="conductSearchInput"'),'conduct picker must expose a search field');
+assert.ok(index.includes('id="conductManualInput"'),'conduct picker must expose manual entry');
+assert.ok(index.includes('id="conductManualAddBtn"'),'conduct picker must expose manual add action');
+assert.ok(index.includes("appendConductToRecord(c.content,{source:'library'})"),'clicking a saved conduct must add it directly to the record');
+assert.ok(index.includes("normalizedConductContent(c.content).includes(query)"),'conduct search must filter saved phrases by contained words');
+assert.ok(index.includes("if(e.key==='Enter'&&!e.shiftKey)"),'manual conduct entry must support Enter to add');
 assert.ok(index.includes('function openHistoryStage()'),'History must have one canonical navigation function');
 assert.ok(index.includes('window.nexaOpenHistoryStage18122=openHistoryStage'),'canonical History navigation must be exposed to the Final UI');
 assert.ok(index.includes("else if(a==='history'){openHistoryStage()}"),'quick History must route to the canonical native stage');
