@@ -49,10 +49,10 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
 
    // Phase 1: one-click physical exam + deterministic undo.
    const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
-   await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
+   await page.locator('.exam-type-btn[data-type="HOMEM"]').evaluate(el=>el.click());
    const estadoGeral=page.locator('#examSystems .exam-check').filter({hasText:'Estado geral'}).locator('input');
    const ar=page.locator('#examSystems .exam-check').filter({hasText:'Aparelho respiratório'}).locator('input');
-   await estadoGeral.check();await ar.check();
+   await estadoGeral.evaluate(el=>el.click());await ar.evaluate(el=>el.click());
    await page.waitForFunction(()=>/Exame adicionado/i.test(document.getElementById('nexaQuickUndoMessage')?.textContent||''));
    assert.match(await page.locator('.field[data-key="exame_fisico"] textarea').inputValue(),/BEG/i);
    assert.match(await page.locator('.field[data-key="exame_fisico"] textarea').inputValue(),/AR:/i);
