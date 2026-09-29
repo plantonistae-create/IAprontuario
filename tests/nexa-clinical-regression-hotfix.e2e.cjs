@@ -47,6 +47,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
    await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden&&!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
 
+   // Phase 1 probe runs in the real post-structure review phase, where Exam/Plan are exposed.
+   await page.evaluate(()=>document.body.dataset.nexaClinicalPhase='review');
+
    // Phase 1: one-click physical exam + deterministic undo.
    const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
    await page.locator('.exam-type-btn[data-type="HOMEM"]').evaluate(el=>el.click());
@@ -104,7 +107,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    await page.locator('#nexaFlowCopyAll').click();
    const copiedSoap=await page.evaluate(()=>window.__qa.clipboard);
    for(const title of ['S — SUBJETIVO','O — OBJETIVO','A — AVALIAÇÃO','P — PLANO'])assert.match(copiedSoap,new RegExp(title));
-   await page.evaluate(()=>{window.clearLastQuickAction?.();for(const el of document.querySelectorAll('.field textarea')){el.value='';el.dispatchEvent(new Event('input',{bubbles:true}))}const c=document.getElementById('conductRecordText');if(c){c.value='';c.dispatchEvent(new Event('input',{bubbles:true}))}const q=document.getElementById('conductSearchInput');if(q)q.value='';});
+   await page.evaluate(()=>{window.clearLastQuickAction?.();for(const el of document.querySelectorAll('.field textarea')){el.value='';el.dispatchEvent(new Event('input',{bubbles:true}))}const c=document.getElementById('conductRecordText');if(c){c.value='';c.dispatchEvent(new Event('input',{bubbles:true}))}const q=document.getElementById('conductSearchInput');if(q)q.value='';document.body.dataset.nexaClinicalPhase='consult';});
 
    const ids=[];
    for(let n=1;n<=3;n++){
