@@ -19,6 +19,11 @@ assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260928-v18126'),'w
 assert.ok(code.includes("['ANTECEDENTES',c.antecedentes]"),'SOAP S must expose ANTECEDENTES in uppercase');
 assert.ok(code.includes("['ALERGIAS',c.alergias]"),'SOAP S must expose ALERGIAS in uppercase');
 assert.ok(code.includes("join('\\n\\n')"),'SOAP S blocks must preserve a blank line between sections');
+assert.ok(code.includes("['SINAIS VITAIS',c.sinais_vitais]"),'SOAP O must use a stable uppercase vital-signs block');
+assert.ok(code.includes("['EXAME FÍSICO',c.exame_fisico]"),'SOAP O must use a stable uppercase physical-exam block');
+assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
+assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
+assert.ok(code.includes("if(text(a.confirmed_cid))parts.push"),'SOAP A must include only a confirmed CID');
 assert.ok(code.includes('position:fixed;top:calc(var(--nexa-topbar-h,64px) + 8px)'),'flow selector must stay fixed below the desktop session bar');
 assert.ok(code.includes('html.nexa-mobile-v1867 #nexaFlowModeBar'),'mobile flow selector must be positioned below the dedicated mobile header');
 assert.ok(index.includes('setAssessment:(text,cid=\'\')'),'clinical bridge must expose free assessment setter');
