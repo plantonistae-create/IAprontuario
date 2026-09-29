@@ -23,6 +23,8 @@ assert.ok(code.includes("['SINAIS VITAIS',c.sinais_vitais]"),'SOAP O must use a 
 assert.ok(code.includes("['EXAME FÍSICO',c.exame_fisico]"),'SOAP O must use a stable uppercase physical-exam block');
 assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
 assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
+assert.ok(code.includes("conduct.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Condutas');
+assert.ok(code.includes("guidance.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Orientações');
 assert.ok(code.includes("if(text(a.confirmed_cid))parts.push"),'SOAP A must include only a confirmed CID');
 assert.ok(code.includes('position:fixed;top:calc(var(--nexa-topbar-h,64px) + 8px)'),'flow selector must stay fixed below the desktop session bar');
 assert.ok(code.includes('html.nexa-mobile-v1867 #nexaFlowModeBar'),'mobile flow selector must be positioned below the dedicated mobile header');
