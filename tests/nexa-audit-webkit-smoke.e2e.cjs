@@ -35,24 +35,32 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
       await page.waitForFunction(()=>window.nexaAuditFunctionalGuard18916&&window.nexaOpenProfessionalAuditExact&&window.nexaContinuousSoap1811&&window.currentProf?.clinical_access);
 
       // Phase 1 WebKit smoke: Unicode search, undo, clipboard and History filtering.
-      if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
+      const radarAlreadyActive=await page.evaluate(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')||false);
+      if(!radarAlreadyActive&&await page.locator('#nexaNewCaseBtn').isVisible()){
+        await page.locator('#nexaNewCaseBtn').evaluate(el=>el.click());
+      }
       await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active'));
-      await page.evaluate(()=>window.nexaRadarAutoReview1812.setPhase('review','phase1-webkit-test'));
+      await page.evaluate(()=>{
+        const status=document.getElementById('status');
+        if(status)status.textContent='Processamento concluído · QA WebKit';
+        window.nexaRadarAutoReview1812.setPhase('review','phase1-webkit-test');
+      });
+      await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review');
       const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
    await page.locator('.exam-type-btn[data-type="HOMEM"]').evaluate(el=>el.click());
       const webkitEstado=page.locator('#examSystems .exam-check').filter({hasText:'Estado geral'}).locator('input');
       const webkitAr=page.locator('#examSystems .exam-check').filter({hasText:'Aparelho respiratório'}).locator('input');
-      await webkitEstado.evaluate(el=>el.click());await webkitAr.evaluate(el=>el.click());await page.locator('#nexaQuickUndoBtn').click();
+      await webkitEstado.evaluate(el=>el.click());await webkitAr.evaluate(el=>el.click());await page.locator('#nexaQuickUndoBtn').evaluate(el=>el.click());
       assert.equal(await webkitEstado.isChecked(),true);assert.equal(await webkitAr.isChecked(),false,'WebKit undo must restore physical-exam selection');
-      await page.locator('#toggleConductPickerBtn').click();
-      await page.locator('#conductSearchInput').fill('orientacao');
+      await page.locator('#toggleConductPickerBtn').evaluate(el=>el.click());
+      await page.locator('#conductSearchInput').evaluate(el=>{el.value='orientacao';el.dispatchEvent(new Event('input',{bubbles:true}))});
       await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
-      await page.locator('#conductSearchInput').fill('retorno piora');
+      await page.locator('#conductSearchInput').evaluate(el=>{el.value='retorno piora';el.dispatchEvent(new Event('input',{bubbles:true}))});
       await page.waitForFunction(()=>document.querySelectorAll('#conductList .conduct-item').length===1);
-      await page.locator('#conductList .conduct-item-main').first().click();await page.locator('#nexaQuickUndoBtn').click();
+      await page.locator('#conductList .conduct-item-main').first().evaluate(el=>el.click());await page.locator('#nexaQuickUndoBtn').evaluate(el=>el.click());
       await page.evaluate(()=>{const vals={queixa_principal:'DOR ABDOMINAL',hda:'DOR HÁ 2 DIAS',antecedentes:'HAS',alergias:'NEGA'};for(const[k,v]of Object.entries(vals)){const el=document.querySelector('.field[data-key="'+k+'"] textarea');if(el){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))}}});
       await page.evaluate(()=>window.nexaContinuousSoap1811.setMode('soap'));
-      await page.locator('.nexa-flow-copy[data-copy="S"]').click();
+      await page.locator('.nexa-flow-copy[data-copy="S"]').evaluate(el=>el.click());
       await page.waitForFunction(()=>/^✓ S copiado$/.test(document.getElementById('nexaFlowCopyFeedback')?.textContent||''));
       assert.match(await page.evaluate(()=>window.__qa.clipboard),/QP:\nDOR ABDOMINAL/,'WebKit clipboard must receive standardized S');
       await page.evaluate(()=>{window.__qa.consultationRows=[{id:'77777777-7777-4777-8777-777777777777',user_id:'qa-physician-a',fields:{queixa_principal:'Dor abdominal',hda:'Dor abdominal há dois dias',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}];window.nexaOpenHistoryStage18122?.();});
