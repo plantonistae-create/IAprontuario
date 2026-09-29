@@ -37,7 +37,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
       // Phase 1 WebKit smoke: Unicode search, undo, clipboard and History filtering.
       if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
       await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active'));
-      await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
+      const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
+   await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
       const webkitEstado=page.locator('#examSystems .exam-check').filter({hasText:'Estado geral'}).locator('input');
       const webkitAr=page.locator('#examSystems .exam-check').filter({hasText:'Aparelho respiratório'}).locator('input');
       await webkitEstado.check();await webkitAr.check();await page.locator('#nexaQuickUndoBtn').click();
