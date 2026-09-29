@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-12-7-conduct-picker-hotfix-20260928";
-const HOTFIX_URL="./nexa-hotfix.js?v=20260928-v18126";
+const CACHE_NAME="nexa-v18-12-8-phase1-20260929";
+const HOTFIX_URL="./nexa-hotfix.js?v=20260929-v18128";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
