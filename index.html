@@ -3197,7 +3197,36 @@ document.addEventListener('visibilitychange',()=>{
 });
 
 const EXAM={HOMEM:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorado, afebril, acianótico, anictérico, eupneico e hidratado.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcido, orientado auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},MULHER:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // PA: mmHg // T °C','Estado geral':'BEG, LOTE, normocorada, afebril, acianótica, anictérica, eupneica e hidratada.','Neurológico':'Neuro: Glasgow 15/15. Pupilas IFR. Sem sinais de meningismo ou déficits neurológicos focais.','Aparelho respiratório':'AR: MVUA sem RA.','Aparelho cardiovascular':'ACV: RCR, em 2T, sem sopros. TEC < 2s.','Abdome':'Abd: plano, RHA+, normotimpânico, sem massas ou visceromegalias palpáveis, indolor à palpação, DB-, Murphy-, Blumberg-.','Membros inferiores':'MMII: pulsos presentes bilateralmente, sem edemas, sem sinais de TVP.','Oroscopia':'Oroscopia: cavidade oral sem secreções e sem sinais inflamatórios ou infecciosos.','Exame oftalmológico':'Exame oftalmológico: pupilas isocóricas e fotorreativas. Conjuntivas e escleróticas sem alterações relevantes.','Otoscopia':'Otoscopia: sem secreção ou sinais inflamatórios; membrana timpânica translúcida, sem sinais de infecção.','Exame do estado mental':'Exame do estado mental: lúcida, orientada auto e alopsiquicamente, atenção e memória preservadas, pensamento organizado, linguagem clara e coerente, humor eutímico, sem alterações sensoperceptivas evidentes.'},LACTENTE_MENINO:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativo e reativo, hidratado, afebril, acianótico, eupneico.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativo e reativo, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'},LACTENTE_MENINA:{'Sinais vitais':'SSVV: FC: BPM // FR: RPM // SatO2: % // T °C','Estado geral':'Ativa e reativa, hidratada, afebril, acianótica, eupneica.','Aparelho respiratório':'AR: MV+ s/RA, sem esforço respiratório.','Aparelho cardiovascular':'AC: BNRNF2T SS.','Abdome':'Abd: plano, RHA+, normotimpânico, indolor à palpação, sem massas ou visceromegalias palpáveis.','Oroscopia':'Oro: sem placas ou alterações inflamatórias relevantes.','Otoscopia':'Oto: meato acústico externo sem hiperemia ou secreções; membrana timpânica íntegra.','Neurológico':'Neuro: ativa e reativa, sem sinais meníngeos.','Pele':'Pele: perfusão preservada, sem edema, sinais flogísticos ou lesões exantemáticas.'}};
-let examType=null;function renderExam(type,checked=[]){const set=new Set(checked);$('examSystems').innerHTML=Object.keys(EXAM[type]||{}).map(k=>`<label class="exam-check"><input type="checkbox" class="exam-sys-check" data-label="${k}" ${set.has(k)?'checked':''}><span>${k}</span></label>`).join('')}document.querySelectorAll('.exam-type-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.exam-type-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');examType=b.dataset.type;renderExam(examType)});function insertExam(){if(!examType)return'';const keys=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);if(!keys.length)return'';const text=applyCase(keys.map(k=>EXAM[examType][k]).join('\n'));ta('exame_fisico').value=text;updateWorkflow();return text}$('insertExamBtn').onclick=()=>{if(!insertExam())show('Selecione um perfil e pelo menos um sistema.',true)};
+let examType=null;
+function renderExam(type,checked=[]){
+ const set=new Set(checked);
+ $('examSystems').innerHTML=Object.keys(EXAM[type]||{}).map(k=>`<label class="exam-check"><input type="checkbox" class="exam-sys-check" data-label="${k}" ${set.has(k)?'checked':''}><span>${k}</span></label>`).join('');
+ document.querySelectorAll('.exam-sys-check').forEach(input=>input.addEventListener('change',()=>insertExam({allowEmpty:true})));
+}
+document.querySelectorAll('.exam-type-btn').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.exam-type-btn').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');
+ examType=b.dataset.type;
+ renderExam(examType);
+});
+function insertExam({allowEmpty=false}={}){
+ if(!examType)return'';
+ const keys=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);
+ if(!keys.length){
+  if(allowEmpty){ta('exame_fisico').value='';updateWorkflow();}
+  return'';
+ }
+ const text=applyCase(keys.map(k=>EXAM[examType][k]).join('\n'));
+ ta('exame_fisico').value=text;
+ updateWorkflow();
+ return text;
+}
+if($('insertExamBtn')){
+ $('insertExamBtn').style.display='none';
+ $('insertExamBtn').setAttribute('aria-hidden','true');
+ $('insertExamBtn').tabIndex=-1;
+ $('insertExamBtn').onclick=()=>{if(!insertExam())show('Selecione um perfil e pelo menos um sistema.',true)};
+}
 
 // --- Radar da Consulta: streaming temporário, separado do prontuário final ---
 let realtimePc=null,realtimeDc=null,realtimeTranscript='',realtimeTranscriptDelta='',radarTimer=null,radarBusy=false,radarLastChars=0,radarState={covered:[],missing:[],questions:[],alerts:[],chief_complaint:''},radarFallbackActive=false,radarChunkRecorder=null,radarChunkStopper=null;
