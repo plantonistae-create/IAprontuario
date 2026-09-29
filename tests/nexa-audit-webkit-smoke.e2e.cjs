@@ -60,7 +60,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
       await page.locator('#conductList .conduct-item-main').first().evaluate(el=>el.click());await page.locator('#nexaQuickUndoBtn').evaluate(el=>el.click());
       await page.evaluate(()=>{const vals={queixa_principal:'DOR ABDOMINAL',hda:'DOR HÁ 2 DIAS',antecedentes:'HAS',alergias:'NEGA'};for(const[k,v]of Object.entries(vals)){const el=document.querySelector('.field[data-key="'+k+'"] textarea');if(el){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))}}});
       await page.evaluate(()=>window.nexaContinuousSoap1811.setMode('soap'));
-      await page.locator('.nexa-flow-copy[data-copy="S"]').click();
+      await page.locator('.nexa-flow-copy[data-copy="S"]').evaluate(el=>el.click());
       await page.waitForFunction(()=>/^✓ S copiado$/.test(document.getElementById('nexaFlowCopyFeedback')?.textContent||''));
       assert.match(await page.evaluate(()=>window.__qa.clipboard),/QP:\nDOR ABDOMINAL/,'WebKit clipboard must receive standardized S');
       await page.evaluate(()=>{window.__qa.consultationRows=[{id:'77777777-7777-4777-8777-777777777777',user_id:'qa-physician-a',fields:{queixa_principal:'Dor abdominal',hda:'Dor abdominal há dois dias',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}];window.nexaOpenHistoryStage18122?.();});
