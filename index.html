@@ -2955,8 +2955,81 @@ function endConductDrag(){
   updateConductOrderBadges();
 }
 
-function normalizedConductContent(value){
-  return String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');
+function normalizeQuickSearch(value){
+  return String(value||'')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function normalizedConductContent(value){return normalizeQuickSearch(value)}
+function quickSearchTokens(value){return normalizeQuickSearch(value).split(' ').filter(Boolean)}
+function conductMatchesQuery(content,query){
+  const target=normalizedConductContent(content),tokens=quickSearchTokens(query);
+  return !tokens.length||tokens.every(token=>target.includes(token));
+}
+
+let lastQuickAction=null,lastQuickActionTimer=null;
+function ensureQuickUndoToast(){
+  let el=$('nexaQuickUndoToast');
+  if(el)return el;
+  el=document.createElement('div');
+  el.id='nexaQuickUndoToast';
+  el.setAttribute('role','status');
+  el.setAttribute('aria-live','polite');
+  el.style.cssText='position:fixed;left:50%;bottom:max(18px,calc(env(safe-area-inset-bottom) + 14px));transform:translate(-50%,16px);z-index:40000;display:flex;align-items:center;gap:10px;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border:1px solid var(--hair);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:0 12px 32px rgba(0,0,0,.26);opacity:0;pointer-events:none;transition:.16s;font-size:11px;font-weight:750';
+  const msg=document.createElement('span');msg.id='nexaQuickUndoMessage';msg.style.cssText='min-width:0;flex:1';
+  const btn=document.createElement('button');btn.type='button';btn.id='nexaQuickUndoBtn';btn.textContent='Desfazer';btn.style.cssText='border:0;background:transparent;color:var(--accent);font:inherit;font-weight:900;padding:3px 2px;cursor:pointer';
+  btn.onclick=undoLastQuickAction;
+  el.append(msg,btn);document.body.appendChild(el);return el;
+}
+function hideQuickUndoToast(){
+  const el=$('nexaQuickUndoToast');if(!el)return;
+  el.style.opacity='0';el.style.transform='translate(-50%,16px)';el.style.pointerEvents='none';
+}
+function clearLastQuickAction(){
+  lastQuickAction=null;clearTimeout(lastQuickActionTimer);lastQuickActionTimer=null;hideQuickUndoToast();
+}
+function registerLastQuickAction(action,message){
+  lastQuickAction={...action,timestamp:Date.now()};
+  clearTimeout(lastQuickActionTimer);
+  const el=ensureQuickUndoToast(),msg=$('nexaQuickUndoMessage');
+  if(msg)msg.textContent=message;
+  el.style.opacity='1';el.style.transform='translate(-50%,0)';el.style.pointerEvents='auto';
+  lastQuickActionTimer=setTimeout(clearLastQuickAction,5000);
+}
+function removeInsertedConduct(current,before,inserted,after){
+  if(current===after)return before;
+  const anchor=(before?before+'\n':'')+inserted;
+  if(current.startsWith(anchor)){
+    let suffix=current.slice(anchor.length);
+    if(suffix.startsWith('\n'))suffix=suffix.slice(1);
+    return [before,suffix].filter(Boolean).join('\n');
+  }
+  const idx=current.indexOf(inserted);
+  if(idx<0)return current;
+  let start=idx,end=idx+inserted.length;
+  if(start>0&&current[start-1]==='\n')start--;
+  else if(end<current.length&&current[end]==='\n')end++;
+  return (current.slice(0,start)+current.slice(end)).replace(/^\n|\n$/g,'');
+}
+function undoLastQuickAction(){
+  const action=lastQuickAction;if(!action)return;
+  clearTimeout(lastQuickActionTimer);
+  if(action.type==='conduct'){
+    const el=ta('conduta');if(!el)return clearLastQuickAction();
+    el.value=removeInsertedConduct(el.value,String(action.before||''),String(action.metadata?.inserted||''),String(action.after||''));
+    el.dispatchEvent(new Event('input',{bubbles:true}));saveState('unsaved','não salvo');updateWorkflow();
+  }else if(action.type==='exam'){
+    const before=action.before||{},el=ta('exame_fisico');if(!el)return clearLastQuickAction();
+    examType=before.examType||null;
+    document.querySelectorAll('.exam-type-btn').forEach(b=>b.classList.toggle('active',!!examType&&b.dataset.type===examType));
+    if(examType)renderExam(examType,before.checked||[]);
+    else $('examSystems').innerHTML='<div class="empty">Selecione um perfil para ver os sistemas.</div>';
+    el.value=String(before.text||'');el.dispatchEvent(new Event('input',{bubbles:true}));saveState('unsaved','não salvo');updateWorkflow();
+  }
+  clearLastQuickAction();
 }
 function readLegacyLocalConducts(){
   try{
@@ -3026,28 +3099,29 @@ function appendConductToRecord(value,{source='library'}={}){
   const existing=current.split(/\n+/).map(normalizedConductContent).filter(Boolean);
   const normalized=normalizedConductContent(rendered);
   if(existing.includes(normalized)){
-    show('Essa conduta já foi adicionada.',false);
+    show('Essa conduta já está no atendimento.',false);
     return false;
   }
-  ta('conduta').value=current?`${current}\n${rendered}`:rendered;
+  const next=current?`${current}\n${rendered}`:rendered;
+  ta('conduta').value=next;
   ta('conduta').dispatchEvent(new Event('input',{bubbles:true}));
   saveState('unsaved','não salvo');
   updateWorkflow();
-  if(source==='manual')show('Conduta adicionada.',false);
+  registerLastQuickAction({type:'conduct',before:current,after:next,metadata:{inserted:rendered,source}},'✓ Conduta adicionada · Desfazer');
   return true;
 }
 
 function renderConducts(){
   const list=$('conductList');
   list.replaceChildren();
-  const query=normalizedConductContent($('conductSearchInput')?.value||'');
-  const visible=query?conductTemplates.filter(c=>normalizedConductContent(c.content).includes(query)):conductTemplates;
+  const query=$('conductSearchInput')?.value||'';
+  const visible=quickSearchTokens(query).length?conductTemplates.filter(c=>conductMatchesQuery(c.content,query)):conductTemplates;
   if(!conductTemplates.length){
     list.innerHTML='<div class="empty">Nenhuma conduta cadastrada. Você pode escrever uma conduta manualmente abaixo ou cadastrar uma nova para reutilizar.</div>';
     return;
   }
   if(!visible.length){
-    list.innerHTML='<div class="empty">Nenhuma conduta cadastrada corresponde à pesquisa. Escreva manualmente abaixo para adicionar ao plano.</div>';
+    list.innerHTML='<div class="empty">Nenhuma conduta cadastrada encontrada.</div>';
     return;
   }
   visible.forEach(c=>{
@@ -3154,6 +3228,8 @@ $('cancelConductTemplateBtn').onclick=()=>{
   $('conductForm').style.display='none';
   $('conductForm').dataset.editingId='';
   $('conductContentInput').value='';
+  if($('conductSearchInput'))$('conductSearchInput').value='';
+  if($('conductManualInput'))$('conductManualInput').value='';
   $('saveConductTemplateBtn').textContent='Salvar conduta';
 };
 $('saveConductTemplateBtn').onclick=async()=>{
@@ -3200,7 +3276,14 @@ let examType=null;
 function renderExam(type,checked=[]){
  const set=new Set(checked);
  $('examSystems').innerHTML=Object.keys(EXAM[type]||{}).map(k=>`<label class="exam-check"><input type="checkbox" class="exam-sys-check" data-label="${k}" ${set.has(k)?'checked':''}><span>${k}</span></label>`).join('');
- document.querySelectorAll('.exam-sys-check').forEach(input=>input.addEventListener('change',()=>insertExam({allowEmpty:true})));
+ document.querySelectorAll('.exam-sys-check').forEach(input=>input.addEventListener('change',()=>{
+   const currentChecked=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);
+   const beforeChecked=input.checked?currentChecked.filter(x=>x!==input.dataset.label):[...currentChecked,input.dataset.label];
+   const before={text:ta('exame_fisico').value,examType,checked:beforeChecked};
+   insertExam({allowEmpty:true});
+   const after={text:ta('exame_fisico').value,examType,checked:[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label)};
+   registerLastQuickAction({type:'exam',before,after,metadata:{label:input.dataset.label,added:input.checked}},input.checked?'✓ Exame adicionado · Desfazer':'✓ Alteração realizada · Desfazer');
+ }));
 }
 document.querySelectorAll('.exam-type-btn').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.exam-type-btn').forEach(x=>x.classList.remove('active'));
@@ -3212,11 +3295,12 @@ function insertExam({allowEmpty=false}={}){
  if(!examType)return'';
  const keys=[...document.querySelectorAll('.exam-sys-check:checked')].map(x=>x.dataset.label);
  if(!keys.length){
-  if(allowEmpty){ta('exame_fisico').value='';updateWorkflow();}
+  if(allowEmpty){ta('exame_fisico').value='';ta('exame_fisico').dispatchEvent(new Event('input',{bubbles:true}));updateWorkflow();}
   return'';
  }
  const text=applyCase(keys.map(k=>EXAM[examType][k]).join('\n'));
  ta('exame_fisico').value=text;
+ ta('exame_fisico').dispatchEvent(new Event('input',{bubbles:true}));
  updateWorkflow();
  return text;
 }
@@ -3518,7 +3602,7 @@ async function invoke(blob){
     if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'
   }
 }$('processBtn').onclick=processAudio;
-function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);
+function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);clearLastQuickAction();
   stopRecordingTimer({reset:true});
 
   if(recording||(mediaRecorder&&mediaRecorder.state!=='inactive')){
@@ -4719,5 +4803,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20260928-v18126"></script>
+<script src="./nexa-hotfix.js?v=20260929-v18128"></script>
 </body></html>

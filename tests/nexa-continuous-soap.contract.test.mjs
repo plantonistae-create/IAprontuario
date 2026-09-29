@@ -15,10 +15,17 @@ for(const token of [
   'nexaFlowCopyAll','nexaFlowPreview','nexaSoapSideNav'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260928-v18126'),'workflow module must be loaded with the current cache bust');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260929-v18128'),'workflow module must be loaded with the current cache bust');
 assert.ok(code.includes("['ANTECEDENTES',c.antecedentes]"),'SOAP S must expose ANTECEDENTES in uppercase');
 assert.ok(code.includes("['ALERGIAS',c.alergias]"),'SOAP S must expose ALERGIAS in uppercase');
 assert.ok(code.includes("join('\\n\\n')"),'SOAP S blocks must preserve a blank line between sections');
+assert.ok(code.includes("['SINAIS VITAIS',c.sinais_vitais]"),'SOAP O must use a stable uppercase vital-signs block');
+assert.ok(code.includes("['EXAME FÍSICO',c.exame_fisico]"),'SOAP O must use a stable uppercase physical-exam block');
+assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
+assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
+assert.ok(code.includes("conduct.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Condutas');
+assert.ok(code.includes("guidance.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Orientações');
+assert.ok(code.includes("if(text(a.confirmed_cid))parts.push"),'SOAP A must include only a confirmed CID');
 assert.ok(code.includes('position:fixed;top:calc(var(--nexa-topbar-h,64px) + 8px)'),'flow selector must stay fixed below the desktop session bar');
 assert.ok(code.includes('html.nexa-mobile-v1867 #nexaFlowModeBar'),'mobile flow selector must be positioned below the dedicated mobile header');
 assert.ok(index.includes('setAssessment:(text,cid=\'\')'),'clinical bridge must expose free assessment setter');

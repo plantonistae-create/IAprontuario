@@ -212,13 +212,13 @@ function composeS(c=clinical()){
   ['MEDICAÇÕES EM USO',c.medicacoes]
  ].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
 }
-function composeO(c=clinical()){return [['Sinais vitais',c.sinais_vitais],['Exame físico',c.exame_fisico]].filter(([,v])=>text(v)).map(([k,v])=>`${k}: ${text(v)}`).join('\n')}
+function composeO(c=clinical()){return [['SINAIS VITAIS',c.sinais_vitais],['EXAME FÍSICO',c.exame_fisico]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n')}
 function composeA(c=clinical()){
  const a=assessment(),parts=[text(c.hipotese_diagnostica||a.text)];if(text(a.confirmed_cid))parts.push(`CID: ${text(a.confirmed_cid)}`);return parts.filter(Boolean).join('\n');
 }
 function valueOf(id){const el=$(id);return text(el?.value||el?.textContent)}
 function composeP(c=clinical()){
- return [['Conduta',c.conduta],['Exames',valueOf('suggestedExams')],['Prescrição',valueOf('suggestedPrescription')],['Orientações',c.orientacoes_alta||valueOf('rxGuidancePreview')]].filter(([,v])=>text(v)).map(([k,v])=>`${k}: ${text(v)}`).join('\n');
+ return [['CONDUTAS',c.conduta],['EXAMES',valueOf('suggestedExams')],['PRESCRIÇÃO',valueOf('suggestedPrescription')],['ORIENTAÇÕES',c.orientacoes_alta||valueOf('rxGuidancePreview')]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
 }
 function composeContinuous(c=clinical()){
  return [['QUEIXA PRINCIPAL',c.queixa_principal],['HISTÓRIA DA DOENÇA ATUAL',c.hda],['ALERGIAS',c.alergias],['COMORBIDADES',c.comorbidades],['MEDICAÇÕES EM USO',c.medicacoes],['ANTECEDENTES',c.antecedentes],['SINAIS VITAIS',c.sinais_vitais],['EXAME FÍSICO',c.exame_fisico],['AVALIAÇÃO / HIPÓTESE',c.hipotese_diagnostica],['CID CONFIRMADO',assessment().confirmed_cid],['CONDUTAS',c.conduta],['ORIENTAÇÕES',c.orientacoes_alta]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
@@ -227,7 +227,7 @@ function composeSoap(){return [['S',composeS()],['O',composeO()],['A',composeA()
 async function copyText(value,label){
  const v=text(value);if(!v)return;
  try{await navigator.clipboard.writeText(v)}catch{const ta=document.createElement('textarea');ta.value=v;document.body.appendChild(ta);ta.select();document.execCommand?.('copy');ta.remove()}
- const el=$('nexaFlowCopyFeedback');if(el){el.textContent=label+' copiado ✓';clearTimeout(el.__t);el.__t=setTimeout(()=>el.textContent='',1600)}
+ const el=$('nexaFlowCopyFeedback');if(el){el.textContent='✓ '+label+' copiado';clearTimeout(el.__t);el.__t=setTimeout(()=>el.textContent='',1600)}
 }
 function updatePreview(){clearTimeout(previewTimer);previewTimer=setTimeout(()=>{const p=$('nexaFlowPreview');if(p)p.textContent=mode==='soap'?composeSoap():composeContinuous();const state=$('nexaCidState'),a=assessment();if(state)state.innerHTML=a.confirmed_cid?`CID confirmado: <strong>${esc(a.confirmed_cid)}</strong>`:(a.suggested_cid?`Sugestão disponível: <strong>${esc(a.suggested_cid)}</strong> · opcional`:'CID opcional · nenhum CID confirmado')},50)}
 
@@ -326,9 +326,13 @@ function mount(){
  const planBody=q('.nexa-flow-body',planSec);
  const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar ou remover</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Presets validados / modelos salvos</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
  const conduct=$('conductBlock');planBody.appendChild(conduct);
+ // The legacy Plan V3 tabs hide external details with .nexa-plan-v3-detail.
+ // Once Condutas/Orientações are mounted as first-class sections of the unified
+ // Continuous/SOAP plan, they must no longer inherit that legacy visibility gate.
+ conduct.classList.remove('nexa-plan-v3-detail','active');
  const liveList=document.createElement('div');liveList.id='nexaPlanLiveList';liveList.className='nexa-plan-live-list';conduct.insertBefore(liveList,field('conduta'));
  const clinicalPlan=$('clinicalPlanBlock');if(clinicalPlan)planBody.appendChild(clinicalPlan);
- const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance)planBody.appendChild(guidance);
+ const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance){planBody.appendChild(guidance);guidance.classList.remove('nexa-plan-v3-detail','active')}
 
  const finalBody=q('.nexa-flow-body',finalSec),preview=document.createElement('pre');preview.id='nexaFlowPreview';finalBody.appendChild(preview);
  const feedback=document.createElement('div');feedback.id='nexaFlowCopyFeedback';feedback.className='nexa-cid-state';finalBody.appendChild(feedback);

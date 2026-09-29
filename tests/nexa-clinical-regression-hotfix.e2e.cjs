@@ -122,6 +122,80 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     assert.match(await page.locator('.field[data-key="hipotese_diagnostica"] textarea').inputValue(),/cefaleia/i);
     assert.match(await page.locator('#conductRecordText').inputValue(),/reavaliar/i);
 
+    if(n===1){
+      const phase1Baseline=await page.evaluate(()=>({
+        mode:document.body.dataset.nexaFlow||'continuous',
+        values:Object.fromEntries(['queixa_principal','hda','antecedentes','alergias','comorbidades','medicacoes','exame_fisico','conduta'].map(k=>[k,document.querySelector('.field[data-key="'+k+'"] textarea')?.value||'']))
+      }));
+      assert.equal(await page.locator('#nexaFlowExam').isVisible(),true,'Exam must be visible in real review phase');
+      assert.equal(await page.locator('#nexaFlowPlan').isVisible(),true,'Plan must be visible in real review phase');
+
+      const legacyExam=page.locator('#nexaFlowExam details.nexa-legacy-exam');if(await legacyExam.count())await legacyExam.evaluate(el=>{el.open=true});
+      assert.equal(await page.locator('.exam-type-btn[data-type="HOMEM"]').isVisible(),true,'legacy profile picker must be visible when expanded');
+      await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
+      const estadoGeral=page.locator('#examSystems .exam-check').filter({hasText:'Estado geral'}).locator('input');
+      const ar=page.locator('#examSystems .exam-check').filter({hasText:'Aparelho respiratório'}).locator('input');
+      await estadoGeral.check();await ar.check();
+      await page.waitForFunction(()=>/Exame adicionado/i.test(document.getElementById('nexaQuickUndoMessage')?.textContent||''));
+      assert.match(await page.locator('.field[data-key="exame_fisico"] textarea').inputValue(),/BEG/i);
+      assert.match(await page.locator('.field[data-key="exame_fisico"] textarea').inputValue(),/AR:/i);
+      await page.locator('#nexaQuickUndoBtn').click();
+      const examAfterUndo=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();
+      assert.match(examAfterUndo,/BEG/i);assert.doesNotMatch(examAfterUndo,/AR:/i);
+      assert.equal(await estadoGeral.isChecked(),true);assert.equal(await ar.isChecked(),false);
+
+      const conductVisibility=await page.evaluate(()=>{
+        const el=document.getElementById('toggleConductPickerBtn');
+        const chain=[];let n=el;
+        while(n&&chain.length<10){
+          const cs=getComputedStyle(n),r=n.getBoundingClientRect();
+          chain.push({tag:n.tagName,id:n.id||'',className:String(n.className||''),display:cs.display,visibility:cs.visibility,opacity:cs.opacity,width:r.width,height:r.height,hidden:!!n.hidden});
+          n=n.parentElement;
+        }
+        return {phase:document.body.dataset.nexaClinicalPhase||'',flow:document.body.dataset.nexaFlow||'',chain};
+      });
+      if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
+      assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
+      await page.locator('#toggleConductPickerBtn').click();
+      await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
+      await page.locator('#conductSearchInput').fill('orientacao');
+      await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
+      await page.locator('#conductSearchInput').fill('hidrat');
+      await page.waitForFunction(()=>/hidratação/i.test(document.getElementById('conductList')?.innerText||''));
+      await page.locator('#conductSearchInput').fill('retorno piora');
+      await page.waitForFunction(()=>document.querySelectorAll('#conductList .conduct-item').length===1);
+      const retornoItem=page.locator('#conductList .conduct-item-main').first();
+      await retornoItem.click();await retornoItem.click();
+      assert.equal((await page.locator('#conductRecordText').inputValue()).match(/retorno imediato/gi)?.length||0,1);
+      await page.evaluate(()=>{const el=document.getElementById('conductRecordText');el.value+='\nTEXTO MANUAL POSTERIOR';el.dispatchEvent(new Event('input',{bubbles:true}))});
+      await page.locator('#nexaQuickUndoBtn').click();
+      const afterLibraryUndo=await page.locator('#conductRecordText').inputValue();
+      assert.match(afterLibraryUndo,/TEXTO MANUAL POSTERIOR/);assert.doesNotMatch(afterLibraryUndo,/retorno imediato/i);
+      await page.locator('#conductManualInput').fill('Conduta manual QA');await page.locator('#conductManualAddBtn').click();
+      assert.match(await page.locator('#conductRecordText').inputValue(),/Conduta manual QA/i);
+      await page.locator('#nexaQuickUndoBtn').click();assert.doesNotMatch(await page.locator('#conductRecordText').inputValue(),/Conduta manual QA/i);
+      await page.locator('#conductSearchInput').fill('resultado inexistente');
+      await page.waitForFunction(()=>/Nenhuma conduta cadastrada encontrada/i.test(document.getElementById('conductList')?.innerText||''));
+      assert.equal(await page.locator('#conductManualInput').isVisible(),true);
+
+      await page.evaluate(()=>{const values={queixa_principal:'DOR ABDOMINAL',hda:'DOR HÁ 2 DIAS',antecedentes:'HAS',alergias:'NEGA',comorbidades:'',medicacoes:''};for(const[k,v]of Object.entries(values)){const el=document.querySelector('.field[data-key="'+k+'"] textarea');el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))}});
+      const copiedS=await page.evaluate(()=>window.nexaContinuousSoap1811.composeS());
+      assert.equal(copiedS,'QP:\nDOR ABDOMINAL\n\nHDA:\nDOR HÁ 2 DIAS\n\nANTECEDENTES:\nHAS\n\nALERGIAS:\nNEGA');
+      assert.doesNotMatch(await page.evaluate(()=>window.nexaContinuousSoap1811.composeA()),/CID:/);
+      await page.evaluate(()=>window.nexaContinuousSoap1811.setMode('soap'));
+      await page.locator('.nexa-flow-copy[data-copy="S"]').click();
+      await page.waitForFunction(()=>/^✓ S copiado$/.test(document.getElementById('nexaFlowCopyFeedback')?.textContent||''));
+      assert.equal(await page.evaluate(()=>window.__qa.clipboard),copiedS);
+      await page.locator('#nexaFlowCopyAll').click();
+      const copiedSoap=await page.evaluate(()=>window.__qa.clipboard);
+      for(const title of ['S — SUBJETIVO','O — OBJETIVO','A — AVALIAÇÃO','P — PLANO'])assert.match(copiedSoap,new RegExp(title));
+
+      await page.evaluate(b=>{
+        for(const[k,v]of Object.entries(b.values)){const el=document.querySelector('.field[data-key="'+k+'"] textarea');if(el){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))}}
+        const q=document.getElementById('conductSearchInput');if(q)q.value='';window.clearLastQuickAction?.();window.nexaContinuousSoap1811.setMode(b.mode);
+      },phase1Baseline);
+    }
+
     await page.waitForFunction(count=>window.__qa.consultationRows.filter(r=>r.encounter_state==='ready_for_audit').length>=count,n);
     const id=await page.evaluate(()=>window.nexaEncounterAutosave18101.currentEncounterId());ids.push(id);
     await page.waitForFunction(count=>window.__qa.auditSubmissions.length>=count,n);
@@ -176,9 +250,18 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     await page.locator('#nfSide [data-go="history"]').click();
    }
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
-   await page.evaluate(()=>{window.__qa.consultationRows.push({id:'55555555-5555-4555-8555-555555555555',user_id:'qa-physician-a',fields:{queixa_principal:'Atendimento legado QA',hda:'Registro antigo compatível.'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});return window.nexaRefreshHistory197?.()});
+   await page.evaluate(()=>{window.__qa.consultationRows.push({id:'55555555-5555-4555-8555-555555555555',user_id:'qa-physician-a',fields:{queixa_principal:'Atendimento legado QA',hda:'Registro antigo compatível.',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Orientar hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});return window.nexaRefreshHistory197?.()});
    await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===4);
    assert.match(await page.locator('#n197List').innerText(),/Atendimento legado QA/,'legacy History rows must remain visible alongside Continuous/SOAP encounters');
+   const historySearch=page.locator('#n197Search');
+   await historySearch.fill('registro antigo');await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===1);assert.match(await page.locator('#n197List').innerText(),/Atendimento legado QA/);
+   await historySearch.fill('A09');await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===1);
+   await historySearch.fill('hidratacao');await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===1);
+   await historySearch.fill('gastroenterite');await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===1);
+   const todaySearch=await page.evaluate(()=>new Date().toLocaleDateString('pt-BR'));await historySearch.fill(todaySearch);await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length>=1);
+   await historySearch.fill('nao existe 999');await page.waitForFunction(()=>/Nenhum atendimento encontrado para esta busca/i.test(document.getElementById('n197List')?.innerText||''));
+   await historySearch.fill('');
+   await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===4);
    const historyVisible=await page.locator('#nexa197History').isVisible();
    if(!historyVisible){
     const diagnostic=await page.evaluate(()=>{
