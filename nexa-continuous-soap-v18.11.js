@@ -326,9 +326,13 @@ function mount(){
  const planBody=q('.nexa-flow-body',planSec);
  const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar ou remover</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Presets validados / modelos salvos</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
  const conduct=$('conductBlock');planBody.appendChild(conduct);
+ // The legacy Plan V3 tabs hide external details with .nexa-plan-v3-detail.
+ // Once Condutas/Orientações are mounted as first-class sections of the unified
+ // Continuous/SOAP plan, they must no longer inherit that legacy visibility gate.
+ conduct.classList.remove('nexa-plan-v3-detail','active');
  const liveList=document.createElement('div');liveList.id='nexaPlanLiveList';liveList.className='nexa-plan-live-list';conduct.insertBefore(liveList,field('conduta'));
  const clinicalPlan=$('clinicalPlanBlock');if(clinicalPlan)planBody.appendChild(clinicalPlan);
- const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance)planBody.appendChild(guidance);
+ const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance){planBody.appendChild(guidance);guidance.classList.remove('nexa-plan-v3-detail','active')}
 
  const finalBody=q('.nexa-flow-body',finalSec),preview=document.createElement('pre');preview.id='nexaFlowPreview';finalBody.appendChild(preview);
  const feedback=document.createElement('div');feedback.id='nexaFlowCopyFeedback';feedback.className='nexa-cid-state';finalBody.appendChild(feedback);
