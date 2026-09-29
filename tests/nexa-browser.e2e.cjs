@@ -12,12 +12,12 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.nexaRadar&&window.nexaDestinationFlow18915&&window.currentProf?.clinical_access&&document.getElementById('nfStart'));
   await page.waitForFunction(()=>{
     const radar=document.querySelector('.nexa-stage-view[data-stage="radar"]');
-    return !!(radar?.classList.contains('active')&&!radar.hidden)||
+    return (!document.body.classList.contains('doctor-home-open')&&!!(radar?.classList.contains('active')&&!radar.hidden))||
       (document.body.classList.contains('doctor-home-open')&&!!document.getElementById('nexaNewCaseBtn'));
   });
   const radarAlreadyActive=await page.evaluate(()=>{
     const radar=document.querySelector('.nexa-stage-view[data-stage="radar"]');
-    return !!(radar?.classList.contains('active')&&!radar.hidden);
+    return !document.body.classList.contains('doctor-home-open')&&!!(radar?.classList.contains('active')&&!radar.hidden);
   });
   if(!radarAlreadyActive){
     await page.locator('#nexaNewCaseBtn').evaluate(el=>el.click());
