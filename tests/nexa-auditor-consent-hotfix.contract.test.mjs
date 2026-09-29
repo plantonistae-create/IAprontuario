@@ -19,7 +19,7 @@ assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reu
 
 assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20260928-v18123'),'Auditor module cache bust must be current');
 assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260928-v18126'),'Continuous/SOAP module cache bust must be current');
-assert.ok(sw.includes('nexa-v18-12-6-soap-copy-selector-mobile-hotfix-20260928'),'Service Worker cache must identify v18.12.5');
+assert.ok(sw.includes('nexa-v18-12-7-conduct-picker-hotfix-20260928'),'Service Worker cache must identify the current conduct picker hotfix');
 assert.ok(index.includes('nexa-hotfix.js?v=20260928-v18126'),'HTML must load the v18.12.5 hotfix loader');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
