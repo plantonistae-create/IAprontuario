@@ -387,7 +387,7 @@ function radarOperationsTarget(){
   return $('nexaRadarOpsHeader18130')||$('realtimeRadarCard');
 }
 function postRecordingTarget(){
-  const process=sourceProcessButton();
+  const process=$('processBtn')||sourceProcessButton();
   if(!process)return null;
   return process.closest?.('.nexa-flow-process-row')||process;
 }
