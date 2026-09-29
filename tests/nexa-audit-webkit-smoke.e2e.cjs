@@ -40,7 +40,11 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
         await page.locator('#nexaNewCaseBtn').evaluate(el=>el.click());
       }
       await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active'));
-      await page.evaluate(()=>window.nexaRadarAutoReview1812.setPhase('review','phase1-webkit-test'));
+      await page.evaluate(()=>{
+        const status=document.getElementById('status');
+        if(status)status.textContent='Processamento concluído · QA WebKit';
+        window.nexaRadarAutoReview1812.setPhase('review','phase1-webkit-test');
+      });
       await page.waitForFunction(()=>{
         const el=document.getElementById('toggleConductPickerBtn');
         if(document.body.dataset.nexaClinicalPhase!=='review'||!el)return false;
