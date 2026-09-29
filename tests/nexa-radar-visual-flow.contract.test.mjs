@@ -11,8 +11,8 @@ const index=read('index.html');
 const sw=read('sw.js');
 const pkg=JSON.parse(read('package.json'));
 
-assert.equal(pkg.version,'18.13.0','package version must identify the Radar visual-flow release');
-assert.match(moduleSource,/NEXA v18\.13\.0 · Radar visual flow/);
+assert.equal(pkg.version,'18.13.1','package version must identify the Radar navigation hotfix');
+assert.match(moduleSource,/NEXA v18\.13\.1 · Radar visual flow hotfix/);
 assert.match(moduleSource,/window\.__NEXA_RADAR_VISUAL_FLOW_V18_13__/);
 assert.match(moduleSource,/nexa:recording-finalized/,'must react to the real recorder finalization event');
 assert.match(moduleSource,/nexa:clinical-processing/,'must react to the real processing lifecycle');
@@ -24,7 +24,10 @@ assert.doesNotMatch(moduleSource,/new\s+Audio\s*\(/,'question updates must stay 
 assert.doesNotMatch(moduleSource,/MutationObserver[\s\S]*document\.documentElement/,'must not install a global subtree observer');
 assert.match(moduleSource,/clickExisting\(\['nexaLocalPauseBtn','nfPause','nexaPauseBtn','nexaDesktopPause','recBtn'\]\)/,'Radar pause must proxy existing recorder controls');
 assert.match(moduleSource,/clickExisting\(\['nexaLocalFinishBtn','nfFinish','nexaFinishBtn','nexaDesktopFinish'\]\)/,'Radar finish must proxy existing recorder controls');
-assert.match(moduleSource,/sourceProcessButton\(\)/,'post-recording CTA must proxy the existing process action');
+assert.match(moduleSource,/postRecordingTarget\(\)/,'recording completion must route to the canonical post-recording action row');
+assert.doesNotMatch(moduleSource,/nexaRadarPost18130|nexaRadarPostAction18130/,'floating post-recording CTA must not exist');
+assert.match(index,/setStage\('radar','realtimeRadarCard'\)/,'recording start must explicitly route to Radar after recording becomes active');
+assert.match(index,/window\.nexaNavigateClinicalStage18131/,'visual flow must reuse the existing clinical-stage navigator');
 assert.match(moduleSource,/Cobertura da consulta/);
 assert.match(moduleSource,/não é score de qualidade médica/);
 assert.match(moduleSource,/Próximas perguntas sugeridas/);
@@ -47,10 +50,10 @@ for(const invented of [
 
 const moduleRefs=[...loader.matchAll(/nexa-radar-visual-flow-v18\.13\.js/g)];
 assert.equal(moduleRefs.length,1,'visual-flow module must be loaded exactly once');
-assert.match(loader,/NEXA loader v18\.13\.0/);
-assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18130/);
-assert.match(index,/nexa-hotfix\.js\?v=20260929-v18130/);
-assert.match(sw,/CACHE_NAME="nexa-v18-13-0-radar-flow-20260929"/);
-assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20260929-v18130"/);
+assert.match(loader,/NEXA loader v18\.13\.1/);
+assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18131/);
+assert.match(index,/nexa-hotfix\.js\?v=20260929-v18131/);
+assert.match(sw,/CACHE_NAME="nexa-v18-13-1-radar-flow-20260929"/);
+assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20260929-v18131"/);
 
-console.log('NEXA v18.13.0 Radar visual flow contract: PASS');
+console.log('NEXA v18.13.1 Radar navigation hotfix contract: PASS');
