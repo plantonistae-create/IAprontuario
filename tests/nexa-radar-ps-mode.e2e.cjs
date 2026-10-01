@@ -26,11 +26,15 @@ function serve(){
 }
 async function openCase(page){
   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRadar&&window.nexaRadarVisualFlow18130&&window.nexaRadarAutoReview1812&&window.nexaRadarPsMode18131&&document.getElementById('nfStart'));
-  await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'||!!document.querySelector('#nexaNewCaseBtn'));
+  await page.waitForFunction(()=>{
+    if(document.body.dataset.nexaClinicalPhase==='consult')return true;
+    const button=document.getElementById('nexaNewCaseBtn');
+    if(!button||!button.getClientRects().length)return false;
+    const style=getComputedStyle(button);
+    return style.display!=='none'&&style.visibility!=='hidden';
+  });
   if(await page.evaluate(()=>document.body.dataset.nexaClinicalPhase!=='consult')){
-    const newCase=page.locator('#nexaNewCaseBtn');
-    await newCase.waitFor({state:'visible'});
-    await newCase.click();
+    await page.locator('#nexaNewCaseBtn').click();
   }
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&document.getElementById('nexaRadarPsView18131')&&document.getElementById('nexaRadarModePs18131')&&document.body.dataset.nexaRadarViewMode);
 }
