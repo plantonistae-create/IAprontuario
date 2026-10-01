@@ -25,7 +25,7 @@ function serve(){
   });
 }
 async function openNewCase(page){
-  await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRadar&&window.nexaRadarVisualFlow18130&&window.nexaRadarAutoReview1812&&document.getElementById('nfStart'));
+  await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRadar&&window.nexaRadarVisualFlow18130&&window.nexaRadarAutoReview1812&&window.nexaRadarPsMode18131&&document.getElementById('nfStart'));
   if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&document.getElementById('nexaRadarOpsHeader18130')&&document.getElementById('nexaRadarVisualGrid18130'));
 }
@@ -41,6 +41,7 @@ async function chromiumFlow(browser,port,viewport){
   });
   await page.goto('http://127.0.0.1:'+port,{waitUntil:'domcontentloaded'});
   await openNewCase(page);
+  await page.locator('#nexaRadarModeComplete18131').click();
 
   assert.equal(await page.locator('#nexaRadarOpsHeader18130').isVisible(),true,'Radar operational header must be visible');
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),true,'Suggested questions must have a high-visibility panel');
@@ -136,6 +137,7 @@ async function webkitSmoke(browser,port,viewport){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+port,{waitUntil:'domcontentloaded'});
   await openNewCase(page);
+  await page.locator('#nexaRadarModeComplete18131').click();
   assert.equal(await page.locator('#nexaRadarOpsHeader18130').isVisible(),true);
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),true);
   assert.equal(await page.locator('#nexaRadarLivePause18130').evaluate(el=>el.tagName),'BUTTON');
