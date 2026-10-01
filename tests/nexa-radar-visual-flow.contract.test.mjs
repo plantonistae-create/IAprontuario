@@ -11,7 +11,7 @@ const index=read('index.html');
 const sw=read('sw.js');
 const pkg=JSON.parse(read('package.json'));
 
-assert.equal(pkg.version,'18.13.1','package version must identify the Radar navigation hotfix');
+assert.equal(pkg.version,'18.14.0','package version must identify the Radar PS release');
 assert.match(moduleSource,/NEXA v18\.13\.1 · Radar visual flow hotfix/);
 assert.match(moduleSource,/window\.__NEXA_RADAR_VISUAL_FLOW_V18_13__/);
 assert.match(moduleSource,/nexa:recording-finalized/,'must react to the real recorder finalization event');
@@ -50,16 +50,16 @@ for(const invented of [
 
 const moduleRefs=[...loader.matchAll(/nexa-radar-visual-flow-v18\.13\.js/g)];
 assert.equal(moduleRefs.length,1,'visual-flow module must be loaded exactly once');
-assert.match(loader,/NEXA loader v18\.13\.1/);
+assert.match(loader,/NEXA loader v18\.14\.0/);
 assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18131/);
-assert.match(index,/nexa-hotfix\.js\?v=20260929-v18131/);
-assert.match(sw,/CACHE_NAME="nexa-v18-13-1-radar-flow-20260929"/);
-assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20260929-v18131"/);
+assert.match(index,/nexa-hotfix\.js\?v=20261001-v18140/);
+assert.match(sw,/CACHE_NAME="nexa-v18-14-0-radar-ps-20261001"/);
+assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20261001-v18140"/);
 
 
-const psSource=read('nexa-radar-ps-mode-v18.13.js');
+const psSource=read('nexa-radar-ps-mode-v18.14.js');
 assert.match(psSource,/Radar Modo PS/);
-assert.match(psSource,/nexa-radar-view-mode/,'view mode must be a visual preference only');
+assert.match(psSource,/radar_view_mode/,'view mode must be a visual preference only');
 assert.match(psSource,/Modo PS/);
 assert.match(psSource,/Modo completo/);
 assert.match(psSource,/Falta para decidir/);
@@ -77,9 +77,9 @@ assert.doesNotMatch(psSource,/new\s+Audio\s*\(/,'PS mode must stay silent');
 assert.doesNotMatch(psSource,/\bfetch\s*\(/,'switching or rendering PS mode must not add backend requests');
 assert.doesNotMatch(psSource,/MutationObserver/,'PS mode must not add DOM observers');
 assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the existing Radar subscription');
-assert.equal((loader.match(/nexa-radar-ps-mode-v18\.13\.js/g)||[]).length,1,'PS module must be loaded exactly once');
-assert.match(loader,/nexa-radar-ps-mode-v18\.13\.js\?v=20261001-psmode/);
-assert.equal(pkg.version,'18.13.1','validation branch must not bump release version before approval');
-assert.match(sw,/CACHE_NAME="nexa-v18-13-1-radar-flow-20260929"/,'validation branch must not preemptively bump PWA cache');
+assert.equal((loader.match(/nexa-radar-ps-mode-v18\.14\.js/g)||[]).length,1,'PS module must be loaded exactly once');
+assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261001-v18140/);
+assert.equal(pkg.version,'18.14.0','release branch must carry the production version');
+assert.match(sw,/CACHE_NAME="nexa-v18-14-0-radar-ps-20261001"/,'release cache must match the production version');
 
-console.log('NEXA v18.13.1 Radar navigation hotfix contract: PASS');
+console.log('NEXA v18.14.0 Radar PS release contract: PASS');
