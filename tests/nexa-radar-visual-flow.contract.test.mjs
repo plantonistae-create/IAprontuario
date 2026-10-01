@@ -56,4 +56,30 @@ assert.match(index,/nexa-hotfix\.js\?v=20260929-v18131/);
 assert.match(sw,/CACHE_NAME="nexa-v18-13-1-radar-flow-20260929"/);
 assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20260929-v18131"/);
 
+
+const psSource=read('nexa-radar-ps-mode-v18.13.js');
+assert.match(psSource,/Radar Modo PS/);
+assert.match(psSource,/nexa-radar-view-mode/,'view mode must be a visual preference only');
+assert.match(psSource,/Modo PS/);
+assert.match(psSource,/Modo completo/);
+assert.match(psSource,/Falta para decidir/);
+assert.match(psSource,/PRONTO PARA CONDUTA/);
+assert.match(psSource,/aria-pressed/,'mode selector must expose pressed state');
+assert.match(psSource,/max-width:430px/,'390–430px mobile layout must be explicitly supported');
+assert.match(psSource,/window\.nexaRadarVisualFlow18130\?\.derive/,'PS mode must reuse the existing Radar derivation/state');
+assert.match(psSource,/nexa:radar-state/,'PS mode must render from the existing Radar lifecycle event');
+assert.match(psSource,/localStorage\.setItem\(KEY/,'visual mode preference must persist locally');
+assert.match(psSource,/data-nexa-radar-view-mode/,'same Radar DOM must be presented through two view modes');
+assert.match(psSource,/nexaRadarOverview18130/,'complete Radar must be preserved rather than rebuilt');
+assert.match(psSource,/nexaAutoVitals/,'PS vitals must mirror the existing vital-sign presentation');
+assert.doesNotMatch(psSource,/setInterval\s*\(/,'PS mode must not add polling');
+assert.doesNotMatch(psSource,/new\s+Audio\s*\(/,'PS mode must stay silent');
+assert.doesNotMatch(psSource,/\bfetch\s*\(/,'switching or rendering PS mode must not add backend requests');
+assert.doesNotMatch(psSource,/MutationObserver/,'PS mode must not add DOM observers');
+assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the existing Radar subscription');
+assert.equal((loader.match(/nexa-radar-ps-mode-v18\.13\.js/g)||[]).length,1,'PS module must be loaded exactly once');
+assert.match(loader,/nexa-radar-ps-mode-v18\.13\.js\?v=20261001-psmode/);
+assert.equal(pkg.version,'18.13.1','validation branch must not bump release version before approval');
+assert.match(sw,/CACHE_NAME="nexa-v18-13-1-radar-flow-20260929"/,'validation branch must not preemptively bump PWA cache');
+
 console.log('NEXA v18.13.1 Radar navigation hotfix contract: PASS');
