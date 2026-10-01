@@ -27,9 +27,10 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(20000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
-   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRadar&&window.nexaContinuousSoap1811&&window.nexaRadarAutoReview1812&&document.getElementById('nfStart'));
+   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRadar&&window.nexaContinuousSoap1811&&window.nexaRadarAutoReview1812&&window.nexaRadarPsMode18131&&document.getElementById('nfStart'));
    if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
    await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&document.getElementById('nexaAutoRadarWorkspace'));
+   await page.locator('#nexaRadarModeComplete18131').click();
 
    assert.equal(await page.locator('#nexaFlowHistory').isVisible(),false,'Structured review must stay out of the primary consultation flow');
    assert.equal(await page.locator('#nexaFlowAssessment').isVisible(),false);
