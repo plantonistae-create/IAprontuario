@@ -3109,8 +3109,7 @@ async function loadConducts({silent=false}={}){
     const {data,error}=await sb.from('conduct_templates')
       .select('id,content,sort_order,created_at,updated_at')
       .eq('user_id',currentProf.id)
-      .order('sort_order',{ascending:true})
-      .order('updated_at',{ascending:false});
+      .order('sort_order',{ascending:true});
     if(error)throw error;
     conductTemplates=data||[];
     const validIds=new Set(conductTemplates.map(x=>x.id));
