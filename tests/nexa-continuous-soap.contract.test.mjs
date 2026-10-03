@@ -8,7 +8,7 @@ const finalUi=fs.readFileSync(new URL('../nexa-final-ui-v18.js',import.meta.url)
 
 for(const token of [
   'nexaUnifiedFlow','nexaFlowModeBar','continuous','soap',
-  'nexaExamQuickComposer','nexaPlanQuickComposer','nexaPlanPresets',
+  'nexaPlanQuickComposer','nexaPlanPresets',
   'composeS','composeO','composeA','composeP','composeSoap','composeContinuous',
   'nexaAssociateCid','physicianCid','nexaClinicalBridge18101',
   'nexaEncounterAutosave18101','continuous_soap_edit',
@@ -21,6 +21,9 @@ assert.ok(code.includes("['ALERGIAS',c.alergias]"),'SOAP S must expose ALERGIAS 
 assert.ok(code.includes("join('\\n\\n')"),'SOAP S blocks must preserve a blank line between sections');
 assert.ok(code.includes("['SINAIS VITAIS',c.sinais_vitais]"),'SOAP O must use a stable uppercase vital-signs block');
 assert.ok(code.includes("['EXAME FÍSICO',c.exame_fisico]"),'SOAP O must use a stable uppercase physical-exam block');
+assert.ok(!code.includes('nexaExamQuickComposer'),'duplicate physical-exam quick composer must be removed');
+assert.ok(!code.includes('Compositor rápido · clique para adicionar ou remover'),'duplicate physical-exam chip composer must not render');
+assert.ok(index.includes('Modelos por perfil · selecione o perfil e clique nos sistemas'),'canonical profile-based physical exam must remain visible');
 assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
 assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
 assert.ok(code.includes("conduct.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Condutas');
