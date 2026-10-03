@@ -71,7 +71,10 @@ Deno.serve(async(req)=>{
       if(occupied>=5) return json(req,{error:"Os cinco slots clínicos já estão ocupados.",code:"CLINICAL_SLOT_LIMIT_REACHED"},409);
 
       const admin=adminClient();
-      const redirectTo=Deno.env.get("NEXA_INVITE_REDIRECT_URL") || ALLOWED_ORIGIN;
+      const requestedRedirect=String(body?.redirect_to || "").trim();
+      const redirectTo=requestedRedirect.startsWith(ALLOWED_ORIGIN)
+        ? requestedRedirect
+        : (Deno.env.get("NEXA_INVITE_REDIRECT_URL") || ALLOWED_ORIGIN);
       const {data:inviteData,error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{
         redirectTo,
         data:{display_name:displayName},
