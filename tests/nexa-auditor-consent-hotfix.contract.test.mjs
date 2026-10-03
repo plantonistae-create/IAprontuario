@@ -17,12 +17,12 @@ assert.ok(auditor.includes('id="axBackMedical192"'),'Professional Auditor worksp
 assert.ok(auditor.includes("document.body.classList.contains('nexa-auditor-view')&&privileged()"),'Legacy restored auditor preference must be promoted to the professional workspace');
 assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reuse the existing medical role transition');
 
-assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20260928-v18123'),'Auditor module cache bust must be current');
+assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20261002-v18141'),'Auditor module cache bust must be current');
 assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260929-v18128'),'Continuous/SOAP module cache bust must be current');
-assert.ok(sw.includes('nexa-v18-14-0-radar-ps-20261001'),'Service Worker cache must identify the current Radar PS build');
-assert.ok(index.includes('nexa-hotfix.js?v=20261001-v18140'),'HTML must load the current v18.14.0 hotfix loader');
+assert.ok(sw.includes('nexa-v18-14-1-style-admin-audit-20261002'),'Service Worker cache must identify the current Radar PS build');
+assert.ok(index.includes('nexa-hotfix.js?v=20261002-v18141'),'HTML must load the current v18.14.0 hotfix loader');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
 new Function(continuous);
 new Function(auditor);
-console.log('NEXA v18.14.0 Auditor + consent + SOAP selector regression contract: PASS');
+console.log('NEXA v18.14.1 Auditor + consent + SOAP selector regression contract: PASS');

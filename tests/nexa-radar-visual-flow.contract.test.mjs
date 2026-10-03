@@ -11,7 +11,7 @@ const index=read('index.html');
 const sw=read('sw.js');
 const pkg=JSON.parse(read('package.json'));
 
-assert.equal(pkg.version,'18.14.0','package version must identify the Radar PS release');
+assert.equal(pkg.version,'18.14.1','package version must identify the current release');
 assert.match(moduleSource,/NEXA v18\.13\.1 · Radar visual flow hotfix/);
 assert.match(moduleSource,/window\.__NEXA_RADAR_VISUAL_FLOW_V18_13__/);
 assert.match(moduleSource,/nexa:recording-finalized/,'must react to the real recorder finalization event');
@@ -50,11 +50,11 @@ for(const invented of [
 
 const moduleRefs=[...loader.matchAll(/nexa-radar-visual-flow-v18\.13\.js/g)];
 assert.equal(moduleRefs.length,1,'visual-flow module must be loaded exactly once');
-assert.match(loader,/NEXA loader v18\.14\.0/);
+assert.match(loader,/NEXA loader v18\.14\.1/);
 assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18131/);
-assert.match(index,/nexa-hotfix\.js\?v=20261001-v18140/);
-assert.match(sw,/CACHE_NAME="nexa-v18-14-0-radar-ps-20261001"/);
-assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20261001-v18140"/);
+assert.match(index,/nexa-hotfix\.js\?v=20261002-v18141/);
+assert.match(sw,/CACHE_NAME="nexa-v18-14-1-style-admin-audit-20261002"/);
+assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20261002-v18141"/);
 
 
 const psSource=read('nexa-radar-ps-mode-v18.14.js');
@@ -79,7 +79,7 @@ assert.doesNotMatch(psSource,/MutationObserver/,'PS mode must not add DOM observ
 assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the existing Radar subscription');
 assert.equal((loader.match(/nexa-radar-ps-mode-v18\.14\.js/g)||[]).length,1,'PS module must be loaded exactly once');
 assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261001-v18140/);
-assert.equal(pkg.version,'18.14.0','release branch must carry the production version');
-assert.match(sw,/CACHE_NAME="nexa-v18-14-0-radar-ps-20261001"/,'release cache must match the production version');
+assert.equal(pkg.version,'18.14.1','release branch must carry the production version');
+assert.match(sw,/CACHE_NAME="nexa-v18-14-1-style-admin-audit-20261002"/,'release cache must match the production version');
 
-console.log('NEXA v18.14.0 Radar PS release contract: PASS');
+console.log('NEXA v18.14.1 Radar PS + style/admin/auditor release contract: PASS');

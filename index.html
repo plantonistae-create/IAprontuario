@@ -2317,11 +2317,11 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 </button>
 </div>
 <div class="nexa-command-content">
-<div class="style-card nexa-workspace-pane" id="workspaceExamplesPane"><div class="style-head" id="styleHead"><h3>Exemplos de escrita anteriores</h3><span class="count" id="exampleCount">0 salvos ▸</span></div><div class="style-body" id="styleBody"><label class="toggle-row" style="margin:0"><input checked="" id="useExamples" type="checkbox"/><span>Usar meu estilo revisado nas próximas consultas</span></label><div class="learning">Revisões salvas ajudam o NEXA a reproduzir seu estilo de escrita. Os fatos clínicos não são reutilizados.</div><div id="exampleList"></div><button class="btn ghost" id="addExampleBtn">+ Adicionar exemplo</button><div id="exampleForm" style="display:none;border-top:1px solid var(--hair);margin-top:8px;padding-top:8px"><label>Nome do exemplo</label><input id="exTitle"/><label>Queixa principal</label><textarea id="ex_queixa_principal"></textarea><label>História da doença atual</label><textarea id="ex_hda"></textarea><label>Comorbidades</label><textarea id="ex_comorbidades"></textarea><label>Antecedentes</label><textarea id="ex_antecedentes" placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea><label>Medicações em uso</label><textarea id="ex_medicacoes"></textarea><label>Alergias</label><textarea id="ex_alergias"></textarea><label>Hipótese diagnóstica</label><textarea id="ex_hipotese_diagnostica"></textarea><div class="conduct-actions"><button class="btn" id="saveExampleBtn">Salvar exemplo</button><button class="btn ghost" id="cancelExampleBtn">Cancelar</button></div></div></div></div>
+<div class="style-card nexa-workspace-pane" id="workspaceExamplesPane"><div class="style-head" id="styleHead"><h3>Exemplos de escrita anteriores</h3><span class="count" id="exampleCount">0 salvos ▸</span></div><div class="style-body" id="styleBody"><label class="toggle-row" style="margin:0"><input checked="" id="useExamples" type="checkbox"/><span>Usar meus exemplos salvos quando existirem</span></label><div class="learning">Só entram no seu estilo os exemplos que você salvar explicitamente. Se você ainda não tiver exemplos próprios, o NEXA usa o estilo padrão.</div><div id="exampleList"></div><button class="btn ghost" id="addExampleBtn">+ Adicionar exemplo</button><div id="exampleForm" style="display:none;border-top:1px solid var(--hair);margin-top:8px;padding-top:8px"><label>Nome do exemplo</label><input id="exTitle"/><label>Queixa principal</label><textarea id="ex_queixa_principal"></textarea><label>História da doença atual</label><textarea id="ex_hda"></textarea><label>Comorbidades</label><textarea id="ex_comorbidades"></textarea><label>Antecedentes</label><textarea id="ex_antecedentes" placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea><label>Medicações em uso</label><textarea id="ex_medicacoes"></textarea><label>Alergias</label><textarea id="ex_alergias"></textarea><label>Hipótese diagnóstica</label><textarea id="ex_hipotese_diagnostica"></textarea><div class="conduct-actions"><button class="btn" id="saveExampleBtn">Salvar exemplo</button><button class="btn ghost" id="cancelExampleBtn">Cancelar</button></div></div></div></div>
 <div class="style-card nexa-workspace-pane" id="workspaceHistoryPane"><div class="style-head" id="historyHead"><h3>Histórico de rascunhos</h3><span class="count" id="historyCount">0 registros ▸</span></div><div class="style-body" id="historyBody"><div class="toggle-row" style="justify-content:space-between"><span>Últimos 7 dias. Casos enviados à auditoria permanecem na Auditoria.</span><button class="btn ghost" id="refreshHistoryBtn" style="width:auto;padding:5px 8px">Atualizar</button></div><div id="historyList"></div></div></div>
 </div>
 </div>
-<div class="toolbar"><button class="btn ghost" id="downloadBtn">Baixar .txt</button><button aria-hidden="true" class="btn ghost legacy-copy" id="copyHdaBtn" tabindex="-1">Copiar HDA + antecedentes</button><button class="btn ghost" id="updateHistoryBtn">Salvar revisão</button><button class="btn ghost" id="submitAuditBtn">Priorizar para auditoria</button><span class="save-state unsaved" id="saveState">não salvo</span></div><div id="bannerArea"></div><div class="clinical-section-title" id="structuredRecordTitle"><div><span class="clinical-kicker">DOCUMENTAÇÃO</span><h2>Prontuário estruturado</h2></div><span class="clinical-section-status">revisão médica</span></div><div class="field" data-key="queixa_principal"><div class="field-head"><label>Queixa principal</label><button aria-label="Copiar Queixa principal" class="field-copy-btn" data-copy-field="queixa_principal" id="copyFieldChiefBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="hda"><div class="field-head"><label>História da doença atual</label><button aria-label="Copiar História da doença atual" class="field-copy-btn" data-copy-field="hda" id="copyFieldHdaBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Preenchido após a transcrição..." style="min-height:110px"></textarea></div><div class="field" data-key="comorbidades"><div class="field-head"><label>Comorbidades</label><button aria-label="Copiar Comorbidades" class="field-copy-btn" data-copy-field="comorbidades" id="copyFieldComorbBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field" data-key="antecedentes"><div class="field-head"><label>Antecedentes</label><button aria-label="Copiar Antecedentes" class="field-copy-btn" data-copy-field="antecedentes" id="copyFieldAntecedentsBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea></div><div class="field" data-key="medicacoes"><div class="field-head"><label>Medicações em uso</label><button aria-label="Copiar Medicações em uso" class="field-copy-btn" data-copy-field="medicacoes" id="copyFieldMedsBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field" data-key="alergias"><div class="field-head"><label>Alergias</label><button aria-label="Copiar Alergias" class="field-copy-btn" data-copy-field="alergias" id="copyFieldAllergiesBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field workflow-step" data-key="exame_fisico" id="examPhysicalBlock"><div class="field-head"><label>Exame físico</label><button class="field-copy-btn" id="copyExamBtn" type="button">⧉ Copiar</button></div><div class="exam-type-tabs"><button class="exam-type-btn" data-type="HOMEM">Homem</button><button class="exam-type-btn" data-type="MULHER">Mulher</button><button class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button><button class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button></div><div class="exam-systems" id="examSystems"><div class="empty">Selecione um perfil para ver os sistemas.</div></div><button class="btn ghost" id="insertExamBtn" style="margin:7px 0 8px">Inserir sistemas selecionados</button><textarea placeholder="Selecione os sistemas acima ou edite manualmente..."></textarea></div><div class="field suggestions" data-key="hipotese_diagnostica"><div class="field-head"><label>Hipótese diagnóstica</label><button aria-label="Copiar Hipótese diagnóstica" class="field-copy-btn" data-copy-field="hipotese_diagnostica" id="copyFieldHypothesisBtn" type="button">⧉ Copiar</button></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea><label class="toggle-row"><input id="includeDiagnosis" type="checkbox"/><span>Incluir no prontuário completo após revisão.</span></label></div><div class="hyp-review" id="hypothesisReviewBlock">
+<div class="toolbar"><button class="btn ghost" id="downloadBtn">Baixar .txt</button><button aria-hidden="true" class="btn ghost legacy-copy" id="copyHdaBtn" tabindex="-1">Copiar HDA + antecedentes</button><button class="btn ghost" id="updateHistoryBtn">Salvar revisão</button><button class="btn ghost" id="saveStyleFromCurrentBtn">Salvar no meu estilo</button><button class="btn ghost" id="submitAuditBtn">Priorizar para auditoria</button><span class="save-state unsaved" id="saveState">não salvo</span></div><div id="bannerArea"></div><div class="clinical-section-title" id="structuredRecordTitle"><div><span class="clinical-kicker">DOCUMENTAÇÃO</span><h2>Prontuário estruturado</h2></div><span class="clinical-section-status">revisão médica</span></div><div class="field" data-key="queixa_principal"><div class="field-head"><label>Queixa principal</label><button aria-label="Copiar Queixa principal" class="field-copy-btn" data-copy-field="queixa_principal" id="copyFieldChiefBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Preenchido após a transcrição..."></textarea></div><div class="field" data-key="hda"><div class="field-head"><label>História da doença atual</label><button aria-label="Copiar História da doença atual" class="field-copy-btn" data-copy-field="hda" id="copyFieldHdaBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Preenchido após a transcrição..." style="min-height:110px"></textarea></div><div class="field" data-key="comorbidades"><div class="field-head"><label>Comorbidades</label><button aria-label="Copiar Comorbidades" class="field-copy-btn" data-copy-field="comorbidades" id="copyFieldComorbBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field" data-key="antecedentes"><div class="field-head"><label>Antecedentes</label><button aria-label="Copiar Antecedentes" class="field-copy-btn" data-copy-field="antecedentes" id="copyFieldAntecedentsBtn" type="button">⧉ Copiar</button></div><textarea placeholder="Cirurgias, procedimentos, internações e antecedentes relevantes..."></textarea></div><div class="field" data-key="medicacoes"><div class="field-head"><label>Medicações em uso</label><button aria-label="Copiar Medicações em uso" class="field-copy-btn" data-copy-field="medicacoes" id="copyFieldMedsBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field" data-key="alergias"><div class="field-head"><label>Alergias</label><button aria-label="Copiar Alergias" class="field-copy-btn" data-copy-field="alergias" id="copyFieldAllergiesBtn" type="button">⧉ Copiar</button></div><textarea></textarea></div><div class="field workflow-step" data-key="exame_fisico" id="examPhysicalBlock"><div class="field-head"><label>Exame físico</label><button class="field-copy-btn" id="copyExamBtn" type="button">⧉ Copiar</button></div><div class="exam-type-tabs"><button class="exam-type-btn" data-type="HOMEM">Homem</button><button class="exam-type-btn" data-type="MULHER">Mulher</button><button class="exam-type-btn" data-type="LACTENTE_MENINO">Lactente (menino)</button><button class="exam-type-btn" data-type="LACTENTE_MENINA">Lactente (menina)</button></div><div class="exam-systems" id="examSystems"><div class="empty">Selecione um perfil para ver os sistemas.</div></div><button class="btn ghost" id="insertExamBtn" style="margin:7px 0 8px">Inserir sistemas selecionados</button><textarea placeholder="Selecione os sistemas acima ou edite manualmente..."></textarea></div><div class="field suggestions" data-key="hipotese_diagnostica"><div class="field-head"><label>Hipótese diagnóstica</label><button aria-label="Copiar Hipótese diagnóstica" class="field-copy-btn" data-copy-field="hipotese_diagnostica" id="copyFieldHypothesisBtn" type="button">⧉ Copiar</button></div><div class="clinical-validation-note">⚠ Sujeito à validação pelo profissional</div><textarea></textarea><label class="toggle-row"><input id="includeDiagnosis" type="checkbox"/><span>Incluir no prontuário completo após revisão.</span></label></div><div class="hyp-review" id="hypothesisReviewBlock">
 <div class="hyp-review-head"><div><h3>Validação médica da hipótese</h3><p class="clinical-validation-note inline">⚠ Sujeito à validação pelo profissional</p></div><span class="hyp-badge" id="hypothesisReviewBadge">Aguardando validação</span></div>
 <div class="nexa-hyp-primary-card" id="nexaHypPrimaryCard">
   <div class="nexa-hyp-primary-head"><strong>Hipótese principal</strong><span class="nexa-hyp-best">Mais provável</span></div>
@@ -2618,7 +2618,7 @@ function renderExamples(){
     const t=document.createElement('div');t.className='item-title';t.textContent=ex.title||'Exemplo revisado';
     const p=document.createElement('div');p.className='item-preview';p.textContent=ex.hda||ex.queixa_principal||'';
     const meta=document.createElement('div');meta.className='hint';meta.style.marginTop='3px';
-    meta.textContent=ex.source_type==='consultation_review'?'Gerado automaticamente após Salvar revisão':'Exemplo adicionado manualmente';
+    meta.textContent=ex.source_type==='manual'?'Salvo explicitamente por você':'Exemplo de estilo anterior';
     b.append(t,p,meta);b.onclick=()=>fill(ex);
     const x=document.createElement('button');x.className='btn ghost';x.style.width='auto';x.textContent='🔒 Remover';
     x.onclick=e=>{e.stopPropagation();removeStyleExampleLocked(ex,x)};
@@ -2636,29 +2636,32 @@ $('saveExampleBtn').onclick=async()=>{
   if(error)return show('Não foi possível salvar o exemplo.',true);
   await loadExamples();$('exampleForm').style.display='none';show('Exemplo salvo.');
 };
-async function syncReviewToStyleExample(historyId,fields,now){
-  if(!currentProf||!historyId)return {ok:false,skipped:true};
-  const styleFields={};fieldKeys.forEach(k=>styleFields[k]=String(fields?.[k]||'').trim());
-  if(!Object.values(styleFields).some(Boolean))return {ok:false,skipped:true};
-  const title=`Revisão · ${new Date(now).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
-  const {data:existing,error:findError}=await sb.from('style_examples').select('id').eq('user_id',currentProf.id).eq('source_consultation_id',historyId).maybeSingle();
-  if(findError)throw findError;
-  const base={title,fields:styleFields,style_quality:'approved',updated_at:now};
-  const sourceTypes=['consultation_review','reviewed_consultation'];
-  let lastError=null;
-  for(const source_type of sourceTypes){
-    if(existing?.id){
-      const {error}=await sb.from('style_examples').update({...base,source_type}).eq('id',existing.id).eq('user_id',currentProf.id);
-      if(!error){await loadExamples();return {ok:true};}
-      lastError=error;
-    }else{
-      const {error}=await sb.from('style_examples').insert({id:crypto.randomUUID(),user_id:currentProf.id,source_consultation_id:historyId,...base,source_type});
-      if(!error){await loadExamples();return {ok:true};}
-      lastError=error;
-    }
-  }
-  throw lastError||new Error('STYLE_EXAMPLE_SYNC_FAILED');
+async function syncReviewToStyleExample(){
+  return {ok:false,skipped:true,reason:'explicit-save-required'};
 }
+async function saveCurrentToStyle(){
+  if(!currentProf)return show('Sessão expirada.',true);
+  const current=collect(),fields={};
+  fieldKeys.forEach(k=>fields[k]=String(current?.[k]||'').trim());
+  if(!Object.values(fields).some(Boolean))return show('Não há conteúdo revisado para salvar no seu estilo.',true);
+  const now=new Date().toISOString();
+  const title=`Meu estilo · ${new Date(now).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
+  const payload={
+    id:crypto.randomUUID(),
+    user_id:currentProf.id,
+    title,
+    fields,
+    source_type:'manual',
+    style_quality:'approved',
+    updated_at:now,
+    ...(activeHistoryId?{source_consultation_id:activeHistoryId}:{})
+  };
+  const {error}=await sb.from('style_examples').insert(payload);
+  if(error)return show('Não foi possível salvar esta consulta no seu estilo.',true);
+  await loadExamples();
+  show('Salvo no seu estilo. As próximas consultas poderão usar este padrão.');
+}
+$('saveStyleFromCurrentBtn').onclick=saveCurrentToStyle;
 async function loadHistory(){
   if(!currentProf)return;
   try{
@@ -2689,9 +2692,7 @@ async function saveHistory(){
       const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||now,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
       if(error)throw error;activeHistoryId=data.id;history.unshift(data);
     }
-    let styleSynced=true;
-    try{await syncReviewToStyleExample(activeHistoryId,fields,now)}catch(styleErr){styleSynced=false;console.warn('Falha ao sincronizar exemplo de escrita:',styleErr)}
-    saveState('saved','salvo');renderHistory();show(styleSynced?'Revisão salva. A versão final também foi adicionada/atualizada nos exemplos de escrita.':'Revisão salva. O exemplo de escrita não pôde ser atualizado agora, mas isso não bloqueia a auditoria.');
+    saveState('saved','salvo');renderHistory();show('Revisão salva no Histórico. Use “Salvar no meu estilo” somente quando quiser transformar esta versão em referência de escrita.');
   }catch(e){console.error(e);saveState('error','erro ao salvar');show('Falha ao salvar a revisão.',true)}
 }
 $('updateHistoryBtn').onclick=saveHistory;
@@ -2886,7 +2887,7 @@ $('closeCoreAdminBtn').onclick=()=>{
 };
 $('coreRefreshAuditBtn').onclick=loadAuditQueue;
 document.querySelectorAll('.core-tab').forEach(b=>b.onclick=()=>openCorePane(b.dataset.corePane));
-$('coreInviteBtn').onclick=async()=>{const name=$('coreInviteName').value.trim(),email=$('coreInviteEmail').value.trim();if(name.length<2||!email.includes('@'))return $('coreInviteStatus').textContent='Informe nome e e-mail válidos.';if(!confirm(`Convidar ${name} (${email}) e ocupar uma vaga clínica?`))return;const btn=$('coreInviteBtn');btn.disabled=true;$('coreInviteStatus').textContent='Enviando convite…';try{await adminApi({action:'invite',display_name:name,email});$('coreInviteName').value='';$('coreInviteEmail').value='';$('coreInviteStatus').textContent='Convite enviado e acesso clínico ativado.';await refreshCoreAdmin()}catch(e){$('coreInviteStatus').textContent=String(e.message).includes('CLINICAL_SLOT_LIMIT_REACHED')?'As 5 vagas clínicas já estão ocupadas.':e.message}finally{btn.disabled=false}};
+$('coreInviteBtn').onclick=async()=>{const name=$('coreInviteName').value.trim(),email=$('coreInviteEmail').value.trim();if(name.length<2||!email.includes('@'))return $('coreInviteStatus').textContent='Informe nome e e-mail válidos.';if(!confirm(`Convidar ${name} (${email}) e ocupar uma vaga clínica?`))return;const btn=$('coreInviteBtn');btn.disabled=true;$('coreInviteStatus').textContent='Enviando convite…';try{await adminApi({action:'invite',display_name:name,email,redirect_to:location.href.split('#')[0]});$('coreInviteName').value='';$('coreInviteEmail').value='';$('coreInviteStatus').textContent='Convite enviado e acesso clínico ativado.';await refreshCoreAdmin()}catch(e){$('coreInviteStatus').textContent=String(e.message).includes('CLINICAL_SLOT_LIMIT_REACHED')?'As 5 vagas clínicas já estão ocupadas.':e.message}finally{btn.disabled=false}};
 
 
 
@@ -4815,5 +4816,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261001-v18140"></script>
+<script src="./nexa-hotfix.js?v=20261002-v18141"></script>
 </body></html>

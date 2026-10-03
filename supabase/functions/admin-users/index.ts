@@ -2,6 +2,19 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY=Deno.env.get("SUPABASE_ANON_KEY")!;
+
+function adminSecretKey(){
+  try{
+    const keys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
+    if(keys?.default)return String(keys.default);
+  }catch{}
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+}
+function adminClient(){
+  const key=adminSecretKey();
+  if(!key)throw new Error("ADMIN_SECRET_UNAVAILABLE");
+  return createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false}});
+}
 const ALLOWED_ORIGIN=Deno.env.get("ALLOWED_ORIGIN") || "https://plantonistae-create.github.io";
 
 function cors(req:Request){
@@ -47,6 +60,50 @@ Deno.serve(async(req)=>{
       });
     }
 
+    if(action==="invite"){
+      const displayName=String(body?.display_name || "").trim();
+      const email=String(body?.email || "").trim().toLowerCase();
+      if(displayName.length<2 || !email.includes("@")) return json(req,{error:"Informe nome e e-mail válidos."},400);
+
+      const {data:directory,error:directoryError}=await client.rpc("get_admin_user_directory");
+      if(directoryError) throw new Error(directoryError.message);
+      const occupied=(directory || []).filter((item:any)=>item.clinical_access===true && item.access_status==="active" && item.slot_no!=null).length;
+      if(occupied>=5) return json(req,{error:"Os cinco slots clínicos já estão ocupados.",code:"CLINICAL_SLOT_LIMIT_REACHED"},409);
+
+      const admin=adminClient();
+      const requestedRedirect=String(body?.redirect_to || "").trim();
+      const redirectTo=requestedRedirect.startsWith(ALLOWED_ORIGIN)
+        ? requestedRedirect
+        : (Deno.env.get("NEXA_INVITE_REDIRECT_URL") || ALLOWED_ORIGIN);
+      const {data:inviteData,error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{
+        redirectTo,
+        data:{display_name:displayName},
+      });
+      if(inviteError) throw new Error(inviteError.message || "INVITE_FAILED");
+      const invited=inviteData?.user;
+      if(!invited?.id) throw new Error("INVITE_USER_MISSING");
+
+      const {data:access,error:accessError}=await client.rpc("admin_set_profile_access",{
+        p_profile_id:invited.id,
+        p_is_admin:false,
+        p_is_reviewer:false,
+        p_clinical_access:true,
+        p_access_status:"active",
+        p_reason:"Convite clínico criado pelo administrador.",
+      });
+
+      if(accessError){
+        try{await admin.auth.admin.deleteUser(invited.id)}catch(rollbackError){console.error("NEXA admin invite rollback failed",rollbackError)}
+        throw new Error(accessError.message);
+      }
+
+      return json(req,{
+        ok:true,
+        user:{id:invited.id,email:invited.email || email,display_name:displayName},
+        access,
+      },201);
+    }
+
     if(action==="set_access"){
       const status=String(body?.access_status || "").toLowerCase();
       if(!["pending","active","disabled"].includes(status)) return json(req,{error:"Status de acesso inválido."},400);
@@ -70,6 +127,8 @@ Deno.serve(async(req)=>{
     const message=error instanceof Error ? error.message : "Falha interna.";
     if(message==="UNAUTHORIZED") return json(req,{error:"Sessão inválida ou expirada."},401);
     if(message==="ADMIN_REQUIRED") return json(req,{error:"Acesso administrativo não autorizado."},403);
+    if(message==="ADMIN_SECRET_UNAVAILABLE") return json(req,{error:"Configuração administrativa indisponível."},500);
+    if(/already registered|already exists|user.*exists/i.test(message)) return json(req,{error:"Já existe uma conta cadastrada com este e-mail.",code:"USER_ALREADY_EXISTS"},409);
     if(message.includes("CLINICAL_SLOT_LIMIT_REACHED")) return json(req,{error:"Os cinco slots clínicos já estão ocupados.",code:"CLINICAL_SLOT_LIMIT_REACHED"},409);
     console.error(error); return json(req,{error:message},500);
   }
