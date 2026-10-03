@@ -82,76 +82,6 @@ function style(){
  `;document.head.appendChild(s)
 }
 
-const EXAM_GROUPS=[
- {id:'general',label:'Estado geral',prefix:'GERAL',items:[
-  ['beg','BEG','BEG','state'],['reg','REG','REG','state'],['meg','MEG','MEG','state'],
-  ['hydrated','Hidratado','hidratado','hydration'],['dehydrated','Desidratado','desidratado','hydration'],
-  ['colored','Corado','corado','color'],['pale','Hipocorado','hipocorado','color'],
-  ['afebrile','Afebril','afebril','temperature'],['febrile','Febril','febril','temperature']
- ]},
- {id:'resp',label:'Respiratório',prefix:'AR',items:[
-  ['mv','MV+ bilateral','MV+ bilateral','air'],['no-ra','Sem ruídos adventícios','sem ruídos adventícios','noise'],
-  ['wheeze','Sibilos','sibilos','noise'],['crackles','Crepitações','crepitações','noise']
- ]},
- {id:'cardio',label:'Cardiovascular',prefix:'ACV',items:[
-  ['rcr','RCR 2T','RCR 2T','rhythm'],['no-murmur','Sem sopros','sem sopros','murmur'],['tec','TEC < 2s','TEC < 2s','perfusion']
- ]},
- {id:'abd',label:'Abdome',prefix:'ABD',items:[
-  ['flat','Plano','plano','shape'],['rha','RHA+','RHA+','sounds'],['painless','Indolor','indolor à palpação','pain'],['painful','Doloroso','doloroso à palpação','pain'],['no-mass','Sem massas/visceromegalias','sem massas ou visceromegalias palpáveis','mass']
- ]},
- {id:'neuro',label:'Neurológico',prefix:'NEURO',items:[
-  ['g15','Glasgow 15','Glasgow 15/15','gcs'],['no-meningeal','Sem sinais de meningismo','sem sinais de meningismo','meningism'],['no-focal','Sem déficits focais','sem déficits neurológicos focais','focal']
- ]},
- {id:'ext',label:'Extremidades',prefix:'EXT',items:[
-  ['no-edema','Sem edema','sem edema','edema'],['pulses','Pulsos presentes','pulsos presentes bilateralmente','pulse'],['no-dvt','Sem sinais de TVP','sem sinais de TVP','dvt']
- ]}
-];
-const selectedExam=new Map();
-
-function parseExamSelection(){
- const value=text(field('exame_fisico')?.value).toLowerCase();
- for(const group of EXAM_GROUPS){
-  const set=new Set();
-  for(const [id,,snippet] of group.items)if(value.includes(String(snippet).toLowerCase()))set.add(id);
-  selectedExam.set(group.id,set);
- }
-}
-function examLine(group){
- const set=selectedExam.get(group.id)||new Set();
- const values=group.items.filter(([id])=>set.has(id)).map(([, ,snippet])=>snippet);
- return values.length?`${group.prefix}: ${values.join(', ')}.`:'';
-}
-function writeExam(){
- const ta=field('exame_fisico');if(!ta)return;
- const prefixes=new Set(EXAM_GROUPS.map(g=>g.prefix+':'));
- const manual=text(ta.value).split(/\n+/).filter(line=>!prefixes.has(line.trim().split(/\s+/)[0])).filter(Boolean);
- const generated=EXAM_GROUPS.map(examLine).filter(Boolean);
- ta.value=[...generated,...manual].join('\n');emit(ta);persistSoon();renderExamChips();updatePreview();
-}
-function toggleExam(group,id,exclusive){
- const set=selectedExam.get(group.id)||new Set();
- if(set.has(id))set.delete(id);
- else{
-  if(exclusive)for(const [other,,,ex] of group.items)if(ex===exclusive)set.delete(other);
-  set.add(id);
- }
- selectedExam.set(group.id,set);writeExam();
-}
-function renderExamChips(){
- const host=$('nexaExamQuickComposer');if(!host)return;
- host.innerHTML='<h4>Compositor rápido · clique para adicionar ou remover</h4>';
- for(const group of EXAM_GROUPS){
-  const wrap=document.createElement('div');wrap.className='nexa-quick-group';
-  wrap.innerHTML=`<div class="nexa-quick-group-label">${esc(group.label)}</div><div class="nexa-chip-row"></div>`;
-  const row=q('.nexa-chip-row',wrap),set=selectedExam.get(group.id)||new Set();
-  for(const [id,label,,exclusive] of group.items){
-    const b=document.createElement('button');b.type='button';b.className='nexa-chip'+(set.has(id)?' active':'');b.textContent=label;b.dataset.examChip=id;
-    b.onclick=()=>toggleExam(group,id,exclusive);row.appendChild(b);
-  }
-  host.appendChild(wrap);
- }
-}
-
 const PLAN_ACTIONS=[
  ['exams','Solicito exames','Solicito exames.'],
  ['med-now','Medicação agora','Medicação agora.'],
@@ -309,13 +239,8 @@ function mount(){
  const banner=$('bannerArea');if(banner)histBody.appendChild(banner);
 
  const examBody=q('.nexa-flow-body',exam);
- const quickExam=document.createElement('div');quickExam.id='nexaExamQuickComposer';quickExam.className='nexa-quick-composer';examBody.appendChild(quickExam);
  const vital=q('.field[data-key="sinais_vitais"]');if(vital)examBody.appendChild(vital);
- const examBlock=$('examPhysicalBlock');examBody.appendChild(examBlock);
- const legacy=document.createElement('details');legacy.className='nexa-legacy-exam';legacy.innerHTML='<summary>Modelos por perfil já existentes</summary><div class="nexa-legacy-exam-body"></div>';
- const legacyBody=q('.nexa-legacy-exam-body',legacy);
- for(const sel of ['.exam-type-tabs','#examSystems','#insertExamBtn']){const el=q(sel,examBlock);if(el)legacyBody.appendChild(el)}
- const examTa=field('exame_fisico');if(examTa)examBlock.insertBefore(legacy,examTa);
+ const examBlock=$('examPhysicalBlock');if(examBlock)examBody.appendChild(examBlock);
 
  const assessBody=q('.nexa-flow-body',assess),hypField=q('.field[data-key="hipotese_diagnostica"]');
  assessBody.appendChild(hypField);
@@ -345,11 +270,11 @@ function mount(){
  $('nexaFlowCopyAll').onclick=()=>copyText(mode==='soap'?composeSoap():composeContinuous(),mode==='soap'?'SOAP completo':'Prontuário completo');
  $('nexaAssociateCid').onclick=()=>setAssessment();
  field('hipotese_diagnostica')?.addEventListener('input',()=>{if(assessmentSyncing)return;clearTimeout(assessmentTimer);assessmentTimer=setTimeout(setAssessment,260)});
- field('exame_fisico')?.addEventListener('input',()=>{parseExamSelection();renderExamChips();updatePreview()});
+ field('exame_fisico')?.addEventListener('input',()=>updatePreview());
  field('conduta')?.addEventListener('input',()=>{renderPlanQuick();renderPlanLines();updatePreview()});
  document.addEventListener('input',e=>{if(e.target instanceof HTMLTextAreaElement||e.target instanceof HTMLInputElement)updatePreview()},true);
 
- parseExamSelection();renderExamChips();renderPlanQuick();renderPlanLines();syncPresets();
+ renderPlanQuick();renderPlanLines();syncPresets();
  const list=$('conductList');if(list&&window.MutationObserver){presetObserver=new MutationObserver(syncPresets);presetObserver.observe(list,{childList:true,subtree:true,characterData:true})}
  try{mode=sessionStorage.getItem(MODE_KEY)==='soap'?'soap':'continuous'}catch{mode='continuous'}
  setMode(mode);mounted=true;window.dispatchEvent(new CustomEvent('nexa:continuous-soap-mounted'));return true;
@@ -367,5 +292,5 @@ document.addEventListener('click',e=>{
 
 let tries=0;const timer=setInterval(()=>{if(mount()||++tries>80)clearInterval(timer)},125);
 window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{parseExamSelection();renderExamChips();renderPlanQuick();renderPlanLines();updatePreview()},50));
-window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction,parseExamSelection};
+window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction};
 })();
