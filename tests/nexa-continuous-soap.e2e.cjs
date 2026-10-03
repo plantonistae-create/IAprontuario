@@ -57,19 +57,20 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    }
 
    await page.locator('.field[data-key="hda"] textarea').fill('Dor abdominal há um dia, sem outros sintomas relevantes.');
-   if(await page.locator('#nexaExamOptional').count())await page.locator('#nexaExamOptional').evaluate(el=>{el.open=true;});
-   await page.locator('[data-exam-chip="beg"]').click();
-   await page.locator('[data-exam-chip="hydrated"]').click();
+   assert.equal(await page.locator('#nexaExamQuickComposer').count(),0,'Duplicate physical-exam quick composer must stay removed');
+   await page.locator('.exam-type-btn[data-type="HOMEM"]').click();
+   const generalExam=page.locator('.exam-sys-check[data-label="Estado geral"]');
+   const respiratoryExam=page.locator('.exam-sys-check[data-label="Aparelho respiratório"]');
+   await generalExam.check();
    let exam=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();
-   assert.match(exam,/GERAL: BEG, hidratado\./i,'One-click exam chips must write immediately');
-   await page.locator('.field[data-key="exame_fisico"] textarea').evaluate(el=>{el.value+='\nTexto manual preservado.';el.dispatchEvent(new Event('input',{bubbles:true}))});
-   await page.locator('[data-exam-chip="colored"]').click();
+   assert.match(exam,/BEG, LOTE/i,'Profile-model system click must write the physical exam immediately');
+   await respiratoryExam.check();
    exam=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();
-   assert.match(exam,/corado/i);assert.match(exam,/Texto manual preservado/,'Manual exam text must coexist with chips');
-   await page.locator('[data-exam-chip="hydrated"]').click();
+   assert.match(exam,/AR: MVUA sem RA\./i,'Additional profile-model systems must appear immediately');
+   await respiratoryExam.uncheck();
    exam=await page.locator('.field[data-key="exame_fisico"] textarea').inputValue();
-   assert.doesNotMatch(exam,/hidratado/i,'Second click must remove quick finding');
-   assert.match(exam,/Texto manual preservado/);
+   assert.doesNotMatch(exam,/AR: MVUA sem RA\./i,'Unchecking a system must remove that profile-model section');
+   assert.match(exam,/BEG, LOTE/i,'Other selected profile-model systems must remain');
 
    const hyp=page.locator('.field[data-key="hipotese_diagnostica"] textarea');
    await hyp.fill('GECA');

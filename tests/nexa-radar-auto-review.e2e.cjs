@@ -80,7 +80,9 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.equal(await page.locator('#nexaFlowAssessment').isVisible(),true);
    assert.equal(await page.locator('#nexaFlowPlan').isVisible(),true);
    assert.equal(await page.locator('#nexaFinalPending').isVisible(),true,'Final pending review must be present');
-   assert.equal(await page.locator('#nexaExamOptional').isVisible(),true,'Physical-exam quick composer remains optional in review');
+   assert.equal(await page.locator('#nexaExamQuickComposer').count(),0,'Duplicate physical-exam quick composer must remain absent in review');
+   assert.equal(await page.locator('#examPhysicalBlock .exam-type-tabs').isVisible(),true,'Profile-based physical-exam models must remain visible in review');
+   assert.equal(await page.locator('#examSystems').isVisible(),true,'Profile-model system selector must remain available in review');
 
    await page.locator('#conductRecordText').evaluate(el=>{
     el.value='Orientações, reavaliação e retorno se houver piora.';
