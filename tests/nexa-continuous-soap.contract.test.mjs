@@ -15,7 +15,7 @@ for(const token of [
   'nexaFlowCopyAll','nexaFlowPreview','nexaSoapSideNav'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20260929-v18128'),'workflow module must be loaded with the current cache bust');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261003-v18150'),'workflow module must be loaded with the current cache bust');
 assert.ok(code.includes("['ANTECEDENTES',c.antecedentes]"),'SOAP S must expose ANTECEDENTES in uppercase');
 assert.ok(code.includes("['ALERGIAS',c.alergias]"),'SOAP S must expose ALERGIAS in uppercase');
 assert.ok(code.includes("join('\\n\\n')"),'SOAP S blocks must preserve a blank line between sections');
