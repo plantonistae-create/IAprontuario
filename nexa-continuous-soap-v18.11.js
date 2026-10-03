@@ -291,6 +291,6 @@ document.addEventListener('click',e=>{
 },true);
 
 let tries=0;const timer=setInterval(()=>{if(mount()||++tries>80)clearInterval(timer)},125);
-window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{parseExamSelection();renderExamChips();renderPlanQuick();renderPlanLines();updatePreview()},50));
+window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{renderPlanQuick();renderPlanLines();updatePreview()},50));
 window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction};
 })();
