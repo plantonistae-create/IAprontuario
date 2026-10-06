@@ -32,7 +32,7 @@ async function deidentify(fields:any,core:any){
    const raw=await r.text();if(!r.ok)throw new Error('DEIDENTIFICATION_FAILED');
    const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)throw new Error('EMPTY_DEIDENTIFICATION');
    const out=JSON.parse(text),validation=validateDeidentifiedEnvelope(out,{requireLearningLayers:true});
-   if(!validation.ok)throw new Error(validation.error);
+   if(!validation.ok)throw new Error(validation.error||'DEIDENTIFICATION_INVALID');
    return{fields:out.fields,core:safeCoreContext(out.core_context)};
   },
   validate:(result: any)=>Boolean(result?.fields&&result?.core),
