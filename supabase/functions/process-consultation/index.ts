@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -56,9 +57,10 @@ async function loadDefaultStyleExamples(limit = 5) {
     .reverse();
 }
 
-const AI_PROVIDER = (
-  Deno.env.get("AI_PROVIDER") || "openai"
-).toLowerCase();
+const AI_PROVIDER = capabilityProviderFromEnv(
+  "consultation.processing",
+  (name: string) => Deno.env.get(name),
+);
 
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ||
@@ -1861,31 +1863,62 @@ Deno.serve(
 
       /* PROCESSAMENTO */
 
-      const result =
-        AI_PROVIDER ===
-          "gemini"
-
-          ? await processGemini(
-              audio,
-              caseMode,
-              examples
+      const capabilityModel =
+        AI_PROVIDER === "gemini"
+          ? (
+              Deno.env.get("GEMINI_MODEL") ||
+              "gemini-3.6-flash"
             )
+          : [
+              Deno.env.get("OPENAI_TRANSCRIBE_MODEL") || "gpt-4o-transcribe",
+              Deno.env.get("OPENAI_STRUCTURING_MODEL") || "gpt-5.6-terra",
+              Deno.env.get("OPENAI_CLINICAL_MODEL") ||
+                Deno.env.get("OPENAI_STRUCTURING_MODEL") ||
+                "gpt-5.6-terra",
+            ].join(" + ");
 
-          : await processOpenAI(
-              audio,
-              caseMode,
-              examples
-            );
+      const {
+        value: result,
+        metadata: executionMetadata,
+      } = await executeCapability({
+        capability: "consultation.processing",
+        provider: AI_PROVIDER,
+        model: capabilityModel,
+        execute: () =>
+          AI_PROVIDER === "gemini"
+            ? processGemini(
+                audio,
+                caseMode,
+                examples
+              )
+            : processOpenAI(
+                audio,
+                caseMode,
+                examples
+              ),
+        validate: (value) =>
+          Boolean(
+            value &&
+            typeof value === "object" &&
+            value.fields &&
+            typeof value.fields === "object" &&
+            value.provider &&
+            value.model
+          ),
+      });
 
 
-      return json(
-        req,
-        {
-          ...result,
-          style_source: styleSource,
-          style_example_count: examples.length
-        },
-        200
+      return withTechnicalExecutionHeaders(
+        json(
+          req,
+          {
+            ...result,
+            style_source: styleSource,
+            style_example_count: examples.length
+          },
+          200
+        ),
+        executionMetadata,
       );
 
 
