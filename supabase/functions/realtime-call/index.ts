@@ -1,10 +1,16 @@
 // Existing production transport v4, versioned for staging parity; no changes deployed to production.
 import { createClient } from "@supabase/supabase-js";
+import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+
+const REALTIME_PROVIDER = capabilityProviderFromEnv(
+  "realtime.call",
+  (name) => Deno.env.get(name),
+);
 
 const REALTIME_MODEL =
   Deno.env.get("NEXA_REALTIME_MODEL") ||
@@ -529,8 +535,20 @@ Deno.serve(async (req: Request) => {
         "multipart/form-data",
       )
     ) {
-      return await transcribeFallback(
-        req,
+      const {
+        value: fallbackResponse,
+        metadata: fallbackMetadata,
+      } = await executeCapability({
+        capability: "realtime.call",
+        provider: REALTIME_PROVIDER,
+        model: TRANSCRIBE_MODEL,
+        execute: () => transcribeFallback(req),
+        validate: (value) => value instanceof Response,
+      });
+
+      return withTechnicalExecutionHeaders(
+        fallbackResponse,
+        fallbackMetadata,
       );
     }
 
@@ -545,8 +563,20 @@ Deno.serve(async (req: Request) => {
           () => ({}),
         );
 
-    return await createRealtimeCall(
-      body,
+    const {
+      value: realtimeResponse,
+      metadata: realtimeMetadata,
+    } = await executeCapability({
+      capability: "realtime.call",
+      provider: REALTIME_PROVIDER,
+      model: `${REALTIME_MODEL} + ${TRANSCRIBE_MODEL}`,
+      execute: () => createRealtimeCall(body),
+      validate: (value) => value instanceof Response,
+    });
+
+    return withTechnicalExecutionHeaders(
+      realtimeResponse,
+      realtimeMetadata,
     );
   } catch (error) {
     // Do not log consultation audio, transcript or upstream bodies.
