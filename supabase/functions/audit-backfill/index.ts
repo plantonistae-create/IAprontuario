@@ -35,7 +35,7 @@ async function deidentify(fields:any,core:any){
    if(!validation.ok)throw new Error(validation.error);
    return{fields:out.fields,core:safeCoreContext(out.core_context)};
   },
-  validate:(result)=>Boolean(result?.fields&&result?.core),
+  validate:(result: any)=>Boolean(result?.fields&&result?.core),
  });
  return value;
 }
