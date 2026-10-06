@@ -81,6 +81,10 @@ export function capabilityProviderFromEnv(capability, getEnv = (_name) => undefi
  * @param {string} capability
  * @param {{provider?: string, model?: string}} [options]
  */
+/**
+ * @param {string} capability
+ * @param {{provider?: string, model?: string}} [options]
+ */
 export function resolveCapability(capability, { provider, model = "" } = {}) {
   const definition = NEXA_AI_CAPABILITIES[capability];
   if (!definition) throw new CapabilityResolutionError("UNSUPPORTED_CAPABILITY");
@@ -159,13 +163,25 @@ function buildMetadata(descriptor, {
 /**
  * @param {CapabilityExecutionOptions} options
  */
+/**
+ * @param {{
+ *   capability: string,
+ *   provider?: string,
+ *   model?: string,
+ *   execute: (descriptor: any) => Promise<any> | any,
+ *   validate?: (value: any, descriptor: any) => Promise<boolean> | boolean,
+ *   observer?: (metadata: any) => void,
+ *   clock?: () => number,
+ *   idFactory?: () => string,
+ * }} options
+ */
 export async function executeCapability({
   capability,
   provider,
   model = "",
   execute,
-  validate,
-  observer,
+  validate = undefined,
+  observer = undefined,
   clock = () => Date.now(),
   idFactory = executionId,
 }) {
