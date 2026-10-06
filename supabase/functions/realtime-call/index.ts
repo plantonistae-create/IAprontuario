@@ -9,7 +9,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const REALTIME_PROVIDER = capabilityProviderFromEnv(
   "realtime.call",
-  (name) => Deno.env.get(name),
+  (name: string) => Deno.env.get(name),
 );
 
 const REALTIME_MODEL =
@@ -543,7 +543,7 @@ Deno.serve(async (req: Request) => {
         provider: REALTIME_PROVIDER,
         model: TRANSCRIBE_MODEL,
         execute: () => transcribeFallback(req),
-        validate: (value) => value instanceof Response,
+        validate: (value: unknown) => value instanceof Response,
       });
 
       return withTechnicalExecutionHeaders(
@@ -571,7 +571,7 @@ Deno.serve(async (req: Request) => {
       provider: REALTIME_PROVIDER,
       model: `${REALTIME_MODEL} + ${TRANSCRIBE_MODEL}`,
       execute: () => createRealtimeCall(body),
-      validate: (value) => value instanceof Response,
+      validate: (value: unknown) => value instanceof Response,
     });
 
     return withTechnicalExecutionHeaders(
