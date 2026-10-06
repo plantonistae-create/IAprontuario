@@ -101,7 +101,7 @@ serve(async(req)=>{
       const validation=validateDeidentifiedEnvelope(deid,{requireLearningLayers});if(!validation.ok)return json({error:validation.error},502);
       return {fields:deid.fields,core:safeCoreContext(deid.core_context)};
     },
-    validate:(value)=>value instanceof Response||Boolean(value?.fields&&value?.core),
+    validate:(value: unknown)=>value instanceof Response||Boolean(value?.fields&&value?.core),
   });
   if(deidExecution instanceof Response)return withTechnicalExecutionHeaders(deidExecution,auditExecutionMetadata);
   const deidentifiedFields=deidExecution.fields,deidentifiedCore=deidExecution.core;
