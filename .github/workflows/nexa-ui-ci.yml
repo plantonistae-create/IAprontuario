@@ -61,6 +61,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Install pinned dependencies
         run: npm ci
       - name: JavaScript syntax
@@ -69,6 +73,13 @@ jobs:
         run: npm test
       - name: Lint, backend typecheck and static build
         run: npm run lint && npm run typecheck && npm run build
+      - name: Deno Edge Function typecheck
+        run: |
+          deno check supabase/functions/process-consultation/index.ts
+          deno check supabase/functions/realtime-call/index.ts
+          deno check supabase/functions/realtime-radar/index.ts
+          deno check supabase/functions/submit-audit-case/index.ts
+          deno check supabase/functions/audit-backfill/index.ts
       - name: Install Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
       - name: Desktop and mobile browser regression
