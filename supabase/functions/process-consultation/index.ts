@@ -59,7 +59,7 @@ async function loadDefaultStyleExamples(limit = 5) {
 
 const AI_PROVIDER = capabilityProviderFromEnv(
   "consultation.processing",
-  (name) => Deno.env.get(name),
+  (name: string) => Deno.env.get(name),
 );
 
 const ALLOWED_ORIGIN =
