@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+import { capabilityProviderFromEnv, executeCapability } from "../_shared/nexa-ai-capability.mjs";
 import { safeCoreContext, validateDeidentifiedEnvelope } from "./audit-contract.mjs";
 
 const env=(n:string)=>Deno.env.get(n)||'';
 const URL=env('SUPABASE_URL'),ANON=env('SUPABASE_ANON_KEY'),SERVICE=env('SUPABASE_SERVICE_ROLE_KEY');
 const AI_KEY=env('OPENAI_API_KEY'),MODEL=env('AUDIT_DEID_MODEL')||'gpt-5.6-luna';
+const AUDIT_BACKFILL_PROVIDER=capabilityProviderFromEnv('audit.backfill',(name)=>Deno.env.get(name));
 const ORIGIN=env('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
 const cors={'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
@@ -21,12 +23,21 @@ async function requireStaff(req:Request){
 async function deidentify(fields:any,core:any){
  const input={fields,core_context:core};
  const prompt=`Retorne SOMENTE JSON com fields e core_context. Desidentifique completamente o caso, inclusive PII em texto livre. Preserve apenas conteúdo clínico. Não inclua identificadores do paciente ou médico. Não invente dados. Entrada: ${JSON.stringify(input).slice(0,48000)}`;
- const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
- const raw=await r.text();if(!r.ok)throw new Error('DEIDENTIFICATION_FAILED');
- const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)throw new Error('EMPTY_DEIDENTIFICATION');
- const out=JSON.parse(text),validation=validateDeidentifiedEnvelope(out,{requireLearningLayers:true});
- if(!validation.ok)throw new Error(validation.error);
- return{fields:out.fields,core:safeCoreContext(out.core_context)};
+ const {value}=await executeCapability({
+  capability:'audit.backfill',
+  provider:AUDIT_BACKFILL_PROVIDER,
+  model:MODEL,
+  execute:async()=>{
+   const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
+   const raw=await r.text();if(!r.ok)throw new Error('DEIDENTIFICATION_FAILED');
+   const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)throw new Error('EMPTY_DEIDENTIFICATION');
+   const out=JSON.parse(text),validation=validateDeidentifiedEnvelope(out,{requireLearningLayers:true});
+   if(!validation.ok)throw new Error(validation.error);
+   return{fields:out.fields,core:safeCoreContext(out.core_context)};
+  },
+  validate:(result)=>Boolean(result?.fields&&result?.core),
+ });
+ return value;
 }
 async function inventory(admin:any){
  const [{data:history,error:he},{data:audit,error:ae}]=await Promise.all([
