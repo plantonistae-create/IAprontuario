@@ -41,7 +41,7 @@ Deno.serve(async(req:Request)=>{
     const observations=validateObservations(result,catalog.map(c=>c.id),fields,String(body.transcript||''));
     return json({items,observations,model,transient:true,official_record:false});
    },
-   validate:(value)=>value instanceof Response,
+   validate:(value: unknown)=>value instanceof Response,
   });
   return withTechnicalExecutionHeaders(radarResponse,radarMetadata);
  }catch(error){return json({error:error instanceof DOMException&&error.name==='TimeoutError'?'RADAR_TIMEOUT':'RADAR_FAILED'},502);}
