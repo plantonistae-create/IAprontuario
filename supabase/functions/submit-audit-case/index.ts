@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { isPlainObject, normalizeSnapshotVersion, safeCoreContext, validateDeidentifiedEnvelope } from "./audit-contract.mjs";
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -8,6 +9,7 @@ const SUPABASE_ANON_KEY=env('SUPABASE_ANON_KEY');
 const SERVICE_KEY=env('SUPABASE_SERVICE_ROLE_KEY');
 const AI_KEY=env('OPENAI_API_KEY');
 const MODEL=env('AUDIT_DEID_MODEL')||'gpt-5.6-luna';
+const AUDIT_PROVIDER=capabilityProviderFromEnv('audit.submit',(name)=>Deno.env.get(name));
 const ORIGIN=env('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
 const cors={'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
@@ -87,12 +89,23 @@ serve(async(req)=>{
 
   const input={fields,core_context:coreContext};
   const prompt=`Retorne SOMENTE JSON com fields e core_context. Desidentifique completamente o caso, inclusive PII em texto livre. Preserve conteúdo clínico e preserve separadamente learning_layers.original_ai e learning_layers.physician_final; audit_corrected permanece null. Preserve destination, hypothesis_validation e audit_submission_snapshot. Não inclua identificadores do paciente ou médico. Não invente dados. Entrada: ${JSON.stringify(input).slice(0,48000)}`;
-  const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
-  const raw=await upstream.text();if(!upstream.ok)return json({error:'DEIDENTIFICATION_FAILED'},502);
-  const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)return json({error:'EMPTY_DEIDENTIFICATION'},502);
-  let deid:any;try{deid=JSON.parse(text)}catch{return json({error:'INVALID_DEIDENTIFICATION_JSON'},502)}
-  const validation=validateDeidentifiedEnvelope(deid,{requireLearningLayers});if(!validation.ok)return json({error:validation.error},502);
-  const deidentifiedFields=deid.fields,deidentifiedCore=safeCoreContext(deid.core_context);
+  const {value:deidExecution,metadata:auditExecutionMetadata}=await executeCapability({
+    capability:'audit.submit',
+    provider:AUDIT_PROVIDER,
+    model:MODEL,
+    execute:async()=>{
+      const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
+      const raw=await upstream.text();if(!upstream.ok)return json({error:'DEIDENTIFICATION_FAILED'},502);
+      const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)return json({error:'EMPTY_DEIDENTIFICATION'},502);
+      let deid:any;try{deid=JSON.parse(text)}catch{return json({error:'INVALID_DEIDENTIFICATION_JSON'},502)}
+      const validation=validateDeidentifiedEnvelope(deid,{requireLearningLayers});if(!validation.ok)return json({error:validation.error},502);
+      return {fields:deid.fields,core:safeCoreContext(deid.core_context)};
+    },
+    validate:(value)=>value instanceof Response||Boolean(value?.fields&&value?.core),
+  });
+  if(deidExecution instanceof Response)return withTechnicalExecutionHeaders(deidExecution,auditExecutionMetadata);
+  const deidentifiedFields=deidExecution.fields,deidentifiedCore=deidExecution.core;
+  const withAuditExecution=(response:Response)=>withTechnicalExecutionHeaders(response,auditExecutionMetadata);
 
   if(existing){
     const {data,error}=await admin.from('audit_cases').update({
@@ -105,8 +118,8 @@ serve(async(req)=>{
       last_synced_at:new Date().toISOString(),
     }).eq('id',existing.id).eq('status','pending')
       .select('id,status,submitted_at,snapshot_version,priority,source_sync_version,last_synced_at').single();
-    if(error)return json({error:'AUDIT_UPDATE_FAILED'},500);
-    return json({ok:true,updated:true,case:data,audit_schema_version:'3',core_ready_after_review:true,radar_raw_transcript_saved:false});
+    if(error)return withAuditExecution(json({error:'AUDIT_UPDATE_FAILED'},500));
+    return withAuditExecution(json({ok:true,updated:true,case:data,audit_schema_version:'3',core_ready_after_review:true,radar_raw_transcript_saved:false}));
   }
 
   const {data,error}=await admin.from('audit_cases').insert({
@@ -115,8 +128,8 @@ serve(async(req)=>{
     audit_schema_version:'3',status:'pending',priority:sourcePriority,
     source_sync_version:sourceSyncVersion,source_updated_at:sourceUpdatedAt,last_synced_at:new Date().toISOString(),
   }).select('id,status,submitted_at,snapshot_version,priority,source_sync_version,last_synced_at').single();
-  if(error){if(String(error.code)==='23505')return json({error:'ALREADY_SUBMITTED'},409);return json({error:'AUDIT_INSERT_FAILED'},500)}
-  return json({ok:true,updated:false,case:data,audit_schema_version:'3',core_ready_after_review:true,radar_raw_transcript_saved:false});
+  if(error){if(String(error.code)==='23505')return withAuditExecution(json({error:'ALREADY_SUBMITTED'},409));return withAuditExecution(json({error:'AUDIT_INSERT_FAILED'},500))}
+  return withAuditExecution(json({ok:true,updated:false,case:data,audit_schema_version:'3',core_ready_after_review:true,radar_raw_transcript_saved:false}));
  }catch(error){
   console.error('submit-audit-case',error);
   return json({error:'INTERNAL_ERROR'},500);
