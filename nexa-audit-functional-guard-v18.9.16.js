@@ -231,7 +231,15 @@ function bind(){
     const logout=e.target?.closest?.('#logoutBtn,#nfLogout');if(logout){capabilitiesReady=false;setAuditProfile({id:'',clinical_access:false,is_admin:false,is_reviewer:false,access_status:'signed_out'});syncRoleUi();return}
     const auth=e.target?.closest?.('#authSubmitBtn,#signInTab,#signUpTab');if(auth)setTimeout(refreshCapabilities,700);
   },true);
-  const observer=new MutationObserver(()=>{queueMicrotask(normalizeAuditDom)});
+  // Batch DOM changes so clinical typing and UI rendering do not trigger a full audit normalization per mutation.
+  let auditDomTimer=null;
+  const observer=new MutationObserver(()=>{
+    if(auditDomTimer!==null)return;
+    auditDomTimer=setTimeout(()=>{
+      auditDomTimer=null;
+      normalizeAuditDom();
+    },120);
+  });
   observer.observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener('focus',()=>{refreshCapabilities()});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCapabilities()});
