@@ -4065,6 +4065,14 @@ document.body.classList.add('nexa-v340','nexa-doctor-view','doctor-home-open');
     const nm=p.name||p.display_name||p.full_name||'';if(q('nexaHomeGreeting'))q('nexaHomeGreeting').textContent=nm?`Olá, ${nm}. Pronto para o próximo atendimento?`:'Pronto para o próximo atendimento?';
     renderRecentCases();
   }
+  window.addEventListener('nexa:audit-capabilities',event=>{
+    const verified=window.nexaAuditFunctionalGuard18916?.profile;
+    if(!verified||verified.access_status!=='active'||!currentProf?.id||verified.id!==currentProf.id)return;
+    currentProf.is_admin=!!verified.is_admin;
+    currentProf.is_reviewer=!!verified.is_reviewer;
+    syncRole();
+    syncDesktopShell();
+  });
   window.nexaV341SyncRole=syncRole;
   q('nexaRoleSwitchBtn')?.addEventListener('click',()=>setView(document.body.classList.contains('nexa-auditor-view')?'doctor':'auditor'));
   q('nexaBackMedicalBtn')?.addEventListener('click',()=>{closeAllTransientUi();setView('doctor')});
