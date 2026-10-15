@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-conduct-library-20261003";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261003-v18150";
+const CACHE_NAME="nexa-v18-15-0-audit-history-20261014";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261014-audit-history";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
