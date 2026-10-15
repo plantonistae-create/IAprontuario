@@ -233,7 +233,9 @@ function bind(){
   },true);
   const observer=new MutationObserver(()=>{queueMicrotask(normalizeAuditDom)});
   observer.observe(document.documentElement,{childList:true,subtree:true});
-  window.addEventListener('focus',()=>{if(!capabilitiesReady)refreshCapabilities()});
+  window.addEventListener('focus',()=>{refreshCapabilities()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCapabilities()});
+  window.addEventListener('online',()=>{refreshCapabilities()});
   refreshCapabilities();
   let retries=0;const timer=setInterval(async()=>{if(capabilitiesReady||retries++>=8){clearInterval(timer);return}await refreshCapabilities()},1500);
 }
