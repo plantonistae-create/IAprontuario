@@ -142,7 +142,19 @@ async function syncOne(rec){
  }
 })();
  if(rec?.encounter_id)syncInflight.set(rec.encounter_id,task);
- try{return await task}finally{if(rec?.encounter_id&&syncInflight.get(rec.encounter_id)===task)syncInflight.delete(rec.encounter_id)}
+ try{return await task}finally{
+  if(rec?.encounter_id&&syncInflight.get(rec.encounter_id)===task){
+    syncInflight.delete(rec.encounter_id);
+    // A newer local draft may have arrived while the request was in flight.
+    // Retry only that pending draft; never overwrite it with the older response.
+    try{
+      const latest=await store.get(rec.encounter_id);
+      if(latest?.owner_user_id===owner()&&latest.sync_state==='pending'&&latest.last_client_saved_at!==rec.last_client_saved_at&&navigator.onLine!==false){
+        setTimeout(()=>void syncOne(latest),0);
+      }
+    }catch(error){console.warn('NEXA pending encounter retry deferred',error)}
+  }
+}
 }
 async function preserve(reason='autosave',{sync=true}={}){
  const existingId=currentEncounterId(),fields=collectFields();
