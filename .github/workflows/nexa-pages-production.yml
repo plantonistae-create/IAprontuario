@@ -1,0 +1,25 @@
+name: NEXA Production Pages Verification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/nexa-pages-production-smoke.cjs'
+      - '.github/workflows/nexa-pages-production.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tests/nexa-pages-production-smoke.cjs'
+      - '.github/workflows/nexa-pages-production.yml'
+permissions:
+  contents: read
+jobs:
+  verify-live-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify published live GitHub Pages assets
+        run: node tests/nexa-pages-production-smoke.cjs
