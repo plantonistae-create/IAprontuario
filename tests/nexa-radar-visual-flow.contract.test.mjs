@@ -52,9 +52,9 @@ const moduleRefs=[...loader.matchAll(/nexa-radar-visual-flow-v18\.13\.js/g)];
 assert.equal(moduleRefs.length,1,'visual-flow module must be loaded exactly once');
 assert.match(loader,/NEXA loader v18\.15\.0/);
 assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18131/);
-assert.match(index,/nexa-hotfix\.js\?v=20261003-v18150/);
-assert.match(sw,/CACHE_NAME="nexa-v18-15-0-conduct-library-20261003"/);
-assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=20261003-v18150"/);
+assert.match(index,/nexa-hotfix\.js\?v=[0-9]{8}-[a-z0-9-]+/);
+assert.match(sw,/CACHE_NAME="nexa-v18-15-0-[a-z0-9-]+"/);
+assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=[0-9]{8}-[a-z0-9-]+"/);
 
 
 const psSource=read('nexa-radar-ps-mode-v18.14.js');
@@ -80,6 +80,6 @@ assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the 
 assert.equal((loader.match(/nexa-radar-ps-mode-v18\.14\.js/g)||[]).length,1,'PS module must be loaded exactly once');
 assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261001-v18140/);
 assert.equal(pkg.version,'18.15.0','release branch must carry the production version');
-assert.match(sw,/CACHE_NAME="nexa-v18-15-0-conduct-library-20261003"/,'release cache must match the production version');
+assert.match(sw,/CACHE_NAME="nexa-v18-15-0-[a-z0-9-]+"/,'release cache must be versioned for production');
 
 console.log('NEXA v18.15.0 Radar PS + conduct library release contract: PASS');

@@ -1,0 +1,46 @@
+name: NEXA Clinical Conflict Safety
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nexa-encounter-autosave-v18.10.1.js'
+      - 'nexa-encounter-conflicts-v18.10.2.js'
+      - 'nexa-hotfix.js'
+      - 'tests/nexa-conflict-reconciliation.test.cjs'
+      - 'tests/nexa-conflict-browser.e2e.cjs'
+      - 'tests/fixtures/nexa-conflict-browser.html'
+      - '.github/workflows/nexa-conflict-safety.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'nexa-encounter-autosave-v18.10.1.js'
+      - 'nexa-encounter-conflicts-v18.10.2.js'
+      - 'nexa-hotfix.js'
+      - 'tests/nexa-conflict-reconciliation.test.cjs'
+      - 'tests/nexa-conflict-browser.e2e.cjs'
+      - 'tests/fixtures/nexa-conflict-browser.html'
+      - '.github/workflows/nexa-conflict-safety.yml'
+permissions:
+  contents: read
+jobs:
+  encounter-conflicts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check browser script syntax
+        run: |
+          node --check nexa-encounter-autosave-v18.10.1.js
+          node --check nexa-encounter-conflicts-v18.10.2.js
+          node --check nexa-hotfix.js
+      - name: Run synthetic consultation safety tests
+        run: node --test tests/nexa-conflict-reconciliation.test.cjs
+      - name: Install pinned dependencies and focused browser
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+      - name: Run synthetic conflict interface in Chromium
+        run: node tests/nexa-conflict-browser.e2e.cjs

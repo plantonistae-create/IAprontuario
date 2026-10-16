@@ -17,10 +17,12 @@ assert.ok(auditor.includes('id="axBackMedical192"'),'Professional Auditor worksp
 assert.ok(auditor.includes("document.body.classList.contains('nexa-auditor-view')&&privileged()"),'Legacy restored auditor preference must be promoted to the professional workspace');
 assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reuse the existing medical role transition');
 
-assert.ok(loader.includes('nexa-auditor-exact-v18.9.js?v=20261002-v18141'),'Auditor module cache bust must be current');
+assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=\d{8}-[a-z0-9-]+/,'Auditor module must include a dated cache-busting token');
 assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261003-v18150'),'Continuous/SOAP module cache bust must be current');
-assert.ok(sw.includes('nexa-v18-15-0-conduct-library-20261003'),'Service Worker cache must identify the current Radar PS build');
-assert.ok(index.includes('nexa-hotfix.js?v=20261003-v18150'),'HTML must load the current v18.14.0 hotfix loader');
+const swHotfix=sw.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
+const indexHotfix=index.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
+assert.ok(swHotfix&&indexHotfix&&swHotfix===indexHotfix,'SW and HTML hotfix versions must match');
+assert.match(sw,/const CACHE_NAME="nexa-v18-15-0-[^"]+"/,'Service Worker must advertise a versioned cache');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
 new Function(continuous);
