@@ -12,6 +12,13 @@ const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16
 const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.stringify(x))}};
 const nowIso=()=>new Date().toISOString();
 let storeAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
+const syncInflight=new Map();
+async function putSyncResultIfCurrent(original,result){
+ const latest=await store.get(original.encounter_id);
+ if(!latest||latest.owner_user_id!==original.owner_user_id)return false;
+ if(latest.last_client_saved_at!==original.last_client_saved_at||latest.sync_state==='locked')return false;
+ await store.put(result);return true;
+}
 
 function client(){try{return window.nexaClinicalSupabase18101||null}catch{return null}}
 function prof(){try{return window.nexaClinicalRuntime18121?.getProfile?.()||window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)}catch{return window.currentProf||null}}
@@ -109,6 +116,8 @@ function remotePayload(rec){return{
  processing_meta:rec.processing_meta||{},created_at:rec.created_at||nowIso()
 }}
 async function syncOne(rec){
+ if(rec?.encounter_id&&syncInflight.has(rec.encounter_id))return syncInflight.get(rec.encounter_id);
+ const task=(async()=>{
  if(!rec||rec.owner_user_id!==owner())return{skipped:true};
  if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='locked')return{locked:true,item:rec};
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
@@ -119,18 +128,21 @@ async function syncOne(rec){
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
    const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
-   await store.put(saved);window.dispatchEvent(new CustomEvent(terminal?'nexa:encounter-locked':'nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:!terminal,locked:terminal,item:saved};
+   if(!(await putSyncResultIfCurrent(rec,saved)))return{sent:false,stale:true};window.dispatchEvent(new CustomEvent(terminal?'nexa:encounter-locked':'nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:!terminal,locked:terminal,item:saved};
  }catch(error){
    try{
      const {data:remote}=await c.from('consultation_history').select('id,encounter_id,encounter_state,updated_at,sync_version,status').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
      if(remote&&['audited','discarded'].includes(remote.encounter_state)){
        const locked={...rec,sync_state:'locked',encounter_state:remote.encounter_state,attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:remote.updated_at||rec.server_updated_at||null,sync_version:Number(remote.sync_version||rec.sync_version||0),legacy_status:remote.status||rec.legacy_status||'draft'};
-       await store.put(locked);window.dispatchEvent(new CustomEvent('nexa:encounter-locked',{detail:{encounter_id:rec.encounter_id,state:locked.encounter_state}}));return{sent:false,locked:true,item:locked};
+       if(!(await putSyncResultIfCurrent(rec,locked)))return{sent:false,stale:true};window.dispatchEvent(new CustomEvent('nexa:encounter-locked',{detail:{encounter_id:rec.encounter_id,state:locked.encounter_state}}));return{sent:false,locked:true,item:locked};
      }
    }catch{}
    const saved={...rec,sync_state:'pending',attempt_count:attempt,last_error:String(error?.message||error||'SYNC_FAILED'),next_attempt_at:new Date(Date.now()+backoff(attempt)).toISOString()};
-   await store.put(saved);window.dispatchEvent(new CustomEvent('nexa:encounter-sync-failed',{detail:{encounter_id:rec.encounter_id,error:saved.last_error}}));return{sent:false,error:saved.last_error,item:saved};
+   if(!(await putSyncResultIfCurrent(rec,saved)))return{sent:false,stale:true};window.dispatchEvent(new CustomEvent('nexa:encounter-sync-failed',{detail:{encounter_id:rec.encounter_id,error:saved.last_error}}));return{sent:false,error:saved.last_error,item:saved};
  }
+})();
+ if(rec?.encounter_id)syncInflight.set(rec.encounter_id,task);
+ try{return await task}finally{if(rec?.encounter_id&&syncInflight.get(rec.encounter_id)===task)syncInflight.delete(rec.encounter_id)}
 }
 async function preserve(reason='autosave',{sync=true}={}){
  const existingId=currentEncounterId(),fields=collectFields();
