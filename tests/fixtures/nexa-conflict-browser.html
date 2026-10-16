@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>NEXA clinical conflict test fixture</title></head>
+<body style="background:#081220;color:white">
+<div class="field" data-key="hda"><label>HDA <textarea aria-label="HDA"></textarea></label></div>
+<div class="field" data-key="conduta"><label>Conduta <textarea aria-label="Conduta"></textarea></label></div>
+<script>
+ window.currentProf={id:'11111111-1111-4111-8111-111111111111'};
+ window.__syntheticRemote=new Map();
+ window.nexaClinicalBridge18101={
+   collect:()=>({
+     hda:document.querySelector('[data-key="hda"] textarea').value,
+     conduta:document.querySelector('[data-key="conduta"] textarea').value
+   }),
+   state:()=> 'idle',
+   meta:()=>({})
+ };
+ window.nexaClinicalSupabase18101={
+   from(name){
+     if(name!=='consultation_history')throw new Error('Unexpected table');
+     let op='',payload=null,where={};
+     const q={
+       select(){if(!op)op='select';return q},
+       insert(x){op='insert';payload=structuredClone(x);return q},
+       update(x){op='update';payload=structuredClone(x);return q},
+       eq(key,value){where[key]=value;return q},
+       async single(){return execute()},
+       async maybeSingle(){return execute()}
+     };
+     function execute(){
+       const id=where.id||payload?.id,old=window.__syntheticRemote.get(id);
+       if(op==='select'){
+         if(!old||Object.entries(where).some(([key,value])=>old[key]!==value))return {data:null,error:null};
+         return {data:structuredClone(old),error:null};
+       }
+       if(op==='insert'){
+         if(old)return{data:null,error:{code:'23505'}};
+         const row={...payload,sync_version:0,updated_at:new Date().toISOString()};
+         window.__syntheticRemote.set(id,row);return {data:structuredClone(row),error:null};
+       }
+       if(op==='update'){
+         if(!old||Object.entries(where).some(([key,value])=>old[key]!==value))return{data:null,error:null};
+         const row={...old,...payload,sync_version:Number(old.sync_version||0)+1,updated_at:new Date().toISOString()};
+         window.__syntheticRemote.set(id,row);return{data:structuredClone(row),error:null};
+       }
+       throw new Error('Unexpected operation');
+     }
+     return q;
+   }
+ };
+</script>
+<script src="../../nexa-encounter-autosave-v18.10.1.js"></script>
+<script src="../../nexa-encounter-conflicts-v18.10.2.js"></script>
+</body></html>
