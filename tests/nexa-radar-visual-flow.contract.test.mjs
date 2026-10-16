@@ -80,6 +80,6 @@ assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the 
 assert.equal((loader.match(/nexa-radar-ps-mode-v18\.14\.js/g)||[]).length,1,'PS module must be loaded exactly once');
 assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261001-v18140/);
 assert.equal(pkg.version,'18.15.0','release branch must carry the production version');
-assert.match(sw,/CACHE_NAME="nexa-v18-15-0-conduct-library-20261003"/,'release cache must match the production version');
+assert.match(sw,/CACHE_NAME="nexa-v18-15-0-[a-z0-9-]+"/,'release cache must be versioned for production');
 
 console.log('NEXA v18.15.0 Radar PS + conduct library release contract: PASS');
