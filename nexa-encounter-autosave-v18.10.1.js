@@ -133,10 +133,18 @@ async function syncOne(rec){
      const update=await table.update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
      data=update.data;error=update.error;
    }else{
-     // A draft without a server revision can only create a new row.
-     const insert=await table.insert(payload).select(columns).single();
-     data=insert.data;error=insert.error;
-     if(error?.code==='23505'){error=null;data=null}
+     // Newly inserted rows start at version zero. Check existence first:
+     // zero-version rows must use the same conditional update, not insert.
+     const found=await table.select('sync_version').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+     if(found.error)throw found.error;
+     if(found.data){
+       const update=await c.from('consultation_history').update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
+       data=update.data;error=update.error;
+     }else{
+       const insert=await c.from('consultation_history').insert(payload).select(columns).single();
+       data=insert.data;error=insert.error;
+       if(error?.code==='23505'){error=null;data=null}
+     }
    }
    if(!error&&!data){
      const {data:current,error:readError}=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
