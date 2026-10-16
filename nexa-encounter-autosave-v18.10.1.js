@@ -5,20 +5,24 @@ if(window.__NEXA_ENCOUNTER_AUTOSAVE_V18_10_1__)return;
 window.__NEXA_ENCOUNTER_AUTOSAVE_V18_10_1__=true;
 
 const DB='nexa-encounter-autosave-v18101',STORE='encounters',ACTIVE='nexa-active-encounter-v18101';
+const ARCHIVE_DB='nexa-encounter-conflict-archive-v1',ARCHIVE_STORE='snapshots';
 const RESET='#resetBtn,#nexaRadarResetBtn,#nfClear,#nfTopClear,#nexaNewCaseBtn,#nexaTopReset';
 const NAV='[data-go],[data-mobile-stage],[data-desk],#navAuditBtn,#navProtocolsBtn,#navAdminBtn,#coreAdminBtn,#nexaHomeNav';
 const START='#recBtn,#nfStart';
 const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.stringify(x))}};
 const nowIso=()=>new Date().toISOString();
-let storeAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
+let storeAdapter=null,archiveAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
+let localPersistQueue=Promise.resolve();
+function serializeLocal(fn){const p=localPersistQueue.then(fn,fn);localPersistQueue=p.catch(()=>{});return p}
 const syncInflight=new Map();
-async function putSyncResultIfCurrent(original,result){
- const latest=await store.get(original.encounter_id);
- if(!latest||latest.owner_user_id!==original.owner_user_id)return false;
- if(latest.last_client_saved_at!==original.last_client_saved_at||latest.sync_state==='locked')return false;
- await store.put(result);return true;
+function sameLocalRevision(current,expected){
+ return !!current&&current.owner_user_id===expected.owner_user_id&&current.encounter_id===expected.encounter_id&&
+   Number(current.local_revision||0)===Number(expected.local_revision||0)&&
+   current.last_client_saved_at===expected.last_client_saved_at&&current.sync_state===expected.sync_state;
 }
+async function putSyncResultIfCurrent(original,result){return store.comparePut(original,result)}
+
 
 function client(){try{return window.nexaClinicalSupabase18101||null}catch{return null}}
 function prof(){try{return window.nexaClinicalRuntime18121?.getProfile?.()||window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)}catch{return window.currentProf||null}}
@@ -81,8 +85,45 @@ function processingMeta(reason){
 function openDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE)){const s=db.createObjectStore(STORE,{keyPath:'encounter_id'});s.createIndex('owner_user_id','owner_user_id',{unique:false});s.createIndex('sync_state','sync_state',{unique:false})}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('ENCOUNTER_IDB_OPEN_FAILED'))})}
 async function idbGet(id){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close()})}
 async function idbPut(item){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(clone(item));tx.oncomplete=()=>{db.close();resolve(clone(item))};tx.onerror=()=>{db.close();reject(tx.error||new Error('ENCOUNTER_IDB_WRITE_FAILED'))}})}
+async function idbComparePut(expected,item){
+ const db=await openDb();return new Promise((resolve,reject)=>{
+   const tx=db.transaction(STORE,'readwrite'),table=tx.objectStore(STORE),req=table.get(expected.encounter_id);
+   let accepted=false;
+   req.onsuccess=()=>{if(sameLocalRevision(req.result,expected)){table.put(clone(item));accepted=true}};
+   tx.oncomplete=()=>{db.close();resolve(accepted)};
+   tx.onabort=()=>{db.close();reject(tx.error||new Error('ENCOUNTER_COMPARE_WRITE_FAILED'))};
+   tx.onerror=()=>{db.close()};
+ });
+}
+async function archiveConflictCopies(local,remote,choice){
+ if(archiveAdapter)return archiveAdapter(clone(local),clone(remote),choice);
+ const db=await new Promise((resolve,reject)=>{
+   const req=indexedDB.open(ARCHIVE_DB,1);
+   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(ARCHIVE_STORE))req.result.createObjectStore(ARCHIVE_STORE,{keyPath:'backup_id'})};
+   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('CONFLICT_ARCHIVE_OPEN_FAILED'));
+ });
+ return new Promise((resolve,reject)=>{
+   const tx=db.transaction(ARCHIVE_STORE,'readwrite');
+   tx.objectStore(ARCHIVE_STORE).put({
+     backup_id:uuid(),owner_user_id:local.owner_user_id,encounter_id:local.encounter_id,
+     archived_at:nowIso(),choice,local:clone(local),server:clone(remote)
+   });
+   tx.oncomplete=()=>{db.close();resolve(true)};
+   tx.onabort=()=>{db.close();reject(tx.error||new Error('CONFLICT_ARCHIVE_WRITE_FAILED'))};
+   tx.onerror=()=>{db.close()};
+ });
+}
 async function idbAll(){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close()})}
-const store={get:id=>storeAdapter?.get?storeAdapter.get(id):idbGet(id),put:item=>storeAdapter?.put?storeAdapter.put(clone(item)):idbPut(item),all:()=>storeAdapter?.all?storeAdapter.all():idbAll()};
+const store={
+ get:id=>storeAdapter?.get?storeAdapter.get(id):idbGet(id),
+ put:item=>storeAdapter?.put?storeAdapter.put(clone(item)):idbPut(item),
+ all:()=>storeAdapter?.all?storeAdapter.all():idbAll(),
+ comparePut:async(expected,item)=>{
+   if(storeAdapter?.comparePut)return storeAdapter.comparePut(clone(expected),clone(item));
+   if(storeAdapter?.put){const latest=await store.get(expected.encounter_id);if(!sameLocalRevision(latest,expected))return false;await store.put(item);return true}
+   return idbComparePut(expected,item);
+ }
+};
 
 function backoff(attempt){return Math.min(300000,3000*Math.pow(2,Math.max(0,attempt-1)))}
 function due(item){return !item?.next_attempt_at||new Date(item.next_attempt_at).getTime()<=Date.now()}
@@ -103,7 +144,7 @@ async function buildLocal(reason='autosave',forcedId=''){
    created_at:previous?.created_at||ts,last_client_saved_at:ts,
    sync_state:previous?.sync_state==='conflict'?'conflict':'pending',attempt_count:Number(previous?.attempt_count||0),
    next_attempt_at:null,last_error:null,server_updated_at:previous?.server_updated_at||null,
-   sync_version:Number(previous?.sync_version||0),legacy_status:previous?.legacy_status||'draft'
+   sync_version:Number(previous?.sync_version||0),local_revision:Number(previous?.local_revision||0)+1,legacy_status:previous?.legacy_status||'draft'
  };
  return rec;
 }
@@ -183,14 +224,14 @@ async function syncOne(rec){
     // Retry only that pending draft; never overwrite it with the older response.
     try{
       const latest=await store.get(rec.encounter_id);
-      if(latest?.owner_user_id===owner()&&latest.sync_state==='pending'&&latest.last_client_saved_at!==rec.last_client_saved_at&&navigator.onLine!==false){
+      if(latest?.owner_user_id===owner()&&latest.sync_state==='pending'&&Number(latest.local_revision||0)!==Number(rec.local_revision||0)&&navigator.onLine!==false){
         setTimeout(()=>void syncOne(latest),0);
       }
     }catch(error){console.warn('NEXA pending encounter retry deferred',error)}
   }
 }
 }
-async function preserve(reason='autosave',{sync=true}={}){
+async function preserve(reason='autosave',{sync=true}={}){return serializeLocal(async()=>{
  const existingId=currentEncounterId(),fields=collectFields();
  const passiveWithoutEncounter=new Set(['before_reset','navigation','logout','pagehide','beforeunload','hidden','offline']);
  if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
@@ -199,24 +240,95 @@ async function preserve(reason='autosave',{sync=true}={}){
  if(rec.sync_state==='conflict')window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
  if(sync&&rec.sync_state!=='conflict'&&navigator.onLine!==false)void syncOne(rec);
  return rec;
-}
-async function startNew(reason='new_encounter'){
+})}
+async function startNew(reason='new_encounter'){return serializeLocal(async()=>{
  const userId=owner();if(!userId)return null;const id=uuid();setActiveId(id);
  const rec=await buildLocal(reason,id);if(!rec)return null;await store.put(rec);
  if(navigator.onLine!==false)void syncOne(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-started',{detail:{encounter_id:id}}));return rec;
-}
+})}
 async function adoptExisting(rowOrId){
  const id=String(typeof rowOrId==='object'?(rowOrId?.encounter_id||rowOrId?.id):rowOrId||'').trim();
  if(!isUuid(id))return null;setActiveId(id);
  const existing=await store.get(id);if(existing)return existing;
  const userId=owner();if(!userId)return null;
  const row=typeof rowOrId==='object'?rowOrId:{};
- window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),legacy_status:row.status||'draft'};
+ window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),local_revision:0,legacy_status:row.status||'draft'};
  await store.put(rec);return rec;
 }
-async function prioritize(){
- const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state))return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
+async function prioritize(){return serializeLocal(async()=>{
+ const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='conflict')return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
+})}
+async function reviewConflict(id){
+ const local=await store.get(id);
+ if(!local||local.owner_user_id!==owner()||local.sync_state!=='conflict')throw new Error('CONFLICT_NOT_AVAILABLE');
+ const c=client();if(!c)throw new Error('OFFLINE_REVIEW_UNAVAILABLE');
+ const {data,error}=await c.from('consultation_history')
+   .select('id,user_id,fields,status,encounter_state,protocol_usage,audit_priority,audit_ready_at,updated_at,sync_version')
+   .eq('id',id).eq('user_id',local.owner_user_id).maybeSingle();
+ if(error)throw new Error('CONFLICT_REMOTE_READ_FAILED');
+ if(!data)throw new Error('CONFLICT_REMOTE_NOT_FOUND');
+ return{local:clone(local),remote:clone(data)};
+}
+function reconcileFields(local,remote,mode,decisions){
+ if(mode==='local')return clone(local);
+ if(mode==='server')return clone(remote);
+ if(mode!=='merge'||!decisions||typeof decisions!=='object')throw new Error('INVALID_RESOLUTION_MODE');
+ const out={};const keys=new Set([...Object.keys(local||{}),...Object.keys(remote||{})]);
+ for(const key of keys){
+   const lv=typeof local?.[key]==='string'?local[key]:'';
+   const rv=typeof remote?.[key]==='string'?remote[key]:'';
+   if(lv===rv){if(lv!==''||Object.prototype.hasOwnProperty.call(local||{},key)||Object.prototype.hasOwnProperty.call(remote||{},key))out[key]=lv;continue}
+   const pick=decisions[key];
+   if(!pick||!['local','server','manual'].includes(pick.source))throw new Error('FIELD_DECISION_REQUIRED');
+   if(pick.source==='manual'&&typeof pick.value!=='string')throw new Error('INVALID_FIELD_VALUE');
+   out[key]=pick.source==='local'?lv:pick.source==='server'?rv:pick.value;
+ }
+ return out;
+}
+async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mode,decisions}){
+ const initial=await store.get(id);
+ if(!initial||initial.owner_user_id!==owner()||initial.sync_state!=='conflict')throw new Error('CONFLICT_NOT_AVAILABLE');
+ if(Number(initial.local_revision||0)!==Number(localRevision||0)||initial.last_client_saved_at!==localSavedAt)throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+ if(syncInflight.has(id))await syncInflight.get(id);
+ const current=await store.get(id);
+ if(!sameLocalRevision(current,initial))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+ const c=client();if(!c||navigator.onLine===false)throw new Error('OFFLINE_RESOLUTION_UNAVAILABLE');
+ const remoteResult=await reviewConflict(id);
+ const remote=remoteResult.remote;
+ if(Number(remote.sync_version||0)!==Number(expectedVersion))throw new Error('REMOTE_CHANGED_REVIEW_AGAIN');
+ const fields=reconcileFields(current.fields||{},remote.fields||{},mode,decisions);
+ // A durable backup of BOTH copies must exist before any resolution mutates them.
+ await archiveConflictCopies(current,remote,mode);
+ if(mode==='server'){
+   const verify=await reviewConflict(id);
+   if(Number(verify.remote.sync_version||0)!==Number(expectedVersion))throw new Error('REMOTE_CHANGED_REVIEW_AGAIN');
+   const saved={...current,fields:clone(remote.fields||{}),encounter_state:remote.encounter_state,
+     audit_priority:Number(remote.audit_priority||0),audit_ready_at:remote.audit_ready_at||null,
+     protocol_usage:clone(remote.protocol_usage||[]),legacy_status:remote.status||'draft',
+     sync_version:Number(remote.sync_version||0),server_updated_at:remote.updated_at||null,
+     sync_state:['audited','discarded'].includes(remote.encounter_state)?'locked':'synced',
+     next_attempt_at:null,last_error:null};
+   if(!(await store.comparePut(current,saved)))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+   window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:'server'}}));
+   return{resolved:true,item:saved};
+ }
+ if(['audited','discarded'].includes(remote.encounter_state))throw new Error('SERVER_RECORD_LOCKED');
+ const {data,error}=await c.from('consultation_history')
+   .update({fields,last_client_saved_at:nowIso()})
+   .eq('id',id).eq('user_id',current.owner_user_id)
+   .eq('sync_version',Number(expectedVersion))
+   .select('id,encounter_state,sync_version,updated_at,status,audit_priority,audit_ready_at').maybeSingle();
+ if(error)throw new Error('CONFLICT_RESOLUTION_WRITE_FAILED');
+ if(!data)throw new Error('REMOTE_CHANGED_REVIEW_AGAIN');
+ const saved={...current,fields:clone(fields),sync_state:'synced',last_error:null,next_attempt_at:null,
+   sync_version:Number(data.sync_version||0),server_updated_at:data.updated_at||nowIso(),
+   encounter_state:data.encounter_state||current.encounter_state,legacy_status:data.status||current.legacy_status,
+   audit_priority:Number(data.audit_priority||current.audit_priority||0),audit_ready_at:data.audit_ready_at||current.audit_ready_at};
+ // A local edit made during the remote write stays untouched and requires a new review.
+ if(!(await store.comparePut(current,saved)))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+ window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:mode}}));
+ return{resolved:true,item:saved};
 }
 function schedulePersist(reason='input'){clearTimeout(persistTimer);persistTimer=setTimeout(()=>void preserve(reason),350)}
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked','conflict'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
@@ -245,5 +357,5 @@ function bind(){
 }
 bind();
 
-window.nexaEncounterAutosave18101={DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,setStoreAdapter:a=>{storeAdapter=a||null}};
+window.nexaEncounterAutosave18101={DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,reviewConflict,resolveConflict,reconcileFields,setStoreAdapter:a=>{storeAdapter=a||null},setArchiveAdapter:a=>{archiveAdapter=a||null}};
 })();
