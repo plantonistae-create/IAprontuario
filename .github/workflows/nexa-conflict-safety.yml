@@ -7,6 +7,8 @@ on:
       - 'nexa-encounter-conflicts-v18.10.2.js'
       - 'nexa-hotfix.js'
       - 'tests/nexa-conflict-reconciliation.test.cjs'
+      - 'tests/nexa-conflict-browser.e2e.cjs'
+      - 'tests/fixtures/nexa-conflict-browser.html'
       - '.github/workflows/nexa-conflict-safety.yml'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'nexa-encounter-conflicts-v18.10.2.js'
       - 'nexa-hotfix.js'
       - 'tests/nexa-conflict-reconciliation.test.cjs'
+      - 'tests/nexa-conflict-browser.e2e.cjs'
+      - 'tests/fixtures/nexa-conflict-browser.html'
       - '.github/workflows/nexa-conflict-safety.yml'
 permissions:
   contents: read
@@ -34,3 +38,9 @@ jobs:
           node --check nexa-hotfix.js
       - name: Run synthetic consultation safety tests
         run: node --test tests/nexa-conflict-reconciliation.test.cjs
+      - name: Install pinned dependencies and focused browser
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+      - name: Run synthetic conflict interface in Chromium
+        run: node tests/nexa-conflict-browser.e2e.cjs
