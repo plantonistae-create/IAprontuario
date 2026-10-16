@@ -51,13 +51,13 @@ const server=http.createServer((req,res)=>{
   await page.locator('#nexa-c-overlay input[type="checkbox"]').check();
   await page.getByRole('button',{name:'Confirmar e salvar'}).click();
   await page.getByText('Resolução confirmada',{exact:false}).waitFor();
-  const result=await page.evaluate(id=>({
+  const result=await page.evaluate(async id=>({
    row:window.__syntheticRemote.get(id),
-   local:window.nexaEncounterAutosave18101.get(id)
+   local:await window.nexaEncounterAutosave18101.get(id)
   }),id1);
   assert.equal(result.row.fields.conduta,'Conduta local');
   assert.equal(result.row.fields.hda,'HDA do servidor');
-  assert.equal((await result.local).sync_state,'synced');
+  assert.equal(result.local.sync_state,'synced');
   const count=await page.evaluate(()=>new Promise((resolve,reject)=>{
    const req=indexedDB.open('nexa-encounter-conflict-archive-v1');
    req.onerror=()=>reject(req.error);
