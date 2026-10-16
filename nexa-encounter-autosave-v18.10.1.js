@@ -144,7 +144,7 @@ async function buildLocal(reason='autosave',forcedId='',capturedFields=null){
    consent_recorded_at:previous?.consent_recorded_at||(()=>{try{return lastProcessedMeta?.consentRecordedAt||null}catch{return null}})(),
    processing_meta:processingMeta(reason),
    created_at:previous?.created_at||ts,last_client_saved_at:ts,
-   sync_state:remainsConflict?'conflict':'pending',requires_form_refresh:needsReview,attempt_count:Number(previous?.attempt_count||0),
+   sync_state:(terminal||previous?.sync_state==='locked')?'locked':remainsConflict?'conflict':'pending',requires_form_refresh:needsReview,attempt_count:Number(previous?.attempt_count||0),
    next_attempt_at:null,last_error:null,server_updated_at:previous?.server_updated_at||null,
    sync_version:Number(previous?.sync_version||0),local_revision:Number(previous?.local_revision||0)+1,legacy_status:previous?.legacy_status||'draft'
  };
