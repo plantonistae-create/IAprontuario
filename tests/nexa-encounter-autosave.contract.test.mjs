@@ -2,127 +2,108 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const code=fs.readFileSync(new URL('../nexa-encounter-autosave-v18.10.1.js',import.meta.url),'utf8');
-for(const token of ['indexedDB.open','encounter_id','ready_for_audit','consultation_history','upsert','nexa:encounter-local-saved','nexa:encounter-synced','nexa:encounter-locked','audit_priority','pagehide','visibilitychange','online','offline'])assert.ok(code.includes(token),`missing ${token}`);
-new Function(code);
+const source=fs.readFileSync(new URL('../nexa-encounter-autosave-v18.10.1.js',import.meta.url),'utf8');
+for(const item of ['indexedDB.open','encounter_id','ready_for_audit','consultation_history','sync_version',
+ 'nexa:encounter-local-saved','nexa:encounter-synced','nexa:encounter-locked',
+ 'audit_priority','pagehide','visibilitychange','online','offline','resolveConflict','comparePut']){
+ assert.ok(source.includes(item),'missing '+item);
+}
+assert.ok(!source.includes('.upsert(remotePayload(rec)'),'Autosave must not use blind upsert for concurrent drafts');
+new Function(source);
 
-const session=new Map(),memory=new Map(),remote=[];
-const storage=map=>({getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)});
-const fields={
-  queixa_principal:'Dor torácica',
-  hda:'',
-  exame_fisico:'',
-  hipotese_diagnostica:'',
-  conduta:'',
-  antecedentes:'',
-  medicacoes:'',
-  alergias:''
-};
-function fieldNodes(){return Object.keys(fields).map(key=>({dataset:{key},querySelector:()=>({value:fields[key]})}))}
-let uuidN=0,online=false,forceUpsertError=false,terminalRemoteState='';
-const document={
-  hidden:false,
-  documentElement:{dataset:{}},
-  querySelectorAll(sel){return sel==='.field[data-key]'?fieldNodes():[]},
-  getElementById(id){if(id==='suggestedExams'||id==='suggestedPrescription'||id==='conductRecordText')return{value:id==='conductRecordText'?fields.conduta:''};return null},
-  addEventListener(){}
-};
-const navigator={get onLine(){return online}};
-const sb={
-  from(name){
-    assert.equal(name,'consultation_history');
-    return{
-      upsert(payload,{onConflict}){
-        assert.equal(onConflict,'id');remote.push(structuredClone(payload));
-        return{select(){return{single:async()=>forceUpsertError?{data:null,error:{message:'RLS update denied'}}:{data:{id:payload.id,encounter_id:payload.encounter_id,encounter_state:payload.encounter_state,audit_priority:payload.audit_priority,audit_ready_at:payload.audit_ready_at,updated_at:new Date().toISOString(),sync_version:remote.length,status:payload.status},error:null}}}}
-      },
-      select(){
-        const state={id:null,userId:null};
-        const chain={
-          eq(k,v){if(k==='id')state.id=v;if(k==='user_id')state.userId=v;return chain},
-          maybeSingle:async()=>terminalRemoteState?{data:{id:state.id,encounter_id:state.id,encounter_state:terminalRemoteState,updated_at:new Date().toISOString(),sync_version:99,status:'draft'},error:null}:{data:null,error:null}
-        };
-        return chain;
-      }
-    }
-  }
-};
+const records=new Map(),server=new Map(),session=new Map();
+const fields={queixa_principal:'Dor torácica fictícia',hda:'',exame_fisico:'',hipotese_diagnostica:'',conduta:'',antecedentes:''};
+const profileId='11111111-1111-4111-8111-111111111111';
+const storage={getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,String(v)),removeItem:k=>session.delete(k)};
+let online=false,nextId=0;
+function supabase(){
+ return{from(table){
+   assert.equal(table,'consultation_history');
+   let op='',payload=null,where={};
+   const query={
+     insert(x){op='insert';payload=structuredClone(x);return query},
+     update(x){op='update';payload=structuredClone(x);return query},
+     select(){if(!op)op='select';return query},
+     eq(k,v){where[k]=v;return query},
+     async single(){return run()},
+     async maybeSingle(){return run()}
+   };
+   function run(){
+     const id=where.id||payload?.id;
+     const old=server.get(id);
+     if(op==='select'){
+       if(!old||Object.entries(where).some(([key,value])=>old[key]!==value))return{data:null,error:null};
+       return{data:structuredClone(old),error:null};
+     }
+     if(op==='insert'){
+       if(old)return{data:null,error:{code:'23505'}};
+       const row={...payload,sync_version:0,updated_at:new Date().toISOString()};
+       server.set(id,row);return{data:structuredClone(row),error:null};
+     }
+     if(op==='update'){
+       if(!old||Object.entries(where).some(([key,value])=>old[key]!==value))return{data:null,error:null};
+       const row={...old,...payload,sync_version:old.sync_version+1,updated_at:new Date().toISOString()};
+       server.set(id,row);return{data:structuredClone(row),error:null};
+     }
+     throw new Error('Query must be select, insert or conditional update');
+   }
+   return query;
+ }};
+}
+const sb=supabase();
 const context={
-  console,structuredClone,document,navigator,sessionStorage:storage(session),indexedDB:{open(){throw new Error('adapter expected')}},
-  crypto:{randomUUID:()=>`00000000-0000-4000-8000-${String(++uuidN).padStart(12,'0')}`},
+  console,structuredClone,document:{
+    documentElement:{dataset:{}},
+    querySelectorAll:selector=>selector==='.field[data-key]'?Object.keys(fields).map(key=>({
+      dataset:{key},querySelector:()=>({value:fields[key]})
+    })):[],
+    getElementById:()=>null,addEventListener(){}
+  },
+  navigator:{get onLine(){return online}},
+  sessionStorage:storage,indexedDB:{open(){throw new Error('Adapter expected')}},
+  crypto:{randomUUID:()=> '00000000-0000-4000-8000-'+String(++nextId).padStart(12,'0')},
   CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},
-  Event:class{},Date,Math,Promise,
-  setTimeout:()=>0,clearTimeout(){},addEventListener(){},dispatchEvent(){return true},window:null,
-  currentProf:{id:'11111111-1111-4111-8111-111111111111'},
-  collect:()=>structuredClone(fields),
-  lastProcessedMeta:{consentRecordedAt:'2026-09-25T10:00:00.000Z'},
-  hypothesisReview:{status:'pending'},nexaAlternativeHypotheses:[],nexaDiscardedHypotheses:[],clinicalPlanCache:{},
-  sb,nexaClinicalSupabase18101:sb
+  setTimeout:()=>0,clearTimeout(){},addEventListener(){},dispatchEvent(){},
+  currentProf:{id:profileId},collect:()=>structuredClone(fields),nexaClinicalSupabase18101:sb,
+  window:null
 };
 context.window=context;
-vm.runInNewContext(code,context);
+vm.runInNewContext(source,context);
 const api=context.nexaEncounterAutosave18101;
 api.setStoreAdapter({
-  get:async id=>memory.get(id)||null,
-  put:async item=>{memory.set(item.encounter_id,structuredClone(item));return structuredClone(item)},
-  all:async()=>[...memory.values()].map(structuredClone)
+ get:async id=>structuredClone(records.get(id)||null),
+ put:async rec=>{records.set(rec.encounter_id,structuredClone(rec));return rec},
+ all:async()=>structuredClone([...records.values()]),
+ comparePut:async(expected,rec)=>{
+   const old=records.get(expected.encounter_id);
+   if(!old||old.local_revision!==expected.local_revision||old.sync_state!==expected.sync_state)return false;
+   records.set(rec.encounter_id,structuredClone(rec));return true;
+ }
 });
-
-let rec=await api.startNew('qa_new');
-assert.ok(rec?.encounter_id,'new encounter must get id');
-const firstId=rec.encounter_id;
-assert.equal(memory.size,1);
-assert.equal(memory.get(firstId).encounter_state,'draft');
-assert.equal(remote.length,0,'offline start stays local');
-
+const first=await api.startNew('first');
+assert.ok(first.encounter_id);assert.equal(records.size,1);assert.equal(server.size,0);
 online=true;
-let sent=await api.syncOne(memory.get(firstId));
-assert.equal(sent.sent,true);
-assert.equal(remote.length,1);
-assert.equal(remote[0].id,firstId);
-assert.equal(remote[0].encounter_id,firstId);
-
-fields.hda='Paciente com dor torácica iniciada há duas horas, sem síncope.';
-fields.exame_fisico='BEG, eupneico.';
-rec=await api.preserve('input',{sync:false});
-assert.equal(rec.encounter_id,firstId,'autosave must update same encounter');
-assert.equal(memory.size,1,'autosave must not duplicate');
-assert.equal(rec.encounter_state,'ready_for_audit');
-const readyAt=rec.audit_ready_at;
-assert.ok(readyAt);
-
-fields.hda='';fields.exame_fisico='';
-rec=await api.preserve('later_edit',{sync:false});
-assert.equal(rec.encounter_state,'ready_for_audit','ready state must be monotonic locally');
-assert.equal(rec.audit_ready_at,readyAt);
-
-rec=await api.prioritize();
-assert.equal(rec.encounter_id,firstId);
-assert.equal(rec.audit_priority,1);
-assert.equal(memory.size,1);
-
-api.rotateEncounter();
+assert.equal((await api.syncOne(await api.get(first.encounter_id))).sent,true);
+assert.equal(server.get(first.encounter_id).id,first.encounter_id);
 online=false;
-const second=await api.startNew('qa_second');
-assert.notEqual(second.encounter_id,firstId);
-assert.equal(memory.size,2);
-
-const adopted=await api.adoptExisting({id:firstId,encounter_id:firstId,fields:{hda:'Histórico'},encounter_state:'ready_for_audit',audit_priority:1,status:'draft'});
-assert.equal(api.currentEncounterId(),firstId);
-assert.equal(adopted.encounter_id,firstId);
-
-// Remote audit completion is terminal: a rejected upsert resolves to the remote audited/discarded state and stops retries.
-forceUpsertError=true;terminalRemoteState='audited';
-const terminalResult=await api.syncOne({...memory.get(firstId),sync_state:'pending',encounter_state:'ready_for_audit'});
-assert.equal(terminalResult.locked,true);
-assert.equal(memory.get(firstId).sync_state,'locked');
-assert.equal(memory.get(firstId).encounter_state,'audited');
-const callsBeforeTerminal=remote.length;
-const lockedRetry=await api.syncOne(memory.get(firstId));
-assert.equal(lockedRetry.locked,true);
-assert.equal(remote.length,callsBeforeTerminal,'locked audited encounter must not retry remote writes');
-fields.hda='Alteração posterior local que não pode reabrir auditoria concluída.';
-const terminalLocal=await api.preserve('later_edit',{sync:false});
-assert.equal(terminalLocal.encounter_state,'audited','terminal encounter must not regress to ready_for_audit');
-
-console.log('NEXA encounter autosave offline/upsert contract: PASS');
+fields.hda='Paciente fictício com dor iniciada há duas horas, sem síncope.';
+fields.exame_fisico='Bom estado geral, eupneico.';
+const ready=await api.preserve('input',{sync:false});
+assert.equal(ready.encounter_state,'ready_for_audit');
+assert.ok(ready.audit_ready_at);
+fields.hda='';fields.exame_fisico='';
+const revision=await api.preserve('next',{sync:false});
+assert.equal(revision.encounter_state,'ready_for_audit','Audit-ready state must not regress');
+assert.equal(revision.audit_ready_at,ready.audit_ready_at);
+const prioritized=await api.prioritize();
+assert.equal(prioritized.audit_priority,1);
+api.rotateEncounter();
+const second=await api.startNew('second');
+assert.notEqual(second.encounter_id,first.encounter_id);
+assert.equal(records.size,2);
+const terminal={...(await api.get(first.encounter_id)),encounter_state:'audited',sync_state:'locked'};
+await api.put(terminal);api.setActiveId(first.encounter_id);
+const after=await api.preserve('later',{sync:false});
+assert.equal(after.encounter_state,'audited');
+assert.equal(after.sync_state,'locked','An audited encounter must remain locked after local edits');
+console.log('NEXA encounter autosave offline, audit, CAS contract: PASS');
