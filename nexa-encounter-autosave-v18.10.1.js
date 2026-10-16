@@ -101,7 +101,7 @@ async function buildLocal(reason='autosave',forcedId=''){
    consent_recorded_at:previous?.consent_recorded_at||(()=>{try{return lastProcessedMeta?.consentRecordedAt||null}catch{return null}})(),
    processing_meta:processingMeta(reason),
    created_at:previous?.created_at||ts,last_client_saved_at:ts,
-   sync_state:'pending',attempt_count:Number(previous?.attempt_count||0),
+   sync_state:previous?.sync_state==='conflict'?'conflict':'pending',attempt_count:Number(previous?.attempt_count||0),
    next_attempt_at:null,last_error:null,server_updated_at:previous?.server_updated_at||null,
    sync_version:Number(previous?.sync_version||0),legacy_status:previous?.legacy_status||'draft'
  };
@@ -119,6 +119,7 @@ async function syncOne(rec){
  if(rec?.encounter_id&&syncInflight.has(rec.encounter_id))return syncInflight.get(rec.encounter_id);
  const task=(async()=>{
  if(!rec||rec.owner_user_id!==owner())return{skipped:true};
+ if(rec.sync_state==='conflict')return{sent:false,conflict:true,item:rec};
  if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='locked')return{locked:true,item:rec};
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
  const attempt=Number(rec.attempt_count||0)+1;
@@ -195,7 +196,8 @@ async function preserve(reason='autosave',{sync=true}={}){
  if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
  const rec=await buildLocal(reason);if(!rec)return null;await store.put(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-local-saved',{detail:{encounter_id:rec.encounter_id,state:rec.encounter_state,reason}}));
- if(sync&&navigator.onLine!==false)void syncOne(rec);
+ if(rec.sync_state==='conflict')window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
+ if(sync&&rec.sync_state!=='conflict'&&navigator.onLine!==false)void syncOne(rec);
  return rec;
 }
 async function startNew(reason='new_encounter'){
