@@ -108,26 +108,39 @@ async function commit(mode){
    problem(error);setActions(button('Reabrir revisão',()=>void open(id),true),button('Adiar',close));
  }finally{st.busy=false}
 }
+async function refreshStatus(){
+ if(!init())return;
+ const userId=owner(),id=api.currentEncounterId();
+ if(!userId||!id){status.hidden=true;return}
+ try{
+   const current=await api.get(id);
+   if(!current||current.owner_user_id!==owner()){status.hidden=true;return}
+   status.hidden=false;
+   status.textContent=current.requires_form_refresh?'Versão reconciliada: reabra o atendimento antes de editar':
+     current.sync_state==='synced'?'Prontuário sincronizado no servidor':
+     current.sync_state==='conflict'?'Conflito: cópia local preservada':
+     current.sync_state==='locked'?'Prontuário bloqueado para edição':'Rascunho salvo localmente — aguardando sincronização';
+ }catch{status.hidden=true}
+}
 async function refresh(){
  if(!init())return;
  try{
    const userId=owner();if(!userId){banner.hidden=true;status.hidden=true;return}
+   if(st.review&&st.review.local.owner_user_id!==userId)close();
    const all=await api.all(),conflicts=all.filter(x=>x.owner_user_id===userId&&x.sync_state==='conflict');
    banner.replaceChildren();banner.hidden=!conflicts.length;
    if(conflicts.length)banner.append(el('strong',conflicts.length+' prontuário(s) com conflito'),
       el('div','As versões locais não serão reenviadas automaticamente.','nexa-c-note'),
       ...conflicts.slice(0,6).map(x=>button('Revisar '+String(x.encounter_id).slice(0,8),()=>void open(x.encounter_id),true)));
-   const id=api.currentEncounterId(),current=all.find(x=>x.encounter_id===id&&x.owner_user_id===userId);
-   status.hidden=!current;
-   if(current)status.textContent=current.sync_state==='synced'?'Prontuário sincronizado no servidor':
-     current.sync_state==='conflict'?'Conflito: cópia local preservada':
-     current.sync_state==='locked'?'Prontuário bloqueado para edição':'Rascunho salvo localmente — aguardando sincronização';
+   await refreshStatus();
  }catch{banner.hidden=true;status.hidden=true}
 }
 window.nexaEncounterConflictReview18102={open,refresh,close};
-for(const event of ['nexa:encounter-sync-conflict','nexa:encounter-local-saved','nexa:encounter-synced',
- 'nexa:encounter-sync-failed','nexa:encounter-conflict-resolved','nexa:encounter-locked','nexa:encounter-started']){
+for(const event of ['nexa:encounter-sync-conflict','nexa:encounter-conflict-resolved','nexa:encounter-locked']){
  window.addEventListener(event,()=>void refresh());
+}
+for(const event of ['nexa:encounter-local-saved','nexa:encounter-synced','nexa:encounter-sync-failed','nexa:encounter-started']){
+ window.addEventListener(event,()=>void refreshStatus());
 }
 window.addEventListener('online',()=>void refresh());window.addEventListener('focus',()=>void refresh());
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>void refresh(),{once:true});
