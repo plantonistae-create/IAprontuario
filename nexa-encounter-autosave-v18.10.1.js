@@ -127,10 +127,10 @@ const store={
 
 function backoff(attempt){return Math.min(300000,3000*Math.pow(2,Math.max(0,attempt-1)))}
 function due(item){return !item?.next_attempt_at||new Date(item.next_attempt_at).getTime()<=Date.now()}
-async function buildLocal(reason='autosave',forcedId=''){
+async function buildLocal(reason='autosave',forcedId='',capturedFields=null){
  const userId=owner();if(!userId)return null;
  let id=String(forcedId||currentEncounterId()||'').trim();if(!isUuid(id))id=uuid();setActiveId(id);
- const previous=await store.get(id),fields=collectFields(),ready=eligible(fields),ts=nowIso();
+ const previous=await store.get(id),fields=capturedFields===null?collectFields():clone(capturedFields),ready=eligible(fields),ts=nowIso();
  const needsReview=!!previous?.requires_form_refresh&&JSON.stringify(fields)!==JSON.stringify(previous.fields||{});
  const remainsConflict=previous?.sync_state==='conflict'||needsReview;
  const terminal=['audited','discarded'].includes(previous?.encounter_state);
@@ -229,23 +229,27 @@ async function syncOne(rec){
       if(latest?.owner_user_id===owner()&&latest.sync_state==='pending'&&Number(latest.local_revision||0)!==Number(rec.local_revision||0)&&navigator.onLine!==false){
         setTimeout(()=>void syncOne(latest),0);
       }
-    }catch(error){console.warn('NEXA pending encounter retry deferred',error)}
+    }catch{console.warn('NEXA pending encounter retry deferred')}
   }
 }
 }
-async function preserve(reason='autosave',{sync=true}={}){return serializeLocal(async()=>{
+async function preserve(reason='autosave',{sync=true}={}){
+ // Capture before queued IndexedDB work: Reset/pagehide may clear the visible form.
  const existingId=currentEncounterId(),fields=collectFields();
+ return serializeLocal(async()=>{
  const passiveWithoutEncounter=new Set(['before_reset','navigation','logout','pagehide','beforeunload','hidden','offline']);
  if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
- const rec=await buildLocal(reason);if(!rec)return null;await store.put(rec);
+ const rec=await buildLocal(reason,existingId,fields);if(!rec)return null;await store.put(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-local-saved',{detail:{encounter_id:rec.encounter_id,state:rec.encounter_state,reason}}));
  if(rec.sync_state==='conflict')window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
  if(sync&&rec.sync_state!=='conflict'&&navigator.onLine!==false)void syncOne(rec);
  return rec;
 })}
-async function startNew(reason='new_encounter'){return serializeLocal(async()=>{
+async function startNew(reason='new_encounter'){
+ const capturedFields=collectFields();
+ return serializeLocal(async()=>{
  const userId=owner();if(!userId)return null;const id=uuid();setActiveId(id);
- const rec=await buildLocal(reason,id);if(!rec)return null;await store.put(rec);
+ const rec=await buildLocal(reason,id,capturedFields);if(!rec)return null;await store.put(rec);
  if(navigator.onLine!==false)void syncOne(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-started',{detail:{encounter_id:id}}));return rec;
 })}
