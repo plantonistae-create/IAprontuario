@@ -123,8 +123,33 @@ async function syncOne(rec){
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
  const attempt=Number(rec.attempt_count||0)+1;
  try{
-   const q=c.from('consultation_history').upsert(remotePayload(rec),{onConflict:'id'}).select('id,encounter_id,encounter_state,audit_priority,audit_ready_at,updated_at,sync_version,status').single();
-   const {data,error}=await q;if(error)throw error;
+   // Optimistic concurrency: never overwrite a newer server revision.
+   const table=c.from('consultation_history');
+   const columns='id,encounter_id,encounter_state,audit_priority,audit_ready_at,updated_at,sync_version,status';
+   const payload=remotePayload(rec);
+   const expected=Number(rec.sync_version||0);
+   let data=null,error=null;
+   if(expected>0){
+     const update=await table.update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
+     data=update.data;error=update.error;
+   }else{
+     // A draft without a server revision can only create a new row.
+     const insert=await table.insert(payload).select(columns).single();
+     data=insert.data;error=insert.error;
+     if(error?.code==='23505'){error=null;data=null}
+   }
+   if(!error&&!data){
+     const {data:current,error:readError}=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+     if(readError)throw readError;
+     if(current){
+       const conflict={...rec,sync_state:'conflict',last_error:'SERVER_VERSION_CONFLICT',next_attempt_at:null};
+       if(!(await putSyncResultIfCurrent(rec,conflict)))return{sent:false,stale:true};
+       window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
+       return{sent:false,conflict:true,item:conflict};
+     }
+     throw new Error('SYNC_ROW_NOT_WRITABLE');
+   }
+   if(error)throw error;
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
    const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
@@ -184,9 +209,9 @@ async function prioritize(){
  const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state))return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
 }
 function schedulePersist(reason='input'){clearTimeout(persistTimer);persistTimer=setTimeout(()=>void preserve(reason),350)}
-function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
+function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked','conflict'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
 async function flush(reason='manual'){
- if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
+ if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
 }
 function bind(){
  document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('input')},true);
