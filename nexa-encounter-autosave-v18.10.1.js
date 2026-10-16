@@ -131,6 +131,8 @@ async function buildLocal(reason='autosave',forcedId=''){
  const userId=owner();if(!userId)return null;
  let id=String(forcedId||currentEncounterId()||'').trim();if(!isUuid(id))id=uuid();setActiveId(id);
  const previous=await store.get(id),fields=collectFields(),ready=eligible(fields),ts=nowIso();
+ const needsReview=!!previous?.requires_form_refresh&&JSON.stringify(fields)!==JSON.stringify(previous.fields||{});
+ const remainsConflict=previous?.sync_state==='conflict'||needsReview;
  const terminal=['audited','discarded'].includes(previous?.encounter_state);
  const wasReady=previous?.encounter_state==='ready_for_audit';
  const state=terminal?previous.encounter_state:(wasReady||ready)?'ready_for_audit':'draft';
@@ -142,7 +144,7 @@ async function buildLocal(reason='autosave',forcedId=''){
    consent_recorded_at:previous?.consent_recorded_at||(()=>{try{return lastProcessedMeta?.consentRecordedAt||null}catch{return null}})(),
    processing_meta:processingMeta(reason),
    created_at:previous?.created_at||ts,last_client_saved_at:ts,
-   sync_state:previous?.sync_state==='conflict'?'conflict':'pending',attempt_count:Number(previous?.attempt_count||0),
+   sync_state:remainsConflict?'conflict':'pending',requires_form_refresh:needsReview,attempt_count:Number(previous?.attempt_count||0),
    next_attempt_at:null,last_error:null,server_updated_at:previous?.server_updated_at||null,
    sync_version:Number(previous?.sync_version||0),local_revision:Number(previous?.local_revision||0)+1,legacy_status:previous?.legacy_status||'draft'
  };
@@ -308,7 +310,7 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
      protocol_usage:clone(remote.protocol_usage||[]),legacy_status:remote.status||'draft',
      sync_version:Number(remote.sync_version||0),server_updated_at:remote.updated_at||null,
      sync_state:['audited','discarded'].includes(remote.encounter_state)?'locked':'synced',
-     next_attempt_at:null,last_error:null};
+     requires_form_refresh:true,next_attempt_at:null,last_error:null};
    if(!(await store.comparePut(current,saved)))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
    window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:'server'}}));
    return{resolved:true,item:saved};
@@ -321,7 +323,7 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
    .select('id,encounter_state,sync_version,updated_at,status,audit_priority,audit_ready_at').maybeSingle();
  if(error)throw new Error('CONFLICT_RESOLUTION_WRITE_FAILED');
  if(!data)throw new Error('REMOTE_CHANGED_REVIEW_AGAIN');
- const saved={...current,fields:clone(fields),sync_state:'synced',last_error:null,next_attempt_at:null,
+ const saved={...current,fields:clone(fields),sync_state:'synced',requires_form_refresh:mode==='merge',last_error:null,next_attempt_at:null,
    sync_version:Number(data.sync_version||0),server_updated_at:data.updated_at||nowIso(),
    encounter_state:data.encounter_state||current.encounter_state,legacy_status:data.status||current.legacy_status,
    audit_priority:Number(data.audit_priority||current.audit_priority||0),audit_ready_at:data.audit_ready_at||current.audit_ready_at};
