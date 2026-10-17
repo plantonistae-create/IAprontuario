@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -1124,7 +1125,8 @@ async function openAIResponse(
 async function processOpenAI(
   audio: File,
   caseMode: string,
-  examples: any[]
+  examples: any[],
+  verifiedTranscript = ""
 ) {
 
   const key =
@@ -1163,6 +1165,9 @@ async function processOpenAI(
     structModel;
 
 
+  // The clinician-confirmed diarization path must not bill a second audio transcription.
+  let transcript = verifiedTranscript;
+  if (!verifiedTranscript) {
   /* TRANSCRIÇÃO */
 
   const fd =
@@ -1230,7 +1235,7 @@ async function processOpenAI(
     await tr.json();
 
 
-  const transcript =
+  transcript =
     transcriptionData.text || "";
 
 
@@ -1242,6 +1247,8 @@ async function processOpenAI(
     );
   }
 
+
+  }
 
   /* DOCUMENTAÇÃO */
 
@@ -1752,6 +1759,35 @@ Deno.serve(
       await requireUser(
         req
       );
+      // Separate authenticated review stage: speaker roles were confirmed in the UI.
+      // No raw audio or transcript is persisted here; the generated clinical fields
+      // remain subject to the physician's normal review.
+      if ((req.headers.get("content-type") || "").includes("application/json")) {
+        if (AI_PROVIDER !== "openai") return json(req,{error:"DIARIZATION_PROVIDER_UNAVAILABLE"},409);
+        const body = await req.json().catch(() => null);
+        let verified;
+        try {
+          verified = buildVerifiedSpeakerTranscript(body?.segments,body?.roles);
+        } catch {
+          return json(req,{error:"SPEAKER_ROLE_CONFIRMATION_REQUIRED"},400);
+        }
+        const caseMode = String(body?.case_mode || "upper");
+        const examples = Array.isArray(body?.style_examples) ? body.style_examples.slice(-5) : [];
+        const reviewedExamples = examples.length ? examples : await loadDefaultStyleExamples(5);
+        const { value: result, metadata } = await executeCapability({
+          capability:"consultation.processing",
+          provider:"openai",
+          model:"gpt-4o-transcribe-diarize + clinical structuring",
+          execute: () => processOpenAI(new File([""],"verified-speaker-transcript.txt"),caseMode,reviewedExamples,verified.transcript),
+          validate: (value) => Boolean(value && typeof value === "object" && value.fields)
+        });
+        return withTechnicalExecutionHeaders(json(req,{
+          ...result,
+          speaker_attribution:verified.speakerAttribution,
+          stages:["diarization_verified","documentation","clinical_assistance"]
+        }),metadata);
+      }
+
 
 
       /* FORM DATA */
