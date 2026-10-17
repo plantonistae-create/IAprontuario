@@ -4,6 +4,7 @@ const fs=require("node:fs");
 const A=require("../nexa-core-audit-learning-v2.js");
 const sql=fs.readFileSync("supabase/migrations/20261017173000_nexa_core_audit_learning_v2.sql","utf8");
 const html=fs.readFileSync("index.html","utf8");
+const auditor=fs.readFileSync("nexa-auditor-exact-v18.9.js","utf8");
 
 test("30 audited cases are initial gate; reviewer progress is actual, not training rights",()=>{
   let m=A.normalizeMetrics({consultations:252,queued:128,approved:0,corrected:0,audited_total:0,
@@ -64,4 +65,7 @@ test("UI does not grant training as a side effect of clinical review",()=>{
   assert.match(html,/NexaAuditLearningV2\.selectCases/);
   assert.match(html,/Selecionar para avaliação offline \(não libera treinamento\)/);
   assert.match(html,/review_nexa_core_dataset_rights/);
+  assert.match(auditor,/get_nexa_audit_learning_metrics/);
+  assert.match(auditor,/Liberados para dataset/);
+  assert.match(auditor,/Abrir auditoria guiada e classificação de erros/);
 });
