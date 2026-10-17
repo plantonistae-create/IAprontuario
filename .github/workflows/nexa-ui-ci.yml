@@ -36,6 +36,7 @@ jobs:
           node tests/nexa-clinical-regression-hotfix.contract.test.mjs
           node tests/nexa-auditor-consent-hotfix.contract.test.mjs
           node tests/nexa-audit-outbox.contract.test.mjs
+          node tests/nexa-inline-syntax.test.mjs
       - name: Install focused browser
         run: npx playwright install --with-deps chromium
       - name: Processing History Audit sequential E2E
