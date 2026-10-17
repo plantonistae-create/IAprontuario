@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateSpeakerSegments, buildVerifiedSpeakerTranscript } from "../supabase/functions/_shared/nexa-speaker-contract.mjs";
+import { validateSpeakerSegments, buildVerifiedSpeakerTranscript, buildAutomaticSpeakerTranscript } from "../supabase/functions/_shared/nexa-speaker-contract.mjs";
 import { safeCoreContext } from "../supabase/functions/submit-audit-case/audit-contract.mjs";
 
 const segments = [
@@ -48,4 +48,20 @@ test("auditing retains only deidentified speaker counts", () => {
   });
   assert.equal(result.speaker_attribution.role_segment_counts.companion, 1);
   assert.equal(JSON.stringify(result).includes("conteúdo que não deve ser retido"), false);
+});
+
+test("zero-click mode labels acoustic speakers without claiming roles", () => {
+  const result = buildAutomaticSpeakerTranscript(segments);
+  assert.match(result.transcript, /LOCUTOR A \(papel não confirmado\):/);
+  assert.match(result.transcript, /LOCUTOR B \(papel não confirmado\):/);
+  assert.match(result.transcript, /LOCUTOR C \(papel não confirmado\):/);
+  assert.equal(result.speakerAttribution.confirmed_by_physician, false);
+  assert.equal(result.speakerAttribution.role_segment_counts.patient, 0);
+  assert.equal(result.speakerAttribution.role_segment_counts.companion, 0);
+  assert.equal(result.speakerAttribution.role_segment_counts.other, 3);
+  assert.equal(result.speakerAttribution.transcript_retained, false);
+});
+test("zero-click mode does not require role selection and validates malformed segments", () => {
+  assert.doesNotThrow(() => buildAutomaticSpeakerTranscript(segments));
+  assert.throws(() => buildAutomaticSpeakerTranscript([{speaker:"A",start:7,end:2,text:"erro"}]), /INVALID_SPEAKER_SEGMENTS/);
 });
