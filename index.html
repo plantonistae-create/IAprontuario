@@ -2736,23 +2736,54 @@ async function loadCoreDatasetSummary(){
     exportButton.onclick=async()=>{
       const version=prompt('Versão do dataset (ex.: nexa-2026-10-v1):','nexa-2026-10-v1');
       if(!version)return;
-      const offsetText=prompt('Lote inicial (0, 100, 200...):','0');
-      if(offsetText===null)return;
-      const offset=Number(offsetText);
-      if(!Number.isInteger(offset)||offset<0){alert('Lote inválido.');return}
-      exportButton.disabled=true;
+      if(!/^[a-zA-Z0-9_.-]{3,80}$/.test(version))return show('Nome de versão inválido.',true);
+      exportButton.disabled=true;exportButton.textContent='Preparando exportação auditada…';
       try{
         const headers=await sessionHeaders();
-        const r=await fetch(SUPABASE_URL+'/functions/v1/core-dataset-export',{
-          method:'POST',headers,body:JSON.stringify({dataset_version:version,offset,limit:100})
-        });
-        if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'EXPORT_FAILED')}
-        const blob=await r.blob(),objectUrl=URL.createObjectURL(blob),a=document.createElement('a');
-        a.href=objectUrl;a.download='nexa-core-'+version+'-'+offset+'.jsonl';a.click();
-        setTimeout(()=>URL.revokeObjectURL(objectUrl),10000);
-        show('Lote do dataset exportado. Mantenha o arquivo em armazenamento protegido.');
+        let text='',count=0,batches=[];
+        for(let offset=0;offset<100000;offset+=100){
+          const r=await fetch(SUPABASE_URL+'/functions/v1/core-dataset-export',{
+            method:'POST',headers,body:JSON.stringify({dataset_version:version,offset,limit:100}),
+            cache:'no-store'
+          });
+          if(r.status===404){
+            const d=await r.json().catch(()=>({}));
+            if(d.error==='NO_APPROVED_CASES'&&offset>0)break;
+            throw new Error(d.error||'Nenhum caso aprovado e liberado para treinamento.');
+          }
+          if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'EXPORT_FAILED')}
+          const batchText=await r.text();
+          const lines=batchText.split('\n').filter(Boolean);
+          if(!lines.length)throw new Error('EXPORT_EMPTY_BATCH');
+          for(const line of lines){
+            const parsed=JSON.parse(line);
+            if(parsed.datasetVersion!==version||parsed.artifactType!=='DATASET_ITEM')
+              throw new Error('EXPORT_SCHEMA_MISMATCH');
+          }
+          text+=batchText;count+=lines.length;
+          batches.push({offset,items:lines.length,sha256:r.headers.get('X-NEXA-SHA256')||null});
+          exportButton.textContent='Exportando '+count+' casos…';
+          if(lines.length<100)break;
+        }
+        if(!count)throw new Error('NO_APPROVED_CASES');
+        const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+        const digest=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
+        const manifest={
+          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',
+          exportedAt:new Date().toISOString(),caseCount:count,sha256:digest,
+          batches,documentation:'docs/NEXA_CORE_COMMERCIAL_ARCHITECTURE.md',
+          warning:'A exportação usa identificadores pseudonimizados. Mantenha acesso restrito; esta exportação não comprova anonimização irreversível.'
+        };
+        const download=(blob,name)=>{
+          const url=URL.createObjectURL(blob),a=document.createElement('a');
+          a.href=url;a.download=name;document.body.append(a);a.click();a.remove();
+          setTimeout(()=>URL.revokeObjectURL(url),30000);
+        };
+        download(new Blob([text],{type:'application/x-ndjson'}),'nexa-core-'+version+'.jsonl');
+        download(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),'nexa-core-'+version+'-manifest.json');
+        show('Dataset exportado: '+count+' casos auditados e liberados. Guarde também o manifesto e seu hash SHA-256.');
       }catch(e){show('Exportação indisponível: '+e.message,true)}
-      finally{exportButton.disabled=false}
+      finally{exportButton.disabled=false;exportButton.textContent='Exportar dataset auditado (JSONL)'}
     };
     el.append(document.createElement('br'),exportButton);
   }}catch(e){el.textContent='NEXA Core · resumo do conjunto auditado ficará disponível após aplicar a atualização SQL 07.'}
