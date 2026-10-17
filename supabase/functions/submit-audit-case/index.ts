@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { isPlainObject, normalizeSnapshotVersion, safeCoreContext, validateDeidentifiedEnvelope } from "./audit-contract.mjs";
+import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
 
 const env=(name:string)=>Deno.env.get(name)||'';
 const SUPABASE_URL=env('SUPABASE_URL');
@@ -90,7 +91,7 @@ serve(async(req)=>{
   }
 
   const input={fields,core_context:coreContext};
-  const prompt=`Retorne SOMENTE JSON com fields e core_context. Desidentifique completamente o caso, inclusive PII em texto livre. Preserve conteúdo clínico e preserve separadamente learning_layers.original_ai e learning_layers.physician_final; audit_corrected permanece null. Preserve destination, hypothesis_validation e audit_submission_snapshot. Não inclua identificadores do paciente ou médico. Não invente dados. Entrada: ${JSON.stringify(input).slice(0,48000)}`;
+  const prompt=`Retorne SOMENTE JSON com fields e core_context. Desidentifique completamente o caso, inclusive PII em texto livre. Preserve conteúdo clínico e preserve separadamente learning_layers.original_ai e learning_layers.physician_final; audit_corrected permanece null. Preserve destination, hypothesis_validation e audit_submission_snapshot. A seção radar_feedback, se presente, deve conter somente ações em conceitos clínicos, sem citações de falas nem dados pessoais. Não inclua identificadores do paciente ou médico. Não invente dados. Entrada: ${JSON.stringify(input).slice(0,48000)}`;
   const {value:deidExecution,metadata:auditExecutionMetadata}=await executeCapability({
     capability:'audit.submit',
     provider:AUDIT_PROVIDER,
@@ -106,7 +107,13 @@ serve(async(req)=>{
     validate:(value: unknown)=>value instanceof Response||Boolean(value&&typeof value==='object'&&'fields' in value&&'core' in value),
   });
   if(deidExecution instanceof Response)return withTechnicalExecutionHeaders(deidExecution,auditExecutionMetadata);
-  const deidentifiedFields=deidExecution.fields,deidentifiedCore=deidExecution.core;
+  // Technical physician interactions are preserved after deidentification using
+  // a strict allowlist. The external model cannot expand them to raw speech.
+  const deidentifiedFields=deidExecution.fields;
+  const deidentifiedCore={
+    ...deidExecution.core,
+    radar_feedback:sanitizeRadarFeedback(coreContext.radar_feedback)
+  };
   const withAuditExecution=(response:Response)=>withTechnicalExecutionHeaders(response,auditExecutionMetadata);
 
   if(existing){
