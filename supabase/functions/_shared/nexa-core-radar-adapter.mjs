@@ -15,6 +15,7 @@ export function resolveCoreRadarEndpoint(value) {
   return url.toString();
 }
 
+/** @param {{transcript?:string,fields?:Record<string,unknown>,previous?:Record<string,unknown>,conceptIds?:string[],model?:string}} options */
 export function createCoreRadarRequest({transcript="",fields={},previous={},conceptIds=[],model=""}) {
   if (typeof transcript !== "string" || transcript.length > 45000 ||
       !fields || typeof fields !== "object" || Array.isArray(fields) ||
