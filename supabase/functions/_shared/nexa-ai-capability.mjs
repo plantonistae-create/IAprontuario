@@ -27,6 +27,7 @@ export const NEXA_AI_CAPABILITIES = Object.freeze({
     defaultProvider: "openai",
     providers: Object.freeze({
       openai: Object.freeze({ adapterVersion: "radar-openai-legacy-v1" }),
+      "nexa-core": Object.freeze({ adapterVersion: "radar-nexa-core-http-v1" }),
     }),
   }),
   "audit.submit": Object.freeze({
