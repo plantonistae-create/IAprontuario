@@ -14,6 +14,7 @@ const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.strin
 const nowIso=()=>new Date().toISOString();
 let storeAdapter=null,archiveAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
 let localPersistQueue=Promise.resolve();
+const editedAfterReconciliation=new Set();
 function serializeLocal(fn){const p=localPersistQueue.then(fn,fn);localPersistQueue=p.catch(()=>{});return p}
 const syncInflight=new Map();
 function sameLocalRevision(current,expected){
@@ -239,7 +240,13 @@ async function preserve(reason='autosave',{sync=true}={}){
  return serializeLocal(async()=>{
  const passiveWithoutEncounter=new Set(['before_reset','navigation','logout','pagehide','beforeunload','hidden','offline']);
  if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
+ // After choosing server/merge the old on-screen form must be refreshed. Browser
+ // pagehide, navigation and timers must not recreate a conflict with stale
+ // screen values unless an intentional clinical input was made afterwards.
+ const previous=existingId?await store.get(existingId):null;
+ if(previous?.requires_form_refresh&&!editedAfterReconciliation.has(existingId)&&!['input','change'].includes(reason))return previous;
  const rec=await buildLocal(reason,existingId,fields);if(!rec)return null;await store.put(rec);
+ editedAfterReconciliation.delete(rec.encounter_id);
  window.dispatchEvent(new CustomEvent('nexa:encounter-local-saved',{detail:{encounter_id:rec.encounter_id,state:rec.encounter_state,reason}}));
  if(rec.sync_state==='conflict')window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
  if(sync&&rec.sync_state!=='conflict'&&navigator.onLine!==false)void syncOne(rec);
@@ -316,6 +323,7 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
      sync_state:['audited','discarded'].includes(remote.encounter_state)?'locked':'synced',
      requires_form_refresh:true,next_attempt_at:null,last_error:null};
    if(!(await store.comparePut(current,saved)))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+   editedAfterReconciliation.delete(id);
    window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:'server'}}));
    return{resolved:true,item:saved};
  }
@@ -333,6 +341,7 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
    audit_priority:Number(data.audit_priority||current.audit_priority||0),audit_ready_at:data.audit_ready_at||current.audit_ready_at};
  // A local edit made during the remote write stays untouched and requires a new review.
  if(!(await store.comparePut(current,saved)))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
+ editedAfterReconciliation.delete(id);
  window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:mode}}));
  return{resolved:true,item:saved};
 }
@@ -341,10 +350,21 @@ function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pen
 async function flush(reason='manual'){
  if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
 }
+function isClinicalEdit(event){
+ const target=event?.target;
+ if(!target?.matches?.('textarea,input,select'))return false;
+ // The conflict dialog itself contains radio buttons, textareas and a final
+ // confirmation checkbox. None of those are clinical-form edits. Previously
+ // they triggered autosave, incremented local_revision during review and made
+ // all resolution actions fail with LOCAL_CHANGED_REVIEW_AGAIN.
+ if(target.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return false;
+ return true;
+}
 function bind(){
- document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('input')},true);
- document.addEventListener('change',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('change')},true);
+ document.addEventListener('input',e=>{if(isClinicalEdit(e)){const id=currentEncounterId();if(id)editedAfterReconciliation.add(id);schedulePersist('input')}},true);
+ document.addEventListener('change',e=>{if(isClinicalEdit(e)){const id=currentEncounterId();if(id)editedAfterReconciliation.add(id);schedulePersist('change')}},true);
  document.addEventListener('click',e=>{
+   if(e.target?.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return;
    if(e.target?.closest?.(START)){if(!currentEncounterId())void startNew('recording_start');else void preserve('recording_start');return}
    if(e.target?.closest?.(RESET)){pendingNew=true;void preserve('before_reset');return}
    if(e.target?.closest?.('#logoutBtn')){void preserve('logout');return}

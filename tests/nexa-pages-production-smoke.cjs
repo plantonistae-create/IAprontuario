@@ -2,15 +2,16 @@
 /* Public asset verification only. Never touches clinical accounts or patient records. */
 const assert=require('node:assert/strict');
 const base='https://plantonistae-create.github.io/IAprontuario/';
-const targetDate='20261017'; // Verify published release also during PR CI.
-const releaseName=targetDate==='20261016'?'clinical-conflicts-20261016':'notice-defer-20261017';
-const loaderTag=targetDate==='20261016'?'20261016-v1':'20261017-deferral';
-const hotfixTag=targetDate==='20261016'?'20261016-clinical-conflicts':'20261017-notice-defer';
+const isPR=process.env.GITHUB_EVENT_NAME==='pull_request';
+const releaseName=isPR?'notice-defer-20261017':'conflict-actions-20261017';
+const hotfixTag=isPR?'20261017-notice-defer':'20261017-resolution-actions';
+const autosaveTag=isPR?'20261016-review-safe':'20261017-resolution-actions';
+const releaseFile=isPR?'nexa-release-check-20261017.html':'nexa-release-check-20261017-resolution.html';
 const files=[
- ['nexa-release-check-'+targetDate+'.html','NEXA — release '+releaseName],
+ [releaseFile,'NEXA — release '+releaseName],
  ['nexa-encounter-conflicts-v18.10.2.js','nexaEncounterConflictReview18102'],
- ['nexa-encounter-autosave-v18.10.1.js','async function resolveConflict'],
- ['nexa-hotfix.js','nexa-encounter-conflicts-v18.10.2.js?v='+loaderTag],
+ ['nexa-encounter-autosave-v18.10.1.js',isPR?'async function resolveConflict':'function isClinicalEdit(event)'],
+ ['nexa-hotfix.js','nexa-encounter-autosave-v18.10.1.js?v='+autosaveTag],
  ['sw.js',hotfixTag],
  ['index.html','nexa-hotfix.js?v='+hotfixTag]
 ];
@@ -19,7 +20,7 @@ async function verify([file,needle]){
  let last='';
  for(let attempt=1;attempt<=18;attempt++){
   try{
-   const response=await fetch(base+file+'?release-check='+targetDate+'-'+attempt,{
+   const response=await fetch(base+file+'?release-check=resolution-'+attempt,{
     redirect:'follow',headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(18000)
    });
    const text=await response.text();
