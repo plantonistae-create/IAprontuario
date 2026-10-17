@@ -9,6 +9,9 @@ test("PS Radar exposes quick disposition without making up clinical negation",()
   assert.match(ui,/nexaRadarPsDismiss18131/);
   assert.match(ui,/radar\.respond\(item\.id,value,action\)/);
   assert.match(ui,/ponto de segurança clínica/);
+  assert.match(ui,/!m\.state\?\.dispositionCaution/);
+  assert.match(ui,/unresolvedSafety/);
+  assert.match(ui,/transcriptIncomplete/);
   const context={fields:{hda:"Dor torácica."}};
   const item=E.analyze(context).items.find(x=>x.id==="dyspnea");
   assert.ok(item);
