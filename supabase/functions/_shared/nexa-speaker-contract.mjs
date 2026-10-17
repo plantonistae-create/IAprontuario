@@ -49,3 +49,29 @@ export function buildVerifiedSpeakerTranscript(segments, roles) {
     source:'clinician_confirmed_diarization'
   }};
 }
+
+/**
+ * Zero-click diarization mode. Locutor IDs are acoustic clusters, NOT
+ * identities, professions or relatives. The clinical model may rely on
+ * explicit language cues, but must not promote an unverified role to fact.
+ */
+export function buildAutomaticSpeakerTranscript(segments) {
+  const clean = validateSpeakerSegments(segments);
+  const speakers = [...new Set(clean.map(s => s.speaker))];
+  const transcript = clean.map(s => (
+    '[' + s.start.toFixed(1) + 's–' + s.end.toFixed(1) +
+    's] LOCUTOR ' + s.speaker + ' (papel não confirmado): ' + s.text
+  )).join('\n');
+  return {
+    transcript,
+    speakerAttribution: {
+      schema_version: 'speaker-attribution-v1',
+      confirmed_by_physician: false,
+      speaker_count: speakers.length,
+      role_segment_counts: {physician:0,patient:0,companion:0,other:clean.length},
+      transcript_retained: false,
+      audio_retained: false,
+      source: 'automatic_unverified_diarization'
+    }
+  };
+}
