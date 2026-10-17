@@ -2253,7 +2253,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div class="calc-card" id="centorCard"><h4>Centor modificado · conforme material enviado</h4><label class="calc-check"><input id="centorFever" type="checkbox"/>Febre &gt; 38 °C (+1)</label><label class="calc-check"><input id="centorNodes" type="checkbox"/>Adenopatia cervical anterior (+1)</label><label class="calc-check"><input id="centorExudate" type="checkbox"/>Exsudato ou edema amigdaliano (+1)</label><label>Idade (anos)</label><input id="centorAge" type="number"/><button class="btn ghost" id="calculateCentorBtn" style="margin-top:7px">Calcular Centor</button><div class="learning calc-result" id="centorResult">—</div></div>
 <div class="calc-card" id="psiCard"><h4>PSI / Pneumonia Severity Index</h4><p class="hint">Calculadora baseada na tabela do material enviado. Marque “ausência de preditores” somente quando aplicável.</p><label class="calc-check"><input id="psiNoPredictors" type="checkbox"/>Ausência de preditores → PORT I</label><div class="calc-grid"><div><label>Sexo</label><select id="psiSex"><option value="m">Masculino</option><option value="f">Feminino</option></select></div><div><label>Idade</label><input id="psiAge" type="number"/></div></div><label class="calc-check"><input id="psiNursing" type="checkbox"/>Residente em casa de repouso (+10)</label><label class="calc-check"><input id="psiNeoplasia" type="checkbox"/>Neoplasia ativa (+30)</label><label class="calc-check"><input id="psiLiver" type="checkbox"/>Doença hepática crônica (+20)</label><label class="calc-check"><input id="psiHeart" type="checkbox"/>Insuficiência cardíaca (+10)</label><label class="calc-check"><input id="psiCerebro" type="checkbox"/>Doença cerebrovascular (+10)</label><label class="calc-check"><input id="psiRenal" type="checkbox"/>Doença renal crônica (+10)</label><label class="calc-check"><input id="psiMental" type="checkbox"/>Estado mental alterado (+20)</label><div class="calc-grid"><div><label>FR</label><input id="psiFr" type="number"/></div><div><label>PAS</label><input id="psiPas" type="number"/></div><div><label>Temperatura °C</label><input id="psiTemp" step="0.1" type="number"/></div><div><label>FC</label><input id="psiFc" type="number"/></div><div><label>pH</label><input id="psiPh" step="0.01" type="number"/></div><div><label>Ureia mg/dL</label><input id="psiUrea" step="0.1" type="number"/></div><div><label>Sódio mEq/L</label><input id="psiSodium" step="0.1" type="number"/></div><div><label>Glicose mg/dL</label><input id="psiGlucose" type="number"/></div><div><label>Hematócrito %</label><input id="psiHct" step="0.1" type="number"/></div><div><label>PaO₂ mmHg</label><input id="psiPao2" step="0.1" type="number"/></div><div><label>SpO₂ %</label><input id="psiSpo2" step="0.1" type="number"/></div></div><label class="calc-check"><input id="psiEffusion" type="checkbox"/>Derrame pleural (+10)</label><button class="btn ghost" id="calculatePsiBtn" style="margin-top:7px">Calcular PSI</button><div class="learning calc-result" id="psiResult">—</div></div>
 <div class="grid2"><div class="box"><h4>IMC</h4><label>Peso (kg)</label><input id="bmiWeight" type="number"/><label>Altura (cm)</label><input id="bmiHeight" type="number"/><button class="btn ghost" id="calculateBmiBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bmiResult">—</div></div><div class="box"><h4>Superfície corporal · Mosteller</h4><label>Peso (kg)</label><input id="bsaWeight" type="number"/><label>Altura (cm)</label><input id="bsaHeight" type="number"/><button class="btn ghost" id="calculateBsaBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bsaResult">—</div></div></div></section><section class="pane" id="sourcesPane"><div class="box"><h4>Fontes clínicas e roteamento</h4><p class="hint">O assistente clínico pode usar protocolos privados NEXA e pesquisa web confiável conforme configuração do backend. A resposta deve manter rastreabilidade das fontes consultadas.</p><div class="learning"><strong>Prioridade:</strong> protocolos institucionais cadastrados → sociedades médicas e órgãos oficiais → literatura confiável quando permitida. O prontuário nunca recebe automaticamente o conteúdo do chat.</div><div class="badges"><span class="badge">MS / gov.br</span><span class="badge">Sociedades médicas</span><span class="badge">Protocolos NEXA</span><span class="badge">Fontes rastreáveis</span></div></div></section></div></div>
-<main><section class="panel-left"><div class="card system-status-card"><h3>Ambiente protegido</h3><div class="secure-note">Sessão autenticada · RLS ativo · IA via backend.</div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input id="consent" type="checkbox"/><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label><label class="consent-row" style="margin:10px 0 0"><input id="identifySpeakers" type="checkbox"/><span>Identificar médico, paciente e acompanhante ao finalizar. Confirmação obrigatória antes de estruturar o prontuário.</span></label></div><div class="card rec-zone">
+<main><section class="panel-left"><div class="card system-status-card"><h3>Ambiente protegido</h3><div class="secure-note">Sessão autenticada · RLS ativo · IA via backend.</div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input id="consent" type="checkbox"/><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label><label class="consent-row" style="margin:10px 0 0"><input id="identifySpeakers" type="checkbox" checked/><span>Identificar vozes automaticamente (sem confirmação obrigatória). Você poderá revisar a origem dos relatos no prontuário.</span></label></div><div class="card rec-zone">
 <div class="nexa-recording-kicker" id="nexaRecordingKicker">GRAVAÇÃO</div>
 <button class="rec-btn" disabled="" id="recBtn" aria-label="Iniciar gravação" data-recording-state="idle"><svg viewbox="0 0 24 24"><circle cx="12" cy="12" fill="currentColor" id="circleShape" r="7"></circle><g id="pauseShape" style="display:none"><rect fill="currentColor" height="10" rx="1" width="3" x="7" y="7"></rect><rect fill="currentColor" height="10" rx="1" width="3" x="14" y="7"></rect></g><path id="resumeShape" d="M9 7.5 17 12 9 16.5Z" fill="currentColor" style="display:none"></path><rect fill="currentColor" height="8" id="stopShape" rx="1" style="display:none" width="8" x="8" y="8"></rect></svg></button><div class="timer mono" id="timer">00:00</div><div class="wave-wrap"><canvas height="54" id="wave" width="280"></canvas></div>
 <div class="status" id="status">Aguardando início da gravação</div>
@@ -3683,49 +3683,7 @@ async function nexaDiarizeAudio(blob){
     return result.segments;
   }finally{clearTimeout(timeout)}
 }
-function nexaReviewSpeakerRoles(segments){
-  return new Promise(resolve=>{
-    const speakers=[...new Set(segments.map(s=>String(s.speaker)))];
-    const root=document.createElement('div');
-    root.id='nexaSpeakerReviewDialog';
-    root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');
-    Object.assign(root.style,{position:'fixed',inset:'0',zIndex:'99999',display:'flex',alignItems:'center',justifyContent:'center',padding:'16px',background:'rgba(0,0,0,.82)'});
-    const card=document.createElement('div');
-    Object.assign(card.style,{width:'100%',maxWidth:'620px',maxHeight:'85vh',overflow:'auto',border:'1px solid #456071',background:'#11202a',color:'#eaf5ff',borderRadius:'18px',padding:'22px'});
-    const heading=document.createElement('h3');heading.textContent='Confirmar participantes da consulta';
-    const help=document.createElement('p');help.textContent='Identificamos vozes diferentes. Confirme quem é médico, paciente e acompanhante antes de gerar a HDA. A ordem de chegada não determina o papel.';
-    card.append(heading,help);
-    const picks={};
-    const options=[['','Selecionar participante'],['physician','Médico'],['patient','Paciente'],['companion','Acompanhante'],['other','Outro / não identificado']];
-    for(const speaker of speakers){
-      const container=document.createElement('div');
-      container.style.cssText='border-top:1px solid #345;padding:12px 0';
-      const label=document.createElement('label');label.textContent='Voz '+speaker;label.style.fontWeight='bold';
-      const preview=document.createElement('p');
-      preview.style.cssText='font-size:13px;opacity:.75;white-space:normal';
-      preview.textContent=segments.filter(s=>String(s.speaker)===speaker).slice(0,2).map(s=>s.text).join(' ').slice(0,230);
-      const select=document.createElement('select');
-      select.style.cssText='display:block;width:100%;padding:12px;border-radius:10px;background:#233641;color:white';
-      for(const [value,title] of options){const opt=document.createElement('option');opt.value=value;opt.textContent=title;select.append(opt)}
-      picks[speaker]=select;container.append(label,preview,select);card.append(container);
-    }
-    const error=document.createElement('p');error.style.color='#ffb5b5';
-    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;margin-top:14px';
-    const cancel=document.createElement('button');cancel.type='button';cancel.className='btn ghost';cancel.textContent='Cancelar';
-    const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='Confirmar e gerar prontuário';
-    function finish(result){root.remove();resolve(result)}
-    cancel.onclick=()=>finish(null);
-    ok.onclick=()=>{
-      const roles=Object.fromEntries(Object.entries(picks).map(([id,select])=>[id,select.value]));
-      if(Object.values(roles).some(v=>!v)){error.textContent='Classifique todas as vozes antes de continuar.';return}
-      if(!Object.values(roles).includes('physician')){error.textContent='Identifique ao menos uma voz como médico.';return}
-      finish(roles);
-    };
-    actions.append(cancel,ok);card.append(error,actions);root.append(card);document.body.append(root);
-    picks[speakers[0]]?.focus();
-  });
-}
-async function nexaInvokeVerifiedSpeakerSegments(segments,roles){
+async function nexaInvokeAutomaticSpeakerSegments(segments){
   const session=await requireClinicalSession();
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),180000);
   try{
@@ -3733,7 +3691,7 @@ async function nexaInvokeVerifiedSpeakerSegments(segments,roles){
       method:'POST',
       headers:{Authorization:'Bearer '+session.access_token,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
       body:JSON.stringify({
-        segments,roles,case_mode:mode(),
+        segments,case_mode:mode(),
         style_examples:$('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]
       }),signal:controller.signal
     });
@@ -3752,25 +3710,36 @@ async function processAudio(){
   try{
     const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString();
     let payload;
+    let autoSpeakerFallback=false;
     if($('identifySpeakers')?.checked){
-      $('status').textContent='Identificando vozes da consulta…';
-      const segments=await nexaDiarizeAudio(audioBlob);
+      $('status').textContent='Transcrevendo e identificando vozes…';
+      let segments=null;
+      try{
+        segments=await nexaDiarizeAudio(audioBlob);
+      }catch(speakerError){
+        // Gracefully keep the existing one-click transcription if diarization is unavailable.
+        // Do not present any speaker as identified in this fallback.
+        autoSpeakerFallback=true;
+        console.warn('NEXA speaker diarization unavailable; using standard transcription');
+      }
       if(epoch!==clinicalEpoch)return;
-      const roles=await nexaReviewSpeakerRoles(segments);
-      if(epoch!==clinicalEpoch)return;
-      if(!roles)throw new Error('Confirmação dos participantes cancelada. O áudio continua disponível para tentar novamente.');
-      $('status').textContent='Estruturando informações por participante…';
-      payload=await nexaInvokeVerifiedSpeakerSegments(segments,roles);
+      if(segments){
+        $('status').textContent='Estruturando prontuário…';
+        payload=await nexaInvokeAutomaticSpeakerSegments(segments);
+      }else{
+        $('status').textContent='Transcrição padrão disponível · identificação de vozes indisponível';
+        payload=await invoke(audioBlob);
+      }
     }else payload=await invoke(audioBlob);
     if(epoch!==clinicalEpoch)return;
     const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
     activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
     fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
-    lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),speaker_attribution:payload.speaker_attribution||null};
+    lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),speaker_attribution:payload.speaker_attribution||null,speaker_diarization_fallback:autoSpeakerFallback};
     initHypothesisReview(parsed.hipotese_diagnostica||'');
     try{await window.nexaEncounterAutosave18101?.preserve?.('structured');await window.nexaEncounterAutosave18101?.flush?.('structured')}catch(saveError){console.warn('NEXA structured autosave pending',saveError)}
     window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
-    audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show('Rascunho gerado. Revise os campos antes de copiar o prontuário completo.');
+    audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show(autoSpeakerFallback?'Rascunho gerado pela transcrição padrão: diferenciação de vozes indisponível. Revise a origem dos relatos.':'Rascunho gerado. Confira a origem dos relatos e revise os campos antes de copiar.');
     window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
   }catch(e){
     if(processingEpoch===clinicalEpoch){
