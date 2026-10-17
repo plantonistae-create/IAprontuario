@@ -94,6 +94,10 @@ Deno.serve(async req=>{
       const fields=pickFields(a.reviewed_fields || c.case_data);
       if(!Object.keys(fields).length)throw Error("EMPTY_AUDITED_CASE");
       const lp=c.learning_profile||{};
+      const inputFields=pickFields(lp.original_ai?.fields || lp.original_ai);
+      // Never put the reviewed target back into the training input: that would
+      // make evaluation meaningless (label leakage).
+      const pairedInputAvailable=Object.keys(inputFields).length>0;
       const speaker=a.deidentified_core_context?.speaker_attribution||{};
       const speakerMeta={
         schema_version:String(speaker.schema_version||"speaker-attribution-v1"),
@@ -109,7 +113,7 @@ Deno.serve(async req=>{
       const audited=createAuditedCase({
         id:pseudonymousId,
         quality_status:c.quality_status,
-        case_data:fields,
+        case_data:inputFields,
         learning_profile:{
           original_ai:layer(lp.original_ai),
           physician_final:layer(lp.physician_final),
@@ -122,7 +126,9 @@ Deno.serve(async req=>{
       const item=createDatasetItem(audited,{datasetVersion:version});
       const safe={
         ...item,
-        source:{...item.source,policyVersion:approvedRow.policy_version},
+        source:{...item.source,policyVersion:approvedRow.policy_version,
+          trainingPurpose:pairedInputAvailable ? "supervised_document_revision" : "reviewed_reference_only",
+          pairedInputAvailable},
         input:{...item.input,speakerAttribution:speakerMeta},
       };
       // Machine checks supplement, never replace, the mandatory human review.
