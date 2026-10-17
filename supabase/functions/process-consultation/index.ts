@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
-import { buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
+import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -329,6 +329,13 @@ REGRAS GERAIS
 ============================================================
 
 - Use português médico técnico, objetivo, claro e conciso.
+
+- Se a transcrição vier em formato "LOCUTOR A/B/C (papel não confirmado)", faça a distinção entre vozes, SEM presumir que LOCUTOR A é médico ou LOCUTOR B é paciente. A diarização distingue timbres, não identidade.
+- Para preservar agilidade, NÃO solicite confirmação dos locutores. Utilize pistas explícitas dentro das falas (ex.: "sou a mãe", "meu filho", "eu estou com dor") e o encadeamento pergunta-resposta para interpretar, sempre com cautela.
+- Só utilize "Acompanhante refere", "Acompanhante relata", "Mãe refere" ou equivalente se a origem estiver claramente fundamentada no diálogo. Quando não for possível determinar com segurança se a fala é do paciente ou acompanhante, use "Segundo relato obtido durante a consulta" ou "Relato colhido na consulta", SEM atribuir ao paciente, à família ou ao médico.
+- Não considere pergunta, hipótese ou sugestão feita pelo profissional como relato de sintoma ou negativa do paciente. Não invente papéis, vínculos familiares, consentimento, identidade ou certeza de reconhecimento de voz.
+- Quando as falas forem divergentes, preserve quem informou cada versão quando identificável; não apague contradições clinicamente relevantes.
+- O NEXA deve gerar o rascunho normalmente sem pausar para revisão de locutores. A revisão final do texto continua sendo obrigatória para o profissional.
 
 - Nas transcrições com marcas MÉDICO, PACIENTE e ACOMPANHANTE, preserve explicitamente a origem de cada informação relevante. Para o acompanhante utilize "Acompanhante relata" / "Acompanhante refere" (nunca atribua automaticamente esses dados ao paciente). Caso a relação de parentesco tenha sido informada, pode registrar "Mãe refere", "Filha relata" etc., mas não infira parentesco.
 - Falas do médico que sejam perguntas, sugestões ou hipóteses não constituem fatos relatados pelo paciente. Só documente sintomas e antecedentes confirmados por participante.
@@ -1775,9 +1782,12 @@ Deno.serve(
         const body = await req.json().catch(() => null);
         let verified;
         try {
-          verified = buildVerifiedSpeakerTranscript(body?.segments,body?.roles);
+          // The default fast path needs no voice classification or manual confirmation.
+          verified = body?.roles
+            ? buildVerifiedSpeakerTranscript(body.segments,body.roles)
+            : buildAutomaticSpeakerTranscript(body?.segments);
         } catch {
-          return json(req,{error:"SPEAKER_ROLE_CONFIRMATION_REQUIRED"},400);
+          return json(req,{error:"INVALID_SPEAKER_SEGMENTS"},400);
         }
         const caseMode = String(body?.case_mode || "upper");
         const examples = Array.isArray(body?.style_examples) ? body.style_examples.slice(-5) : [];
@@ -1785,14 +1795,14 @@ Deno.serve(
         const { value: result, metadata } = await executeCapability({
           capability:"consultation.processing",
           provider:"openai",
-          model:"gpt-4o-transcribe-diarize + clinical structuring",
+          model:"diarized input + clinical structuring",
           execute: () => processOpenAI(new File([""],"verified-speaker-transcript.txt"),caseMode,reviewedExamples,verified.transcript),
           validate: (value) => Boolean(value && typeof value === "object" && value.fields)
         });
         return withTechnicalExecutionHeaders(json(req,{
           ...result,
           speaker_attribution:verified.speakerAttribution,
-          stages:["diarization_verified","documentation","clinical_assistance"]
+          stages:[verified.speakerAttribution.confirmed_by_physician ? "diarization_verified" : "diarization_auto","documentation","clinical_assistance"]
         }),metadata);
       }
 
