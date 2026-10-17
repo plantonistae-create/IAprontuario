@@ -2,7 +2,7 @@
 /* Public asset verification only. Never touches clinical accounts or patient records. */
 const assert=require('node:assert/strict');
 const base='https://plantonistae-create.github.io/IAprontuario/';
-const targetDate=process.env.GITHUB_EVENT_NAME==='pull_request'?'20261016':'20261017';
+const targetDate='20261017'; // Verify published release also during PR CI.
 const releaseName=targetDate==='20261016'?'clinical-conflicts-20261016':'notice-defer-20261017';
 const loaderTag=targetDate==='20261016'?'20261016-v1':'20261017-deferral';
 const hotfixTag=targetDate==='20261016'?'20261016-clinical-conflicts':'20261017-notice-defer';
