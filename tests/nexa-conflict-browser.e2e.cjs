@@ -77,6 +77,11 @@ const server=http.createServer((req,res)=>{
   }));
   assert.equal(count,1,'both copies must have been archived before resolution');
   await page.getByRole('button',{name:'Concluir'}).click();
+  await page.reload({waitUntil:'load'});
+  await page.waitForFunction(()=>!!window.nexaEncounterAutosave18101);
+  const afterReload=await page.evaluate(id=>window.nexaEncounterAutosave18101.get(id),id1);
+  assert.equal(afterReload.sync_state,'synced','Reload must not recreate a resolved merge conflict');
+  assert.equal(afterReload.fields.hda,'HDA do servidor','Reload must not substitute stale visible form for reviewed clinical content');
 
   // Verify every real decision path with human-paced interactions:
   // Keep server, use local, and manually edit merged content.
@@ -97,6 +102,7 @@ const server=http.createServer((req,res)=>{
         encounter_state:'draft',status:'draft',sync_version:4,
         protocol_usage:[],audit_priority:0,updated_at:new Date().toISOString()
       });
+      window.nexaEncounterAutosave18101.setActiveId(config.id);
       return window.nexaEncounterAutosave18101.put(r).then(()=>window.nexaEncounterConflictReview18102.refresh());
     },{config,user});
     await page.locator('#nexa-c-banner button').click();
