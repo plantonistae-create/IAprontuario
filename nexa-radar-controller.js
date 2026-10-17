@@ -26,7 +26,7 @@
       const context=adapter.context(),key=JSON.stringify(context);
       if(key!==lastKey){
         if(!(busy&&appendOnly(lastContext,context)))invalidate();
-        lastKey=key;lastContext=structuredClone(context);aiKey='';
+        lastKey=key;lastContext=JSON.parse(key);aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;
       publish();
