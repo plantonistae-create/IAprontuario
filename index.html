@@ -609,6 +609,20 @@ footer{color:#708793!important;font-size:9px!important;padding-bottom:16px!impor
 .modal .modal-head{position:sticky;top:-1px;z-index:45;background:var(--surface);padding:7px 0 10px}
 #coreAdminModal .dialog{scroll-behavior:smooth}
 .audit-json-editor-hidden{display:none!important}
+.nexa-audit-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.nexa-audit-tools input,.nexa-audit-tools select{width:auto;flex:1 1 150px;min-width:140px;max-width:260px}
+.nexa-audit-metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nexa-audit-metric{background:var(--surface,#fff);border:1px solid rgba(100,120,150,.25);border-radius:11px;padding:10px}
+.nexa-audit-metric strong{font-size:22px;display:block}.nexa-audit-metric small{font-size:11px;display:block}
+.nexa-audit-progress{height:7px;background:rgba(100,120,150,.15);border-radius:90px;overflow:hidden;margin:9px 0}
+.nexa-audit-progress>i{height:100%;display:block;background:#127e79}
+.nexa-audit-errors{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.nexa-audit-errors label{display:flex;gap:6px;align-items:center;border:1px solid rgba(100,120,150,.2);padding:6px 9px;border-radius:9px;font-size:12px}
+.nexa-audit-errors input{width:auto;margin:0}
+.nexa-audit-editor{display:grid;gap:9px;margin:12px 0}.nexa-audit-editor label{font-weight:600;font-size:12px}
+.nexa-audit-editor textarea{width:100%;min-height:65px}
+@media(max-width:660px){.nexa-audit-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nexa-audit-tools input,.nexa-audit-tools select{max-width:none}}
+
 .audit-json-editor-toggle{margin-top:8px}
 .protocol-mobile-back{touch-action:manipulation}
 .protocol-savebar{z-index:50!important}
@@ -2232,7 +2246,9 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div id="loginGate"><div class="login-box"><div class="brand"><div class="brand-mark"></div><div><strong>NEXA CLINICAL</strong><span>Ambiente clínico</span></div></div><h2>Acesso ao NEXA</h2><p class="hint">Acesso protegido.</p><div class="auth-tabs" style="display:none"><button class="auth-tab active" id="signInTab">Entrar</button><button class="auth-tab" id="signUpTab" style="display:none">Criar conta</button></div><label for="authName" id="authNameLabel" style="display:none">Nome profissional</label><input id="authName" placeholder="Dr(a). Nome Sobrenome" style="display:none"/><label for="authEmail">E-mail</label><input autocomplete="email" id="authEmail" inputmode="email" placeholder="voce@clinica.com.br"/><label for="authPassword">Senha</label><input autocomplete="current-password" id="authPassword" minlength="8" type="password"/><button class="btn" id="authSubmitBtn" style="margin-top:12px">Entrar</button><button class="btn ghost" id="forgotPasswordBtn" style="margin-top:7px">Esqueci minha senha</button><div id="loginBanner" style="margin-top:10px"></div><p class="hint" style="margin:14px 0 0">Acesso por convite · NEXA Core.</p></div></div>
 <div class="app" id="mainApp" style="display:none">
 <header><div class="header-user"><button aria-expanded="false" aria-label="Abrir menu da conta" class="mobile-header-menu-btn" id="mobileHeaderMenuBtn" type="button">•••</button><span id="loggedProfName"></span><button id="changeNameBtn">Trocar nome</button><button id="changePasswordBtn">Trocar senha</button><button id="openAiUsageBtn">Uso OpenAI</button><button id="clinicalIntelligenceBtn">Assistente clínico</button><button id="coreAdminBtn" style="display:none">NEXA Core</button><button class="theme-btn" id="nexaThemeToggle">◐ Modo escuro</button><button id="logoutBtn">Sair</button></div><div class="eyebrow">NEXA CLINICAL</div><h1>Consulta em registro clínico</h1><p class="sub v3319-subtle">Documentação clínica assistida</p></header>
-<div class="modal" id="coreAdminModal"><div class="dialog"><div class="modal-head" role="toolbar"><div><h3 id="coreModalTitle">NEXA Core</h3><p id="coreModalSubtitle">Administração clínica e governança.</p></div><button class="btn ghost" id="closeCoreAdminBtn">Fechar</button></div><div class="tabs core-internal-tabs" style="display:none"><button class="tab active core-tab" data-core-pane="coreUsersPane">Médicos</button><button class="tab core-tab" data-core-pane="coreAuditPane">Auditoria</button><button class="tab core-tab" data-core-pane="coreProtocolsPane">Protocolos / Prescrições</button></div><section class="pane active" id="coreUsersPane"><div class="core-admin-grid"><div class="box"><h4>Cadastrar médico</h4><label>Nome profissional</label><input id="coreInviteName" placeholder="Dr(a). Nome Sobrenome"/><label>E-mail</label><input id="coreInviteEmail" inputmode="email" placeholder="medico@exemplo.com"/><button class="btn" id="coreInviteBtn" style="margin-top:8px">Convidar e ativar vaga</button><div class="hint" id="coreInviteStatus" style="margin-top:6px"></div></div><div class="box"><h4>Vagas clínicas</h4><div class="learning" id="coreSlotsBody">Carregando…</div><p class="hint">Máximo de 5 usuários com acesso clínico ativo. Administrador/revisor sem acesso clínico não ocupa vaga.</p></div></div><div class="box" style="margin-top:10px"><h4>Usuários</h4><div class="core-admin-table" id="coreUsersBody"><div class="hint">Carregando…</div></div></div></section><section class="pane" id="coreAuditPane"><div class="box"><div class="toggle-row" style="justify-content:space-between;align-items:center"><div><h4 style="margin:0">Fila de auditoria</h4><p class="hint" style="margin:3px 0 0">Somente casos desidentificados são exibidos aqui. Casos aprovados/corrigidos entram automaticamente no conjunto auditado do NEXA Core.</p></div><button class="btn ghost" id="coreRefreshAuditBtn" style="width:auto">Atualizar</button></div><div class="audit-health" id="coreDatasetSummary">NEXA Core · carregando conjunto auditado…</div><div class="core-admin-table" id="coreAuditBody"><div class="hint">Carregando…</div></div></div></section><section class="pane" id="coreProtocolsPane"><div class="core-protocol-layout">
+<div class="modal" id="coreAdminModal"><div class="dialog"><div class="modal-head" role="toolbar"><div><h3 id="coreModalTitle">NEXA Core</h3><p id="coreModalSubtitle">Administração clínica e governança.</p></div><button class="btn ghost" id="closeCoreAdminBtn">Fechar</button></div><div class="tabs core-internal-tabs" style="display:none"><button class="tab active core-tab" data-core-pane="coreUsersPane">Médicos</button><button class="tab core-tab" data-core-pane="coreAuditPane">Auditoria</button><button class="tab core-tab" data-core-pane="coreProtocolsPane">Protocolos / Prescrições</button></div><section class="pane active" id="coreUsersPane"><div class="core-admin-grid"><div class="box"><h4>Cadastrar médico</h4><label>Nome profissional</label><input id="coreInviteName" placeholder="Dr(a). Nome Sobrenome"/><label>E-mail</label><input id="coreInviteEmail" inputmode="email" placeholder="medico@exemplo.com"/><button class="btn" id="coreInviteBtn" style="margin-top:8px">Convidar e ativar vaga</button><div class="hint" id="coreInviteStatus" style="margin-top:6px"></div></div><div class="box"><h4>Vagas clínicas</h4><div class="learning" id="coreSlotsBody">Carregando…</div><p class="hint">Máximo de 5 usuários com acesso clínico ativo. Administrador/revisor sem acesso clínico não ocupa vaga.</p></div></div><div class="box" style="margin-top:10px"><h4>Usuários</h4><div class="core-admin-table" id="coreUsersBody"><div class="hint">Carregando…</div></div></div></section><section class="pane" id="coreAuditPane"><div class="box"><div class="toggle-row" style="justify-content:space-between;align-items:center"><div><h4 style="margin:0">Fila de auditoria</h4><p class="hint" style="margin:3px 0 0">Somente casos desidentificados são exibidos aqui. Casos aprovados/corrigidos entram automaticamente no conjunto auditado do NEXA Core.</p></div><button class="btn ghost" id="coreRefreshAuditBtn" style="width:auto">Atualizar</button></div><div class="audit-health" id="nexaAuditLearningMetrics" role="status">Carregando métricas da auditoria…</div>
+<div class="nexa-audit-tools"><label for="nexaAuditFilter">Situação</label><select id="nexaAuditFilter"><option value="pending">Pendentes</option><option value="reviewed">Revisados</option><option value="all">Todos</option></select>
+<label for="nexaAuditSearch">Localizar caso</label><input id="nexaAuditSearch" placeholder="ID do caso" autocomplete="off" type="search"/><span class="hint" id="nexaAuditShown" aria-live="polite"></span></div><div class="audit-health" id="coreDatasetSummary">NEXA Core · carregando conjunto auditado…</div><div class="core-admin-table" id="coreAuditBody"><div class="hint">Carregando…</div></div><button type="button" class="btn ghost" id="nexaAuditLoadMore" style="width:auto;margin-top:10px" hidden>Mostrar mais casos</button></div></section><section class="pane" id="coreProtocolsPane"><div class="core-protocol-layout">
 <div class="box protocol-library"><div class="protocol-library-head"><div><h4>Biblioteca clínica</h4><p class="hint">Patologias em ordem alfabética.</p></div><div class="protocol-library-actions" style="display:flex;gap:6px"><button class="btn ghost" id="newProtocolBtn" style="width:auto">+ Novo</button></div></div>
 <div class="protocol-library-tools"><div class="protocol-search-wrap"><span class="protocol-search-icon">⌕</span><input id="protocolAdminSearch" placeholder="Buscar patologia ou CID"/></div><div class="protocol-filter-row"><select aria-label="Filtrar protocolos" id="protocolStatusFilter"><option value="all">Todos</option><option value="pending">Pendentes de revisão</option><option value="approved">Publicados</option><option value="unpublished">Sem publicação</option></select><button class="btn ghost" id="refreshProtocolsBtn" style="width:auto">Atualizar</button></div><div class="protocol-list-summary" id="protocolListSummary"></div></div>
 <div class="protocol-list" id="protocolAdminList"><div class="hint">Carregando…</div></div>
@@ -2546,6 +2562,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <link rel="stylesheet" href="./nexa-radar.css?v=20260915">
 <script src="./nexa-radar-engine.js?v=20260915"></script>
 <script src="./nexa-radar-controller.js?v=20260915"></script>
+<script src="./nexa-core-audit-learning-v2.js?v=20261017"></script>
 <script>
 'use strict';
 (async function(){
@@ -2800,38 +2817,106 @@ async function loadCoreDatasetSummary(){
     el.append(document.createElement('br'),exportButton);
   }}catch(e){el.textContent='NEXA Core · resumo do conjunto auditado ficará disponível após aplicar a atualização SQL 07.'}
 }
-async function loadAuditQueue(){
+let nexaAuditQueueCache=null,nexaAuditAnnotationCache=new Map(),nexaAuditPageLimit=12,nexaAuditSearchTimer=null;
+async function loadNexaAuditLearningMetrics(){
+  const host=$('nexaAuditLearningMetrics');
+  if(!host||!(currentProf?.is_admin||currentProf?.is_reviewer))return;
+  try{
+    const {data,error}=await sb.rpc('get_nexa_audit_learning_metrics');
+    if(error)throw error;
+    host.replaceChildren(window.NexaAuditLearningV2.metricsElement(data||{}));
+  }catch(e){
+    host.textContent='Indicadores indisponíveis: '+String(e.message||e)+'. A auditoria anterior permanece acessível.';
+  }
+}
+$('nexaAuditFilter').addEventListener('change',()=>{nexaAuditPageLimit=12;loadAuditQueue(true)});
+$('nexaAuditSearch').addEventListener('input',()=>{
+  clearTimeout(nexaAuditSearchTimer);
+  nexaAuditSearchTimer=setTimeout(()=>{nexaAuditPageLimit=12;loadAuditQueue(true)},180);
+});
+$('nexaAuditLoadMore').addEventListener('click',()=>{nexaAuditPageLimit+=12;loadAuditQueue(true)});
+async function loadAuditQueue(useCache=false){
   if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;
-  loadCoreDatasetSummary();
+  if(!useCache){void loadCoreDatasetSummary();void loadNexaAuditLearningMetrics();}
   $('coreAuditBody').innerHTML='<div class="hint">Carregando…</div>';
   try{
-    const {data,error}=await sb.rpc('get_audit_queue',{queue_status:null});
-    if(error)throw error;
+    if(!useCache||!nexaAuditQueueCache){
+      const [queue,annotations]=await Promise.all([
+        sb.rpc('get_audit_queue',{queue_status:null}),
+        sb.rpc('get_nexa_audit_annotations')
+      ]);
+      if(queue.error)throw queue.error;
+      if(annotations.error)throw annotations.error;
+      nexaAuditQueueCache=queue.data||[];
+      nexaAuditAnnotationCache=new Map((annotations.data||[]).map(x=>[x.audit_case_id,x]));
+    }
+    const selected=window.NexaAuditLearningV2.selectCases(nexaAuditQueueCache,{
+      status:$('nexaAuditFilter').value,search:$('nexaAuditSearch').value,limit:nexaAuditPageLimit
+    });
+    $('nexaAuditShown').textContent=selected.items.length+' de '+selected.total+' casos';
+    $('nexaAuditLoadMore').hidden=selected.items.length>=selected.total;
     $('coreAuditBody').replaceChildren();
-    const rows=[...(data||[])].reverse();
+    const rows=selected.items;
     for(const c of rows){
       const row=document.createElement('div');row.className='core-audit-case';
       const head=document.createElement('div');head.className='core-audit-head';
       const statusLabel=c.status==='approved'?'correta':c.status==='corrected'?'corrigida':c.status==='discarded'?'descartada':'pendente';
       head.innerHTML=`<div><strong>Caso ${String(c.id).slice(0,8)}</strong><div class="core-meta">Recebido ${new Date(c.submitted_at).toLocaleString('pt-BR')}${c.reviewed_at?` · Revisado ${new Date(c.reviewed_at).toLocaleString('pt-BR')}`:''}</div></div><span class="core-pill">${statusLabel}</span>`;
       const original=document.createElement('div');original.className='core-audit-fields';original.textContent=prettyFields(c.deidentified_fields);
-      row.append(head,original);
+      const A=window.NexaAuditLearningV2;
+      const existingAnnotation=nexaAuditAnnotationCache.get(c.id)||{error_codes:[],evaluation_candidate:false};
+      const picker=A.errorPicker(existingAnnotation.error_codes);
+      const saveAnnotation=async(evaluationCandidate=false)=>{
+        const codes=picker.selected();
+        const {error}=await sb.rpc('save_nexa_audit_annotation',{
+          p_case_id:c.id,p_error_codes:codes,p_evaluation_candidate:evaluationCandidate
+        });
+        if(error)throw error;
+        nexaAuditAnnotationCache.set(c.id,{error_codes:codes,evaluation_candidate:evaluationCandidate});
+      };
+      row.append(head,original,picker.element);
       if(c.status==='pending'){
+        const friendly=A.clinicalEditor(c.deidentified_fields,labels);
+        const friendlyToggle=document.createElement('button');friendlyToggle.type='button';
+        friendlyToggle.className='btn ghost';friendlyToggle.style.width='auto';
+        friendlyToggle.textContent='Corrigir campos clínicos';
+        friendlyToggle.onclick=()=>{
+          const hidden=friendly.element.classList.toggle('audit-json-editor-hidden');
+          friendlyToggle.textContent=hidden?'Corrigir campos clínicos':'Ocultar correções';
+        };
         const edit=document.createElement('textarea');edit.className='core-audit-edit audit-json-editor-hidden';edit.value=JSON.stringify(c.deidentified_fields,null,2);
         const editToggle=document.createElement('button');editToggle.className='btn ghost audit-json-editor-toggle';editToggle.style.width='auto';editToggle.textContent='Corrigir campos (avançado)';editToggle.onclick=()=>{const hidden=edit.classList.toggle('audit-json-editor-hidden');editToggle.textContent=hidden?'Corrigir campos (avançado)':'Ocultar editor';if(!hidden)edit.scrollIntoView({behavior:'smooth',block:'center'})};
         const note=document.createElement('textarea');note.placeholder='Observação da auditoria (opcional)';note.style.minHeight='60px';
         const acts=document.createElement('div');acts.className='conduct-actions';
         const decide=async(decision)=>{
           let corrected=null;
-          if(decision==='corrected'){try{corrected=JSON.parse(edit.value)}catch(e){return alert('O conteúdo corrigido precisa permanecer em JSON válido.')}}
+          if(decision==='discarded'&&!note.value.trim())return show('Informe o motivo do descarte.',true);
+          if(decision==='corrected'){
+            try{
+              corrected=edit.classList.contains('audit-json-editor-hidden')?friendly.fields():JSON.parse(edit.value);
+              if(JSON.stringify(corrected)===JSON.stringify(c.deidentified_fields))
+                return show('Altere pelo menos um campo para salvar como corrigido.',true);
+            }catch(e){return show('Não foi possível validar a correção: '+String(e.message||e),true)}
+          }
           if(!confirm(`Confirmar auditoria como ${decision==='approved'?'CORRETA':decision==='corrected'?'CORRIGIDA':'DESCARTADA'}?`))return;
-          const {error}=await sb.rpc('submit_audit_review',{case_id:c.id,decision,corrected_fields:corrected,note:note.value.trim()||null});
-          if(error)return alert(error.message);await loadAuditQueue();await loadCoreDatasetSummary()
+          [...acts.querySelectorAll('button')].forEach(b=>b.disabled=true);
+          try{
+            await saveAnnotation(false);
+            const {error}=await sb.rpc('submit_audit_review',{
+              case_id:c.id,decision,corrected_fields:corrected,note:note.value.trim()||null
+            });
+            if(error)throw error;
+            nexaAuditQueueCache=null;
+            await loadAuditQueue();show('Auditoria clínica registrada. Direitos de treinamento continuam separados.');
+          }catch(e){show('Falha na revisão: '+String(e.message||e),true)}
+          finally{[...acts.querySelectorAll('button')].forEach(b=>b.disabled=false)}
         };
         [['Correta','approved'],['Salvar corrigida','corrected'],['Descartar','discarded']].forEach(([txt,val])=>{
           const b=document.createElement('button');b.className=val==='discarded'?'btn danger':'btn ghost';b.style.width='auto';b.textContent=txt;b.onclick=()=>decide(val);acts.append(b)
         });
-        row.append(editToggle,edit,note,acts);
+        const helper=document.createElement('p');helper.className='hint';
+        helper.textContent='Classifique o motivo do erro e edite os campos, sem acrescentar identificadores de pacientes.';
+        row.append(helper,friendlyToggle,friendly.element,editToggle,edit,note,acts);
       }else{
         if(c.reviewed_fields){
           const finalBox=document.createElement('div');finalBox.className='core-audit-fields';
@@ -2841,7 +2926,26 @@ async function loadAuditQueue(){
         if(c.review_note){
           const noteBox=document.createElement('div');noteBox.className='learning';noteBox.textContent='Observação: '+c.review_note;row.append(noteBox);
         }
-        if(currentProf?.is_admin && ['approved','corrected'].includes(c.status)){
+        const eligible=['approved','corrected'].includes(c.status);
+        const auditActions=document.createElement('div');auditActions.className='conduct-actions';
+        const selection=document.createElement('label');selection.className='hint';
+        const evaluation=document.createElement('input');evaluation.type='checkbox';
+        evaluation.checked=!!existingAnnotation.evaluation_candidate;evaluation.disabled=!eligible;
+        selection.append(evaluation,document.createTextNode(' Selecionar para avaliação offline (não libera treinamento)'));
+        const saveTags=document.createElement('button');saveTags.type='button';
+        saveTags.className='btn ghost';saveTags.style.width='auto';
+        saveTags.textContent='Salvar classificação / seleção';
+        saveTags.onclick=async()=>{
+          saveTags.disabled=true;
+          try{
+            await saveAnnotation(evaluation.checked);
+            show('Classificação salva. Nenhum direito de treinamento foi concedido.');
+            await loadNexaAuditLearningMetrics();
+          }catch(e){show('Falha ao salvar: '+String(e.message||e),true)}
+          finally{saveTags.disabled=false}
+        };
+        auditActions.append(selection,saveTags);row.append(auditActions);
+        if(currentProf?.is_admin && eligible){
           const actions=document.createElement('div');actions.className='conduct-actions';
           for(const [label,approved] of [['Liberar para dataset',true],['Revogar liberação',false]]){
             const button=document.createElement('button');button.className='btn ghost';
@@ -2859,6 +2963,7 @@ async function loadAuditQueue(){
                 });
                 if(error)throw error;
                 show(approved?'Caso autorizado para exportação futura.':'Autorização de exportação revogada.');
+                await loadNexaAuditLearningMetrics();
               }catch(e){show(e.message,true)}
             };
             actions.append(button);
@@ -2870,7 +2975,7 @@ async function loadAuditQueue(){
     }
     if(!rows.length)$('coreAuditBody').innerHTML='<div class="empty"><strong>Nenhum caso em auditoria.</strong><br>Casos enviados permanecem neste bloco mesmo depois de saírem do histórico clínico de 7 dias.</div>';
   }catch(e){
-    $('coreAuditBody').innerHTML=`<div class="banner error"><strong>Auditoria indisponível.</strong><br>${e.message}<br><small>Verifique se as RPCs get_audit_queue e submit_audit_review da migration NEXA Core estão ativas.</small></div>`
+    $('coreAuditBody').textContent='Auditoria indisponível: '+String(e?.message||e)+'. Verifique a migração Audit & Learning 2.0.'
   }
 }
 async function refreshCoreAdmin(){await Promise.all([loadCoreUsers(),loadCoreSlots(),loadAuditQueue(),loadProtocolsAdmin()])}
