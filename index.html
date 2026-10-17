@@ -2863,23 +2863,60 @@ async function loadAuditQueue(useCache=false){
       const statusLabel=c.status==='approved'?'correta':c.status==='corrected'?'corrigida':c.status==='discarded'?'descartada':'pendente';
       head.innerHTML=`<div><strong>Caso ${String(c.id).slice(0,8)}</strong><div class="core-meta">Recebido ${new Date(c.submitted_at).toLocaleString('pt-BR')}${c.reviewed_at?` · Revisado ${new Date(c.reviewed_at).toLocaleString('pt-BR')}`:''}</div></div><span class="core-pill">${statusLabel}</span>`;
       const original=document.createElement('div');original.className='core-audit-fields';original.textContent=prettyFields(c.deidentified_fields);
-      row.append(head,original);
+      const A=window.NexaAuditLearningV2;
+      const existingAnnotation=nexaAuditAnnotationCache.get(c.id)||{error_codes:[],evaluation_candidate:false};
+      const picker=A.errorPicker(existingAnnotation.error_codes);
+      const saveAnnotation=async(evaluationCandidate=false)=>{
+        const codes=picker.selected();
+        const {error}=await sb.rpc('save_nexa_audit_annotation',{
+          p_case_id:c.id,p_error_codes:codes,p_evaluation_candidate:evaluationCandidate
+        });
+        if(error)throw error;
+        nexaAuditAnnotationCache.set(c.id,{error_codes:codes,evaluation_candidate:evaluationCandidate});
+      };
+      row.append(head,original,picker.element);
       if(c.status==='pending'){
+        const friendly=A.clinicalEditor(c.deidentified_fields,labels);
+        const friendlyToggle=document.createElement('button');friendlyToggle.type='button';
+        friendlyToggle.className='btn ghost';friendlyToggle.style.width='auto';
+        friendlyToggle.textContent='Corrigir campos clínicos';
+        friendlyToggle.onclick=()=>{
+          const hidden=friendly.element.classList.toggle('audit-json-editor-hidden');
+          friendlyToggle.textContent=hidden?'Corrigir campos clínicos':'Ocultar correções';
+        };
         const edit=document.createElement('textarea');edit.className='core-audit-edit audit-json-editor-hidden';edit.value=JSON.stringify(c.deidentified_fields,null,2);
         const editToggle=document.createElement('button');editToggle.className='btn ghost audit-json-editor-toggle';editToggle.style.width='auto';editToggle.textContent='Corrigir campos (avançado)';editToggle.onclick=()=>{const hidden=edit.classList.toggle('audit-json-editor-hidden');editToggle.textContent=hidden?'Corrigir campos (avançado)':'Ocultar editor';if(!hidden)edit.scrollIntoView({behavior:'smooth',block:'center'})};
         const note=document.createElement('textarea');note.placeholder='Observação da auditoria (opcional)';note.style.minHeight='60px';
         const acts=document.createElement('div');acts.className='conduct-actions';
         const decide=async(decision)=>{
           let corrected=null;
-          if(decision==='corrected'){try{corrected=JSON.parse(edit.value)}catch(e){return alert('O conteúdo corrigido precisa permanecer em JSON válido.')}}
+          if(decision==='discarded'&&!note.value.trim())return show('Informe o motivo do descarte.',true);
+          if(decision==='corrected'){
+            try{
+              corrected=edit.classList.contains('audit-json-editor-hidden')?friendly.fields():JSON.parse(edit.value);
+              if(JSON.stringify(corrected)===JSON.stringify(c.deidentified_fields))
+                return show('Altere pelo menos um campo para salvar como corrigido.',true);
+            }catch(e){return show('Não foi possível validar a correção: '+String(e.message||e),true)}
+          }
           if(!confirm(`Confirmar auditoria como ${decision==='approved'?'CORRETA':decision==='corrected'?'CORRIGIDA':'DESCARTADA'}?`))return;
-          const {error}=await sb.rpc('submit_audit_review',{case_id:c.id,decision,corrected_fields:corrected,note:note.value.trim()||null});
-          if(error)return alert(error.message);await loadAuditQueue();await loadCoreDatasetSummary()
+          [...acts.querySelectorAll('button')].forEach(b=>b.disabled=true);
+          try{
+            await saveAnnotation(false);
+            const {error}=await sb.rpc('submit_audit_review',{
+              case_id:c.id,decision,corrected_fields:corrected,note:note.value.trim()||null
+            });
+            if(error)throw error;
+            nexaAuditQueueCache=null;
+            await loadAuditQueue();show('Auditoria clínica registrada. Direitos de treinamento continuam separados.');
+          }catch(e){show('Falha na revisão: '+String(e.message||e),true)}
+          finally{[...acts.querySelectorAll('button')].forEach(b=>b.disabled=false)}
         };
         [['Correta','approved'],['Salvar corrigida','corrected'],['Descartar','discarded']].forEach(([txt,val])=>{
           const b=document.createElement('button');b.className=val==='discarded'?'btn danger':'btn ghost';b.style.width='auto';b.textContent=txt;b.onclick=()=>decide(val);acts.append(b)
         });
-        row.append(editToggle,edit,note,acts);
+        const helper=document.createElement('p');helper.className='hint';
+        helper.textContent='Classifique o motivo do erro e edite os campos, sem acrescentar identificadores de pacientes.';
+        row.append(helper,friendlyToggle,friendly.element,editToggle,edit,note,acts);
       }else{
         if(c.reviewed_fields){
           const finalBox=document.createElement('div');finalBox.className='core-audit-fields';
