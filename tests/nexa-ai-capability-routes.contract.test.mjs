@@ -42,10 +42,15 @@ test("all migrated routes use the central capability layer without changing endp
   }
 });
 
-test("routes do not claim NEXA Core provider support before an adapter exists", async () => {
-  const registry = await readFile("supabase/functions/_shared/nexa-ai-capability.mjs", "utf8");
-  assert.equal(/providers:[\s\S]*["']nexa-core["']/.test(registry), false);
-  assert.match(registry, /UNSUPPORTED_PROVIDER/);
+test("only Radar advertises the NEXA Core adapter; other capabilities remain unported", async () => {
+  const registry = await readFile("supabase/functions/_shared/nexa-ai-capability.mjs","utf8");
+  const realtimeRadar = await readFile("supabase/functions/realtime-radar/index.ts","utf8");
+  assert.match(registry, /"nexa-core": Object\.freeze/);
+  assert.match(realtimeRadar, /requestCoreRadar\(/);
+  assert.match(realtimeRadar, /if\(radarProvider==='nexa-core'\)/);
+  assert.match(registry,/UNSUPPORTED_PROVIDER/);
+  const consultation=registry.split('"consultation.processing"')[1].split('"realtime.call"')[0];
+  assert.equal(consultation.includes('"nexa-core"'),false);
 });
 
 test("observability schema contains no clinical payload fields", async () => {
