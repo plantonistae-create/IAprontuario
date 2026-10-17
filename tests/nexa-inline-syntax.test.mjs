@@ -3,7 +3,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 
 const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
-const scripts=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)]
+const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
   .filter(([,attrs,body])=>!attrs.includes("src=") && body.trim());
 assert.ok(scripts.length >= 3,"Expected NEXA inline runtime scripts");
 for(let index=0;index<scripts.length;index++){
