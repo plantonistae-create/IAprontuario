@@ -2926,7 +2926,26 @@ async function loadAuditQueue(useCache=false){
         if(c.review_note){
           const noteBox=document.createElement('div');noteBox.className='learning';noteBox.textContent='Observação: '+c.review_note;row.append(noteBox);
         }
-        if(currentProf?.is_admin && ['approved','corrected'].includes(c.status)){
+        const eligible=['approved','corrected'].includes(c.status);
+        const auditActions=document.createElement('div');auditActions.className='conduct-actions';
+        const selection=document.createElement('label');selection.className='hint';
+        const evaluation=document.createElement('input');evaluation.type='checkbox';
+        evaluation.checked=!!existingAnnotation.evaluation_candidate;evaluation.disabled=!eligible;
+        selection.append(evaluation,document.createTextNode(' Selecionar para avaliação offline (não libera treinamento)'));
+        const saveTags=document.createElement('button');saveTags.type='button';
+        saveTags.className='btn ghost';saveTags.style.width='auto';
+        saveTags.textContent='Salvar classificação / seleção';
+        saveTags.onclick=async()=>{
+          saveTags.disabled=true;
+          try{
+            await saveAnnotation(evaluation.checked);
+            show('Classificação salva. Nenhum direito de treinamento foi concedido.');
+            await loadNexaAuditLearningMetrics();
+          }catch(e){show('Falha ao salvar: '+String(e.message||e),true)}
+          finally{saveTags.disabled=false}
+        };
+        auditActions.append(selection,saveTags);row.append(auditActions);
+        if(currentProf?.is_admin && eligible){
           const actions=document.createElement('div');actions.className='conduct-actions';
           for(const [label,approved] of [['Liberar para dataset',true],['Revogar liberação',false]]){
             const button=document.createElement('button');button.className='btn ghost';
@@ -2944,6 +2963,7 @@ async function loadAuditQueue(useCache=false){
                 });
                 if(error)throw error;
                 show(approved?'Caso autorizado para exportação futura.':'Autorização de exportação revogada.');
+                await loadNexaAuditLearningMetrics();
               }catch(e){show(e.message,true)}
             };
             actions.append(button);
