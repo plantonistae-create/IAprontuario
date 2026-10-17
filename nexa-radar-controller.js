@@ -7,39 +7,66 @@
   const states={to_ask:'A perguntar',asked:'Perguntada · aguardando resposta',confirm:'A confirmar'};
   const cats={history:'História',red_flags:'Sinais de alarme',exam:'Exame físico',vitals:'Sinais vitais',risk:'Antecedentes / riscos',medications:'Medicações',contradiction:'Contradição',differential:'Diferencial'};
   function create(adapter){
-    let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
+    let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
     const listeners=new Set();
     function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger)};}
+    // A streaming transcript usually grows monotonically. Retain one in-flight
+    // analysis when new completed utterances only append text, then refresh it.
+    // Changing clinical fields, owner, or encounter still invalidates immediately.
+    function appendOnly(before,after){
+      if(!before||!after)return false;
+      const a=String(before.transcript||''),b=String(after.transcript||'');
+      if(!b.startsWith(a)||b.length<=a.length)return false;
+      const {transcript:oldText,...oldRest}=before,{transcript:newText,...newRest}=after;
+      return JSON.stringify(oldRest)===JSON.stringify(newRest);
+    }
     function invalidate(){revision++;controller?.abort();controller=null;busy=false;clearTimeout(aiTimer);}
     function publish(){adapter.publish?.(state);listeners.forEach(fn=>fn(state));}
     function recalculate({remote=false,force=false}={}){
       const context=adapter.context(),key=JSON.stringify(context);
-      if(key!==lastKey){invalidate();lastKey=key;aiKey='';}
+      if(key!==lastKey){
+        if(!(busy&&appendOnly(lastContext,context)))invalidate();
+        lastKey=key;lastContext=structuredClone(context);aiKey='';
+      }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;
-      publish();if(remote&&(force||aiKey!==key)&&state.hasContext){clearTimeout(aiTimer);aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(650,12000-(Date.now()-lastRequestAt)));}
+      publish();
+      if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
+        clearTimeout(aiTimer);
+        aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(650,5000-(Date.now()-lastRequestAt)));
+      }
       return state;
     }
     async function analyzeRemote(){
+      if(busy)return;
       lastRequestAt=Date.now();
-      invalidate();const epoch=revision,context=adapter.context(),key=JSON.stringify(context);controller=new AbortController();const requestController=controller,signal=requestController.signal;
+      invalidate();
+      const epoch=revision,encounterAtStart=encounter,context=adapter.context(),key=JSON.stringify(context);
+      controller=new AbortController();const requestController=controller,signal=requestController.signal;
       const timeout=setTimeout(()=>requestController.abort(),20000);busy=true;error='';recalculate();
       try{
         const result=await adapter.analyze(context,signal);
-        if(epoch!==revision||key!==JSON.stringify(adapter.context()))return;
+        const current=adapter.context();
+        if(epoch!==revision||encounterAtStart!==encounter||
+           (key!==JSON.stringify(current)&&!appendOnly(context,current)))return;
         if(!Array.isArray(result?.items))throw new Error('Resposta da IA incompatível com o Radar contextual.');
         aiItems=result.items;observations=Array.isArray(result.observations)?result.observations:[];aiKey=key;
-      }catch(e){if(epoch===revision){error=signal.aborted?'IA excedeu o tempo limite. Checagens locais continuam disponíveis.':'IA indisponível. Checagens locais continuam disponíveis.';}}
-      finally{clearTimeout(timeout);if(epoch===revision){busy=false;controller=null;recalculate();}}
+      }catch(e){if(epoch===revision){
+        error=signal.aborted?'IA excedeu o tempo limite. Checagens locais continuam disponíveis.':'IA indisponível. Checagens locais continuam disponíveis.';
+        aiKey=key; // Do not endlessly repeat a failing request without new evidence.
+      }}
+      finally{clearTimeout(timeout);if(epoch===revision){
+        busy=false;controller=null;recalculate({remote:true});
+      }}
     }
     function respond(id,value,action='answer'){
       const item=state.items.find(i=>i.id===id);if(!item)return false;
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);ledger={};aiItems=[];observations=[];lastKey='';aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function reset(user=owner){invalidate();clearTimeout(timer);ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
-    function schedule(){invalidate();clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),220);}
+    function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
     return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}transcriptStatus=value==='live'&&transcriptIncomplete?'stale':value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
