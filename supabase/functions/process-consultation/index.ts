@@ -330,6 +330,14 @@ REGRAS GERAIS
 
 - Use português médico técnico, objetivo, claro e conciso.
 
+- Nas transcrições com marcas MÉDICO, PACIENTE e ACOMPANHANTE, preserve explicitamente a origem de cada informação relevante. Para o acompanhante utilize "Acompanhante relata" / "Acompanhante refere" (nunca atribua automaticamente esses dados ao paciente). Caso a relação de parentesco tenha sido informada, pode registrar "Mãe refere", "Filha relata" etc., mas não infira parentesco.
+- Falas do médico que sejam perguntas, sugestões ou hipóteses não constituem fatos relatados pelo paciente. Só documente sintomas e antecedentes confirmados por participante.
+- Em criança, paciente incapaz de responder ou pessoa acompanhada, deixe claro quando a história foi fornecida exclusivamente pelo acompanhante.
+- Se houver fala de OUTRO PARTICIPANTE sem papel identificado, mantenha sua origem indeterminada e não atribua dados ao paciente.
+- Mantenha rigorosamente a sequência cronológica dos acontecimentos na HDA.
+- Se expressão relevante do informante não possuir tradução técnica segura, mantenha a expressão literal entre aspas seguida de (SIC). Não aplique SIC indiscriminadamente a termos médicos corretamente normalizados.
+- A última frase "Sem demais queixas." é um padrão documental; ela não autoriza inferir negativas específicas não relatadas.
+
 - Converta expressões leigas para terminologia médica equivalente somente quando isso puder ser feito sem alterar o significado clínico.
 
 - Exclua:
