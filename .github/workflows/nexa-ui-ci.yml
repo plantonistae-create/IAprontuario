@@ -80,6 +80,8 @@ jobs:
           deno check supabase/functions/realtime-radar/index.ts
           deno check supabase/functions/submit-audit-case/index.ts
           deno check supabase/functions/audit-backfill/index.ts
+          deno check supabase/functions/consultation-speakers/index.ts
+          deno check supabase/functions/core-dataset-export/index.ts
       - name: Install Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
       - name: Desktop and mobile browser regression
