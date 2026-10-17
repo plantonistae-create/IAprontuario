@@ -10,7 +10,7 @@ NEXA Web (GitHub Pages) / médicos autenticados
   v
 Gateway API (Supabase Auth + funções de borda)
   |-- transcrição + diarização (adapter temporário OpenAI; substituível)
-  |-- confirmação de papéis: médico / paciente / acompanhante / outro
+  |-- separação automática de vozes: A/B/C com papéis não presumidos
   |-- prontuário (documentação cronológica, SIC, fonte dos relatos)
   |-- auditoria (casos finais desidentificados e revisão clínica)
   |-- exportação governada (admin + base legal + liberação manual)
@@ -37,12 +37,12 @@ Banco PostgreSQL + storage privado
 
 - **Diarização:** `consultation-speakers` recebe áudio consentido e autenticado, usa `gpt-4o-transcribe-diarize`, retorna apenas segmentos e identificadores de locutores em memória. Não grava áudio nem transcrição no banco.
 - **Revisão clínica sem fricção:** a diarização identifica vozes anônimas (Locutor A/B/C) sem pedir para o médico preencher papéis. O motor clínico contextualiza relatos com cautela e só atribui ao acompanhante quando houver fundamento explícito; na dúvida, usa linguagem neutra e o médico revisa o rascunho habitual. A ferramenta não promete reconhecimento biométrico do médico.
-- **Documento:** `process-consultation` aceita segmentos confirmados, passa por validação e gera o prontuário, sem fazer segunda transcrição. Preserva HDA cronológica; fala de acompanhante é atribuída ao acompanhante, não ao paciente; termos leigos não substituíveis com segurança são marcados `(SIC)`; diagnóstico e negativas não podem ser inventados.
+- **Documento:** `process-consultation` aceita segmentos diarizados não confirmados, passa por validação e gera o prontuário, sem fazer segunda transcrição. Preserva HDA cronológica; fala de acompanhante é atribuída ao acompanhante, não ao paciente; termos leigos não substituíveis com segurança são marcados `(SIC)`; diagnóstico e negativas não podem ser inventados.
 - **Radar em tempo real:** permanece no fluxo anterior; ainda não faz diarização ao vivo. A identificação de locutores ocorre **na finalização**.
 - **Continuidade:** identificação automática fica ativada por padrão na proposta desta branch. Caso a diarização não esteja disponível, o NEXA volta para a transcrição normal, informa que não houve identificação de vozes e continua gerando o rascunho sem interrupção nem etapa manual. Essa fallback pode incorrer em nova tentativa de cobrança conforme comportamento do fornecedor.
 - **Auditoria:** captura campos revistos e estatísticas agregadas de atribuição (quantidade de falas por papel, confirmação e origem); não captura áudio, transcrição bruta nem modelo biométrico.
 - **Direitos de treinamento:** tabela `nexa_core_dataset_approvals`, com revisão de desidentificação, referência de base legal, versão de política e revogação. Casos apenas aprovados clinicamente **não** passam automaticamente ao dataset de treinamento.
-- **Exportador:** `core-dataset-export`, apenas para admin ativo autenticado; exige `NEXA_DATASET_HMAC_SECRET` com pelo menos 32 caracteres. Retorna `.jsonl` em lotes máximos de 100, ID pseudônimo via HMAC, campos clínicos em lista permitida, divisão determinística, SHA-256 do lote e registro de exportação sem conteúdo clínico.
+- **Exportador:** `core-dataset-export`, apenas para admin ativo autenticado; exige `NEXA_DATASET_HMAC_SECRET` com pelo menos 32 caracteres. Retorna `.jsonl` em lotes máximos de 100, ID pseudônimo via HMAC, campos clínicos em lista permitida, divisão determinística, SHA-256 do lote e registro de exportação sem conteúdo clínico. A interface reúne os lotes em um arquivo e gera também um manifesto `.json` com hash SHA-256, versão e contagem total.
 
 ## 3. Governança antes de liberar treinamento comercial
 
@@ -62,7 +62,7 @@ Por linha JSONL:
 - `target.fields`: dados finais revisados na auditoria;
 - `source.auditCaseId`: pseudônimo HMAC, sem ligação exportada com `source_consultation_id`.
 
-**Pendência antes de treinamento real:** implementar separação treino/validação/teste por *paciente* (ou outra unidade anti-vazamento apropriada), preservando no ambiente clínico um agrupador HMAC estável e inacessível ao pipeline de exportação. O split atual por caso é adequado apenas para ensaios sintéticos e de integração.
+**Pendência antes de treinamento real:** implementar separação treino/validação/teste por *paciente* (ou outra unidade anti-vazamento apropriada), preservando no ambiente clínico um agrupador HMAC estável e inacessível ao pipeline de exportação. O split atual por caso é adequado apenas para ensaios sintéticos e de integração. Os datasets para treino supervisionado de correção documental só devem utilizar casos com entrada original disponível: `source.pairedInputAvailable=true`. Casos sem entrada original serão `reviewed_reference_only`, nunca pares de entrada-saída. Nunca colocar o `target` revisado na entrada.
 
 ## 5. Publicação coordenada
 
