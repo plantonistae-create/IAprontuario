@@ -68,6 +68,14 @@ O NEXA já guarda os campos clínicos desidentificados e revisados após auditor
 
 Para treinamento real, o revisor deverá classificar em uma interface de avaliação dedicada (ainda a desenvolver) o erro do Radar: pergunta redundante, resposta ignorada, condição clínica irrelevante, evidência mal atribuída, temporalidade incorreta, sinal de alarme perdido ou sugestão adequada. O dataset deve conter somente citações/desidentificação com revisão apropriada e ser separado treino/validação/teste **por paciente**, sem vazamento entre episódios; esta separação ainda não está implementada.
 
+## Referência de serviço própria já incluída no código
+
+A branch inclui `services/nexa-core-radar/infer.mjs` e `services/nexa-core-radar/server.mjs`: implementação **CPU-only** e **sem chamadas à OpenAI**, conectada ao mesmo motor determinístico do navegador. Ela serve como baseline de integração para a futura API online.
+
+Uso de desenvolvimento: iniciar com `NEXA_CORE_API_KEY=<segredo-aleatório-longo> PORT=8765 node services/nexa-core-radar/server.mjs`. O processo se vincula **apenas a 127.0.0.1**, não recebe conexões externas e precisa de **reverse proxy HTTPS, autenticação, restrições de rede, monitoramento e governança** antes de qualquer instalação remota. A API recusa requisições sem bearer válido e cargas excessivas e não registra prontuários nem falas. `GET /healthz` sinaliza somente que o processo está vivo, **não** que o modelo é clinicamente seguro.
+
+Esta referência é um *baseline de regras*: não faz transcrição, diarização, inferência generativa, gestão de fila nem treinamento GPU. Pode sugerir perguntas clínicas delimitadas pela evidência do contexto. **Não deve ser ativada para atendimentos reais sem validação clínica específica**, e não constitui migração integral do NEXA para infraestrutura própria.
+
 ## Motor local + API e limite de independência atual
 
 - A camada local determinística tem execução no navegador, não requer a OpenAI e nunca deve ser substituída por conclusões não verificáveis da IA.
