@@ -2730,7 +2730,32 @@ async function loadCoreUsers(){
 async function loadCoreSlots(){if(!currentProf?.is_admin)return;try{const {data,error}=await sb.rpc('get_admin_slot_summary');if(error)throw error;$('coreSlotsBody').innerHTML=(data||[]).map(x=>`Vaga ${x.slot_no}: ${x.display_name||'livre'}`).join('<br>')}catch(e){$('coreSlotsBody').textContent=e.message}}
 async function loadCoreDatasetSummary(){
   const el=$('coreDatasetSummary');if(!el||!(currentProf?.is_admin||currentProf?.is_reviewer))return;
-  try{const {data,error}=await sb.rpc('get_core_dataset_summary');if(error)throw error;const s=Array.isArray(data)?data[0]:data;if(!s){el.textContent='NEXA Core · conjunto auditado ainda vazio.';return}el.innerHTML=`<strong>NEXA Core auditado:</strong> ${Number(s.total_cases||0)} casos · ${Number(s.approved_cases||0)} corretos · ${Number(s.corrected_cases||0)} corrigidos · ${Number(s.radar_ready_cases||0)} úteis para evolução do Radar · ${Number(s.clinical_plan_ready_cases||0)} com plano clínico auditável.`}catch(e){el.textContent='NEXA Core · resumo do conjunto auditado ficará disponível após aplicar a atualização SQL 07.'}
+  try{const {data,error}=await sb.rpc('get_core_dataset_summary');if(error)throw error;const s=Array.isArray(data)?data[0]:data;if(!s){el.textContent='NEXA Core · conjunto auditado ainda vazio.';return}el.innerHTML=`<strong>NEXA Core auditado:</strong> ${Number(s.total_cases||0)} casos · ${Number(s.approved_cases||0)} corretos · ${Number(s.corrected_cases||0)} corrigidos · ${Number(s.radar_ready_cases||0)} úteis para evolução do Radar · ${Number(s.clinical_plan_ready_cases||0)} com plano clínico auditável.`if(currentProf?.is_admin){
+    const exportButton=document.createElement('button');exportButton.className='btn ghost';exportButton.style.cssText='margin-top:10px;width:auto';
+    exportButton.textContent='Exportar dataset auditado (JSONL)';
+    exportButton.onclick=async()=>{
+      const version=prompt('Versão do dataset (ex.: nexa-2026-10-v1):','nexa-2026-10-v1');
+      if(!version)return;
+      const offsetText=prompt('Lote inicial (0, 100, 200...):','0');
+      if(offsetText===null)return;
+      const offset=Number(offsetText);
+      if(!Number.isInteger(offset)||offset<0){alert('Lote inválido.');return}
+      exportButton.disabled=true;
+      try{
+        const headers=await sessionHeaders();
+        const r=await fetch(SUPABASE_URL+'/functions/v1/core-dataset-export',{
+          method:'POST',headers,body:JSON.stringify({dataset_version:version,offset,limit:100})
+        });
+        if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'EXPORT_FAILED')}
+        const blob=await r.blob(),objectUrl=URL.createObjectURL(blob),a=document.createElement('a');
+        a.href=objectUrl;a.download='nexa-core-'+version+'-'+offset+'.jsonl';a.click();
+        setTimeout(()=>URL.revokeObjectURL(objectUrl),10000);
+        show('Lote do dataset exportado. Mantenha o arquivo em armazenamento protegido.');
+      }catch(e){show('Exportação indisponível: '+e.message,true)}
+      finally{exportButton.disabled=false}
+    };
+    el.append(document.createElement('br'),exportButton);
+  }}catch(e){el.textContent='NEXA Core · resumo do conjunto auditado ficará disponível após aplicar a atualização SQL 07.'}
 }
 async function loadAuditQueue(){
   if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;
@@ -2772,6 +2797,30 @@ async function loadAuditQueue(){
         }
         if(c.review_note){
           const noteBox=document.createElement('div');noteBox.className='learning';noteBox.textContent='Observação: '+c.review_note;row.append(noteBox);
+        }
+        if(currentProf?.is_admin && ['approved','corrected'].includes(c.status)){
+          const actions=document.createElement('div');actions.className='conduct-actions';
+          for(const [label,approved] of [['Liberar para dataset',true],['Revogar liberação',false]]){
+            const button=document.createElement('button');button.className='btn ghost';
+            button.style.width='auto';button.textContent=label;
+            button.onclick=async()=>{
+              const ref=prompt('Referência documental da base legal/autorizações (sem nomes nem dados pessoais):');
+              if(!ref)return;
+              const policy=prompt('Versão da política de governança:','nexa-data-governance-v1');
+              if(!policy)return;
+              if(approved&&!confirm('Confirma que este caso foi revisado quanto à desidentificação e possui base legal/documentação adequada para treinamento comercial?'))return;
+              try{
+                const {error}=await sb.rpc('review_nexa_core_dataset_rights',{
+                  p_audit_case_id:c.id,p_approved:approved,
+                  p_deidentified:approved,p_rights_basis_reference:ref,p_policy_version:policy
+                });
+                if(error)throw error;
+                show(approved?'Caso autorizado para exportação futura.':'Autorização de exportação revogada.');
+              }catch(e){show(e.message,true)}
+            };
+            actions.append(button);
+          }
+          row.append(actions);
         }
       }
       $('coreAuditBody').append(row);
