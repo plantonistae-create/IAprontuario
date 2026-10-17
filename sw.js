@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-clinical-conflicts-20261016";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261016-clinical-conflicts";
+const CACHE_NAME="nexa-v18-15-0-notice-defer-20261017";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261017-notice-defer";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
