@@ -54,6 +54,14 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),false);
   assert.equal(await page.locator('#nexaPsCoverageProgress').getAttribute('role'),'progressbar');
 
+  // The initial encounter setup emits asynchronous Radar revisions. Wait for
+  // its state to be fully initialized before asserting the view toggle is pure.
+  await page.waitForFunction(() => {
+    const state=window.nexaRadar?.state;
+    return state && Object.prototype.hasOwnProperty.call(state,'revision')
+      && Object.prototype.hasOwnProperty.call(state,'ledger')
+      && Boolean(state.encounter);
+  });
   const state0=await page.evaluate(()=>JSON.stringify(window.nexaRadar.state));
   const requests0=await page.evaluate(()=>window.__qa.requests.length);
   await page.locator('#nexaRadarModeComplete18131').click();
