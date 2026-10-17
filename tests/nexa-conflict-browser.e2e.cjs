@@ -93,7 +93,30 @@ const server=http.createServer((req,res)=>{
   }),id2);
   assert.equal(outcome.local.sync_state,'conflict');
   assert.equal(outcome.remote.fields.hda,'Servidor 2');
+  // The "Adiar" action must really dismiss the modal, preserve the conflicting
+  // draft and keep only a small non-obstructive header shortcut.
+  await second.getByRole('button',{name:'Adiar aviso (24h)'}).click();
+  assert.equal(await second.locator('#nexa-c-overlay').isVisible(),false,'Adiar must close the dialog');
+  assert.equal(await second.evaluate(()=>window.nexaEncounterConflictReview18102.isPostponed()),true);
+  assert.equal(await second.evaluate(()=>getComputedStyle(document.getElementById('nexa-c-banner')).position),'static','conflict notice must not float above clinical inputs');
+  assert.equal(await second.locator('#nexa-c-banner button').textContent(),'Pendências de sincronização (1)');
+  assert.equal((await second.evaluate(id=>window.nexaEncounterAutosave18101.get(id),id2)).sync_state,'conflict','postponing cannot discard data');
+  // Browser refresh must not re-enable the intrusive warning.
+  await second.reload({waitUntil:'load'});
+  await second.waitForFunction(()=>!!window.nexaEncounterConflictReview18102?.isPostponed?.()&&document.getElementById('nexa-c-banner')?.textContent?.includes('Pendências de sincronização'));
+  assert.equal(await second.locator('#nexa-c-overlay').isVisible(),false);
+  assert.equal((await second.evaluate(id=>window.nexaEncounterAutosave18101.get(id),id2)).sync_state,'conflict','persisted conflict survives reload');
+  // Still available on demand from the unobtrusive navigation control.
+  await second.evaluate(({id,user})=>{
+    window.__syntheticRemote.set(id,{id,user_id:user,encounter_id:id,fields:{hda:'Servidor 2'},encounter_state:'draft',
+      status:'draft',sync_version:6,protocol_usage:[],audit_priority:0,updated_at:new Date().toISOString()});
+  },{id:id2,user});
+  await second.locator('#nexa-c-banner button').click();
+  await second.getByRole('button',{name:'Adiar aviso (24h)'}).waitFor();
+  assert.equal(await second.locator('#nexa-c-overlay').isVisible(),true,'postponed conflict remains accessible for voluntary review');
+  await second.getByRole('button',{name:'Adiar aviso (24h)'}).click();
+  assert.equal(await second.locator('#nexa-c-overlay').isVisible(),false);
   assert.deepEqual(errors,[],'no uncaught browser errors expected');
-  console.log('NEXA browser conflict UI: manual review, persisted archive, concurrent update rejection PASS');
+  console.log('NEXA browser conflict UI: archive, concurrency, functional defer, reload, unobtrusive notices PASS');
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r))}
 })().catch(error=>{console.error(error);process.exitCode=1});
