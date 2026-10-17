@@ -46,9 +46,17 @@ const server=http.createServer((req,res)=>{
   assert.equal(await cards.count(),2);
   await cards.nth(0).locator('input[value="local"]').check();
   await cards.nth(1).locator('input[value="server"]').check();
+  // Human-scale pause: previously the global document change observer treated
+  // modal radio selection as a clinical edit, changing the local revision.
+  await page.waitForTimeout(650);
+  assert.equal((await page.evaluate(id=>window.nexaEncounterAutosave18101.get(id),id1)).local_revision,1,
+    'selecting merge options must not autosave an unrelated clinical form');
   await page.getByRole('button',{name:'Revisar resultado'}).click();
   assert.equal(await page.getByRole('button',{name:'Confirmar e salvar'}).isDisabled(),true);
   await page.locator('#nexa-c-overlay input[type="checkbox"]').check();
+  await page.waitForTimeout(650);
+  assert.equal((await page.evaluate(id=>window.nexaEncounterAutosave18101.get(id),id1)).local_revision,1,
+    'confirmation checkbox must not alter the clinical draft while reviewing');
   await page.getByRole('button',{name:'Confirmar e salvar'}).click();
   await page.getByText('Resolução confirmada',{exact:false}).waitFor();
   const result=await page.evaluate(async id=>({
