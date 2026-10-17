@@ -1,3 +1,4 @@
+import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
 const DIRECT_IDENTIFIER_KEY=/^(?:nome(?:_do)?_?paciente|patient_?name|cpf|rg|telefone|phone|celular|mobile|email|e_?mail|endereco|address|cep|documento|document_?id|patient_?id|medical_?record|prontuario|matricula)$/i;
 const EMAIL=/\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/;
 const CPF=/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
@@ -23,6 +24,7 @@ export function safeCoreContext(input={}){
     clinical_plan:isPlainObject(input.clinical_plan)?input.clinical_plan:{},
     protocol_usage:cleanObjectArray(input.protocol_usage,24),
     radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts),items:cleanObjectArray(radar.items,100),answers:safeObject(radar.answers)},
+    radar_feedback:sanitizeRadarFeedback(input.radar_feedback),
     destination:{recommended:String(destination.recommended||'').slice(0,40),final:String(destination.final||'').slice(0,40),status:String(destination.status||'').slice(0,40),source:String(destination.source||'').slice(0,120),updated_at:String(destination.updated_at||'').slice(0,80),recommendation_stale:!!destination.recommendation_stale,reason:String(destination.reason||'').slice(0,2000)},
     speaker_attribution:{
       schema_version:'speaker-attribution-v1',

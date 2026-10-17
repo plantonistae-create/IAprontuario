@@ -11,3 +11,31 @@ test('completed audio items are ordered and idempotent; deltas cannot become fin
 test('unavailable transcription remains explicit even with no recorded context',()=>{const {api,set}=fixture();set({fields:{hda:''}});api.setTranscriptStatus('unavailable');assert.equal(api.state.transcriptStatus,'unavailable');assert.equal(api.state.hasContext,false);api.reset();assert.equal(api.state.transcriptStatus,undefined);});
 
 test('a later audio success cannot hide an earlier unanalyzed segment',()=>{const {api}=fixture();api.setTranscriptStatus('unavailable');api.setTranscriptStatus('live');assert.equal(api.state.transcriptStatus,'stale');assert.equal(api.state.transcriptIncomplete,true);api.setTranscriptStatus('paused');assert.equal(api.state.transcriptIncomplete,true);api.setTranscriptStatus('structured');assert.equal(api.state.transcriptIncomplete,false);api.reset();});
+
+test('appended speech keeps the current request alive and queues a fresh analysis',async()=>{
+  const {api,calls,set}=fixture();
+  set({fields:{hda:'Dor torácica.'},transcript:'Médico: Teve febre?'});
+  api.recalculate();
+  const pending=api.analyzeRemote();
+  assert.equal(calls.length,1);
+  const signal=calls[0].signal;
+  set({fields:{hda:'Dor torácica.'},transcript:'Médico: Teve febre?\nPaciente: Não.'});
+  api.recalculate({remote:true});
+  assert.equal(signal.aborted,false,'append-only speech must not cancel an active AI call');
+  calls[0].resolve({items:[],observations:[]});
+  await pending;
+  assert.equal(api.state.busy,false);
+  assert.equal(api.state.error,'');
+  api.reset();
+});
+test('non-append edits still cancel stale AI requests',async()=>{
+  const {api,calls,set}=fixture();
+  const pending=api.analyzeRemote();
+  const signal=calls[0].signal;
+  set({fields:{hda:'Cefaleia súbita.'},transcript:'Mudança de contexto.'});
+  api.recalculate();
+  assert.equal(signal.aborted,true);
+  calls[0].resolve({items:[]});
+  await pending;
+  api.reset();
+});

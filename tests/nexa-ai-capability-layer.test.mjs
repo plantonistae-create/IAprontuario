@@ -32,8 +32,10 @@ test("provider resolution is central and explicit", () => {
     () => resolveCapability("unknown.capability", { provider: "openai" }),
     (error) => error instanceof CapabilityResolutionError && error.code === "UNSUPPORTED_CAPABILITY",
   );
+  assert.equal(resolveCapability("realtime.radar",{provider:"nexa-core"}).provider,"nexa-core");
+  assert.equal(resolveCapability("realtime.radar",{provider:"nexa-core"}).adapterVersion,"radar-nexa-core-http-v1");
   assert.throws(
-    () => resolveCapability("realtime.radar", { provider: "nexa-core" }),
+    () => resolveCapability("realtime.radar", { provider: "unknown-provider" }),
     (error) => error instanceof CapabilityResolutionError && error.code === "UNSUPPORTED_PROVIDER",
   );
 });

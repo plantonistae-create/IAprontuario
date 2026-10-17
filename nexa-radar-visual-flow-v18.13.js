@@ -623,9 +623,21 @@ function onClinicalProcessing(event){
   const state=event?.detail?.state;
   updateRecorder();
   if(state==='structured'){
+    // Clinical review is a required destination after processing. Smooth scroll
+    // can be interrupted by late stage/layout updates; align all scrollable
+    // ancestors immediately and recheck once after the review stage settles.
+    const revealReview=()=>{
+      const target=reviewTarget();
+      if(!target||!target.getClientRects?.().length)return;
+      const rect=target.getBoundingClientRect();
+      if(rect.bottom<=0||rect.top>=window.innerHeight){
+        target.scrollIntoView({behavior:'instant',block:'center',inline:'nearest'});
+      }
+    };
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       updateRecorder();
-      scrollComfortably(reviewTarget(),'start');
+      revealReview();
+      setTimeout(revealReview,160);
     }));
   }else if(state==='error'){
     requestAnimationFrame(()=>updateRecorder());

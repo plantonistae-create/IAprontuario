@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.8";
 import { createAuditedCase, createDatasetItem } from "../_shared/nexa-core-foundations.mjs";
 import { findDirectPii } from "../submit-audit-case/audit-contract.mjs";
+import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
 
 // ADMIN-ONLY batch JSONL export. Requires explicit rights and deidentification approvals.
 // No source consultation ID, doctor/patient ID, audio, transcript or voiceprint is exported.
@@ -130,6 +131,7 @@ Deno.serve(async req=>{
           trainingPurpose:pairedInputAvailable ? "supervised_document_revision" : "reviewed_reference_only",
           pairedInputAvailable},
         input:{...item.input,speakerAttribution:speakerMeta},
+        annotations:{radarFeedback:sanitizeRadarFeedback(a.deidentified_core_context?.radar_feedback)},
       };
       // Machine checks supplement, never replace, the mandatory human review.
       if(findDirectPii(safe).length)throw Error("POTENTIAL_IDENTIFIER_DETECTED");
