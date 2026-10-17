@@ -61,6 +61,7 @@ test("Manual Radar annotation strips raw answers, names, PHI and timestamps",()=
    fever:{action:"dismissed",quote:"Mãe relatou febre"},
    "conflict:fever":{action:"not_applicable",raw:"não guardar"},
    "patient_name":{action:"weird",value:"João"},
+   joaosilva:{action:"dismissed",value:"sensitive"},
   },
   metrics:{covered:5,suggested:8,alerts:1,confirm:2},
   transcript:"CONSULTA SECRETA",
