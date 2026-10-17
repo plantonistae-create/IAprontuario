@@ -20,6 +20,8 @@ function sourceCoreContext(body:any,source:any){
   const autosave=isPlainObject(source?.processing_meta?.encounter_autosave)?source.processing_meta.encounter_autosave:{};
   const merged={
     ...base,
+    speaker_attribution:isPlainObject(base.speaker_attribution)?base.speaker_attribution:
+      (isPlainObject(source?.processing_meta?.speaker_attribution)?source.processing_meta.speaker_attribution:{}),
     schema_version:'3',
     clinical_plan:isPlainObject(base.clinical_plan)?base.clinical_plan:(isPlainObject(autosave.clinicalPlan)?autosave.clinicalPlan:{}),
     protocol_usage:Array.isArray(source?.protocol_usage)?source.protocol_usage:(Array.isArray(base.protocol_usage)?base.protocol_usage:[]),
