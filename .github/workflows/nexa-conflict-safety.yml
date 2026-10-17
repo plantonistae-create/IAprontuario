@@ -41,6 +41,8 @@ jobs:
       - name: Install pinned dependencies and focused browser
         run: |
           npm ci
-          npx playwright install chromium --with-deps
+          npx playwright install chromium firefox --with-deps
       - name: Run synthetic conflict interface in Chromium
         run: node tests/nexa-conflict-browser.e2e.cjs
+      - name: Run synthetic conflict interface in Firefox
+        run: NEXA_BROWSER=firefox node tests/nexa-conflict-browser.e2e.cjs
