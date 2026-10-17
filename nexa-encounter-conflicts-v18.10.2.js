@@ -45,6 +45,11 @@ function init(){
 function close(){
  // "Adiar" and "Fechar" dismiss the alert for 24h, not the clinical conflict.
  st.requestEpoch++;postpone();
+ if(banner&&!banner.hidden){
+   banner.classList.add('nexa-c-postponed');
+   const action=banner.querySelector('button');
+   if(action)action.textContent=action.textContent.replace(/^Revisar sincronização/,'Pendências de sincronização');
+ }
  if(overlay)overlay.hidden=true;
  st.review=null;st.decisions={};st.id='';
  void refresh();
@@ -159,7 +164,7 @@ async function refreshStatus(){
  try{
    const current=await api.get(id);
    if(!current||current.owner_user_id!==owner()){status.hidden=true;return}
-   status.hidden=current.sync_state==='synced'&&!current.requires_form_refresh;
+   status.hidden=(current.sync_state==='synced'||current.sync_state==='conflict')&&!current.requires_form_refresh;
    status.textContent=current.requires_form_refresh?'Versão reconciliada: reabra o atendimento antes de editar':
      current.sync_state==='synced'?'Prontuário sincronizado no servidor':
      current.sync_state==='conflict'?'Conflito: cópia local preservada':
