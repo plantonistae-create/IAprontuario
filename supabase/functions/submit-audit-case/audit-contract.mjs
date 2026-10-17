@@ -13,6 +13,9 @@ function safeObject(value){return isPlainObject(value)?value:{}}
 export function safeCoreContext(input={}){
   const hv=safeObject(input.hypothesis_validation),radar=safeObject(input.radar_learning),provenance=safeObject(input.provenance);
   const destination=safeObject(input.destination),snapshot=safeObject(input.audit_submission_snapshot),layers=safeObject(input.learning_layers);
+  // Metadata only: no segment text, speaker audio, names, voiceprints or timestamps.
+  const sp=safeObject(input.speaker_attribution),counts=safeObject(sp.role_segment_counts);
+  const safeCount=(n)=>Number.isFinite(Number(n))?Math.max(0,Math.min(1500,Math.floor(Number(n)))):0;
   return{
     schema_version:String(input.schema_version||'3').slice(0,20),
     case_mode:String(input.case_mode||'').slice(0,40),
@@ -21,6 +24,13 @@ export function safeCoreContext(input={}){
     protocol_usage:cleanObjectArray(input.protocol_usage,24),
     radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts),items:cleanObjectArray(radar.items,100),answers:safeObject(radar.answers)},
     destination:{recommended:String(destination.recommended||'').slice(0,40),final:String(destination.final||'').slice(0,40),status:String(destination.status||'').slice(0,40),source:String(destination.source||'').slice(0,120),updated_at:String(destination.updated_at||'').slice(0,80),recommendation_stale:!!destination.recommendation_stale,reason:String(destination.reason||'').slice(0,2000)},
+    speaker_attribution:{
+      schema_version:'speaker-attribution-v1',
+      confirmed_by_physician:sp.confirmed_by_physician===true,
+      speaker_count:Math.min(30,safeCount(sp.speaker_count)),
+      role_segment_counts:{physician:safeCount(counts.physician),patient:safeCount(counts.patient),companion:safeCount(counts.companion),other:safeCount(counts.other)},
+      audio_retained:false,transcript_retained:false
+    },
     learning_layers:{original_ai:safeObject(layers.original_ai),physician_final:safeObject(layers.physician_final),audit_corrected:layers.audit_corrected==null?null:safeObject(layers.audit_corrected)},
     audit_submission_snapshot:{captured_at:String(snapshot.captured_at||'').slice(0,80),source_consultation_id:String(snapshot.source_consultation_id||'').slice(0,80),source_updated_at:String(snapshot.source_updated_at||'').slice(0,80),source_sync_version:Math.max(0,Number(snapshot.source_sync_version||0)),immutable_submission:snapshot.immutable_submission!==false,capture_reason:String(snapshot.capture_reason||'').slice(0,80),frontend_version:String(snapshot.frontend_version||'').slice(0,80),reviewed_at:String(snapshot.reviewed_at||'').slice(0,80)},
     provenance:{app_version:String(provenance.app_version||snapshot.frontend_version||'').slice(0,120),reviewed_documentation:true,radar_raw_transcript_saved:false,official_source:'final_review'}
