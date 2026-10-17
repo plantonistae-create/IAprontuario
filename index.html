@@ -2712,6 +2712,18 @@ async function submitCurrentForAudit(){
     hypothesis_validation:{status:hypothesisReview.status||'pending',ai:hypothesisReview.ai||'',final:hypothesisReview.final||'',cid:hypothesisReview.cid||'',source:hypothesisReview.source||''},
     clinical_plan:planForCore,
     speaker_attribution:lastProcessedMeta?.speaker_attribution||null,
+    // Only interactions and aggregate counters; never raw speech or answers.
+    radar_feedback:{
+      actions:Object.fromEntries(Object.entries(window.nexaRadar?.snapshot()?.ledger||{})
+        .map(([id,event])=>[id,String(event?.action||'')])
+        .filter(([,action])=>['answer','evaluated','dismissed','not_applicable'].includes(action))),
+      metrics:{
+        suggested:window.nexaRadar?.state?.items?.length||0,
+        covered:window.nexaRadar?.state?.clarified?.length||0,
+        confirm:window.nexaRadar?.state?.confirm?.length||0,
+        alerts:window.nexaRadar?.state?.alerts?.length||0
+      }
+    },
     radar_learning:{chief_complaint:radarState?.chief_complaint||'',covered:Array.isArray(radarState?.covered)?radarState.covered:[],missing:Array.isArray(radarState?.missing)?radarState.missing:[],questions:Array.isArray(radarState?.questions)?radarState.questions:[],alerts:Array.isArray(radarState?.alerts)?radarState.alerts:[]},
     provenance:{app_version:APP_CONFIG.appVersion,reviewed_documentation:true,radar_raw_transcript_saved:false,official_source:'final_review'}
   };
