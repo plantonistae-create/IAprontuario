@@ -2,7 +2,7 @@
 /* Public asset verification only. Never touches clinical accounts or patient records. */
 const assert=require('node:assert/strict');
 const base='https://plantonistae-create.github.io/IAprontuario/';
-const isPR=process.env.GITHUB_EVENT_NAME==='pull_request';
+const isPR=false; // Deploy verification run must require published 20261017 conflict-actions release.
 const releaseName=isPR?'notice-defer-20261017':'conflict-actions-20261017';
 const hotfixTag=isPR?'20261017-notice-defer':'20261017-resolution-actions';
 const autosaveTag=isPR?'20261016-review-safe':'20261017-resolution-actions';
