@@ -341,10 +341,21 @@ function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pen
 async function flush(reason='manual'){
  if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
 }
+function isClinicalEdit(event){
+ const target=event?.target;
+ if(!target?.matches?.('textarea,input,select'))return false;
+ // The conflict dialog itself contains radio buttons, textareas and a final
+ // confirmation checkbox. None of those are clinical-form edits. Previously
+ // they triggered autosave, incremented local_revision during review and made
+ // all resolution actions fail with LOCAL_CHANGED_REVIEW_AGAIN.
+ if(target.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return false;
+ return true;
+}
 function bind(){
- document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('input')},true);
- document.addEventListener('change',e=>{if(e.target?.matches?.('textarea,input,select'))schedulePersist('change')},true);
+ document.addEventListener('input',e=>{if(isClinicalEdit(e))schedulePersist('input')},true);
+ document.addEventListener('change',e=>{if(isClinicalEdit(e))schedulePersist('change')},true);
  document.addEventListener('click',e=>{
+   if(e.target?.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return;
    if(e.target?.closest?.(START)){if(!currentEncounterId())void startNew('recording_start');else void preserve('recording_start');return}
    if(e.target?.closest?.(RESET)){pendingNew=true;void preserve('before_reset');return}
    if(e.target?.closest?.('#logoutBtn')){void preserve('logout');return}
