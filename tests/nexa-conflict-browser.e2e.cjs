@@ -1,6 +1,7 @@
 'use strict';
 /* Browser-level verification of the real NEXA conflict UI with synthetic clinical text. */
-const {chromium}=require('playwright');
+const {chromium,firefox}=require('playwright');
+const selectedBrowser=process.env.NEXA_BROWSER==='firefox'?'firefox':'chromium';
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -24,7 +25,7 @@ const server=http.createServer((req,res)=>{
  const base='http://127.0.0.1:'+server.address().port;
  let browser;
  try{
-  browser=await chromium.launch({headless:true});
+  browser=await (selectedBrowser==='firefox'?firefox:chromium).launch({headless:true});
   const page=await browser.newPage({viewport:{width:1080,height:800}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/tests/fixtures/nexa-conflict-browser.html',{waitUntil:'load'});
@@ -182,6 +183,6 @@ const server=http.createServer((req,res)=>{
   await second.getByRole('button',{name:'Adiar aviso (24h)'}).click();
   assert.equal(await second.locator('#nexa-c-overlay').isVisible(),false);
   assert.deepEqual(errors,[],'no uncaught browser errors expected');
-  console.log('NEXA browser conflict UI: archive, concurrency, functional defer, reload, unobtrusive notices PASS');
+  console.log('NEXA '+selectedBrowser+' conflict UI: server/local/manual merge, archive, CAS, defer, reload PASS');
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r))}
 })().catch(error=>{console.error(error);process.exitCode=1});
