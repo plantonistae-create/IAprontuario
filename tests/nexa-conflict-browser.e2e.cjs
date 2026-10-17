@@ -78,6 +78,57 @@ const server=http.createServer((req,res)=>{
   assert.equal(count,1,'both copies must have been archived before resolution');
   await page.getByRole('button',{name:'Concluir'}).click();
 
+  // Verify every real decision path with human-paced interactions:
+  // Keep server, use local, and manually edit merged content.
+  for(const config of [
+    {id:'00000000-0000-4000-8000-000000000203',mode:'server',
+     local:'LOCAL_TO_ARCHIVE',remote:'SERVER_TO_KEEP',expected:'SERVER_TO_KEEP'},
+    {id:'00000000-0000-4000-8000-000000000204',mode:'local',
+     local:'LOCAL_TO_KEEP',remote:'SERVER_TO_REPLACE',expected:'LOCAL_TO_KEEP'},
+    {id:'00000000-0000-4000-8000-000000000205',mode:'manual',
+     local:'LOCAL_FOR_EDIT',remote:'SERVER_FOR_EDIT',expected:'RECONCILED_BY_DOCTOR'}
+  ]){
+    await page.evaluate(({config,user})=>{
+      const r={encounter_id:config.id,owner_user_id:user,fields:{hda:config.local},
+        encounter_state:'draft',sync_state:'conflict',sync_version:4,local_revision:1,
+        last_client_saved_at:new Date().toISOString(),protocol_usage:[],audit_priority:0,legacy_status:'draft'};
+      window.__syntheticRemote.set(config.id,{
+        id:config.id,user_id:user,encounter_id:config.id,fields:{hda:config.remote},
+        encounter_state:'draft',status:'draft',sync_version:4,
+        protocol_usage:[],audit_priority:0,updated_at:new Date().toISOString()
+      });
+      return window.nexaEncounterAutosave18101.put(r).then(()=>window.nexaEncounterConflictReview18102.refresh());
+    },{config,user});
+    await page.locator('#nexa-c-banner button').click();
+    if(config.mode==='server')await page.getByRole('button',{name:'Manter servidor'}).click();
+    if(config.mode==='local')await page.getByRole('button',{name:'Usar local',exact:true}).first().click();
+    if(config.mode==='manual'){
+      await page.getByRole('button',{name:'Mesclar manualmente'}).click();
+      await page.locator('#nexa-c-overlay input[value="manual"]').check();
+      await page.locator('#nexa-c-overlay textarea.nexa-c-edit').fill(config.expected);
+      await page.waitForTimeout(650);
+      await page.getByRole('button',{name:'Revisar resultado'}).click();
+    }
+    await page.locator('#nexa-c-overlay input[type="checkbox"]').check();
+    // On real hardware, the user typically reads this consent. Previous code
+    // incorrectly changed the clinical draft during this pause.
+    await page.waitForTimeout(650);
+    const unchanged=await page.evaluate(id=>window.nexaEncounterAutosave18101.get(id),config.id);
+    assert.equal(unchanged.local_revision,1,'Resolution UI must not mutate the local clinical revision');
+    assert.equal(unchanged.fields.hda,config.local,'Resolution UI must not replace the stored local content before confirmation');
+    await page.getByRole('button',{name:'Confirmar e salvar'}).click();
+    await page.getByText('Resolução confirmada',{exact:false}).waitFor();
+    const values=await page.evaluate(async id=>({
+      remote:window.__syntheticRemote.get(id),
+      local:await window.nexaEncounterAutosave18101.get(id)
+    }),config.id);
+    assert.equal(values.remote.fields.hda,config.expected,'Server content must match reviewed '+config.mode+' decision');
+    assert.equal(values.local.fields.hda,config.expected,'Local content must match the persisted server '+config.mode+' decision');
+    assert.equal(values.local.sync_state,'synced','A successful '+config.mode+' decision must end the conflict');
+    assert.equal(values.remote.sync_version,config.mode==='server'?4:5,'Only necessary writes may change server version');
+    await page.getByRole('button',{name:'Concluir'}).click();
+  }
+
   const second=await browser.newPage({viewport:{width:390,height:844}});
   second.on('pageerror',e=>errors.push(e.message));
   await second.goto(base+'/tests/fixtures/nexa-conflict-browser.html',{waitUntil:'load'});
