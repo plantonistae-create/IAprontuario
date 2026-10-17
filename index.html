@@ -2817,15 +2817,46 @@ async function loadCoreDatasetSummary(){
     el.append(document.createElement('br'),exportButton);
   }}catch(e){el.textContent='NEXA Core · resumo do conjunto auditado ficará disponível após aplicar a atualização SQL 07.'}
 }
-async function loadAuditQueue(){
+let nexaAuditQueueCache=null,nexaAuditAnnotationCache=new Map(),nexaAuditPageLimit=12,nexaAuditSearchTimer=null;
+async function loadNexaAuditLearningMetrics(){
+  const host=$('nexaAuditLearningMetrics');
+  if(!host||!(currentProf?.is_admin||currentProf?.is_reviewer))return;
+  try{
+    const {data,error}=await sb.rpc('get_nexa_audit_learning_metrics');
+    if(error)throw error;
+    host.replaceChildren(window.NexaAuditLearningV2.metricsElement(data||{}));
+  }catch(e){
+    host.textContent='Indicadores indisponíveis: '+String(e.message||e)+'. A auditoria anterior permanece acessível.';
+  }
+}
+$('nexaAuditFilter').addEventListener('change',()=>{nexaAuditPageLimit=12;loadAuditQueue(true)});
+$('nexaAuditSearch').addEventListener('input',()=>{
+  clearTimeout(nexaAuditSearchTimer);
+  nexaAuditSearchTimer=setTimeout(()=>{nexaAuditPageLimit=12;loadAuditQueue(true)},180);
+});
+$('nexaAuditLoadMore').addEventListener('click',()=>{nexaAuditPageLimit+=12;loadAuditQueue(true)});
+async function loadAuditQueue(useCache=false){
   if(!(currentProf?.is_admin||currentProf?.is_reviewer))return;
-  loadCoreDatasetSummary();
+  if(!useCache){void loadCoreDatasetSummary();void loadNexaAuditLearningMetrics();}
   $('coreAuditBody').innerHTML='<div class="hint">Carregando…</div>';
   try{
-    const {data,error}=await sb.rpc('get_audit_queue',{queue_status:null});
-    if(error)throw error;
+    if(!useCache||!nexaAuditQueueCache){
+      const [queue,annotations]=await Promise.all([
+        sb.rpc('get_audit_queue',{queue_status:null}),
+        sb.rpc('get_nexa_audit_annotations')
+      ]);
+      if(queue.error)throw queue.error;
+      if(annotations.error)throw annotations.error;
+      nexaAuditQueueCache=queue.data||[];
+      nexaAuditAnnotationCache=new Map((annotations.data||[]).map(x=>[x.audit_case_id,x]));
+    }
+    const selected=window.NexaAuditLearningV2.selectCases(nexaAuditQueueCache,{
+      status:$('nexaAuditFilter').value,search:$('nexaAuditSearch').value,limit:nexaAuditPageLimit
+    });
+    $('nexaAuditShown').textContent=selected.items.length+' de '+selected.total+' casos';
+    $('nexaAuditLoadMore').hidden=selected.items.length>=selected.total;
     $('coreAuditBody').replaceChildren();
-    const rows=[...(data||[])].reverse();
+    const rows=selected.items;
     for(const c of rows){
       const row=document.createElement('div');row.className='core-audit-case';
       const head=document.createElement('div');head.className='core-audit-head';
@@ -2887,7 +2918,7 @@ async function loadAuditQueue(){
     }
     if(!rows.length)$('coreAuditBody').innerHTML='<div class="empty"><strong>Nenhum caso em auditoria.</strong><br>Casos enviados permanecem neste bloco mesmo depois de saírem do histórico clínico de 7 dias.</div>';
   }catch(e){
-    $('coreAuditBody').innerHTML=`<div class="banner error"><strong>Auditoria indisponível.</strong><br>${e.message}<br><small>Verifique se as RPCs get_audit_queue e submit_audit_review da migration NEXA Core estão ativas.</small></div>`
+    $('coreAuditBody').textContent='Auditoria indisponível: '+String(e?.message||e)+'. Verifique a migração Audit & Learning 2.0.'
   }
 }
 async function refreshCoreAdmin(){await Promise.all([loadCoreUsers(),loadCoreSlots(),loadAuditQueue(),loadProtocolsAdmin()])}
