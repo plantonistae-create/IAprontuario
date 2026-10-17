@@ -54,12 +54,20 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),false);
   assert.equal(await page.locator('#nexaPsCoverageProgress').getAttribute('role'),'progressbar');
 
-  const state0=await page.evaluate(()=>JSON.stringify(window.nexaRadar.state));
+  // The initial encounter setup emits asynchronous Radar revisions. Wait for
+  // its state to be fully initialized before asserting the view toggle is pure.
+  await page.waitForFunction(() => {
+    const state=window.nexaRadar?.state;
+    return state && Object.prototype.hasOwnProperty.call(state,'revision')
+      && Object.prototype.hasOwnProperty.call(state,'ledger')
+      && Boolean(state.encounter);
+  });
+  const state0=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
   const requests0=await page.evaluate(()=>window.__qa.requests.length);
   await page.locator('#nexaRadarModeComplete18131').click();
   assert.equal(await page.locator('#nexaRadarModeComplete18131').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),true);
-  assert.equal(await page.evaluate(()=>JSON.stringify(window.nexaRadar.state)),state0);
+  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),state0);
   assert.equal(await page.evaluate(()=>window.__qa.requests.length),requests0);
   await page.locator('#nexaRadarModePs18131').click();
   assert.equal(await page.locator('#nexaRadarPsView18131').isVisible(),true);
@@ -124,7 +132,7 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(Number(await page.locator('#nexaPsCovCount').innerText()),counts.covered);
 
   const before=await page.evaluate(()=>({
-    state:JSON.stringify(window.nexaRadar.state),
+    state:JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}),
     recorder:document.getElementById('recBtn')?.dataset.recordingState,
     timer:document.getElementById('timer')?.textContent,
     question:document.getElementById('nexaRadarPsQuestion18131')?.textContent,
@@ -134,7 +142,7 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),true);
   await page.locator('#nexaRadarModePs18131').click();
   const after=await page.evaluate(()=>({
-    state:JSON.stringify(window.nexaRadar.state),
+    state:JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}),
     recorder:document.getElementById('recBtn')?.dataset.recordingState,
     timer:document.getElementById('timer')?.textContent,
     question:document.getElementById('nexaRadarPsQuestion18131')?.textContent,
@@ -148,9 +156,9 @@ async function chromiumFlow(browser,port,viewport){
 
   const nextDisabled=await page.locator('#nexaRadarPsNext18131').isDisabled();
   if(!nextDisabled){
-    const clinicalBefore=await page.evaluate(()=>JSON.stringify(window.nexaRadar.state));
+    const clinicalBefore=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
     await page.locator('#nexaRadarPsNext18131').click();
-    assert.equal(await page.evaluate(()=>JSON.stringify(window.nexaRadar.state)),clinicalBefore,'next question navigation must not discard or reorder clinical state');
+    assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),clinicalBefore,'next question navigation must not discard or reorder clinical state');
   }
 
   await page.screenshot({path:path.join(root,'test-results','radar-ps-live-'+viewport.width+'.png'),fullPage:true});

@@ -36,6 +36,7 @@ jobs:
           node tests/nexa-clinical-regression-hotfix.contract.test.mjs
           node tests/nexa-auditor-consent-hotfix.contract.test.mjs
           node tests/nexa-audit-outbox.contract.test.mjs
+          node tests/nexa-inline-syntax.test.mjs
       - name: Install focused browser
         run: npx playwright install --with-deps chromium
       - name: Processing History Audit sequential E2E
@@ -80,6 +81,8 @@ jobs:
           deno check supabase/functions/realtime-radar/index.ts
           deno check supabase/functions/submit-audit-case/index.ts
           deno check supabase/functions/audit-backfill/index.ts
+          deno check supabase/functions/consultation-speakers/index.ts
+          deno check supabase/functions/core-dataset-export/index.ts
       - name: Install Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
       - name: Desktop and mobile browser regression

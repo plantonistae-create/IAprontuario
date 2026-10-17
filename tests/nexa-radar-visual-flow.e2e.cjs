@@ -118,6 +118,12 @@ async function chromiumFlow(browser,port,viewport){
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='processing');
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review'&&/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
   assert.equal(await page.locator('#nexaFlowHistory').isVisible(),true,'Existing structured review must remain the destination');
+  // Review visibility follows an animated scroll; do not sample its first frame.
+  await page.waitForFunction(()=>{
+    const el=document.getElementById('nexaReviewHeader')||document.getElementById('nexaFlowHistory');
+    if(!el)return false;const r=el.getBoundingClientRect();
+    return r.bottom>0&&r.top<innerHeight;
+  },null,{timeout:10000});
   const reviewVisible=await page.evaluate(()=>{
     const el=document.getElementById('nexaReviewHeader')||document.getElementById('nexaFlowHistory'),r=el.getBoundingClientRect();
     return r.bottom>0&&r.top<innerHeight;
