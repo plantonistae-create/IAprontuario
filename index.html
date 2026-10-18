@@ -3941,6 +3941,7 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
   saveState('unsaved','não salvo');
 
   $('consent').checked=false;
+  $('identifySpeakers').checked=false; // Start every new consultation in the fast path.
   $('includeDiagnosis').checked=false;
   $('recBtn').disabled=true;
   $('recBtn').title='Marque o consentimento para habilitar';
