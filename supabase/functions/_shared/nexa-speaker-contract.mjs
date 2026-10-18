@@ -1,7 +1,9 @@
 // Speaker attribution is transient clinical input, never a training transcript.
 export const SPEAKER_ROLE_VALUES = Object.freeze(['physician','patient','companion','other']);
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
-const ROLE_LABELS = Object.freeze({physician:'MÉDICO',patient:'PACIENTE',companion:'ACOMPANHANTE',other:'OUTRO PARTICIPANTE'});
+// A verified third person is presented with the clinical generic term 'acompanhante'.
+// Automatic unverified acoustic voices remain LOCUTOR A/B/C without assigning roles.
+const ROLE_LABELS = Object.freeze({physician:'MÉDICO',patient:'PACIENTE',companion:'ACOMPANHANTE',other:'ACOMPANHANTE'});
 const TIME_LIMIT = 4 * 60 * 60;
 
 export function validateSpeakerSegments(value) {
