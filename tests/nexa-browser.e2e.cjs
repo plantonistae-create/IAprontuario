@@ -38,6 +38,19 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
     input.dispatchEvent(new Event('change',{bubbles:true}));
   });
   assert.equal(await page.locator('#identifySpeakers').isChecked(),false);
+  // The legacy processing CTA moves to Resumo. Its option must move with it,
+  // remain visible there, and refer to the same detailed speaker selection.
+  await page.evaluate(()=>window.nexaNavigateClinicalStage18131('summary'));
+  await page.waitForFunction(()=>document.body.dataset.nexaStage==='summary');
+  assert.equal(await page.locator('#identifySpeakersLegacy').isVisible(),true);
+  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
+  await page.locator('#identifySpeakersLegacy').check();
+  assert.equal(await page.locator('#identifySpeakers').isChecked(),true);
+  await page.evaluate(()=>window.nexaNavigateClinicalStage18131('radar'));
+  await page.waitForFunction(()=>document.body.dataset.nexaStage==='radar');
+  assert.equal(await page.locator('#identifySpeakers').isVisible(),true);
+  await page.locator('#identifySpeakers').uncheck();
+  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
   const encounterId=await page.evaluate(()=>window.nexaEncounterAutosave18101.currentEncounterId());
   assert.match(encounterId,/^[0-9a-f-]{36}$/i,'New encounter receives a persistent UUID');
   assert.equal(await page.evaluate(()=>document.body.classList.contains('doctor-home-open')),false,'New encounter must leave home and reveal Radar');
