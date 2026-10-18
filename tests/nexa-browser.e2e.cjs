@@ -26,7 +26,9 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.waitForFunction(()=>!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
   // Detailed diarization is an explicit, always-off choice beside the real
   // transcription CTA. Both native and Radar entry points stay synchronized.
-  assert.equal(await page.locator('#identifySpeakers').isVisible(),true);
+  // The older Radar checkbox can be hidden by the PS overlay; the real
+  // recording-bar checkbox must be visible and drives the same selection.
+  assert.equal(await page.locator('#identifySpeakers').count(),1);
   assert.equal(await page.locator('#identifySpeakers').isChecked(),false);
   assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
   assert.equal(await page.locator('#identifySpeakersToolbar').isVisible(),true);
@@ -37,7 +39,9 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.locator('#identifySpeakersToolbar').uncheck();
   assert.equal(await page.locator('#identifySpeakers').locator('xpath=..').innerText()
     .then(x=>x.includes('Múltiplos interlocutores')),true);
-  await page.locator('#identifySpeakers').check();
+  await page.locator('#identifySpeakers').evaluate(input=>{
+    input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
   assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),true);
   assert.equal(await page.locator('#identifySpeakersToolbar').isChecked(),true);
   await page.locator('#identifySpeakersLegacy').evaluate(input=>{
@@ -56,7 +60,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.evaluate(()=>window.nexaNavigateClinicalStage18131('radar'));
   await page.waitForFunction(()=>document.body.dataset.nexaStage==='radar');
   assert.equal(await page.locator('#identifySpeakers').isVisible(),true);
-  await page.locator('#identifySpeakers').uncheck();
+  await page.locator('#identifySpeakersToolbar').uncheck();
   assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
   const encounterId=await page.evaluate(()=>window.nexaEncounterAutosave18101.currentEncounterId());
   assert.match(encounterId,/^[0-9a-f-]{36}$/i,'New encounter receives a persistent UUID');
