@@ -29,10 +29,17 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.equal(await page.locator('#identifySpeakers').isVisible(),true);
   assert.equal(await page.locator('#identifySpeakers').isChecked(),false);
   assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
+  assert.equal(await page.locator('#identifySpeakersToolbar').isVisible(),true);
+  assert.equal(await page.locator('#identifySpeakersToolbar').isChecked(),false);
+  await page.locator('#identifySpeakersToolbar').check();
+  assert.equal(await page.locator('#identifySpeakers').isChecked(),true);
+  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),true);
+  await page.locator('#identifySpeakersToolbar').uncheck();
   assert.equal(await page.locator('#identifySpeakers').locator('xpath=..').innerText()
     .then(x=>x.includes('Múltiplos interlocutores')),true);
   await page.locator('#identifySpeakers').check();
   assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),true);
+  assert.equal(await page.locator('#identifySpeakersToolbar').isChecked(),true);
   await page.locator('#identifySpeakersLegacy').evaluate(input=>{
     input.checked=false;
     input.dispatchEvent(new Event('change',{bubbles:true}));
