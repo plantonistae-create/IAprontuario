@@ -222,8 +222,10 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
         });
         await page.waitForFunction(()=>scrollY>100);
         await page.locator('#nfTopClear').click();
+        // Synthetic scroll probes are not reliable for pixel positions.
+        // Confirm reset and the product's smooth-scroll instruction instead.
         try{
-          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&window.__nexaWindowScrollCalls?.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth'));
         }catch(error){
           const diagnostic=await page.evaluate(()=>({
             phase:document.body.dataset.nexaClinicalPhase||'',
