@@ -29,7 +29,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(25000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
-   page.on('console',msg=>{if(msg.text().startsWith('NEXA_HISTORY_REOPEN_FAILED')||msg.text().startsWith('NEXA_TEST_REOPEN_CAUSE'))console.error('REOPEN_ERROR_NAME',msg.text())});
+   page.on('console',msg=>{if(msg.text().startsWith('NEXA_HISTORY_REOPEN_FAILED')||msg.text().startsWith('NEXA_TEST_REOPEN_CAUSE')||msg.text().startsWith('NEXA_TEST_REOPEN_STACK'))console.error('REOPEN_ERROR_NAME',msg.text())});
    await page.addInitScript(()=>{
      window.__nexaScrollIntoViewCalls=[];window.__nexaWindowScrollCalls=[];
      const nativeInto=Element.prototype.scrollIntoView;Element.prototype.scrollIntoView=function(options){window.__nexaScrollIntoViewCalls?.push({id:this.id||'',options});return nativeInto?.call(this,options)};
