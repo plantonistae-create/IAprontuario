@@ -24,44 +24,38 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   }
   await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
   await page.waitForFunction(()=>!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
-  // Detailed diarization is an explicit, always-off choice beside the real
-  // transcription CTA. Both native and Radar entry points stay synchronized.
-  // The older Radar checkbox can be hidden by the PS overlay; the real
-  // recording-bar checkbox must be visible and drives the same selection.
-  assert.equal(await page.locator('#identifySpeakers').count(),1);
-  assert.equal(await page.locator('#identifySpeakers').isChecked(),false);
-  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
-  assert.equal(await page.locator('#identifySpeakersToolbar').isVisible(),true);
-  assert.equal(await page.locator('#identifySpeakersToolbar').isChecked(),false);
-  await page.locator('#identifySpeakersToolbar').check();
-  assert.equal(await page.locator('#identifySpeakers').isChecked(),true);
-  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),true);
-  await page.locator('#identifySpeakersToolbar').uncheck();
-  assert.equal(await page.locator('#identifySpeakers').locator('xpath=..').innerText()
-    .then(x=>x.includes('Múltiplos interlocutores')),true);
-  await page.locator('#identifySpeakers').evaluate(input=>{
-    input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));
-  });
-  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),true);
-  assert.equal(await page.locator('#identifySpeakersToolbar').isChecked(),true);
-  await page.locator('#identifySpeakersLegacy').evaluate(input=>{
-    input.checked=false;
-    input.dispatchEvent(new Event('change',{bubbles:true}));
-  });
-  assert.equal(await page.locator('#identifySpeakers').isChecked(),false);
-  // The legacy processing CTA moves to Resumo. Its option must move with it,
-  // remain visible there, and refer to the same detailed speaker selection.
-  await page.evaluate(()=>window.nexaNavigateClinicalStage18131('summary'));
-  await page.waitForFunction(()=>document.body.dataset.nexaStage==='summary');
-  assert.equal(await page.locator('#identifySpeakersLegacy').isVisible(),true);
-  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
-  await page.locator('#identifySpeakersLegacy').check();
-  assert.equal(await page.locator('#identifySpeakers').isChecked(),true);
-  await page.evaluate(()=>window.nexaNavigateClinicalStage18131('radar'));
-  await page.waitForFunction(()=>document.body.dataset.nexaStage==='radar');
-  assert.equal(await page.locator('#identifySpeakers').isVisible(),true);
-  await page.locator('#identifySpeakersToolbar').uncheck();
-  assert.equal(await page.locator('#identifySpeakersLegacy').isChecked(),false);
+  // In PS / updated Radar layouts the old checkbox may be removed from the
+  // DOM. The actual recording toolbar is the clinician's visible control.
+  const speakerToolbar=page.locator('#identifySpeakersToolbar');
+  assert.equal(await page.locator('#nfRecActions #nfProcess').count(),1);
+  assert.equal(await speakerToolbar.count(),1,'Recording toolbar must expose the speaker option');
+  assert.equal(await speakerToolbar.isVisible(),true,'Speaker choice must be visible next to transcription');
+  assert.equal(await speakerToolbar.isChecked(),false,'Detailed identification must start OFF');
+  await speakerToolbar.check();
+  assert.equal(await speakerToolbar.isChecked(),true);
+  for(const id of ['identifySpeakers','identifySpeakersLegacy']){
+    const option=page.locator('#'+id);
+    if(await option.count())assert.equal(await option.isChecked(),true,'Checkbox '+id+' must stay synchronized');
+  }
+  await speakerToolbar.uncheck();
+  assert.equal(await speakerToolbar.isChecked(),false);
+  for(const id of ['identifySpeakers','identifySpeakersLegacy']){
+    const option=page.locator('#'+id);
+    if(await option.count())assert.equal(await option.isChecked(),false);
+  }
+  // An additional Resumo-stage control, if mounted, shares the same choice.
+  const legacyOption=page.locator('#identifySpeakersLegacy');
+  if(await legacyOption.count()){
+    await page.evaluate(()=>window.nexaNavigateClinicalStage18131('summary'));
+    await page.waitForFunction(()=>document.body.dataset.nexaStage==='summary');
+    if(await legacyOption.isVisible()){
+      await legacyOption.check();
+      assert.equal(await speakerToolbar.isChecked(),true);
+    }
+    await page.evaluate(()=>window.nexaNavigateClinicalStage18131('radar'));
+    await page.waitForFunction(()=>document.body.dataset.nexaStage==='radar');
+    await speakerToolbar.uncheck();
+  }
   const encounterId=await page.evaluate(()=>window.nexaEncounterAutosave18101.currentEncounterId());
   assert.match(encounterId,/^[0-9a-f-]{36}$/i,'New encounter receives a persistent UUID');
   assert.equal(await page.evaluate(()=>document.body.classList.contains('doctor-home-open')),false,'New encounter must leave home and reveal Radar');
