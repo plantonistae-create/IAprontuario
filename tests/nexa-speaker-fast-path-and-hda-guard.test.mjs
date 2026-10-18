@@ -6,6 +6,7 @@ import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from 
 
 const index=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const processor=readFileSync(new URL("../supabase/functions/process-consultation/index.ts",import.meta.url),"utf8");
+const recordingToolbar=readFileSync(new URL("../nexa-final-ui-v18.js",import.meta.url),"utf8");
 
 test("normal doctor/patient consultation defaults to faster standard transcription",()=>{
   assert.match(index,/id="identifySpeakers" type="checkbox" autocomplete="off"/);
@@ -30,9 +31,14 @@ test("multiple interlocutors opt-in is placed beside both transcription buttons 
   assert.ok(first<radarButton&&radarButton-first<650);
   assert.ok(second<standardButton&&standardButton-second<650);
   assert.equal((index.match(/<strong>Múltiplos interlocutores<\/strong>/g)||[]).length,2);
-  assert.match(index,/primary\.addEventListener\('change',\(\)=>\{secondary\.checked=primary\.checked\}\)/);
-  assert.match(index,/secondary\.addEventListener\('change',\(\)=>\{primary\.checked=secondary\.checked\}\)/);
-  assert.match(index,/primary\.checked=false;secondary\.checked=false/);
+  assert.match(recordingToolbar,/id="identifySpeakersToolbar" type="checkbox" autocomplete="off"/);
+  assert.match(recordingToolbar,/id="nfProcess".*?Transcrever e estruturar.*?id="identifySpeakersToolbar"/s);
+  assert.match(index,/#nfRecActions>\.nf-speaker-optin\{grid-column:1\/-1/);
+  assert.match(index,/keys=\['identifySpeakers','identifySpeakersLegacy','identifySpeakersToolbar'\]/);
+  assert.match(index,/document\.addEventListener\('change',event=>\{/);
+  assert.match(index,/sync\(false\)/);
+  assert.match(index,/sync\(Boolean\(event\.target\.checked\)\)/);
+  assert.match(index,/identifySpeakersToolbar'\)\)\$\('identifySpeakersToolbar'\)\.checked=false/);
   assert.match(index,/\$\('identifySpeakersLegacy'\)\.checked=false/);
   assert.match(index,/if\(\$\('identifySpeakers'\)\?\.checked\)/);
   assert.match(index,/\.nexa-speaker-optin:focus-within/);
