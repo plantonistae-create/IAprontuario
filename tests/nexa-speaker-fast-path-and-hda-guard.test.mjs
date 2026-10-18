@@ -10,6 +10,7 @@ const processor=readFileSync(new URL("../supabase/functions/process-consultation
 test("normal doctor/patient consultation defaults to faster standard transcription",()=>{
   assert.match(index,/id="identifySpeakers" type="checkbox" autocomplete="off"/);
   assert.doesNotMatch(index,/id="identifySpeakers" type="checkbox" checked/);
+  assert.match(index,/\$\(\x27identifySpeakers\x27\)\.checked=false; \/\/ Start every new consultation in the fast path/);
   assert.match(index,/else payload=await invoke\(audioBlob\)/);
   assert.match(index,/segments=await nexaDiarizeAudio\(audioBlob\)/);
   assert.match(index,/speaker_identification_duration_ms:speakerIdentificationMs/);
