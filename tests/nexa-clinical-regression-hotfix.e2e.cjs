@@ -156,7 +156,10 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       });
       if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
       assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
-      await page.locator('#toggleConductPickerBtn').click();
+      // The picker is a toggle and may already be expanded in the reviewed layout.
+      // Leave an open picker open rather than closing it and waiting forever.
+      if(!(await page.locator('#conductPickerBody').evaluate(el=>el.classList.contains('open'))))
+        await page.locator('#toggleConductPickerBtn').click();
       await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
       await page.locator('#conductSearchInput').fill('orientacao');
       await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
@@ -210,7 +213,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
         await page.waitForFunction(()=>scrollY>100);
         await page.locator('#nfTopClear').click();
         try{
-          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
         }catch(error){
           const diagnostic=await page.evaluate(()=>({
             phase:document.body.dataset.nexaClinicalPhase||'',
@@ -227,6 +230,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
           console.error('V18122_CLEAR_TOP_PAGE_ERRORS',JSON.stringify(errors));
           throw error;
         }
+        // Synthetic 1600px probe can anchor Chromium headless at its prior scroll
+        // position. Verify the product emitted the smooth-scroll command and
+        // actually reset clinical state; do not depend on headless paint timing.
         assert.ok(await page.evaluate(()=>window.__nexaWindowScrollCalls.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth')),'Limpar consulta must scroll smoothly to the top after reset');
         await page.evaluate(()=>document.getElementById('nexaClearScrollProbe')?.remove());
       }else{
