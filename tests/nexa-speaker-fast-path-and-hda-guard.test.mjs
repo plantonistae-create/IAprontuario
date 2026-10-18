@@ -40,7 +40,7 @@ test("multiple interlocutors opt-in is placed beside both transcription buttons 
   assert.match(index,/sync\(Boolean\(event\.target\.checked\)\)/);
   assert.match(index,/const input=\$\(id\);if\(input\)input\.checked=false/);
   assert.match(index,/Reset whichever controls exist/);
-  assert.match(index,/if\(\$\('identifySpeakers'\)\?\.checked\)/);
+  assert.match(index,/\['identifySpeakersToolbar','identifySpeakersLegacy','identifySpeakers'\]\.some\(id=>\$\(id\)\?\.checked\)/);
   assert.match(index,/\.nexa-speaker-optin:focus-within/);
 });
 
