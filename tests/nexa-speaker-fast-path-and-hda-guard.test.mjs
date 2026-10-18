@@ -16,6 +16,28 @@ test("normal doctor/patient consultation defaults to faster standard transcripti
   assert.match(index,/speaker_identification_duration_ms:speakerIdentificationMs/);
 });
 
+test("multiple interlocutors opt-in is placed beside both transcription buttons and defaults off",()=>{
+  const start=index.indexOf('<div class="card"><h3>Consentimento</h3>');
+  const consentEnd=index.indexOf('</div><div class="card rec-zone">',start);
+  assert.ok(start>=0&&consentEnd>start);
+  assert.doesNotMatch(index.slice(start,consentEnd),/identifySpeakers/);
+  assert.equal((index.match(/id="identifySpeakers" type="checkbox" autocomplete="off"/g)||[]).length,1);
+  assert.equal((index.match(/id="identifySpeakersLegacy" type="checkbox" autocomplete="off"/g)||[]).length,1);
+  const first=index.indexOf('id="identifySpeakers"');
+  const radarButton=index.indexOf('id="nexaRadarProcessBtn"');
+  const second=index.indexOf('id="identifySpeakersLegacy"');
+  const standardButton=index.indexOf('id="processBtn"');
+  assert.ok(first<radarButton&&radarButton-first<650);
+  assert.ok(second<standardButton&&standardButton-second<650);
+  assert.equal((index.match(/<strong>Múltiplos interlocutores<\/strong>/g)||[]).length,2);
+  assert.match(index,/primary\.addEventListener\('change',\(\)=>\{secondary\.checked=primary\.checked\}\)/);
+  assert.match(index,/secondary\.addEventListener\('change',\(\)=>\{primary\.checked=secondary\.checked\}\)/);
+  assert.match(index,/primary\.checked=false;secondary\.checked=false/);
+  assert.match(index,/\$\('identifySpeakersLegacy'\)\.checked=false/);
+  assert.match(index,/if\(\$\('identifySpeakers'\)\?\.checked\)/);
+  assert.match(index,/\.nexa-speaker-optin:focus-within/);
+});
+
 test("patient first-person ocular history cannot become an invented participant",()=>{
   const transcript=buildAutomaticSpeakerTranscript([
     {speaker:"A",start:0,end:1,text:"Qual a queixa?"},
