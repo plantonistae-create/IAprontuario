@@ -11,7 +11,7 @@ const recordingToolbar=readFileSync(new URL("../nexa-final-ui-v18.js",import.met
 test("normal doctor/patient consultation defaults to faster standard transcription",()=>{
   assert.match(index,/id="identifySpeakers" type="checkbox" autocomplete="off"/);
   assert.doesNotMatch(index,/id="identifySpeakers" type="checkbox" checked/);
-  assert.match(index,/\$\(\x27identifySpeakers\x27\)\.checked=false; \/\/ Start every new consultation in the fast path/);
+  assert.match(index,/for\(const id of \['identifySpeakers','identifySpeakersLegacy','identifySpeakersToolbar'\]\)/);
   assert.match(index,/else payload=await invoke\(audioBlob\)/);
   assert.match(index,/segments=await nexaDiarizeAudio\(audioBlob\)/);
   assert.match(index,/speaker_identification_duration_ms:speakerIdentificationMs/);
@@ -38,8 +38,8 @@ test("multiple interlocutors opt-in is placed beside both transcription buttons 
   assert.match(index,/document\.addEventListener\('change',event=>\{/);
   assert.match(index,/sync\(false\)/);
   assert.match(index,/sync\(Boolean\(event\.target\.checked\)\)/);
-  assert.match(index,/identifySpeakersToolbar'\)\)\$\('identifySpeakersToolbar'\)\.checked=false/);
-  assert.match(index,/\$\('identifySpeakersLegacy'\)\.checked=false/);
+  assert.match(index,/const input=\$\(id\);if\(input\)input\.checked=false/);
+  assert.match(index,/Reset whichever controls exist/);
   assert.match(index,/if\(\$\('identifySpeakers'\)\?\.checked\)/);
   assert.match(index,/\.nexa-speaker-optin:focus-within/);
 });
