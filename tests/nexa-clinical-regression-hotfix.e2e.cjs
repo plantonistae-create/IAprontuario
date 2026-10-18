@@ -281,7 +281,21 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
 
    const legacyItem=page.locator('#n197List .n197-item').filter({hasText:'Atendimento legado QA'}).first();
    await legacyItem.locator('button').click();
-   await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+   try{
+     await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+   }catch(error){
+     console.error('LEGACY_HISTORY_REOPEN_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({
+       hda:document.querySelector('.field[data-key="hda"] textarea')?.value||'',
+       chief:document.querySelector('.field[data-key="queixa_principal"] textarea')?.value||'',
+       toast:document.getElementById('nexa197Toast')?.textContent||'',
+       stage:document.body.dataset.nexaStage,
+       phase:document.body.dataset.nexaClinicalPhase,
+       renderedRows:[...document.querySelectorAll('#n197List .n197-item')].map(x=>x.innerText.slice(0,100)),
+       fillType:typeof fill,
+       activeEncounter:window.nexaEncounterAutosave18101?.currentEncounterId?.()
+     }))));
+     throw error;
+   }
 
    if(viewport.width<=820){
     const mobileHistory='#nexaMobileBottomNav [data-mobile-stage="history"]';
