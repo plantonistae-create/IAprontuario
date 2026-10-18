@@ -4010,7 +4010,15 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
   flat();
   updateWorkflow();
   show('Nova consulta iniciada. Campos e seleções foram limpos.',false);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'smooth'})));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    window.scrollTo({top:0,left:0,behavior:'smooth'});
+    // A late stage/layout animation must not leave the old encounter's scroll
+    // position active. Restore the top even if smooth scrolling is interrupted.
+    setTimeout(()=>{
+      if(document.body.dataset.nexaClinicalPhase==='consult')
+        window.scrollTo({top:0,left:0,behavior:'instant'});
+    },220);
+  }));
 }
 $('resetBtn').onclick=()=>{if(nexaConfirmReset())clearClinicalSession()};
 function noteText(){const keys=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','sinais_vitais','exame_fisico'];keys.push('hipotese_diagnostica');keys.push('conduta');return keys.filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}function hdaText(){return['hda','alergias','comorbidades','medicacoes','antecedentes'].filter(k=>String(ta(k)?.value||'').trim()).map(k=>`${labels[k]}:\n${ta(k).value.trim()}`).join('\n\n')}async function copy(text,btn,label){if(!String(text).trim())return show('Não há conteúdo para copiar ainda.',true);try{await navigator.clipboard.writeText(text);btn.textContent='Copiado ✓';setTimeout(()=>btn.textContent=label,1200)}catch(e){show('Não foi possível copiar automaticamente.',true)}}$('copyBtn').onclick=()=>copy(noteText(),$('copyBtn'),'Copiar prontuário completo');$('copyHdaBtn').onclick=()=>copy(hdaText(),$('copyHdaBtn'),'Copiar HDA + antecedentes');$('copyExamBtn').onclick=()=>copy(ta('exame_fisico').value.trim()||insertExam(),$('copyExamBtn'),'⧉ Copiar');$('copyConductBtn').onclick=()=>copy(selectedConductText(),$('copyConductBtn'),'⧉ Copiar');$('downloadBtn').onclick=()=>{const u=URL.createObjectURL(new Blob([noteText()],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=`consulta-${new Date().toISOString().slice(0,10)}.txt`;a.click();URL.revokeObjectURL(u)};
