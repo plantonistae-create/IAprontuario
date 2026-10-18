@@ -1448,6 +1448,7 @@ textarea,input,select,button,img,svg,canvas{max-width:100%}
 .nexa-radar-actions .danger-outline{color:#b43b3b;background:var(--nexa-surface);border-color:#e6abab}
 /* Always-off, clinician-selected detailed voice identification. Shared by both processing CTAs. */
 .nexa-radar-actions>.nexa-speaker-optin{grid-column:1/-1}
+#nfRecActions>.nf-speaker-optin{grid-column:1/-1;grid-row:2;order:5;margin-top:2px}
 .nexa-speaker-optin{
   display:flex;align-items:center;gap:11px;min-height:54px;padding:10px 13px;
   border:1px solid var(--nexa-line,var(--hair));background:var(--nexa-surface,var(--surface));
@@ -3934,11 +3935,16 @@ async function processAudio(){
 // Keep both visible transcription entry points on the same explicit opt-in.
 // Detailed diarization is never enabled just by opening or resetting a consultation.
 (function setupSpeakerOptions(){
-  const primary=$('identifySpeakers'),secondary=$('identifySpeakersLegacy');
-  if(!primary||!secondary)return;
-  primary.checked=false;secondary.checked=false;
-  primary.addEventListener('change',()=>{secondary.checked=primary.checked});
-  secondary.addEventListener('change',()=>{primary.checked=secondary.checked});
+  const keys=['identifySpeakers','identifySpeakersLegacy','identifySpeakersToolbar'];
+  const sync=(checked)=>keys.forEach(id=>{const input=$(id);if(input)input.checked=checked;});
+  sync(false);
+  // The recording toolbar is mounted by another UI module after this handler.
+  // Delegation synchronizes controls created later, without storing opt-in state.
+  document.addEventListener('change',event=>{
+    const id=event.target?.id;
+    if(!keys.includes(id))return;
+    sync(Boolean(event.target.checked));
+  });
 })();
 function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);clearLastQuickAction();
   stopRecordingTimer({reset:true});
@@ -3980,6 +3986,7 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
   $('consent').checked=false;
   $('identifySpeakers').checked=false; // Start every new consultation in the fast path.
   $('identifySpeakersLegacy').checked=false;
+  if($('identifySpeakersToolbar'))$('identifySpeakersToolbar').checked=false;
   $('includeDiagnosis').checked=false;
   $('recBtn').disabled=true;
   $('recBtn').title='Marque o consentimento para habilitar';
