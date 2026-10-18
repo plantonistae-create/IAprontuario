@@ -1446,6 +1446,24 @@ textarea,input,select,button,img,svg,canvas{max-width:100%}
 }
 .nexa-radar-actions .primary{color:#fff;border-color:var(--nexa-brand);background:linear-gradient(90deg,var(--nexa-brand),#16aac5)}
 .nexa-radar-actions .danger-outline{color:#b43b3b;background:var(--nexa-surface);border-color:#e6abab}
+/* Always-off, clinician-selected detailed voice identification. Shared by both processing CTAs. */
+.nexa-radar-actions>.nexa-speaker-optin{grid-column:1/-1}
+.nexa-speaker-optin{
+  display:flex;align-items:center;gap:11px;min-height:54px;padding:10px 13px;
+  border:1px solid var(--nexa-line,var(--hair));background:var(--nexa-surface,var(--surface));
+  color:var(--nexa-text,var(--ink));border-radius:12px;cursor:pointer;
+  font-size:13px;line-height:1.3
+}
+.nexa-speaker-optin:has(input:checked){border-color:var(--nexa-brand,var(--accent));background:var(--soft)}
+.nexa-speaker-optin:focus-within{outline:2px solid var(--nexa-brand,var(--accent));outline-offset:2px}
+.nexa-speaker-optin input[type="checkbox"]{
+  flex:0 0 auto;width:20px!important;height:20px!important;margin:0;accent-color:var(--nexa-brand,var(--accent));cursor:pointer
+}
+.nexa-speaker-optin-content{display:flex;flex-direction:column;min-width:0;gap:3px}
+.nexa-speaker-optin-content strong{font-size:12px;font-weight:800}
+.nexa-speaker-optin-content small{font-size:10.5px;font-weight:500;color:var(--nexa-muted,var(--muted))}
+.nexa-speaker-process-options{margin:12px 0 0}
+@media(max-width:820px){.nexa-speaker-optin{min-height:58px}.nexa-speaker-optin-content small{font-size:11px}}
 
 .nexa-summary-copybar{display:flex;justify-content:flex-end;margin:0 0 10px}
 .nexa-summary-copybar button{
@@ -2269,7 +2287,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div class="calc-card" id="centorCard"><h4>Centor modificado · conforme material enviado</h4><label class="calc-check"><input id="centorFever" type="checkbox"/>Febre &gt; 38 °C (+1)</label><label class="calc-check"><input id="centorNodes" type="checkbox"/>Adenopatia cervical anterior (+1)</label><label class="calc-check"><input id="centorExudate" type="checkbox"/>Exsudato ou edema amigdaliano (+1)</label><label>Idade (anos)</label><input id="centorAge" type="number"/><button class="btn ghost" id="calculateCentorBtn" style="margin-top:7px">Calcular Centor</button><div class="learning calc-result" id="centorResult">—</div></div>
 <div class="calc-card" id="psiCard"><h4>PSI / Pneumonia Severity Index</h4><p class="hint">Calculadora baseada na tabela do material enviado. Marque “ausência de preditores” somente quando aplicável.</p><label class="calc-check"><input id="psiNoPredictors" type="checkbox"/>Ausência de preditores → PORT I</label><div class="calc-grid"><div><label>Sexo</label><select id="psiSex"><option value="m">Masculino</option><option value="f">Feminino</option></select></div><div><label>Idade</label><input id="psiAge" type="number"/></div></div><label class="calc-check"><input id="psiNursing" type="checkbox"/>Residente em casa de repouso (+10)</label><label class="calc-check"><input id="psiNeoplasia" type="checkbox"/>Neoplasia ativa (+30)</label><label class="calc-check"><input id="psiLiver" type="checkbox"/>Doença hepática crônica (+20)</label><label class="calc-check"><input id="psiHeart" type="checkbox"/>Insuficiência cardíaca (+10)</label><label class="calc-check"><input id="psiCerebro" type="checkbox"/>Doença cerebrovascular (+10)</label><label class="calc-check"><input id="psiRenal" type="checkbox"/>Doença renal crônica (+10)</label><label class="calc-check"><input id="psiMental" type="checkbox"/>Estado mental alterado (+20)</label><div class="calc-grid"><div><label>FR</label><input id="psiFr" type="number"/></div><div><label>PAS</label><input id="psiPas" type="number"/></div><div><label>Temperatura °C</label><input id="psiTemp" step="0.1" type="number"/></div><div><label>FC</label><input id="psiFc" type="number"/></div><div><label>pH</label><input id="psiPh" step="0.01" type="number"/></div><div><label>Ureia mg/dL</label><input id="psiUrea" step="0.1" type="number"/></div><div><label>Sódio mEq/L</label><input id="psiSodium" step="0.1" type="number"/></div><div><label>Glicose mg/dL</label><input id="psiGlucose" type="number"/></div><div><label>Hematócrito %</label><input id="psiHct" step="0.1" type="number"/></div><div><label>PaO₂ mmHg</label><input id="psiPao2" step="0.1" type="number"/></div><div><label>SpO₂ %</label><input id="psiSpo2" step="0.1" type="number"/></div></div><label class="calc-check"><input id="psiEffusion" type="checkbox"/>Derrame pleural (+10)</label><button class="btn ghost" id="calculatePsiBtn" style="margin-top:7px">Calcular PSI</button><div class="learning calc-result" id="psiResult">—</div></div>
 <div class="grid2"><div class="box"><h4>IMC</h4><label>Peso (kg)</label><input id="bmiWeight" type="number"/><label>Altura (cm)</label><input id="bmiHeight" type="number"/><button class="btn ghost" id="calculateBmiBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bmiResult">—</div></div><div class="box"><h4>Superfície corporal · Mosteller</h4><label>Peso (kg)</label><input id="bsaWeight" type="number"/><label>Altura (cm)</label><input id="bsaHeight" type="number"/><button class="btn ghost" id="calculateBsaBtn" style="margin-top:7px">Calcular</button><div class="learning" id="bsaResult">—</div></div></div></section><section class="pane" id="sourcesPane"><div class="box"><h4>Fontes clínicas e roteamento</h4><p class="hint">O assistente clínico pode usar protocolos privados NEXA e pesquisa web confiável conforme configuração do backend. A resposta deve manter rastreabilidade das fontes consultadas.</p><div class="learning"><strong>Prioridade:</strong> protocolos institucionais cadastrados → sociedades médicas e órgãos oficiais → literatura confiável quando permitida. O prontuário nunca recebe automaticamente o conteúdo do chat.</div><div class="badges"><span class="badge">MS / gov.br</span><span class="badge">Sociedades médicas</span><span class="badge">Protocolos NEXA</span><span class="badge">Fontes rastreáveis</span></div></div></section></div></div>
-<main><section class="panel-left"><div class="card system-status-card"><h3>Ambiente protegido</h3><div class="secure-note">Sessão autenticada · RLS ativo · IA via backend.</div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input id="consent" type="checkbox"/><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label><label class="consent-row" style="margin:10px 0 0"><input id="identifySpeakers" type="checkbox" autocomplete="off"/><span>Identificação detalhada de vozes (opcional; pode aumentar o tempo). Para a consulta médico–paciente, o modo rápido é o padrão. Ative se precisar separar falas de acompanhantes.</span></label></div><div class="card rec-zone">
+<main><section class="panel-left"><div class="card system-status-card"><h3>Ambiente protegido</h3><div class="secure-note">Sessão autenticada · RLS ativo · IA via backend.</div></div><div class="card"><h3>Consentimento</h3><label class="consent-row" style="margin:8px 0 0"><input id="consent" type="checkbox"/><span>Confirmo que o paciente foi informado e autorizou a gravação para documentação desta consulta.</span></label></div><div class="card rec-zone">
 <div class="nexa-recording-kicker" id="nexaRecordingKicker">GRAVAÇÃO</div>
 <button class="rec-btn" disabled="" id="recBtn" aria-label="Iniciar gravação" data-recording-state="idle"><svg viewbox="0 0 24 24"><circle cx="12" cy="12" fill="currentColor" id="circleShape" r="7"></circle><g id="pauseShape" style="display:none"><rect fill="currentColor" height="10" rx="1" width="3" x="7" y="7"></rect><rect fill="currentColor" height="10" rx="1" width="3" x="14" y="7"></rect></g><path id="resumeShape" d="M9 7.5 17 12 9 16.5Z" fill="currentColor" style="display:none"></path><rect fill="currentColor" height="8" id="stopShape" rx="1" style="display:none" width="8" x="8" y="8"></rect></svg></button><div class="timer mono" id="timer">00:00</div><div class="wave-wrap"><canvas height="54" id="wave" width="280"></canvas></div>
 <div class="status" id="status">Aguardando início da gravação</div>
@@ -2313,12 +2331,22 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <div class="radar-questions"><h4>Vale perguntar <small>prioridades atuais</small></h4><div id="radarQuestions"><div class="radar-empty">As sugestões aparecem conforme a conversa evolui.</div></div></div>
 <div id="radarAlerts"></div>
 <div class="nexa-radar-actions">
+  <label class="nexa-speaker-optin" for="identifySpeakers" title="Ative para identificar diferentes vozes na consulta. Pode aumentar o tempo de processamento.">
+    <input id="identifySpeakers" type="checkbox" autocomplete="off"/>
+    <span class="nexa-speaker-optin-content"><strong>Múltiplos interlocutores</strong><small>Identificação detalhada de vozes · pode demorar mais</small></span>
+  </label>
   <button type="button" class="primary" id="nexaRadarProcessBtn">Transcrever e estruturar</button>
   <button type="button" class="danger-outline" id="nexaRadarResetBtn">Limpar e iniciar nova consulta</button>
 </div>
 <div class="radar-validation">Sujeito à validação pelo profissional.</div>
 <div class="radar-meta" id="radarMeta">Buffer temporário · não integra o prontuário.</div>
-</div><div class="case-mode"><label style="margin-top:0">Formato do texto gerado</label><label class="exam-check"><input checked="" name="caseMode" type="radio" value="upper"/><span>LETRAS MAIÚSCULAS</span></label><label class="exam-check"><input name="caseMode" type="radio" value="normal"/><span>Escrita normal</span></label></div><button class="btn secondary" disabled="" id="processBtn">Transcrever e estruturar</button><button class="btn danger" id="resetBtn" style="margin-top:18px">Limpar e começar nova consulta</button></section>
+</div><div class="case-mode"><label style="margin-top:0">Formato do texto gerado</label><label class="exam-check"><input checked="" name="caseMode" type="radio" value="upper"/><span>LETRAS MAIÚSCULAS</span></label><label class="exam-check"><input name="caseMode" type="radio" value="normal"/><span>Escrita normal</span></label></div><div class="nexa-speaker-process-options">
+  <label class="nexa-speaker-optin" for="identifySpeakersLegacy" title="Ative para identificar diferentes vozes na consulta. Pode aumentar o tempo de processamento.">
+    <input id="identifySpeakersLegacy" type="checkbox" autocomplete="off"/>
+    <span class="nexa-speaker-optin-content"><strong>Múltiplos interlocutores</strong><small>Identificação detalhada de vozes · pode demorar mais</small></span>
+  </label>
+</div>
+<button class="btn secondary" disabled="" id="processBtn">Transcrever e estruturar</button><button class="btn danger" id="resetBtn" style="margin-top:18px">Limpar e começar nova consulta</button></section>
 <section class="panel-right">
 <div class="nexa-command-workspace is-collapsed" id="nexaCommandWorkspace">
 <div aria-label="Ferramentas do NEXA" class="nexa-command-tabs" role="tablist">
@@ -3903,6 +3931,15 @@ async function processAudio(){
     if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'
   }
 }$('processBtn').onclick=processAudio;
+// Keep both visible transcription entry points on the same explicit opt-in.
+// Detailed diarization is never enabled just by opening or resetting a consultation.
+(function setupSpeakerOptions(){
+  const primary=$('identifySpeakers'),secondary=$('identifySpeakersLegacy');
+  if(!primary||!secondary)return;
+  primary.checked=false;secondary.checked=false;
+  primary.addEventListener('change',()=>{secondary.checked=primary.checked});
+  secondary.addEventListener('change',()=>{primary.checked=secondary.checked});
+})();
 function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);clearLastQuickAction();
   stopRecordingTimer({reset:true});
 
@@ -3942,6 +3979,7 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
 
   $('consent').checked=false;
   $('identifySpeakers').checked=false; // Start every new consultation in the fast path.
+  $('identifySpeakersLegacy').checked=false;
   $('includeDiagnosis').checked=false;
   $('recBtn').disabled=true;
   $('recBtn').title='Marque o consentimento para habilitar';
