@@ -4015,8 +4015,7 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
     // A late stage/layout animation must not leave the old encounter's scroll
     // position active. Restore the top even if smooth scrolling is interrupted.
     setTimeout(()=>{
-      if(document.body.dataset.nexaClinicalPhase==='consult')
-        window.scrollTo({top:0,left:0,behavior:'instant'});
+      window.scrollTo({top:0,left:0,behavior:'instant'});
     },220);
   }));
 }
