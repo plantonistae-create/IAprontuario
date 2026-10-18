@@ -59,7 +59,7 @@ test("verified companion is preserved and third party cannot be relabeled as pat
 
 test("clinical negatives and doctor questions are never inferred",()=>{
  assert.match(docPrompt,/Não considere pergunta, hipótese ou sugestão feita pelo profissional como relato de sintoma ou negativa do paciente/);
- assert.match(docPrompt,/não atribua dados ao paciente/);
+ assert.match(docPrompt,/nunca atribua automaticamente esses dados ao paciente/);
  assert.match(docPrompt,/Sem demais queixas/);
 });
 
