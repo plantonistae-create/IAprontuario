@@ -4727,6 +4727,10 @@ function pauseSession(){
 
     // Processamento e resumo.
     const process=q('processBtn'), reset=q('resetBtn');
+    // Keep the mirrored voice-identification opt-in beside the native process CTA
+    // when the layout relocates that button to the Resumo stage.
+    const speakerOption=q('identifySpeakersLegacy')?.closest('.nexa-speaker-process-options');
+    if(speakerOption) views.summary.appendChild(speakerOption);
     if(process) views.summary.appendChild(process);
     if(reset) views.summary.appendChild(reset);
 
