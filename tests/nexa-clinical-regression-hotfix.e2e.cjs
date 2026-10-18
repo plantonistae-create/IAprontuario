@@ -156,21 +156,8 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       });
       if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
       assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
-      const conductOpenBeforeClick=await page.locator('#conductPickerBody').evaluate(el=>el.classList.contains('open'));
-      // This is a toggle, so do not close an already-open picker before testing it.
-      if(!conductOpenBeforeClick)await page.locator('#toggleConductPickerBtn').click();
-      try{
-        await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
-      }catch(error){
-        console.error('CONDUCT_PICKER_STATE',JSON.stringify(await page.evaluate(()=>({
-          open:document.getElementById('conductPickerBody')?.classList.contains('open'),
-          visible:!!document.getElementById('conductPickerBody')?.getClientRects().length,
-          button:document.getElementById('toggleConductPickerBtn')?.outerHTML.slice(0,400),
-          phase:document.body.dataset.nexaClinicalPhase,
-          stage:document.body.dataset.nexaStage
-        }))));
-        throw error;
-      }
+      await page.locator('#toggleConductPickerBtn').click();
+      await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
       await page.locator('#conductSearchInput').fill('orientacao');
       await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
       await page.locator('#conductSearchInput').fill('hidrat');
@@ -222,10 +209,8 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
         });
         await page.waitForFunction(()=>scrollY>100);
         await page.locator('#nfTopClear').click();
-        // Synthetic scroll probes are not reliable for pixel positions.
-        // Confirm reset and the product's smooth-scroll instruction instead.
         try{
-          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&window.__nexaWindowScrollCalls?.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth'));
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
         }catch(error){
           const diagnostic=await page.evaluate(()=>({
             phase:document.body.dataset.nexaClinicalPhase||'',
