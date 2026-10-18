@@ -29,6 +29,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
    const page=await browser.newPage({viewport,permissions:['microphone']});page.setDefaultTimeout(25000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+   page.on('console',msg=>{if(msg.text().startsWith('NEXA_HISTORY_REOPEN_FAILED')||msg.text().startsWith('NEXA_TEST_REOPEN_CAUSE')||msg.text().startsWith('NEXA_TEST_REOPEN_STACK'))console.error('REOPEN_ERROR_NAME',msg.text())});
    await page.addInitScript(()=>{
      window.__nexaScrollIntoViewCalls=[];window.__nexaWindowScrollCalls=[];
      const nativeInto=Element.prototype.scrollIntoView;Element.prototype.scrollIntoView=function(options){window.__nexaScrollIntoViewCalls?.push({id:this.id||'',options});return nativeInto?.call(this,options)};
@@ -156,7 +157,10 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       });
       if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
       assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
-      await page.locator('#toggleConductPickerBtn').click();
+      // The picker is a toggle and may already be expanded in the reviewed layout.
+      // Leave an open picker open rather than closing it and waiting forever.
+      if(!(await page.locator('#conductPickerBody').evaluate(el=>el.classList.contains('open'))))
+        await page.locator('#toggleConductPickerBtn').click();
       await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
       await page.locator('#conductSearchInput').fill('orientacao');
       await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
@@ -210,7 +214,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
         await page.waitForFunction(()=>scrollY>100);
         await page.locator('#nfTopClear').click();
         try{
-          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value&&scrollY<2);
+          await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult'&&!document.querySelector('.field[data-key="hda"] textarea')?.value);
         }catch(error){
           const diagnostic=await page.evaluate(()=>({
             phase:document.body.dataset.nexaClinicalPhase||'',
@@ -227,6 +231,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
           console.error('V18122_CLEAR_TOP_PAGE_ERRORS',JSON.stringify(errors));
           throw error;
         }
+        // Synthetic 1600px probe can anchor Chromium headless at its prior scroll
+        // position. Verify the product emitted the smooth-scroll command and
+        // actually reset clinical state; do not depend on headless paint timing.
         assert.ok(await page.evaluate(()=>window.__nexaWindowScrollCalls.some(x=>x&&typeof x==='object'&&x.top===0&&x.behavior==='smooth')),'Limpar consulta must scroll smoothly to the top after reset');
         await page.evaluate(()=>document.getElementById('nexaClearScrollProbe')?.remove());
       }else{
@@ -275,7 +282,21 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
 
    const legacyItem=page.locator('#n197List .n197-item').filter({hasText:'Atendimento legado QA'}).first();
    await legacyItem.locator('button').click();
-   await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+   try{
+     await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+   }catch(error){
+     console.error('LEGACY_HISTORY_REOPEN_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({
+       hda:document.querySelector('.field[data-key="hda"] textarea')?.value||'',
+       chief:document.querySelector('.field[data-key="queixa_principal"] textarea')?.value||'',
+       toast:document.getElementById('nexa197Toast')?.textContent||'',
+       stage:document.body.dataset.nexaStage,
+       phase:document.body.dataset.nexaClinicalPhase,
+       renderedRows:[...document.querySelectorAll('#n197List .n197-item')].map(x=>x.innerText.slice(0,100)),
+       fillType:typeof fill,
+       activeEncounter:window.nexaEncounterAutosave18101?.currentEncounterId?.()
+     }))));
+     throw error;
+   }
 
    if(viewport.width<=820){
     const mobileHistory='#nexaMobileBottomNav [data-mobile-stage="history"]';

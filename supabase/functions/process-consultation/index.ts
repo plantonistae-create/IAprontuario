@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
+import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -334,6 +335,7 @@ REGRAS GERAIS
 - Se a transcrição vier em formato "LOCUTOR A/B/C (papel não confirmado)", distinga as vozes, mas NÃO presuma que LOCUTOR A é médico ou LOCUTOR B é paciente. Diarização identifica padrões acústicos, não identidades. Dois locutores detectados NÃO demonstram presença de acompanhante: podem ser apenas médico e paciente.
 - Para manter a consulta ágil, NÃO solicite confirmação dos locutores. Use as perguntas do profissional, respostas em primeira pessoa ("acordei", "senti", "estou com dor") e evidências explícitas ("sou a mãe", "minha filha está com dor") para atribuir a origem com cautela.
 - Se houver incerteza apenas sobre a QUANTIDADE ou os rótulos acústicos dos interlocutores, mas NENHUMA evidência positiva de acompanhante e o conteúdo for relato de sintomas do próprio paciente no diálogo, mantenha a narrativa anterior: "Paciente refere...". A dúvida da diarização, sozinha, NÃO justifica "Relato colhido na consulta", "Segundo relato obtido durante a consulta" ou introduções impessoais equivalentes.
+- Use "Acompanhante refere" / "Acompanhante relata" apenas com evidência real de terceiro; nunca "Outro participante relata".
 - Só utilize "Acompanhante refere", "Acompanhante relata", "Mãe refere" ou equivalente quando houver evidência clara de que a informação veio de terceiro. Em consulta com terceiro efetivamente identificado, mantenha separados os relatos de paciente e acompanhante; se uma informação específica não puder ser atribuída com segurança, use formulação neutra APENAS para essa informação, sem criar a frase genérica de abertura da HDA.
 - Não considere pergunta, hipótese ou sugestão feita pelo profissional como relato de sintoma ou negativa do paciente. Não invente papéis, vínculos familiares, consentimento, identidade, reconhecimento de voz ou respostas.
 - Quando as falas forem divergentes, preserve quem informou cada versão quando identificável; não apague contradições clinicamente relevantes.
@@ -342,7 +344,7 @@ REGRAS GERAIS
 - Nas transcrições com marcas MÉDICO, PACIENTE e ACOMPANHANTE, preserve explicitamente a origem de cada informação relevante. Para o acompanhante utilize "Acompanhante relata" / "Acompanhante refere" (nunca atribua automaticamente esses dados ao paciente). Caso a relação de parentesco tenha sido informada, pode registrar "Mãe refere", "Filha relata" etc., mas não infira parentesco.
 - Falas do médico que sejam perguntas, sugestões ou hipóteses não constituem fatos relatados pelo paciente. Só documente sintomas e antecedentes confirmados por participante.
 - Em criança, paciente incapaz de responder ou pessoa acompanhada, deixe claro quando a história foi fornecida exclusivamente pelo acompanhante.
-- Se houver fala de OUTRO PARTICIPANTE sem papel identificado, mantenha sua origem indeterminada e não atribua dados ao paciente.
+- NÃO use a expressão "Outro participante", "Outro interlocutor" nem "Terceiro participante" na HDA. Quando a participação de acompanhante estiver sustentada pela conversa, chame-o apenas de "Acompanhante", sem inventar parentesco. Se apenas a diarização estiver incerta e houver narrativa sintomática da própria pessoa atendida, prefira "Paciente refere...". Quando a origem de determinado fato realmente continuar incerta, descreva esse fato sem afirmar que veio do paciente ou acompanhante.
 - Mantenha rigorosamente a sequência cronológica dos acontecimentos na HDA.
 - Se expressão relevante do informante não possuir tradução técnica segura, mantenha a expressão literal entre aspas seguida de (SIC). Não aplique SIC indiscriminadamente a termos médicos corretamente normalizados.
 - A última frase "Sem demais queixas." é um padrão documental; ela não autoriza inferir negativas específicas não relatadas.
@@ -1272,7 +1274,7 @@ async function processOpenAI(
 
   /* DOCUMENTAÇÃO */
 
-  const docs =
+  const rawDocs =
     await openAIResponse(
 
       key,
@@ -1291,6 +1293,8 @@ async function processOpenAI(
 
     );
 
+
+  const docs = normalizeHdaSource(rawDocs,transcript);
 
   /* ASSISTÊNCIA */
 
@@ -1633,7 +1637,7 @@ async function processGemini(
 
   /* DOCUMENTAÇÃO */
 
-  const docs =
+  const rawDocs =
     await geminiJson(
 
       key,
@@ -1650,6 +1654,8 @@ async function processGemini(
 
     );
 
+
+  const docs = normalizeHdaSource(rawDocs,transcript);
 
   /* ASSISTÊNCIA */
 
