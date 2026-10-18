@@ -16,9 +16,9 @@ export function normalizeHdaSource(fields,transcript=""){
   const t=String(transcript||"").slice(0,120000);
   const third=THIRD_PARTY.test(t),patient=PATIENT_VOICE.test(t);
   let source;
-  if(third) source="Acompanhante";
-  else if(patient) source="Paciente";
-  else source=null; // no evidence: remove the misleading role, preserve neutral provenance
+  if(third && !patient) source="Acompanhante";
+  else if(patient && !third) source="Paciente";
+  else source=null; // conflicting or missing role evidence: preserve neutral provenance
   const label=match[2].toLocaleLowerCase("pt-BR");
   const fixed=fields.hda.replace(OTHER_PREFIX,(_,space)=>(space||"")+(source?source+" "+label:"Durante a consulta, foi relatado"));
   return {...fields,hda:fixed};
