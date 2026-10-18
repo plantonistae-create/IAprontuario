@@ -3890,7 +3890,7 @@ async function processAudio(){
     let autoSpeakerFallback=false;
     const startedProcessingAt=performance.now();
     let speakerIdentificationMs=null;
-    if($('identifySpeakers')?.checked){
+    if(['identifySpeakersToolbar','identifySpeakersLegacy','identifySpeakers'].some(id=>$(id)?.checked)){
       $('status').textContent='Transcrevendo e identificando vozes…';
       let segments=null;
       try{
