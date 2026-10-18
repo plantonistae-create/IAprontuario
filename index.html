@@ -3984,9 +3984,11 @@ function clearClinicalSession(){clinicalEpoch++;clearTimeout(nexaPersistTimer);c
   saveState('unsaved','não salvo');
 
   $('consent').checked=false;
-  $('identifySpeakers').checked=false; // Start every new consultation in the fast path.
-  $('identifySpeakersLegacy').checked=false;
-  if($('identifySpeakersToolbar'))$('identifySpeakersToolbar').checked=false;
+  // Controls are mounted in different clinical stages and may be absent
+  // while a prior encounter is reopened. Reset whichever controls exist.
+  for(const id of ['identifySpeakers','identifySpeakersLegacy','identifySpeakersToolbar']){
+    const input=$(id);if(input)input.checked=false;
+  }
   $('includeDiagnosis').checked=false;
   $('recBtn').disabled=true;
   $('recBtn').title='Marque o consentimento para habilitar';
