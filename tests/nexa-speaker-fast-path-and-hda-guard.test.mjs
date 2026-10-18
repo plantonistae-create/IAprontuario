@@ -49,6 +49,12 @@ test("no clinical role is fabricated when attribution is not grounded",()=>{
   assert.equal(normalizeHdaSource(normal,"texto"),normal);
 });
 
+test("mixed patient and companion speech does not guess which one owns a generic sentence",()=>{
+  const input={hda:"OUTRO PARTICIPANTE RELATA DOR OCULAR."};
+  const transcript="LOCUTOR A (papel não confirmado): Acordei com dor ocular.\\nLOCUTOR B (papel não confirmado): Sou a mãe.";
+  assert.equal(normalizeHdaSource(input,transcript).hda,"Durante a consulta, foi relatado DOR OCULAR.");
+});
+
 test("clinical processing guard applies to both providers before clinical assistance",()=>{
   assert.equal((processor.match(/normalizeHdaSource\(rawDocs,transcript\)/g)||[]).length,2);
   assert.match(processor,/NÃO use a expressão "Outro participante"/);
