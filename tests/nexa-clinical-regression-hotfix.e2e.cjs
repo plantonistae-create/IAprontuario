@@ -145,23 +145,12 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       assert.match(examAfterUndo,/BEG/i);assert.doesNotMatch(examAfterUndo,/AR:/i);
       assert.equal(await estadoGeral.isChecked(),true);assert.equal(await ar.isChecked(),false);
 
-      const conductVisibility=await page.evaluate(()=>{
-        const el=document.getElementById('toggleConductPickerBtn');
-        const chain=[];let n=el;
-        while(n&&chain.length<10){
-          const cs=getComputedStyle(n),r=n.getBoundingClientRect();
-          chain.push({tag:n.tagName,id:n.id||'',className:String(n.className||''),display:cs.display,visibility:cs.visibility,opacity:cs.opacity,width:r.width,height:r.height,hidden:!!n.hidden});
-          n=n.parentElement;
-        }
-        return {phase:document.body.dataset.nexaClinicalPhase||'',flow:document.body.dataset.nexaFlow||'',chain};
-      });
-      if(!(await page.locator('#toggleConductPickerBtn').isVisible()))console.error('PHASE1_CONDUCT_VISIBILITY',JSON.stringify(conductVisibility));
-      assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),true,'conduct library control must be visible in review phase');
-      // The picker is a toggle and may already be expanded in the reviewed layout.
-      // Leave an open picker open rather than closing it and waiting forever.
-      if(!(await page.locator('#conductPickerBody').evaluate(el=>el.classList.contains('open'))))
-        await page.locator('#toggleConductPickerBtn').click();
+      // Native conduct library is expanded by default in the clinical plan.
       await page.waitForFunction(()=>document.getElementById('conductPickerBody')?.classList.contains('open'));
+      assert.equal(await page.locator('#conductPickerBody').isVisible(),true,'conduct library must be expanded during review');
+      assert.equal(await page.locator('#toggleConductPickerBtn').isVisible(),false,'old collapse button must not be shown');
+      assert.equal(await page.locator('#nexaOrderLibraryBtn').isVisible(),true,'clinician can organize saved library independently');
+      assert.equal(await page.locator('#nexaPlanQuickComposer').count(),0,'duplicate plan quick composer removed');
       await page.locator('#conductSearchInput').fill('orientacao');
       await page.waitForFunction(()=>/Orientação/i.test(document.getElementById('conductList')?.innerText||''));
       await page.locator('#conductSearchInput').fill('hidrat');

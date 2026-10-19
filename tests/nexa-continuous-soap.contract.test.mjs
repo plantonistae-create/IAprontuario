@@ -8,14 +8,14 @@ const finalUi=fs.readFileSync(new URL('../nexa-final-ui-v18.js',import.meta.url)
 
 for(const token of [
   'nexaUnifiedFlow','nexaFlowModeBar','continuous','soap',
-  'nexaPlanQuickComposer','nexaPlanPresets',
+  'ensureConductLibraryOpen','conductPickerBody',
   'composeS','composeO','composeA','composeP','composeSoap','composeContinuous',
   'nexaAssociateCid','physicianCid','nexaClinicalBridge18101',
   'nexaEncounterAutosave18101','continuous_soap_edit',
   'nexaFlowCopyAll','nexaFlowPreview','nexaSoapSideNav'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261003-v18150'),'workflow module must be loaded with the current cache bust');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261019-conduct-library-first'),'workflow module must be loaded with the current cache bust');
 assert.ok(code.includes("['ANTECEDENTES',c.antecedentes]"),'SOAP S must expose ANTECEDENTES in uppercase');
 assert.ok(code.includes("['ALERGIAS',c.alergias]"),'SOAP S must expose ALERGIAS in uppercase');
 assert.ok(code.includes("join('\\n\\n')"),'SOAP S blocks must preserve a blank line between sections');
@@ -25,6 +25,10 @@ assert.ok(!code.includes('nexaExamQuickComposer'),'duplicate physical-exam quick
 assert.ok(!code.includes('Compositor rápido · clique para adicionar ou remover'),'duplicate physical-exam chip composer must not render');
 assert.ok(index.includes('Modelos por perfil · selecione o perfil e clique nos sistemas'),'canonical profile-based physical exam must remain visible');
 assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
+assert.ok(!code.includes('Plano rápido · clique para adicionar na ordem desejada'),'duplicate quick plan must be removed');
+assert.ok(!code.includes("id=\"nexaPlanQuickComposer\""),'second action composer forbidden');
+assert.ok(code.includes("planBody.appendChild(conduct)"),'canonical library must mount directly in plan');
+assert.ok(code.includes("ensureConductLibraryOpen()"),'canonical library must remain expanded');
 assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
 assert.ok(code.includes("conduct.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Condutas');
 assert.ok(code.includes("guidance.classList.add('nexa-v1811-hidden')"),'discharge guidance must remain stored but be hidden from the main medical note');

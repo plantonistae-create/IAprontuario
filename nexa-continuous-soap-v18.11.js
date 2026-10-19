@@ -10,7 +10,7 @@ const qa=(sel,root=document)=>[...root.querySelectorAll(sel)];
 const text=v=>String(v??'').trim();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MODE_KEY='nexa_flow_mode_v18_11';
-let mounted=false,mode='continuous',assessmentTimer=null,previewTimer=null,presetObserver=null,assessmentSyncing=false;
+let mounted=false,mode='continuous',assessmentTimer=null,previewTimer=null,assessmentSyncing=false;
 
 function field(key){return key==='conduta'?$('conductRecordText'):q(`.field[data-key="${key}"] textarea`)}
 function emit(el){if(!el)return;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
@@ -67,6 +67,32 @@ function style(){
  #nexaFlowExam #examSystems .exam-check span{font-size:11px;white-space:normal}
  #nexaFlowExam #examPhysicalBlock textarea{min-height:145px}
  #nexaFlowExam #copyExamBtn{display:none!important}
+ 
+ /* The conduct library is the sole entry point for reusable clinical actions. */
+ #nexaFlowPlan #conductBlock{display:block!important}
+ #nexaFlowPlan #conductPickerBody{display:block!important}
+ #nexaFlowPlan #toggleConductPickerBtn{display:none!important}
+ #nexaFlowPlan #conductList{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px;max-height:none!important;overflow:visible!important}
+ #nexaFlowPlan #conductList .conduct-item{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border-radius:11px}
+ #nexaFlowPlan #conductList .conduct-item-main{flex:1;min-width:0;padding:3px 0;cursor:pointer}
+ #nexaFlowPlan #conductList .conduct-item-main:focus-visible{outline:2px solid var(--nexa-brand);outline-offset:3px;border-radius:4px}
+ #nexaFlowPlan #conductList .conduct-item-preview{font-size:12px!important;line-height:1.45!important;color:var(--nexa-text)!important;white-space:pre-wrap!important;overflow:visible!important;overflow-wrap:anywhere!important;display:block!important;-webkit-line-clamp:unset!important;line-clamp:unset!important}
+ #nexaFlowPlan .conduct-picker:not(.nexa-library-order-mode) .conduct-item-actions{display:none!important}
+ #nexaFlowPlan .conduct-picker:not(.nexa-library-order-mode) .conduct-drag-handle{display:none!important}
+ #nexaFlowPlan .conduct-picker.nexa-library-order-mode .conduct-item-actions{display:flex!important;gap:6px;flex-wrap:wrap}
+ #nexaFlowPlan .conduct-picker.nexa-library-order-mode .conduct-item-actions button{border:1px solid var(--nexa-line);border-radius:7px;background:var(--nexa-surface-2);padding:6px 8px;font-size:11px;color:var(--nexa-text)}
+ #nexaFlowPlan .conduct-picker.nexa-library-order-mode .conduct-drag-handle{display:grid!important}
+ #nexaFlowPlan #nexaOrderLibraryBtn{min-width:150px}
+ #nexaFlowPlan #conductRecordText{display:block!important;width:100%;min-height:130px;font-size:13px;line-height:1.5;margin-top:12px}
+ #nexaFlowPlan .conduct-actions{margin-top:10px}
+ #nexaFlowPlan .conduct-actions #addConductTemplateBtn{font-size:12px;padding:10px 13px!important}
+ #nexaFlowPlan .conduct-picker .learning{font-size:11px;line-height:1.5}
+ @media(max-width:820px){
+   #nexaFlowPlan .conduct-picker-head{align-items:flex-start}
+   #nexaFlowPlan #nexaOrderLibraryBtn{flex:0 0 auto;min-width:0}
+   #nexaFlowPlan .conduct-picker.nexa-library-order-mode .conduct-item-actions{flex-direction:column}
+   #nexaFlowPlan #conductList .conduct-item-preview{font-size:12px!important}
+ }
  #nexaFlowPlan #nexaTimestampConductBtn{display:none!important}
  #nexaFlowPlan #conductList{display:grid!important;grid-template-columns:1fr!important;gap:6px;max-height:none!important}
  #nexaFlowPlan .conduct-item-preview{display:block!important;-webkit-line-clamp:unset!important;line-clamp:unset!important;white-space:pre-wrap!important;overflow:visible!important;overflow-wrap:anywhere}
@@ -114,55 +140,16 @@ function style(){
  `;document.head.appendChild(s)
 }
 
-const PLAN_ACTIONS=[
- ['exams','Solicito exames','Solicito exames.'],
- ['med-now','Medicação agora','Medicação agora.'],
- ['rx','Prescrição','Prescrição.'],
- ['return','Retorno / sinais de alarme','Retorno / sinais de alarme.'],
- ['referral','Encaminhamento','Encaminhamento.'],
- ['observe','Observação / reavaliação','Observação / reavaliação.'],
- ['certificate','Atestado / declaração','Atestado / declaração.']
-];
-function planLines(){return text(field('conduta')?.value).split(/\n+/).map(x=>x.trim()).filter(Boolean)}
-function setPlanLines(lines){const ta=field('conduta');if(!ta)return;ta.value=lines.join('\n');emit(ta);persistSoon();renderPlanQuick();renderPlanLines();updatePreview()}
-function togglePlanAction(snippet){
- const lines=planLines(),idx=lines.findIndex(x=>x.toLowerCase()===snippet.toLowerCase());
- if(idx>=0)return;lines.push(snippet);setPlanLines(lines);
+// The canonical conduct_templates library, rendered by index.html, is the
+// only source of reusable actions. A click writes directly to conductRecordText.
+// Template sort_order (saved per physician) never sorts the patient's plan.
+function ensureConductLibraryOpen(){
+  const body=$('conductPickerBody');
+  if(body)body.classList.add('open');
+  const trigger=$('toggleConductPickerBtn');
+  if(trigger)trigger.textContent='Recolher biblioteca';
 }
-function renderPlanQuick(){
- const host=$('nexaPlanQuickComposer');if(!host)return;const lines=planLines().map(x=>x.toLowerCase());
- host.innerHTML='';
- for(const [,label,snippet] of PLAN_ACTIONS){
-  const b=document.createElement('button');b.type='button';b.className='nexa-chip'+(lines.includes(snippet.toLowerCase())?' active':'');b.textContent=label;b.onclick=()=>togglePlanAction(snippet);host.appendChild(b);
- }
-}
-function renderPlanLines(){
- const host=$('nexaPlanLiveList');if(!host)return;
- const lines=planLines();host.replaceChildren();
- lines.forEach(line=>{
-  const row=document.createElement('div');row.className='nexa-plan-line';
-  row.innerHTML=`<span>${esc(line)}</span>`;
-  host.appendChild(row);
- });
-}
-function applyPreset(value){
- const ta=field('conduta'),v=text(value);if(!ta||!v)return;
- const current=text(ta.value),existing=current.split(/\n+/).map(x=>x.trim().toLocaleLowerCase('pt-BR'));
- if(existing.includes(v.toLocaleLowerCase('pt-BR')))return;
- ta.value=[current,v].filter(Boolean).join('\n');
- emit(ta);persistSoon();renderPlanLines();updatePreview();
-}
-function syncPresets(){
- const host=$('nexaPlanPresets');if(!host)return;host.replaceChildren();
- const rows=qa('#conductList .conduct-item');
- if(!rows.length){host.innerHTML='<div class="nexa-preset-empty">Nenhuma conduta disponível. Abra a biblioteca de condutas para cadastrar.</div>';return}
- for(const row of rows){
-  const value=text(q('.conduct-item-preview',row)?.textContent);if(!value)continue;
-  const b=document.createElement('button');b.type='button';b.className='nexa-preset';
-  b.innerHTML=`<b>Adicionar conduta</b><small>${esc(value)}</small>`;
-  b.onclick=()=>applyPreset(value);host.appendChild(b);
- }
-}
+
 
 function composeS(c=clinical()){
  return [
@@ -301,17 +288,26 @@ function mount(){
  const review=$('hypothesisReviewBlock');if(review){const d=document.createElement('details');d.className='nexa-legacy-exam';d.innerHTML='<summary>Assistência diagnóstica avançada</summary><div class="nexa-legacy-exam-body"></div>';q('.nexa-legacy-exam-body',d).appendChild(review);assessBody.appendChild(d)}
 
  const planBody=q('.nexa-flow-body',planSec);
- const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';
- quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar na ordem desejada</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Biblioteca · toque para acrescentar</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
- const conduct=$('conductBlock');planBody.appendChild(conduct);
- const conductPicker=q('.conduct-picker',conduct),conductHead=q('.conduct-picker-head',conduct);
+ const conduct=$('conductBlock');
+ planBody.appendChild(conduct);
+ const nativePicker=q('.conduct-picker',conduct);
+ const title=q('.conduct-picker-head strong',conduct);
+ if(title)title.textContent='Biblioteca de condutas · toque para adicionar';
+ ensureConductLibraryOpen();
+ const conductPicker=nativePicker,conductHead=q('.conduct-picker-head',conduct);
  if(conductPicker&&conductHead&&!$('nexaOrderLibraryBtn')){
   const manage=document.createElement('button');manage.id='nexaOrderLibraryBtn';manage.type='button';
-  manage.className='btn ghost';manage.textContent='Reordenar biblioteca';
+  manage.className='btn ghost';manage.textContent='Organizar biblioteca';
   manage.onclick=()=>{
-    const active=conductPicker.classList.toggle('nexa-library-order-mode');
-    manage.textContent=active?'Concluir organização':'Reordenar biblioteca';
+    const active=!conductPicker.classList.contains('nexa-library-order-mode');
+    if(active){
+      const search=$('conductSearchInput');
+      if(search?.value){search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}
+    }
+    conductPicker.classList.toggle('nexa-library-order-mode',active);
+    manage.textContent=active?'Concluir organização':'Organizar biblioteca';
     manage.setAttribute('aria-pressed',active?'true':'false');
+    ensureConductLibraryOpen();
   };
   conductHead.appendChild(manage);
  }
@@ -319,7 +315,6 @@ function mount(){
  // Once Condutas/Orientações are mounted as first-class sections of the unified
  // Continuous/SOAP plan, they must no longer inherit that legacy visibility gate.
  conduct.classList.remove('nexa-plan-v3-detail','active');
- const liveList=document.createElement('div');liveList.id='nexaPlanLiveList';liveList.className='nexa-plan-live-list';conduct.insertBefore(liveList,field('conduta'));
  const clinicalPlan=$('clinicalPlanBlock');if(clinicalPlan){
   planBody.appendChild(clinicalPlan);
   qa('.nexa-plan-action-card',clinicalPlan).filter(b=>/condutas/i.test(b.textContent||'')).forEach(b=>b.classList.add('nexa-v1811-hidden'));
@@ -352,11 +347,10 @@ function mount(){
  };
  field('hipotese_diagnostica')?.addEventListener('input',()=>{if(assessmentSyncing)return;clearTimeout(assessmentTimer);assessmentTimer=setTimeout(setAssessment,260)});
  field('exame_fisico')?.addEventListener('input',()=>updatePreview());
- field('conduta')?.addEventListener('input',()=>{renderPlanQuick();renderPlanLines();updatePreview()});
+ field('conduta')?.addEventListener('input',updatePreview);
  document.addEventListener('input',e=>{if(e.target instanceof HTMLTextAreaElement||e.target instanceof HTMLInputElement)updatePreview()},true);
 
- renderPlanQuick();renderPlanLines();syncPresets();
- const list=$('conductList');if(list&&window.MutationObserver){presetObserver=new MutationObserver(syncPresets);presetObserver.observe(list,{childList:true,subtree:true,characterData:true})}
+ ensureConductLibraryOpen();
  try{mode=sessionStorage.getItem(MODE_KEY)==='soap'?'soap':'continuous'}catch{mode='continuous'}
  setMode(mode);mounted=true;window.dispatchEvent(new CustomEvent('nexa:continuous-soap-mounted'));return true;
 }
@@ -372,6 +366,14 @@ document.addEventListener('click',e=>{
 },true);
 
 let tries=0;const timer=setInterval(()=>{if(mount()||++tries>80)clearInterval(timer)},125);
-window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{['identifySpeakersLegacy','identifySpeakers','identifySpeakersToolbar'].forEach(id=>{if($(id))$(id).checked=false});renderPlanQuick();renderPlanLines();updatePreview()},50));
-window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction};
+window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{
+ ['identifySpeakersLegacy','identifySpeakers','identifySpeakersToolbar'].forEach(id=>{if($(id))$(id).checked=false});
+ ensureConductLibraryOpen();
+ const picker=q('#conductBlock .conduct-picker');
+ picker?.classList.remove('nexa-library-order-mode');
+ const manage=$('nexaOrderLibraryBtn');
+ if(manage){manage.textContent='Organizar biblioteca';manage.setAttribute('aria-pressed','false')}
+ updatePreview();
+},50));
+window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous};
 })();
