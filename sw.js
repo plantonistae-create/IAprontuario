@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-resolution-actions-20261017";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261017-resolution-actions";
+const CACHE_NAME="nexa-v18-15-0-library-first-20261019";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261019-library-first";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
