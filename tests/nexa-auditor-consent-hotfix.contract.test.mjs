@@ -18,7 +18,7 @@ assert.ok(auditor.includes("document.body.classList.contains('nexa-auditor-view'
 assert.ok(auditor.includes("$('nexaBackMedicalBtn')"),'Return-to-doctor must reuse the existing medical role transition');
 
 assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=\d{8}-[a-z0-9-]+/,'Auditor module must include a dated cache-busting token');
-assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261003-v18150'),'Continuous/SOAP module cache bust must be current');
+assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261019-conduct-library-first'),'Continuous/SOAP module cache bust must be current');
 const swHotfix=sw.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
 const indexHotfix=index.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
 assert.ok(swHotfix&&indexHotfix&&swHotfix===indexHotfix,'SW and HTML hotfix versions must match');
