@@ -74,6 +74,18 @@ rpcResolver({data:{ok:true},error:null});
 await Promise.all([p1,p2]);
 assert.equal(guard.pendingMutations,0);
 
+// The production panel must delegate reviewer changes to the authenticated Edge API,
+// never to the legacy direct PostgREST RPC that returned HTTP 401.
+let secureArgs=null;
+const priorRpcCount=rpcCalls.length;
+globalThis.nexaAdminApplyAccess=async payload=>{secureArgs=payload;return{ok:true}};
+const reviewArgs={...args,target_user:'u-review',new_is_reviewer:true};
+assert.deepEqual(await guard.guardedAdminMutation(reviewArgs),{ok:true});
+assert.equal(secureArgs.target_user,'u-review');
+assert.equal(secureArgs.new_is_reviewer,true);
+assert.equal(rpcCalls.length,priorRpcCount,'Admin mutation must not call legacy RPC');
+delete globalThis.nexaAdminApplyAccess;
+
 // 4) Erro Supabase retornado em {error} vira falha real e preserva CLINICAL_SLOT_LIMIT_REACHED.
 rpcMode='error';
 await assert.rejects(()=>guard.guardedAdminMutation({...args,target_user:'u3'}),/CLINICAL_SLOT_LIMIT_REACHED/);
