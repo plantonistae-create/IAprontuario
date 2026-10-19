@@ -46,14 +46,24 @@ test('CID physician confirmation validates catalog and preserves audit metadata'
   assert.ok(html.includes(field),'Missing assessment audit attribute: '+field);
  assert.match(html,/stored\.processing_meta\?\.assessment_reviews\?\.some/);
 });
-test('conduct additions preserve click ordering; library sorting is a separate edit mode',()=>{
- assert.match(soap,/if\(idx>=0\)return;lines\.push\(snippet\)/);
- assert.match(soap,/function setPlanLines\(lines\)/);
+test('single canonical conduct library is always visible and retains physician-defined sorting',()=>{
+ assert.doesNotMatch(soap,/Plano rápido · clique para adicionar na ordem desejada/);
+ assert.doesNotMatch(soap,/id="nexaPlanQuickComposer"/);
+ assert.doesNotMatch(soap,/id="nexaPlanPresets"/);
+ assert.match(soap,/planBody\.appendChild\(conduct\)/);
+ assert.match(soap,/function ensureConductLibraryOpen\(\)/);
+ assert.match(soap,/body\.classList\.add\('open'\)/);
+ assert.match(soap,/#nexaFlowPlan #conductList\{display:grid!important;grid-template-columns:minmax\(0,1fr\)!important/);
+ assert.match(soap,/#nexaFlowPlan #conductList \.conduct-item-preview\{/);
+ assert.match(soap,/Organizar biblioteca/);
  assert.match(soap,/nexa-library-order-mode/);
- assert.match(soap,/Reordenar biblioteca/);
- assert.match(soap,/nexa-plan-line\{grid-template-columns:1fr\}/);
- assert.match(soap,/#nexaFlowPlan #conductList\{display:grid!important;grid-template-columns:1fr/);
- assert.match(html,/appendConductToRecord\(c\.content,\{source:'library'\}\)/);
+ assert.match(html, /sb\.rpc\('reorder_conduct_templates',\{p_ids:ids\}\)/);
+ assert.match(html, /\.order\('sort_order',\{ascending:true\}\)/);
+ assert.match(html, /appendConductToRecord\(c\.content,\{source:'library'\}\)/);
+ assert.match(html,/\$\('conductPickerBody'\)\.classList\.add\('open'\)/);
+ assert.match(html,/id="conductRecordText"/);
+ assert.match(html,/id="addConductTemplateBtn"/);
+ assert.match(html,/id="conductContentInput"/);
 });
 test('discharge directions remain in prescription, not full note or duplicate plan card',()=>{
  assert.doesNotMatch(soap,/\['ORIENTAÇÕES',c\.orientacoes_alta\]/);
