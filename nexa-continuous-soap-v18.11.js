@@ -70,6 +70,13 @@ function style(){
  #nexaFlowPlan #conductList{display:grid!important;grid-template-columns:1fr!important;gap:6px;max-height:none!important}
  #nexaFlowPlan .conduct-item-preview{display:block!important;-webkit-line-clamp:unset!important;line-clamp:unset!important;white-space:pre-wrap!important;overflow:visible!important;overflow-wrap:anywhere}
  #nexaFlowPlan .nexa-preset-row{display:grid!important;grid-template-columns:1fr!important;overflow:visible;max-height:330px;overflow-y:auto}
+ #nexaFlowPlan .nexa-quick-group:has(#nexaPlanPresets){display:none!important}
+ #nexaFlowPlan .nexa-plan-action-card[data-plan-jump="rxGuidancePreview"],
+ #nexaFlowPlan .nexa-plan-action-card[data-plan-jump="conductBlock"]{display:none!important}
+ #nexaFlowPlan .conduct-picker:not(.nexa-library-order-mode) .conduct-drag-handle,
+ #nexaFlowPlan .conduct-picker:not(.nexa-library-order-mode) .conduct-item-actions button:nth-child(-n+2){display:none!important}
+ #nexaFlowPlan .conduct-picker.nexa-library-order-mode .conduct-drag-handle{display:flex!important}
+ #nexaFlowPlan #nexaOrderLibraryBtn{min-width:148px}
  #nexaFlowPlan .nexa-preset{max-width:none!important;width:100%;white-space:normal}
  #nexaFlowPlan .nexa-preset small{display:block;white-space:pre-wrap!important;overflow:visible!important;text-overflow:clip!important;font-size:11px}
  #nexaFlowPlan .nexa-plan-line{grid-template-columns:1fr}
@@ -110,7 +117,6 @@ const PLAN_ACTIONS=[
  ['exams','Solicito exames','Solicito exames.'],
  ['med-now','Medicação agora','Medicação agora.'],
  ['rx','Prescrição','Prescrição.'],
- ['guidance','Orientações','Orientações.'],
  ['return','Retorno / sinais de alarme','Retorno / sinais de alarme.'],
  ['referral','Encaminhamento','Encaminhamento.'],
  ['observe','Observação / reavaliação','Observação / reavaliação.'],
@@ -261,6 +267,14 @@ function mount(){
  }
  for(const id of ['processBtn','resetBtn'])if($(id))processRow.appendChild($(id));
  liveBody.appendChild(processRow);
+ const speakerCheckbox=$('identifySpeakersLegacy');
+ if(speakerCheckbox){
+  const ids=['identifySpeakers','identifySpeakersToolbar','identifySpeakersLegacy'];
+  ids.forEach(id=>{const checkbox=$(id);if(checkbox){
+   checkbox.checked=false;
+   checkbox.addEventListener('change',()=>ids.forEach(other=>{if(other!==id&&$(other))$(other).checked=checkbox.checked}));
+  }});
+ }
 
  const histBody=q('.nexa-flow-body',history);
  const grid=q('.nexa-stage-summary-fields',summary);
@@ -289,6 +303,17 @@ function mount(){
  const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';
  quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar na ordem desejada</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Biblioteca · toque para acrescentar</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
  const conduct=$('conductBlock');planBody.appendChild(conduct);
+ const conductPicker=q('.conduct-picker',conduct),conductHead=q('.conduct-picker-head',conduct);
+ if(conductPicker&&conductHead&&!$('nexaOrderLibraryBtn')){
+  const manage=document.createElement('button');manage.id='nexaOrderLibraryBtn';manage.type='button';
+  manage.className='btn ghost';manage.textContent='Reordenar biblioteca';
+  manage.onclick=()=>{
+    const active=conductPicker.classList.toggle('nexa-library-order-mode');
+    manage.textContent=active?'Concluir organização':'Reordenar biblioteca';
+    manage.setAttribute('aria-pressed',active?'true':'false');
+  };
+  conductHead.appendChild(manage);
+ }
  // The legacy Plan V3 tabs hide external details with .nexa-plan-v3-detail.
  // Once Condutas/Orientações are mounted as first-class sections of the unified
  // Continuous/SOAP plan, they must no longer inherit that legacy visibility gate.
@@ -317,6 +342,7 @@ function mount(){
    if(!value){$('nexaCidState').textContent='Escreva uma hipótese antes de confirmar.';return}
    const review=window.nexaClinicalBridge18101?.reviewAssessment;
    if(typeof review!=='function'){$('nexaCidState').textContent='Validação ainda indisponível. Tente novamente.';return}
+   clearTimeout(assessmentTimer);
    try{
      await review(value,result.code||'');
      $('nexaCidState').textContent='✓ Avaliação revisada pelo médico · CID '+(result.code||'não informado');
