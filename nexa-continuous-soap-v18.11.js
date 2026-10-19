@@ -375,5 +375,5 @@ window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{
  if(manage){manage.textContent='Organizar biblioteca';manage.setAttribute('aria-pressed','false')}
  updatePreview();
 },50));
-window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction};
+window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous};
 })();
