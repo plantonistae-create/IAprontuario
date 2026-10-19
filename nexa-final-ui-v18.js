@@ -16,7 +16,7 @@ const hide=el=>{if(el)el.style.setProperty('display','none','important')};
 const appReady=()=>{const app=$('mainApp'),login=$('loginGate');if(!app)return false;const a=getComputedStyle(app).display!=='none';const l=!login||getComputedStyle(login).display==='none';return a&&l};
 const currentTheme=()=>document.documentElement.dataset.theme==='dark'||document.documentElement.dataset.nexaTheme==='dark'?'dark':'light';
 
-function setTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;document.documentElement.dataset.nexaTheme=t;try{localStorage.setItem('nexa-theme',t)}catch{};syncTheme()}
+function setTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;document.documentElement.dataset.nexaTheme=t;try{localStorage.setItem('nexa-theme',t);localStorage.setItem('nexa-theme-v340',t)}catch{};syncTheme()}
 function toggleTheme(){setTheme(currentTheme()==='dark'?'light':'dark')}
 function metric(){let score=0,pending=0,alerts=0,covered=0;try{const text=$('realtimeRadarCard')?.innerText||'';const m=text.match(/(\d{1,3})\s*%/);if(m)score=Math.max(0,Math.min(100,+m[1]))}catch{};try{pending=Array.isArray(window.radarState?.questions)?window.radarState.questions.length:0;alerts=Array.isArray(window.radarState?.alerts)?window.radarState.alerts.length:0;covered=Array.isArray(window.radarState?.covered)?window.radarState.covered.length:0}catch{};return{score,pending,alerts,covered}}
 function dispositionText(){const c=$('nexaDispositionCard');const s=c?.querySelector('.nexa-disp-state strong')?.textContent?.trim()||c?.querySelector('strong')?.textContent?.trim();return s||'Em avaliação'}

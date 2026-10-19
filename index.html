@@ -16,7 +16,7 @@
 <link href="./favicon-64.png" rel="icon" sizes="64x64" type="image/png"/>
 <title>NEXA</title>
 <script>
-try{document.documentElement.dataset.theme=localStorage.getItem('nexa-theme')==='dark'?'dark':'light'}catch(e){}
+try{const theme=localStorage.getItem('nexa-theme-v340')||localStorage.getItem('nexa-theme')||'light';document.documentElement.dataset.theme=theme==='dark'?'dark':'light';document.documentElement.dataset.nexaTheme=document.documentElement.dataset.theme}catch(e){document.documentElement.dataset.theme='light';document.documentElement.dataset.nexaTheme='light'}
 </script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js"></script>
 <style>
@@ -2605,7 +2605,7 @@ function $(id){return document.getElementById(id)}
 function setBanner(container,msg,error=false){container.replaceChildren();if(!msg)return;const d=document.createElement('div');d.className='banner'+(error?' error':'');d.textContent=msg;container.appendChild(d)}
 async function ensureSupabase(){if(window.supabase?.createClient)return;for(const src of ['https://unpkg.com/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js']){try{await new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});if(window.supabase?.createClient)return}catch(e){}}throw new Error('Não foi possível carregar a autenticação Supabase.')}
 try{await ensureSupabase()}catch(e){setBanner($('loginBanner'),e.message,true);return}const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:!!window.nexaAuthSession,autoRefreshToken:true,detectSessionInUrl:true,...(window.nexaAuthSession?.storage?{storage:window.nexaAuthSession.storage}:{})}});window.nexaClinicalSupabase18101=sb;window.nexaClinicalRuntime18121={supabaseUrl:SUPABASE_URL,publishableKey:SUPABASE_ANON_KEY,appConfig:APP_CONFIG,client:sb,getProfile:()=>{try{return currentProf}catch{return null}}};
-function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);applyTheme(n)};
+function applyTheme(t){t=t==='dark'?'dark':'light';document.documentElement.dataset.theme=t;$('nexaThemeToggle').textContent=t==='dark'?'☀ Modo claro':'◐ Modo escuro';document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101817':'#f5f8f7'}applyTheme(document.documentElement.dataset.theme);$('nexaThemeToggle').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nexa-theme',n);localStorage.setItem('nexa-theme-v340',n);document.documentElement.dataset.nexaTheme=n;applyTheme(n)};
 let clinicalEpoch=0;
 let currentProf=null,authMode='signin',styleExamples=[],history=[],conductTemplates=[],activeHistoryId=null,lastProcessedMeta=null;
 const fieldKeys=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica'],sideKeys=['orientacoes_alta','sugestoes_perguntas'],manualKeys=['exame_fisico','sinais_vitais','conduta'];
@@ -4351,9 +4351,9 @@ document.body.classList.add('nexa-v340','nexa-doctor-view','doctor-home-open');
       navigator.serviceWorker?.getRegistration?.().then(r=>r?.update?.()).catch(()=>{});
     }
   }catch{}
-  const themeStored=localStorage.getItem('nexa-theme-v340');
-  const systemDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  document.documentElement.dataset.nexaTheme=themeStored|| (systemDark?'dark':'light');
+  const themeStored=localStorage.getItem('nexa-theme-v340')||localStorage.getItem('nexa-theme');
+  document.documentElement.dataset.nexaTheme=themeStored==='dark'?'dark':'light';
+  document.documentElement.dataset.theme=document.documentElement.dataset.nexaTheme;
 
   function syncThemeUi(){
     const dark=document.documentElement.dataset.nexaTheme==='dark';
@@ -4365,7 +4365,9 @@ document.body.classList.add('nexa-v340','nexa-doctor-view','doctor-home-open');
   function toggleNexaTheme(){
     const next=document.documentElement.dataset.nexaTheme==='dark'?'light':'dark';
     document.documentElement.dataset.nexaTheme=next;
+    document.documentElement.dataset.theme=next;
     localStorage.setItem('nexa-theme-v340',next);
+    localStorage.setItem('nexa-theme',next);
     syncThemeUi();
   }
   q('nexaThemeBtn')?.addEventListener('click',toggleNexaTheme);
@@ -5102,6 +5104,43 @@ window.nexaClinicalBridge18101={
     if($('physicianHypothesis'))$('physicianHypothesis').value=value;
     updateHypothesisReviewUI();nexaPersistSessionSoon();
     return structuredClone(hypothesisReview);
+  },
+  reviewAssessment:async(text,cid='')=>{
+    if(!currentProf?.id)throw new Error('Sessão clínica indisponível.');
+    const value=String(text||'').trim(),code=String(cid||'').trim().toUpperCase();
+    if(!value)throw new Error('É necessário informar a hipótese diagnóstica.');
+    const validation=window.nexaHypothesisCidGuard1911?.validate?.({silent:false});
+    if(validation&&!validation.valid)throw new Error('O CID deve estar validado no catálogo NEXA.');
+    const previous=structuredClone(hypothesisReview),oldMeta=structuredClone(lastProcessedMeta||{});
+    const ai=String(previous.ai||lastProcessedMeta?.originalNexaFields?.hipotese_diagnostica||'').trim();
+    const changed=!!ai&&ai.toLocaleLowerCase('pt-BR')!==value.toLocaleLowerCase('pt-BR');
+    const cidChanged=!!code&&!!previous.cid&&previous.cid!==code;
+    hypothesisInternalWrite=true;
+    ta('hipotese_diagnostica').value=value;
+    hypothesisInternalWrite=false;
+    hypothesisReview={...previous,status:changed||cidChanged?'altered':'confirmed',final:value,cid:code,source:changed||cidChanged?'physician_reviewed_altered':'physician_reviewed_confirmed'};
+    if($('physicianCid'))$('physicianCid').value=code;
+    lastProcessedMeta=lastProcessedMeta||{};
+    const event={
+      at:new Date().toISOString(),actor_user_id:currentProf.id,
+      action:'physician_assessment_review',source:'continuous_soap',
+      previous_status:previous.status,previous_cid:previous.cid||null,
+      resulting_status:hypothesisReview.status,resulting_cid:code||null,
+      hypothesis_changed:changed||false,cid_changed:cidChanged||false
+    };
+    lastProcessedMeta.assessment_reviews=[...(lastProcessedMeta.assessment_reviews||[]),event];
+    updateHypothesisReviewUI();
+    try{
+      const stored=await window.nexaEncounterAutosave18101?.preserve?.('assessment_review');
+      if(!stored?.encounter_id||stored.owner_user_id!==currentProf.id||!stored.processing_meta?.assessment_reviews?.some(item=>item.at===event.at&&item.actor_user_id===currentProf.id))throw new Error('Validação médica não foi gravada no rascunho local.');
+      window.dispatchEvent(new CustomEvent('nexa:assessment-reviewed',{detail:{encounter_id:stored.encounter_id,review_status:hypothesisReview.status}}));
+      return structuredClone(hypothesisReview);
+    }catch(error){
+      hypothesisReview=previous;
+      lastProcessedMeta=oldMeta;
+      updateHypothesisReviewUI();
+      throw error;
+    }
   },
   restore:snap=>nexaRestoreSession(snap)
 };

@@ -27,7 +27,10 @@ assert.ok(index.includes('Modelos por perfil · selecione o perfil e clique nos 
 assert.ok(code.includes("['CONDUTAS',c.conduta]"),'SOAP P must expose conduct in a stable uppercase block');
 assert.ok(code.includes("el.textContent='✓ '+label+' copiado'"),'copy feedback must be non-blocking and standardized');
 assert.ok(code.includes("conduct.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Condutas');
-assert.ok(code.includes("guidance.classList.remove('nexa-plan-v3-detail','active')"),'unified plan must neutralize the legacy Plan V3 visibility gate for Orientações');
+assert.ok(code.includes("guidance.classList.add('nexa-v1811-hidden')"),'discharge guidance must remain stored but be hidden from the main medical note');
+assert.ok(!code.includes("['guidance','Orientações','Orientações.']"),'discharge guidance must not become an auto-inserted conduct');
+assert.ok(code.includes("'nexaOrderLibraryBtn'"),'library ordering must have an explicit edit mode');
+assert.ok(code.includes("window.nexaClinicalBridge18101?.reviewAssessment"),'CID confirmation must go through an audited clinical bridge');
 assert.ok(code.includes("if(text(a.confirmed_cid))parts.push"),'SOAP A must include only a confirmed CID');
 assert.ok(code.includes('position:fixed;top:calc(var(--nexa-topbar-h,64px) + 8px)'),'flow selector must stay fixed below the desktop session bar');
 assert.ok(code.includes('html.nexa-mobile-v1867 #nexaFlowModeBar'),'mobile flow selector must be positioned below the dedicated mobile header');

@@ -24,22 +24,25 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   }
   await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
   await page.waitForFunction(()=>!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
+  await page.waitForFunction(()=>!!document.getElementById('nexaUnifiedFlow')&&!!document.getElementById('identifySpeakersLegacy')?.closest('.nexa-flow-process-row'));
+  await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult');
   // In PS / updated Radar layouts the old checkbox may be removed from the
   // DOM. The actual recording toolbar is the clinician's visible control.
-  const speakerToolbar=page.locator('#identifySpeakersToolbar');
+  const speakerToolbar=page.locator('#identifySpeakersLegacy');
   assert.equal(await page.locator('#nfRecActions #nfProcess').count(),1);
   assert.equal(await speakerToolbar.count(),1,'Recording toolbar must expose the speaker option');
   assert.equal(await speakerToolbar.isVisible(),true,'Speaker choice must be visible next to transcription');
+  assert.equal(await speakerToolbar.evaluate(el=>el.closest('.nexa-flow-process-row')?.contains(document.getElementById('processBtn'))),true,'Speaker opt-in must accompany the real transcription action');
   assert.equal(await speakerToolbar.isChecked(),false,'Detailed identification must start OFF');
   await speakerToolbar.check();
   assert.equal(await speakerToolbar.isChecked(),true);
-  for(const id of ['identifySpeakers','identifySpeakersLegacy']){
+  for(const id of ['identifySpeakers','identifySpeakersToolbar']){
     const option=page.locator('#'+id);
     if(await option.count())assert.equal(await option.isChecked(),true,'Checkbox '+id+' must stay synchronized');
   }
   await speakerToolbar.uncheck();
   assert.equal(await speakerToolbar.isChecked(),false);
-  for(const id of ['identifySpeakers','identifySpeakersLegacy']){
+  for(const id of ['identifySpeakers','identifySpeakersToolbar']){
     const option=page.locator('#'+id);
     if(await option.count())assert.equal(await option.isChecked(),false);
   }
