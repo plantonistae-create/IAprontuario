@@ -104,8 +104,8 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    await page.locator('#nexaPlanQuickComposer').getByRole('button',{name:'Solicito exames',exact:true}).click();
    let plan=await page.locator('#conductRecordText').inputValue();assert.match(plan,/Solicito exames\./);
    await page.locator('#conductRecordText').evaluate(el=>{el.value+='\nReavaliar após resultado.';el.dispatchEvent(new Event('input',{bubbles:true}))});
-   await page.locator('#nexaPlanQuickComposer').getByRole('button',{name:'Orientações',exact:true}).click();
-   plan=await page.locator('#conductRecordText').inputValue();assert.match(plan,/Orientações\./);assert.match(plan,/Reavaliar após resultado\./,'Manual plan text must coexist with quick actions');
+   await page.locator('#nexaPlanQuickComposer').getByRole('button',{name:'Retorno / sinais de alarme',exact:true}).click();
+   plan=await page.locator('#conductRecordText').inputValue();assert.match(plan,/Retorno \/ sinais de alarme\./);assert.match(plan,/Reavaliar após resultado\./,'Manual plan text must coexist with quick actions');
 
    await page.screenshot({path:path.join(root,'test-results',`continuous-flow-${viewport.width}.png`),fullPage:true});
    const before=await page.evaluate(()=>({hda:document.querySelector('.field[data-key="hda"] textarea').value,exam:document.querySelector('.field[data-key="exame_fisico"] textarea').value,hyp:document.querySelector('.field[data-key="hipotese_diagnostica"] textarea').value,plan:document.getElementById('conductRecordText').value,encounter:window.nexaEncounterAutosave18101.currentEncounterId()}));
