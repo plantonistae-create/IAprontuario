@@ -93,11 +93,16 @@ async function guardedAdminMutation(args={}){
   const target=String(args?.target_user||'');
   if(self&&target===self&&args?.new_access_status==='disabled')throw new Error('ADMIN_SELF_DISABLE_BLOCKED');
   if(self&&target===self&&window.currentProf?.is_admin===true&&args?.new_is_admin===false)throw new Error('ADMIN_SELF_DEMOTION_BLOCKED');
-  if(!originalRpc)throw new Error('RPC administrativo indisponível.');
+  if(typeof window.nexaAdminApplyAccess!=='function'&&!originalRpc)throw new Error('API administrativa indisponível.');
   const key=actionKey(args);
   if(mutationInflight.has(key))return mutationInflight.get(key);
   setAdminBusy(true);
   const request=(async()=>{
+    if(typeof window.nexaAdminApplyAccess==='function'){
+      // Do not call the legacy PostgREST mutation. The Edge Function checks
+      // session + admin profile and delegates to admin_set_profile_access.
+      return await window.nexaAdminApplyAccess(args);
+    }
     const result=await originalRpc('admin_manage_profile',args);
     if(result?.error)throw result.error;
     return result;
