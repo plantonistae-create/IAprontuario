@@ -44,7 +44,7 @@ test('CID physician confirmation validates catalog and preserves audit metadata'
  assert.match(html,/reviewAssessment:async\(text,cid=' '\)|reviewAssessment:async\(text,cid=''\)/);
  for(const field of ["assessment_reviews","actor_user_id","previous_cid","resulting_cid","resulting_status","assessment_review"])
   assert.ok(html.includes(field),'Missing assessment audit attribute: '+field);
- assert.match(html,/if\(!stored\?\.encounter_id\|\|stored\.owner_user_id!==currentProf\.id\)/);
+ assert.match(html,/stored\.processing_meta\?\.assessment_reviews\?\.some/);
 });
 test('conduct additions preserve click ordering; library sorting is a separate edit mode',()=>{
  assert.match(soap,/if\(idx>=0\)return;lines\.push\(snippet\)/);
