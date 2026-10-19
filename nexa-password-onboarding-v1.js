@@ -47,6 +47,7 @@
       '<input id="nexaNewPassword" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres" style="width:100%;padding:12px;border-radius:9px;border:1px solid #628393;background:#0e1a24;color:#fff;box-sizing:border-box;margin-bottom:15px"/>'+
       '<label for="nexaConfirmPassword" style="display:block;margin-bottom:6px">Confirmar nova senha</label>'+
       '<input id="nexaConfirmPassword" type="password" required minlength="8" autocomplete="new-password" style="width:100%;padding:12px;border-radius:9px;border:1px solid #628393;background:#0e1a24;color:#fff;box-sizing:border-box;margin-bottom:13px"/>'+
+      '<label for="nexaPasswordRemember" style="display:flex;gap:10px;align-items:center;margin:12px 0;cursor:pointer;font-size:13px"><input id="nexaPasswordRemember" type="checkbox" autocomplete="off" style="width:20px;height:20px;flex:0 0 20px;accent-color:#10a8bd"/>Permanecer conectado neste dispositivo</label>'+ 
       '<p id="nexaPasswordSetupError" role="alert" aria-live="polite" style="color:#ffb9b9;min-height:20px;font-size:13px"></p>'+
       '<button id="nexaPasswordSetupSubmit" type="submit" style="width:100%;padding:13px 16px;border:0;border-radius:9px;background:#2aafc6;color:#071923;font-weight:800;cursor:pointer">Salvar senha e acessar</button>'+
       '<button id="nexaPasswordSetupExit" type="button" style="width:100%;padding:11px;margin-top:8px;border:1px solid #628393;border-radius:9px;background:transparent;color:#cbdbe3;cursor:pointer">Sair</button>'+
@@ -75,6 +76,7 @@
       try{
         const {error:saveError}=await client.auth.updateUser({password:pwd});
         if(saveError)throw saveError;
+        window.nexaAuthSession?.setRemembered(root.querySelector('#nexaPasswordRemember').checked===true);
         completedUserId=session.user.id;linkFlow=false;hide();
         // Never leave invitation/recovery tokens in the address bar or browser history.
         if(location.hash && /(?:access_token|refresh_token|type=invite|type=recovery)/.test(location.hash)){
