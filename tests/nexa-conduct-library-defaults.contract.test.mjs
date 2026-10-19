@@ -18,7 +18,7 @@ for(const token of [
   "edit.textContent='editar'",
   "del.textContent='remover'",
   "conduct-picker-body open",
-  "a ordem fica salva na sua conta"
+  "cada médico tem sua própria sequência"
 ]) assert.ok(html.includes(token),`conduct library missing ${token}`);
 
 for(const token of [
