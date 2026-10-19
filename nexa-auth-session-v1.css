@@ -5,3 +5,19 @@
 #nexaLogoutSidebarBtn{margin-top:8px;color:var(--nexa-text);border-color:var(--nexa-line)}
 #nexaLogoutMoreBtn{color:var(--nexa-text)}
 @media(max-width:820px){#nexaLogoutHeaderBtn{flex:0 0 40px;min-width:40px!important;padding:7px!important}}
+
+/* Login remains light even when the clinician's application theme is dark. */
+#loginGate .login-box .nexa-remember-option,
+html[data-theme="dark"] #loginGate .login-box .nexa-remember-option,
+html[data-nexa-theme="dark"] #loginGate .login-box .nexa-remember-option{
+  color:#203846!important;
+  font-weight:650!important;
+}
+#loginGate .login-box .nexa-remember-option span{
+  display:inline!important;
+  visibility:visible!important;
+  opacity:1!important;
+  color:inherit!important;
+  font-size:13px!important;
+  line-height:1.4!important;
+}
