@@ -7,14 +7,15 @@
   if(window.nexaPasswordSetup)return;
   const params=new URLSearchParams((location.hash||'').replace(/^#/, ''));
   let linkFlow=['invite','recovery'].includes(params.get('type'));
-  let modal=null,submitting=false,completed=false;
+  let modal=null,submitting=false,completedUserId=null;
 
   function hide(){
     if(modal){modal.remove();modal=null;}
   }
   function errorText(e){return String(e?.message||e?.error_description||'Não foi possível definir a senha.');}
   async function requiresSetup(session,client){
-    if(!session?.user||completed)return false;
+    if(!session?.user)return false;
+    if(completedUserId===session.user.id)return false;
     if(linkFlow)return true;
     // For previously accepted invitations with no password (including a reopened tab).
     // This RPC returns a single boolean for auth.uid(), not password hashes.
@@ -56,6 +57,8 @@
     const error=root.querySelector('#nexaPasswordSetupError');
     const submit=root.querySelector('#nexaPasswordSetupSubmit');
     root.querySelector('#nexaPasswordSetupExit').onclick=async()=>{
+      linkFlow=false;
+      if(location.hash && /(?:access_token|refresh_token|type=invite|type=recovery)/.test(location.hash)) history.replaceState(null,'',location.pathname+location.search);
       hide();
       await client.auth.signOut();
       if(gate)gate.style.display='flex';
@@ -72,7 +75,7 @@
       try{
         const {error:saveError}=await client.auth.updateUser({password:pwd});
         if(saveError)throw saveError;
-        completed=true;linkFlow=false;hide();
+        completedUserId=session.user.id;linkFlow=false;hide();
         // Never leave invitation/recovery tokens in the address bar or browser history.
         if(location.hash && /(?:access_token|refresh_token|type=invite|type=recovery)/.test(location.hash)){
           history.replaceState(null,'',location.pathname+location.search);
