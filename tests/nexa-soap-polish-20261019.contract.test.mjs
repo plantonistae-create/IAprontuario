@@ -48,7 +48,7 @@ test('CID physician confirmation validates catalog and preserves audit metadata'
 });
 test('conduct additions preserve click ordering; library sorting is a separate edit mode',()=>{
  assert.match(soap,/if\(idx>=0\)return;lines\.push\(snippet\)/);
- assert.match(soap,/planLines\(\).*?setPlanLines/);
+ assert.match(soap,/function setPlanLines\(lines\)/);
  assert.match(soap,/nexa-library-order-mode/);
  assert.match(soap,/Reordenar biblioteca/);
  assert.match(soap,/nexa-plan-line\{grid-template-columns:1fr\}/);
