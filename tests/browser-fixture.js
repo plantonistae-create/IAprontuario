@@ -13,8 +13,38 @@
  ];
  const empty=()=>{const chain={then:resolve=>Promise.resolve({data:[],error:null}).then(resolve)};for(const k of ['select','eq','gte','order','limit','update','insert','delete','upsert','maybeSingle','single','in'])chain[k]=()=>chain;return chain;};
  const historyQuery=()=>{const s={filters:{},payload:null,op:'select'};const finish=single=>{if(s.op==='upsert'||s.op==='insert'){const row={...s.payload,updated_at:new Date().toISOString(),sync_version:Number(s.payload?.sync_version||0)+1};const i=qa.consultationRows.findIndex(x=>String(x.id)===String(row.id));if(i>=0)qa.consultationRows[i]={...qa.consultationRows[i],...row};else qa.consultationRows.unshift(row);return{data:single?row:[row],error:null}}if(s.op==='update'){const rows=qa.consultationRows.filter(r=>Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));rows.forEach(r=>Object.assign(r,s.payload,{updated_at:new Date().toISOString()}));return{data:single?(rows[0]||null):rows,error:null}}if(s.op==='delete'){qa.consultationRows=qa.consultationRows.filter(r=>!Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));return{data:[],error:null}}const rows=qa.consultationRows.filter(r=>Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));return{data:single?(rows[0]||null):rows,error:null}};const chain={select(){return chain},eq(k,v){s.filters[k]=v;return chain},gte(){return chain},order(){return chain},in(){return chain},limit:async()=>finish(false),upsert(v){s.payload=v;s.op='upsert';return chain},insert(v){s.payload=v;s.op='insert';return chain},update(v){s.payload=v;s.op='update';return chain},delete(){s.op='delete';return chain},maybeSingle:async()=>finish(true),single:async()=>finish(true),then(resolve){return Promise.resolve(finish(false)).then(resolve)}};return chain};
- const conductQuery=()=>{const chain={select(){return chain},eq(){return chain},order:async()=>({data:[...qa.conductTemplates],error:null}),insert:async rows=>{const list=Array.isArray(rows)?rows:[rows];qa.conductTemplates.push(...list);return{data:list,error:null}},update(){return chain},delete(){return chain},maybeSingle:async()=>({data:null,error:null}),then(resolve){return Promise.resolve({data:[...qa.conductTemplates],error:null}).then(resolve)}};return chain};
- window.supabase={createClient:(url,key)=>({supabaseUrl:url,supabaseKey:key,auth:{getSession:async()=>({data:{session},error:null}),getUser:async()=>session?{data:{user:session.user},error:null}:{data:{user:null},error:{message:'invalid session'}},refreshSession:async()=>session?{data:{session},error:null}:{data:{session:null},error:{message:'invalid refresh'}},onAuthStateChange:fn=>{authChange=fn;return {data:{subscription:{unsubscribe(){}}}}},signOut:async()=>{session=null;localStorage.removeItem('sb-synthetic-auth-token');authChange?.('SIGNED_OUT',null);return {error:null};}},rpc:async name=>qa.denyCapabilities?{error:{message:'Unavailable'}}:{data:name==='get_my_capabilities'?[{...qa.capabilities}]:[],error:null},from:table=>table==='consultation_history'?historyQuery():table==='conduct_templates'?conductQuery():empty(),functions:{invoke:async(slug,{body}={})=>{const res=await fetch('https://synthetic.supabase.co/functions/v1/'+slug,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const data=await res.json().catch(()=>null);return res.ok?{data,error:null}:{data:null,error:{message:data?.error||'Function error',context:{status:res.status}}}}}})};
+ const conductQuery=()=>{
+  const state={op:'select',filters:{},payload:null};
+  const matches=row=>Object.entries(state.filters).every(([k,v])=>row[k]===undefined||String(row[k])===String(v));
+  const finish=()=>{
+   if(state.op==='update'){
+    const modified=qa.conductTemplates.filter(matches);
+    modified.forEach(row=>Object.assign(row,state.payload));
+    return{data:modified,error:null};
+   }
+   if(state.op==='delete'){
+    const deleted=qa.conductTemplates.filter(matches);
+    qa.conductTemplates=qa.conductTemplates.filter(row=>!matches(row));
+    return{data:deleted,error:null};
+   }
+   return{data:[...qa.conductTemplates].filter(matches).sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)),error:null};
+  };
+  const chain={
+   select(){return chain},eq(k,v){state.filters[k]=v;return chain},order(){return chain},
+   insert:async rows=>{
+    const list=Array.isArray(rows)?rows:[rows];
+    qa.conductTemplates.push(...list);
+    return{data:list,error:null}
+   },
+   update(v){state.op='update';state.payload=v;return chain},
+   delete(){state.op='delete';return chain},
+   maybeSingle:async()=>{const x=finish();return{...x,data:x.data[0]||null}},
+   then(resolve){return Promise.resolve(finish()).then(resolve)}
+  };
+  return chain;
+ };
+
+ window.supabase={createClient:(url,key)=>({supabaseUrl:url,supabaseKey:key,auth:{getSession:async()=>({data:{session},error:null}),getUser:async()=>session?{data:{user:session.user},error:null}:{data:{user:null},error:{message:'invalid session'}},refreshSession:async()=>session?{data:{session},error:null}:{data:{session:null},error:{message:'invalid refresh'}},onAuthStateChange:fn=>{authChange=fn;return {data:{subscription:{unsubscribe(){}}}}},signOut:async()=>{session=null;localStorage.removeItem('sb-synthetic-auth-token');authChange?.('SIGNED_OUT',null);return {error:null};}},rpc:async (name,args)=>{if(qa.denyCapabilities)return{error:{message:'Unavailable'}};if(name==='reorder_conduct_templates'){const ids=args?.p_ids||[];if(ids.length!==qa.conductTemplates.length||new Set(ids).size!==ids.length)return{data:null,error:{message:'CONDUCT_ORDER_MUST_INCLUDE_ALL'}};const byId=new Map(qa.conductTemplates.map(item=>[item.id,item]));if(ids.some(id=>!byId.has(id)))return{data:null,error:{message:'INVALID_CONDUCT_ID'}};qa.conductTemplates=ids.map((id,i)=>({...byId.get(id),sort_order:i}));return{data:null,error:null}}return{data:name==='get_my_capabilities'?[{...qa.capabilities}]:[],error:null}},from:table=>table==='consultation_history'?historyQuery():table==='conduct_templates'?conductQuery():empty(),functions:{invoke:async(slug,{body}={})=>{const res=await fetch('https://synthetic.supabase.co/functions/v1/'+slug,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const data=await res.json().catch(()=>null);return res.ok?{data,error:null}:{data:null,error:{message:data?.error||'Function error',context:{status:res.status}}}}}})};
  const persistSession=()=>localStorage.setItem('sb-synthetic-auth-token',JSON.stringify(session));persistSession();
  qa.switchUser=id=>{session={...session,user:{id,email:'qa@example.invalid'}};persistSession();authChange?.('SIGNED_IN',session);};
  qa.speak=(id,transcript,index=qa.channels.length-1)=>{const channel=qa.channels[index];channel.receive?.({data:JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript})});};
