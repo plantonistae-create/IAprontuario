@@ -59,6 +59,7 @@ function style(){
  .nexa-plan-quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.nexa-plan-quick .nexa-chip{border-radius:11px;text-align:left;min-height:52px;white-space:normal}
  .nexa-plan-live-list{display:grid;gap:5px;margin-top:10px}.nexa-plan-line{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid var(--nexa-line);border-radius:10px;padding:8px 9px;background:var(--nexa-surface)}.nexa-plan-line span{font-size:11px;line-height:1.35}.nexa-plan-line-actions{display:flex;gap:3px}.nexa-plan-line button{border:0;background:transparent;color:var(--nexa-muted);cursor:pointer;padding:3px 5px}
 
+ #nexaUnifiedFlow .nexa-radar-actions>.nexa-speaker-optin,#nexaUnifiedFlow #nfRecActions>.nf-speaker-optin{display:none!important}
  #nexaFlowLive .nexa-flow-speaker-option{display:flex!important;order:0;flex:1 0 100%;margin:0!important}
  #nexaFlowLive .nexa-flow-speaker-option input{min-width:20px;width:20px}
  #nexaFlowExam #examSystems{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-height:none;overflow:visible}
@@ -371,6 +372,6 @@ document.addEventListener('click',e=>{
 },true);
 
 let tries=0;const timer=setInterval(()=>{if(mount()||++tries>80)clearInterval(timer)},125);
-window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{renderPlanQuick();renderPlanLines();updatePreview()},50));
+window.addEventListener('nexa:consultation-reset',()=>setTimeout(()=>{['identifySpeakersLegacy','identifySpeakers','identifySpeakersToolbar'].forEach(id=>{if($(id))$(id).checked=false});renderPlanQuick();renderPlanLines();updatePreview()},50));
 window.nexaContinuousSoap1811={mount,setMode,get mode(){return mode},composeS,composeO,composeA,composeP,composeSoap,composeContinuous,togglePlanAction};
 })();
