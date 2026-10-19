@@ -5132,7 +5132,7 @@ window.nexaClinicalBridge18101={
     updateHypothesisReviewUI();
     try{
       const stored=await window.nexaEncounterAutosave18101?.preserve?.('assessment_review');
-      if(!stored?.encounter_id||stored.owner_user_id!==currentProf.id)throw new Error('Registro clínico não preservado.');
+      if(!stored?.encounter_id||stored.owner_user_id!==currentProf.id||!stored.processing_meta?.assessment_reviews?.some(item=>item.at===event.at&&item.actor_user_id===currentProf.id))throw new Error('Validação médica não foi gravada no rascunho local.');
       window.dispatchEvent(new CustomEvent('nexa:assessment-reviewed',{detail:{encounter_id:stored.encounter_id,review_status:hypothesisReview.status}}));
       return structuredClone(hypothesisReview);
     }catch(error){
