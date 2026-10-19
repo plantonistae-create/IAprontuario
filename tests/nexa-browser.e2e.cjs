@@ -24,6 +24,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   }
   await page.waitForFunction(()=>document.querySelector('.nexa-stage-view[data-stage="radar"]')?.classList.contains('active')&&!document.querySelector('.nexa-stage-view[data-stage="radar"]')?.hidden);
   await page.waitForFunction(()=>!!window.nexaEncounterAutosave18101?.currentEncounterId?.());
+  await page.waitForFunction(()=>!!document.getElementById('nexaUnifiedFlow')&&!!document.getElementById('identifySpeakersLegacy')?.closest('.nexa-flow-process-row'));
+  await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='consult');
   // In PS / updated Radar layouts the old checkbox may be removed from the
   // DOM. The actual recording toolbar is the clinician's visible control.
   const speakerToolbar=page.locator('#identifySpeakersLegacy');
