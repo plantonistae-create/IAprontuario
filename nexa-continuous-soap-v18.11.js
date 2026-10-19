@@ -37,7 +37,7 @@ function style(){
  .nexa-flow-kicker{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--nexa-brand);text-transform:uppercase}
  .nexa-flow-section h2{font-size:21px;margin:3px 0;color:var(--nexa-text)}.nexa-flow-section-head p{margin:0;color:var(--nexa-muted);font-size:12px;line-height:1.4}
  .nexa-flow-copy{display:none;border:1px solid var(--nexa-line);background:var(--nexa-surface-2);color:var(--nexa-brand);border-radius:10px;padding:8px 11px;font-weight:850;cursor:pointer;white-space:nowrap}
- body[data-nexa-flow="soap"] .nexa-flow-copy{display:inline-flex}
+ body[data-nexa-flow="soap"] .nexa-flow-copy,#nexaFlowExam .nexa-flow-copy{display:inline-flex}
  .nexa-flow-body{display:grid;gap:10px}.nexa-flow-body>.field,.nexa-flow-body>.card,.nexa-flow-body>.radar-card,.nexa-flow-body>.hyp-review,.nexa-flow-body>.clinical-plan,.nexa-flow-body>.final-record-actions{margin:0!important}
  #nexaFlowLive .nexa-live-summary{display:none!important}
  #nexaFlowLive>.nexa-flow-body{display:flex!important;flex-direction:column!important;align-items:stretch!important;grid-template-columns:none!important}
@@ -58,6 +58,30 @@ function style(){
  .nexa-cid-state{font-size:10px;color:var(--nexa-muted);margin-top:6px}.nexa-cid-state strong{color:var(--nexa-text)}
  .nexa-plan-quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.nexa-plan-quick .nexa-chip{border-radius:11px;text-align:left;min-height:52px;white-space:normal}
  .nexa-plan-live-list{display:grid;gap:5px;margin-top:10px}.nexa-plan-line{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid var(--nexa-line);border-radius:10px;padding:8px 9px;background:var(--nexa-surface)}.nexa-plan-line span{font-size:11px;line-height:1.35}.nexa-plan-line-actions{display:flex;gap:3px}.nexa-plan-line button{border:0;background:transparent;color:var(--nexa-muted);cursor:pointer;padding:3px 5px}
+
+ #nexaFlowLive .nexa-flow-speaker-option{display:flex!important;order:0;flex:1 0 100%;margin:0!important}
+ #nexaFlowLive .nexa-flow-speaker-option input{min-width:20px;width:20px}
+ #nexaFlowExam #examSystems{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-height:none;overflow:visible}
+ #nexaFlowExam #examSystems .exam-check{display:flex;align-items:center;margin:0;min-height:44px;padding:9px;border:1px solid var(--nexa-line);border-radius:10px;background:var(--nexa-surface-2);color:var(--nexa-text)}
+ #nexaFlowExam #examSystems .exam-check span{font-size:11px;white-space:normal}
+ #nexaFlowExam #examPhysicalBlock textarea{min-height:145px}
+ #nexaFlowExam #copyExamBtn{display:none!important}
+ #nexaFlowPlan #nexaTimestampConductBtn{display:none!important}
+ #nexaFlowPlan #conductList{display:grid!important;grid-template-columns:1fr!important;gap:6px;max-height:none!important}
+ #nexaFlowPlan .conduct-item-preview{display:block!important;-webkit-line-clamp:unset!important;line-clamp:unset!important;white-space:pre-wrap!important;overflow:visible!important;overflow-wrap:anywhere}
+ #nexaFlowPlan .nexa-preset-row{display:grid!important;grid-template-columns:1fr!important;overflow:visible;max-height:330px;overflow-y:auto}
+ #nexaFlowPlan .nexa-preset{max-width:none!important;width:100%;white-space:normal}
+ #nexaFlowPlan .nexa-preset small{display:block;white-space:pre-wrap!important;overflow:visible!important;text-overflow:clip!important;font-size:11px}
+ #nexaFlowPlan .nexa-plan-line{grid-template-columns:1fr}
+ #nexaFlowPlan .nexa-plan-quick{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #nexaFlowAssessment .nexa-assessment-assist{grid-template-columns:minmax(0,1fr) auto;align-items:end}
+ #nexaFlowAssessment .nexa-assessment-actions{display:flex;flex-wrap:wrap;gap:6px}
+ #nexaFlowAssessment .nexa-assessment-actions button{padding:9px 12px}
+ @media(max-width:820px){
+  #nexaFlowExam #examSystems{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #nexaFlowAssessment .nexa-assessment-assist{grid-template-columns:1fr}
+  #nexaFlowAssessment .nexa-assessment-actions button{flex:1 1 130px}
+ }
  .nexa-preset-row{display:flex;gap:7px;overflow-x:auto;padding:2px 0 4px}.nexa-preset{flex:0 0 auto;border:1px solid var(--nexa-line);background:var(--nexa-surface);border-radius:11px;padding:9px 11px;max-width:240px;text-align:left;cursor:pointer}.nexa-preset b{display:block;font-size:11px}.nexa-preset small{display:block;color:var(--nexa-muted);font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nexa-preset-empty{font-size:11px;color:var(--nexa-muted)}
  #nexaFlowPreview{white-space:pre-wrap;margin:0;max-height:420px;overflow:auto;border:1px solid var(--nexa-line);background:var(--nexa-bg);border-radius:13px;padding:13px;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--nexa-text)}
  .nexa-flow-final-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.nexa-flow-final-actions button{border:0;border-radius:11px;padding:11px 15px;background:#0b4965;color:#fff;font-weight:900;cursor:pointer}
@@ -96,7 +120,7 @@ function planLines(){return text(field('conduta')?.value).split(/\n+/).map(x=>x.
 function setPlanLines(lines){const ta=field('conduta');if(!ta)return;ta.value=lines.join('\n');emit(ta);persistSoon();renderPlanQuick();renderPlanLines();updatePreview()}
 function togglePlanAction(snippet){
  const lines=planLines(),idx=lines.findIndex(x=>x.toLowerCase()===snippet.toLowerCase());
- if(idx>=0)lines.splice(idx,1);else lines.push(snippet);setPlanLines(lines);
+ if(idx>=0)return;lines.push(snippet);setPlanLines(lines);
 }
 function renderPlanQuick(){
  const host=$('nexaPlanQuickComposer');if(!host)return;const lines=planLines().map(x=>x.toLowerCase());
@@ -106,29 +130,30 @@ function renderPlanQuick(){
  }
 }
 function renderPlanLines(){
- const host=$('nexaPlanLiveList');if(!host)return;const lines=planLines();host.innerHTML='';
- lines.forEach((line,i)=>{
-  const row=document.createElement('div');row.className='nexa-plan-line';row.innerHTML=`<span>${esc(line)}</span><div class="nexa-plan-line-actions"><button type="button" aria-label="Mover para cima">↑</button><button type="button" aria-label="Mover para baixo">↓</button></div>`;
-  const [up,down]=qa('button',row);up.disabled=i===0;down.disabled=i===lines.length-1;
-  up.onclick=()=>{if(i<1)return;[lines[i-1],lines[i]]=[lines[i],lines[i-1]];setPlanLines(lines)};
-  down.onclick=()=>{if(i>=lines.length-1)return;[lines[i+1],lines[i]]=[lines[i],lines[i+1]];setPlanLines(lines)};
+ const host=$('nexaPlanLiveList');if(!host)return;
+ const lines=planLines();host.replaceChildren();
+ lines.forEach(line=>{
+  const row=document.createElement('div');row.className='nexa-plan-line';
+  row.innerHTML=`<span>${esc(line)}</span>`;
   host.appendChild(row);
  });
 }
 function applyPreset(value){
  const ta=field('conduta'),v=text(value);if(!ta||!v)return;
- const current=text(ta.value);
- if(current.includes(v))ta.value=current.replace(v,'').replace(/\n{3,}/g,'\n\n').trim();
- else ta.value=[current,v].filter(Boolean).join('\n');
+ const current=text(ta.value),existing=current.split(/\n+/).map(x=>x.trim().toLocaleLowerCase('pt-BR'));
+ if(existing.includes(v.toLocaleLowerCase('pt-BR')))return;
+ ta.value=[current,v].filter(Boolean).join('\n');
  emit(ta);persistSoon();renderPlanLines();updatePreview();
 }
 function syncPresets(){
- const host=$('nexaPlanPresets');if(!host)return;host.innerHTML='';
- const rows=qa('#conductList .conduct-item').slice(0,6);
- if(!rows.length){host.innerHTML='<div class="nexa-preset-empty">Nenhum preset validado cadastrado. Use sua biblioteca de condutas ou Protocolos.</div>';return}
+ const host=$('nexaPlanPresets');if(!host)return;host.replaceChildren();
+ const rows=qa('#conductList .conduct-item');
+ if(!rows.length){host.innerHTML='<div class="nexa-preset-empty">Nenhuma conduta disponível. Abra a biblioteca de condutas para cadastrar.</div>';return}
  for(const row of rows){
   const value=text(q('.conduct-item-preview',row)?.textContent);if(!value)continue;
-  const b=document.createElement('button');b.type='button';b.className='nexa-preset';b.innerHTML=`<b>Modelo salvo</b><small>${esc(value)}</small>`;b.onclick=()=>applyPreset(value);host.appendChild(b);
+  const b=document.createElement('button');b.type='button';b.className='nexa-preset';
+  b.innerHTML=`<b>Adicionar conduta</b><small>${esc(value)}</small>`;
+  b.onclick=()=>applyPreset(value);host.appendChild(b);
  }
 }
 
@@ -148,10 +173,10 @@ function composeA(c=clinical()){
 }
 function valueOf(id){const el=$(id);return text(el?.value||el?.textContent)}
 function composeP(c=clinical()){
- return [['CONDUTAS',c.conduta],['EXAMES',valueOf('suggestedExams')],['PRESCRIÇÃO',valueOf('suggestedPrescription')],['ORIENTAÇÕES',c.orientacoes_alta||valueOf('rxGuidancePreview')]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
+ return [['CONDUTAS',c.conduta],['EXAMES',valueOf('suggestedExams')],['PRESCRIÇÃO',valueOf('suggestedPrescription')],['ORIENTAÇÕES',null]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
 }
 function composeContinuous(c=clinical()){
- return [['QUEIXA PRINCIPAL',c.queixa_principal],['HISTÓRIA DA DOENÇA ATUAL',c.hda],['ALERGIAS',c.alergias],['COMORBIDADES',c.comorbidades],['MEDICAÇÕES EM USO',c.medicacoes],['ANTECEDENTES',c.antecedentes],['SINAIS VITAIS',c.sinais_vitais],['EXAME FÍSICO',c.exame_fisico],['AVALIAÇÃO / HIPÓTESE',c.hipotese_diagnostica],['CID CONFIRMADO',assessment().confirmed_cid],['CONDUTAS',c.conduta],['ORIENTAÇÕES',c.orientacoes_alta]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
+ return [['QUEIXA PRINCIPAL',c.queixa_principal],['HISTÓRIA DA DOENÇA ATUAL',c.hda],['ALERGIAS',c.alergias],['COMORBIDADES',c.comorbidades],['MEDICAÇÕES EM USO',c.medicacoes],['ANTECEDENTES',c.antecedentes],['SINAIS VITAIS',c.sinais_vitais],['EXAME FÍSICO',c.exame_fisico],['AVALIAÇÃO / HIPÓTESE',c.hipotese_diagnostica],['CID CONFIRMADO',assessment().confirmed_cid],['CONDUTAS',c.conduta]].filter(([,v])=>text(v)).map(([k,v])=>`${k}:\n${text(v)}`).join('\n\n');
 }
 function composeSoap(){return [['S',composeS()],['O',composeO()],['A',composeA()],['P',composeP()]].filter(([,v])=>text(v)).map(([k,v])=>`${k} — ${k==='S'?'SUBJETIVO':k==='O'?'OBJETIVO':k==='A'?'AVALIAÇÃO':'PLANO'}\n${v}`).join('\n\n')}
 async function copyText(value,label){
@@ -167,9 +192,9 @@ function section(id,kicker,title,desc,copyLabel){
 function titles(){
  const soap=mode==='soap',map=soap?{
   history:['S — SUBJETIVO','Subjetivo','História, antecedentes, medicações e alergias.'],
-  exam:['O — OBJETIVO','Objetivo','Sinais vitais e exame físico com composição rápida.'],
+  exam:['O — OBJETIVO','Objetivo','Exame físico editável e resultados complementares.'],
   assessment:['A — AVALIAÇÃO','Avaliação','Texto livre primeiro. CID é assistência opcional.'],
-  plan:['P — PLANO','Plano','Condutas, exames, prescrição e orientações.']
+  plan:['P — PLANO','Plano','Condutas, exames e prescrição.']
  }:{
   history:['HISTÓRIA','História / HDA','Revise a história clínica sem sair do atendimento.'],
   exam:['EXAME FÍSICO','Exame físico','Clique para compor e complemente livremente.'],
@@ -228,7 +253,14 @@ function mount(){
   consentHost.prepend(nativeConsent);recZone.prepend(consentHost);
  }
  const processRow=document.createElement('div');processRow.className='nexa-flow-process-row';
- for(const id of ['processBtn','resetBtn'])if($(id))processRow.appendChild($(id));liveBody.appendChild(processRow);
+ const voiceOption=$('identifySpeakersLegacy')?.closest('.nexa-speaker-optin');
+ if(voiceOption){
+  processRow.appendChild(voiceOption);
+  voiceOption.classList.add('nexa-flow-speaker-option');
+  voiceOption.querySelector('input').checked=false;
+ }
+ for(const id of ['processBtn','resetBtn'])if($(id))processRow.appendChild($(id));
+ liveBody.appendChild(processRow);
 
  const histBody=q('.nexa-flow-body',history);
  const grid=q('.nexa-stage-summary-fields',summary);
@@ -239,36 +271,58 @@ function mount(){
  const banner=$('bannerArea');if(banner)histBody.appendChild(banner);
 
  const examBody=q('.nexa-flow-body',exam);
- const vital=q('.field[data-key="sinais_vitais"]');if(vital)examBody.appendChild(vital);
- const examBlock=$('examPhysicalBlock');if(examBlock)examBody.appendChild(examBlock);
+ const vital=q('.field[data-key="sinais_vitais"]');if(vital){examBody.appendChild(vital);vital.classList.add('nexa-v1811-hidden');}
+ const examBlock=$('examPhysicalBlock');
+ if(examBlock){
+  examBody.appendChild(examBlock);
+  const duplicateCopy=$('copyExamBtn');if(duplicateCopy)duplicateCopy.classList.add('nexa-v1811-hidden');
+ }
 
  const assessBody=q('.nexa-flow-body',assess),hypField=q('.field[data-key="hipotese_diagnostica"]');
  assessBody.appendChild(hypField);
- const assist=document.createElement('div');assist.className='nexa-assessment-assist';assist.innerHTML='<div id="nexaCidInputSlot"><label>CID-10 opcional</label></div><button type="button" id="nexaAssociateCid">Associar CID</button><div class="nexa-cid-state" id="nexaCidState"></div>';
+ const assist=document.createElement('div');assist.className='nexa-assessment-assist';
+ assist.innerHTML='<div id="nexaCidInputSlot"><label>CID-10 opcional · pode ser alterado</label></div><div class="nexa-assessment-actions"><button type="button" id="nexaChangeCid">Alterar CID</button><button type="button" id="nexaAssociateCid">Confirmar avaliação / CID</button></div><div class="nexa-cid-state" id="nexaCidState" role="status" aria-live="polite"></div>';
  const slot=q('#nexaCidInputSlot',assist),cid=$('physicianCid'),hint=$('physicianCidHint');if(cid)slot.appendChild(cid);if(hint)slot.appendChild(hint);assessBody.appendChild(assist);
  const review=$('hypothesisReviewBlock');if(review){const d=document.createElement('details');d.className='nexa-legacy-exam';d.innerHTML='<summary>Assistência diagnóstica avançada</summary><div class="nexa-legacy-exam-body"></div>';q('.nexa-legacy-exam-body',d).appendChild(review);assessBody.appendChild(d)}
 
  const planBody=q('.nexa-flow-body',planSec);
- const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar ou remover</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Presets validados / modelos salvos</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
+ const quickPlan=document.createElement('div');quickPlan.className='nexa-quick-composer';
+ quickPlan.innerHTML='<h4>Plano rápido · clique para adicionar na ordem desejada</h4><div class="nexa-plan-quick" id="nexaPlanQuickComposer"></div><div class="nexa-quick-group"><div class="nexa-quick-group-label">Biblioteca · toque para acrescentar</div><div class="nexa-preset-row" id="nexaPlanPresets"></div></div>';planBody.appendChild(quickPlan);
  const conduct=$('conductBlock');planBody.appendChild(conduct);
  // The legacy Plan V3 tabs hide external details with .nexa-plan-v3-detail.
  // Once Condutas/Orientações are mounted as first-class sections of the unified
  // Continuous/SOAP plan, they must no longer inherit that legacy visibility gate.
  conduct.classList.remove('nexa-plan-v3-detail','active');
  const liveList=document.createElement('div');liveList.id='nexaPlanLiveList';liveList.className='nexa-plan-live-list';conduct.insertBefore(liveList,field('conduta'));
- const clinicalPlan=$('clinicalPlanBlock');if(clinicalPlan)planBody.appendChild(clinicalPlan);
- const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance){planBody.appendChild(guidance);guidance.classList.remove('nexa-plan-v3-detail','active')}
+ const clinicalPlan=$('clinicalPlanBlock');if(clinicalPlan){
+  planBody.appendChild(clinicalPlan);
+  qa('.nexa-plan-action-card',clinicalPlan).filter(b=>/condutas/i.test(b.textContent||'')).forEach(b=>b.classList.add('nexa-v1811-hidden'));
+ }
+ const guidance=q('.field[data-key="orientacoes_alta"]');if(guidance){planBody.appendChild(guidance);guidance.classList.add('nexa-v1811-hidden')}
 
  const finalBody=q('.nexa-flow-body',finalSec),preview=document.createElement('pre');preview.id='nexaFlowPreview';finalBody.appendChild(preview);
  const feedback=document.createElement('div');feedback.id='nexaFlowCopyFeedback';feedback.className='nexa-cid-state';finalBody.appendChild(feedback);
  const actions=document.createElement('div');actions.className='nexa-flow-final-actions';actions.innerHTML='<button type="button" id="nexaFlowCopyAll">Copiar prontuário completo</button>';finalBody.appendChild(actions);
- const originalFinal=$('finalRecordActions');if(originalFinal)finalBody.appendChild(originalFinal);
+ const originalFinal=$('finalRecordActions');if(originalFinal){finalBody.appendChild(originalFinal);originalFinal.classList.add('nexa-v1811-hidden')}
 
  for(const view of [radar,summary,hyp,plan])view.classList.add('nexa-v1811-hidden');
  qa('.nexa-flow-mode',bar).forEach(b=>b.onclick=()=>setMode(b.dataset.flowMode));
  qa('.nexa-flow-copy',root).forEach(b=>b.onclick=()=>{const key=b.dataset.copy;copyText(key==='S'?composeS():key==='O'?composeO():key==='A'?composeA():composeP(),key)});
  $('nexaFlowCopyAll').onclick=()=>copyText(mode==='soap'?composeSoap():composeContinuous(),mode==='soap'?'SOAP completo':'Prontuário completo');
- $('nexaAssociateCid').onclick=()=>setAssessment();
+ $('nexaChangeCid').onclick=()=>{$('physicianCid')?.focus();$('physicianCid')?.select()};
+ $('nexaAssociateCid').onclick=async()=>{
+   const result=window.nexaHypothesisCidGuard1911?.validate?.()||{valid:true,code:text($('physicianCid')?.value)};
+   if(!result.valid){$('physicianCid')?.focus();return}
+   const value=text(field('hipotese_diagnostica')?.value);
+   if(!value){$('nexaCidState').textContent='Escreva uma hipótese antes de confirmar.';return}
+   const review=window.nexaClinicalBridge18101?.reviewAssessment;
+   if(typeof review!=='function'){$('nexaCidState').textContent='Validação ainda indisponível. Tente novamente.';return}
+   try{
+     await review(value,result.code||'');
+     $('nexaCidState').textContent='✓ Avaliação revisada pelo médico · CID '+(result.code||'não informado');
+     updatePreview();
+   }catch(error){$('nexaCidState').textContent='Não foi possível salvar a validação. Tente novamente.';console.warn('[NEXA] Revisão médica não persistida',error)}
+ };
  field('hipotese_diagnostica')?.addEventListener('input',()=>{if(assessmentSyncing)return;clearTimeout(assessmentTimer);assessmentTimer=setTimeout(setAssessment,260)});
  field('exame_fisico')?.addEventListener('input',()=>updatePreview());
  field('conduta')?.addEventListener('input',()=>{renderPlanQuick();renderPlanLines();updatePreview()});
