@@ -94,6 +94,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.equal(await page.locator('#hypothesisEditPanel').isVisible(),false,'Typing free assessment must not force the legacy edit panel open');
 
    await page.locator('#physicianCid').fill('A09');
+   await page.waitForFunction(()=>[...document.querySelectorAll('#physicianCidOptions option')].some(o=>o.value==='A09'));
    await page.locator('#nexaAssociateCid').click();
    await page.waitForFunction(()=>window.nexaClinicalBridge18101.assessment().confirmed_cid==='A09');
    a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
@@ -101,6 +102,7 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
    assert.equal(a.confirmed_cid,'A09');
 
    await page.locator('#physicianCid').fill('J06.9');
+   await page.waitForFunction(()=>[...document.querySelectorAll('#physicianCidOptions option')].some(o=>o.value==='J06.9'));
    await page.locator('#nexaAssociateCid').click();
    await page.waitForFunction(()=>window.nexaClinicalBridge18101.assessment().confirmed_cid==='J06.9');
    a=await page.evaluate(()=>window.nexaClinicalBridge18101.assessment());
