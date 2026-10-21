@@ -3955,9 +3955,24 @@ async function processAudio(){
     fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
     lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),speaker_attribution:payload.speaker_attribution||null,speaker_diarization_fallback:autoSpeakerFallback,processing_duration_ms:Math.round(performance.now()-startedProcessingAt),speaker_identification_duration_ms:speakerIdentificationMs};
     initHypothesisReview(parsed.hipotese_diagnostica||'');
-    try{await window.nexaEncounterAutosave18101?.preserve?.('structured');await window.nexaEncounterAutosave18101?.flush?.('structured')}catch(saveError){console.warn('NEXA structured autosave pending',saveError)}
-    window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
-    audioBlob=null;chunks=[];$('status').textContent='Processamento concluído · áudio bruto descartado da memória';show(autoSpeakerFallback?'Rascunho gerado pela transcrição padrão: diferenciação de vozes indisponível. Revise a origem dos relatos.':'Rascunho gerado. Confira a origem dos relatos e revise os campos antes de copiar.');
+    // Programmatic fill(parsed) does not emit input events. Explicitly persist
+    // and confirm this structured note BEFORE discarding the recorded audio.
+    let structuredSaved=false;
+    try{
+      await nexaPersistSession('structured');
+      structuredSaved=true;
+      void window.nexaEncounterAutosave18101?.flush?.('structured');
+    }catch(saveError){
+      console.warn('[NEXA] Transcrição estruturada sem confirmação de backup local',saveError?.message||'SAVE_FAILED');
+    }
+    if(structuredSaved){
+      window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
+      audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente · sincronização pode estar pendente';
+      show(autoSpeakerFallback?'Transcrição salva neste computador. Diferenciação de vozes indisponível; revise os relatos.':'Transcrição salva neste computador. Revise antes de copiar.');
+    }else{
+      $('status').textContent='Transcrição pronta, porém NÃO salva · não feche o navegador';
+      show('ATENÇÃO: falha ao preservar o prontuário local. Copie o texto e mantenha esta tela aberta. O áudio foi mantido nesta sessão.',true);
+    }
     window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
   }catch(e){
     if(processingEpoch===clinicalEpoch){
@@ -4532,25 +4547,33 @@ function pauseSession(){
       discarded:[...(nexaDiscardedHypotheses||[])],hadRecording:!!recording,hadAudio:!!audioBlob};
   }
 
-  function nexaPersistSession(){
-    if(!currentProf?.id)return;
-    const api=window.nexaEncounterAutosave18101;
-    if(api?.preserve){
-      try{localStorage.removeItem(NEXA_SESSION_KEY)}catch{}
-      Promise.resolve(api.preserve('session_autosave')).then(rec=>{
-        if(!rec?.encounter_id||rec.owner_user_id!==currentProf?.id)return;
-        try{localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify({
-          owner:currentProf.id,encounter_id:rec.encounter_id,version:'18.10.1-pointer',
-          saved_at:new Date().toISOString(),state:nexaSessionState,
-          stage:document.body.dataset.nexaStage||'radar'
-        }))}catch{}
-      }).catch(()=>{});
-    }else{
-      try{localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify(nexaSessionSnapshot()))}catch{}
+  async function nexaPersistSession(reason='session_autosave'){
+    if(!currentProf?.id)return null;
+    const id=currentProf.id,api=window.nexaEncounterAutosave18101;
+    const t=q('nexaSessionAutosaveText');
+    try{
+      if(!api?.preserve)throw new Error('ARMAZENAMENTO_LOCAL_INDISPONIVEL');
+      const rec=await api.preserve(reason);
+      if(!rec?.encounter_id||rec.owner_user_id!==id)throw new Error('RASCUNHO_NAO_CONFIRMADO');
+      const collected=nexaSessionFields();
+      if(Object.values(collected).some(v=>v?.trim())&&!Object.values(rec.fields||{}).some(v=>typeof v==='string'&&v.trim()))
+        throw new Error('CAMPOS_CLINICOS_NAO_PERSISTIDOS');
+      // Never remove a valid recovery pointer before the new IndexedDB record
+      // is confirmed. This marker contains NO clinical text, only the record ID.
+      localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify({
+        owner:id,encounter_id:rec.encounter_id,version:'18.10.1-pointer',
+        saved_at:new Date().toISOString(),state:nexaSessionState,
+        stage:document.body.dataset.nexaStage||'summary'
+      }));
+      if(t){t.textContent='Salvo neste dispositivo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},1800)}
+      return rec;
+    }catch(error){
+      if(t)t.textContent='Salvamento pendente — revise antes de fechar';
+      console.warn('[NEXA] Não foi possível confirmar backup local',error?.message||'SAVE_FAILED');
+      throw error;
     }
-    const t=q('nexaSessionAutosaveText');if(t){t.textContent='Salvo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},900)}
   }
-  function nexaPersistSessionSoon(){clearTimeout(nexaPersistTimer);nexaPersistTimer=setTimeout(nexaPersistSession,350)}
+  function nexaPersistSessionSoon(){clearTimeout(nexaPersistTimer);nexaPersistTimer=setTimeout(()=>void nexaPersistSession().catch(()=>{}),350)}
   function nexaHasMeaningfulSession(){
     const f=nexaSessionFields();return !!(recording||audioBlob||Object.values(f).some(v=>String(v||'').trim())||nexaSessionState!=='idle');
   }
@@ -4569,6 +4592,32 @@ function pauseSession(){
     openSession();setStage(snap.stage||'summary');nexaSetSessionState(snap.state||'structured');
     q('nexaRestoreBanner')?.setAttribute('hidden','');show('Atendimento recuperado do autosave local.');
   }
+  async function nexaRecoverSavedEncounter(row){
+    if(!row||!currentProf?.id)return false;
+    const userId=currentProf.id,recordOwner=String(row.owner_user_id||row.user_id||'');
+    if(recordOwner!==userId)throw new Error('Este atendimento pertence a outro perfil.');
+    if(!row.encounter_id||!row.fields||typeof row.fields!=='object')throw new Error('Rascunho inválido.');
+    if(nexaHasMeaningfulSession()){
+      const ok=confirm('Há um atendimento aberto. Preservar o atendimento atual e reabrir o selecionado?');
+      if(!ok)return false;
+      await nexaPersistSession('before_history_recovery');
+    }
+    // Never delete the old IndexedDB entry. Reopening is a reversible choice.
+    const api=window.nexaEncounterAutosave18101;
+    if(!api?.adoptExisting)throw new Error('Armazenamento clínico indisponível.');
+    const canonical={...row,owner_user_id:userId};
+    await api.adoptExisting(canonical);
+    const meta=row.processing_meta?.encounter_autosave||{};
+    const snap={owner:userId,encounter_id:row.encounter_id,saved_at:row.last_client_saved_at||row.updated_at||new Date().toISOString(),
+      state:meta.state||'structured',stage:'summary',fields:row.fields||{},
+      radar:meta.radar||null,processing_meta:row.processing_meta||{},
+      hypothesisReview:meta.hypothesisReview||row.processing_meta?.hypothesisReview||{},
+      alternatives:meta.alternatives||[],discarded:meta.discarded||[]};
+    nexaRestoreSession(snap);
+    await nexaPersistSession('history_reopened');
+    return true;
+  }
+  window.nexaRecoverSavedEncounter=nexaRecoverSavedEncounter;
   async function nexaCheckRecoverableSession(){
     try{
       const raw=localStorage.getItem(NEXA_SESSION_KEY);if(!raw)return;
@@ -4610,6 +4659,8 @@ function pauseSession(){
   document.addEventListener('change',()=>nexaPersistSessionSoon());
   window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;nexaPersistSession();e.preventDefault();e.returnValue=''});
   nexaCheckRecoverableSession();
+  window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
+  setTimeout(()=>void nexaCheckRecoverableSession(),1800);
   if(!nexaHasMeaningfulSession()) nexaSetSessionState('idle');
   window.addEventListener('nexa:consultation-reset',()=>nexaSetSessionState('idle'));
 
