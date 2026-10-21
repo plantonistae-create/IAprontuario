@@ -4657,7 +4657,7 @@ function pauseSession(){
   q('nexaTimestampConductBtn')?.addEventListener('click',nexaAddConductTimestamp);
   document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()});
   document.addEventListener('change',()=>nexaPersistSessionSoon());
-  window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;nexaPersistSession();e.preventDefault();e.returnValue=''});
+  window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;void nexaPersistSession('beforeunload').catch(()=>{});e.preventDefault();e.returnValue=''});
   nexaCheckRecoverableSession();
   window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
   setTimeout(()=>void nexaCheckRecoverableSession(),1800);
@@ -5303,5 +5303,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261019-library-first"></script>
+<script src="./nexa-hotfix.js?v=20261020-rescue-audit"></script>
 </body></html>
