@@ -16,7 +16,7 @@ for(const token of [
  'sb.auth.getUser',
  'sb.auth.refreshSession',
  "window.dispatchEvent(new CustomEvent('nexa:clinical-processing'",
- "preserve?.('structured')",
+ "await nexaPersistSession('structured')",
  "flush?.('structured')",
  "window.dispatchEvent(new CustomEvent('nexa:clinical-structured'",
  'Falha ao transcrever/estruturar'
