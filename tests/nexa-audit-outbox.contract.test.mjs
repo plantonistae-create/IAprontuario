@@ -26,9 +26,12 @@ const document={
 const remoteReady=[{encounter_id:'11111111-1111-4111-8111-111111111111',audit_priority:0,updated_at:'2026-09-27T10:00:00Z',sync_version:3}];
 const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:remoteReady,error:null})};
 const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},nexaClinicalSupabase18101:{supabaseUrl:'https://synthetic.supabase.co',supabaseKey:'synthetic-publishable-key',auth:{getSession:async()=>({data:{session:{access_token:sessionToken,user:{id:sessionUserId}}},error:null})},from:()=>query},fetch:async url=>{fetchCount++;fetchUrls.push(String(url));if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
-context.window=context;context.currentProf={id:'doctor-A'};context.nexaDestinationFlow18915={state:{recommended:'alta',final:'internacao',status:'altered',source:'physician'}};context.dispatchEvent=()=>true;
+context.window=context;context.currentProf={id:'doctor-A'};context.nexaClinicalRuntime18121={getProfile:()=>context.currentProf};context.nexaDestinationFlow18915={state:{recommended:'alta',final:'internacao',status:'altered',source:'physician'}};context.dispatchEvent=()=>true;
 vm.runInNewContext(code,context);
 const api=context.nexaAuditOutbox18919;
+// Simulate "Permanecer conectado" unchecked: no localStorage token.
+local.clear();
+assert.equal(api.owner(),'doctor-A','in-memory login must still own audit submission');
 const sessionAuth=await api.sessionAuth();assert.equal(sessionAuth.access,'real-session-token','outbox must use Supabase client session token');assert.equal(sessionAuth.userId,'doctor-A');
 api.setStoreAdapter({get:async k=>memory.get(k)||null,put:async x=>{memory.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...memory.values()].map(structuredClone)});
 
