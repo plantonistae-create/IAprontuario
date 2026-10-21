@@ -30,8 +30,8 @@ test('recovery UI uses native IndexedDB and owner-scoped server history without 
  assert.match(history,/nexaEncounterAutosave18101/);
  assert.match(history,/\.from\('consultation_history'\)/);
  assert.match(history,/\.eq\('user_id',p\.id\)/);
- assert.match(history,/row\.owner_user_id\|\|''/);
- assert.match(history,/row\.user_id\|\|''/);
+ assert.match(history,/item\.owner_user_id\|\|''/);
+ assert.match(history,/item\.user_id\|\|''/);
  assert.match(history,/nexaRecoverSavedEncounter\?\.\(row\)/);
  assert.doesNotMatch(history,/indexedDB\.deleteDatabase/);
  assert.doesNotMatch(history,/localStorage\.clear\(\)/);
