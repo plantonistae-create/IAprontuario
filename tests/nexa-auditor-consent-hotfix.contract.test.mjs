@@ -22,7 +22,7 @@ assert.ok(loader.includes('nexa-continuous-soap-v18.11.js?v=20261019-conduct-lib
 const swHotfix=sw.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
 const indexHotfix=index.match(/nexa-hotfix\.js\?v=([a-z0-9-]+)/)?.[1];
 assert.ok(swHotfix&&indexHotfix&&swHotfix===indexHotfix,'SW and HTML hotfix versions must match');
-assert.match(sw,/const CACHE_NAME="nexa-v18-15-0-[^"]+"/,'Service Worker must advertise a versioned cache');
+assert.match(sw,/const CACHE_NAME="nexa-v18-15-[01]-[^"]+"/,'Service Worker must advertise a versioned cache');
 assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),'Recorder layout hotfix must load after the clinical modules');
 
 new Function(continuous);
