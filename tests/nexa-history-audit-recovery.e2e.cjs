@@ -26,6 +26,8 @@ const timeout=setTimeout(()=>{console.error('History/audit recovery E2E exceeded
    await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaEncounterAutosave18101&&window.nexaAuditOutbox18919&&window.nexaRecoverHistoryV1&&window.nexaContinuousSoap1811);
    if(await page.locator('#nexaNewCaseBtn').isVisible())await page.locator('#nexaNewCaseBtn').click();
    await page.waitForFunction(()=>document.getElementById('nexaUnifiedFlow')&&window.nexaEncounterAutosave18101.currentEncounterId());
+   await page.evaluate(()=>window.nexaRadarAutoReview1812?.setPhase('review','history-recovery-test'));
+   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review');
    // Supabase session remains valid even though the doctor elected NOT to store the login.
    await page.evaluate(()=>localStorage.removeItem('sb-synthetic-auth-token'));
    assert.equal(await page.evaluate(()=>window.nexaAuditOutbox18919.owner()),'qa-physician-a','Audit must identify in-memory authenticated doctor');
