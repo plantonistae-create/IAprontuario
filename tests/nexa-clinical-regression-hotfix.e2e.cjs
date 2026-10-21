@@ -95,6 +95,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     assert.equal(await page.locator('#recBtn').getAttribute('data-recording-state'),'stopped','Finalizar must leave the recorder stopped');
     assert.equal(await page.locator('#recBtn').isDisabled(),true,'finalized circular control must not start a new recording');
     assert.match(await page.locator('#nfProcess').innerText(),/Transcrever e estruturar/i);
+    await page.waitForFunction(()=>{const r=document.getElementById('nfProcess')?.getBoundingClientRect();return r&&r.top>=0&&r.bottom<=innerHeight},{},{timeout:5000});
     assert.equal(await page.evaluate(()=>{const r=document.getElementById('nfProcess').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}),true,'structure CTA must be fully visible after Finalizar');
     assert.ok(await page.evaluate(()=>window.__nexaScrollIntoViewCalls.some(x=>x.id==='nfProcess')),'Finalizar must scroll the visible structure CTA into view');
 
