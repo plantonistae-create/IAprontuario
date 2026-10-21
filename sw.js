@@ -1,4 +1,4 @@
-const CACHE_NAME="nexa-v18-15-1-rescue-audit-20261020";
+const CACHE_NAME="nexa-v18-15-0-rescue-audit-20261020";
 const HOTFIX_URL="./nexa-hotfix.js?v=20261020-rescue-audit";
 const INDEX_URL="./index.html";
 
