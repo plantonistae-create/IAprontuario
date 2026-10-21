@@ -41,7 +41,9 @@ const timeout=setTimeout(()=>{console.error('History/audit recovery E2E exceeded
    });
    assert.equal(stored.owner,'qa-physician-a');assert.equal(stored.hda,note);
    await page.reload({waitUntil:'domcontentloaded'});
-   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRecoverHistoryV1&&window.nexaRecoverSavedEncounter);
+   await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRecoverHistoryV1&&window.nexaRecoverSavedEncounter&&window.nexaOpenHistoryStage18122);
+   await page.evaluate(()=>window.nexaOpenHistoryStage18122());
+   await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&!!document.getElementById('nexaRecoverHistoryPanel'));
    await page.evaluate(()=>window.nexaRecoverHistoryV1.refresh(true));
    await page.waitForFunction(needle=>[...document.querySelectorAll('#nexaRecoverList .nexa-recover-case')].some(el=>el.textContent?.includes(needle)),note.slice(0,42));
    const card=page.locator('#nexaRecoverList .nexa-recover-case').filter({hasText:note.slice(0,42)}).first();
