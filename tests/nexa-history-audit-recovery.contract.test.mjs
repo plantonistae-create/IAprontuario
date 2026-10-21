@@ -40,7 +40,7 @@ test('recovery UI uses native IndexedDB and owner-scoped server history without 
  assert.match(worker,/nexa-v18-15-0-rescue-audit-20261020/);
 });
 test('local unsynced record outranks older synced server copy and other doctors stay isolated',()=>{
- let api;const context={window:{},document:{getElementById:()=>null,querySelector:()=>null,addEventListener:()=>{},head:{appendChild(){}}},addEventListener:()=>{},setTimeout:()=>0,Date,console};
+ let api;const context={window:{},document:{getElementById:()=>null,querySelector:()=>null,createElement:()=>({id:'',textContent:'',style:{}}),addEventListener:()=>{},head:{appendChild(){}}},addEventListener:()=>{},setTimeout:()=>0,Date,console};
  context.window=context;
  new vm.Script(history).runInNewContext(vm.createContext(context));
  api=context.nexaRecoverHistoryV1;
