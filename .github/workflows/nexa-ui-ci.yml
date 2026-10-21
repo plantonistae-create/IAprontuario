@@ -43,6 +43,8 @@ jobs:
         run: node tests/nexa-clinical-regression-hotfix.e2e.cjs
       - name: Auditor sidebar and visible consent E2E
         run: node tests/nexa-continuous-soap.e2e.cjs && node tests/nexa-audit-responsive.e2e.cjs
+      - name: Recover clinical history after browser restart without remembered login
+        run: node tests/nexa-history-audit-recovery.e2e.cjs
       - name: Save focused browser captures
         if: always()
         uses: actions/upload-artifact@v4
