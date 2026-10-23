@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-rescue-audit-20261020";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261020-rescue-audit";
+const CACHE_NAME="nexa-v18-15-0-profile-reset-20261023";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261023-identity-reset";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
