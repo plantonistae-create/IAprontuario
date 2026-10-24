@@ -37,7 +37,7 @@ test('recovery UI uses native IndexedDB and owner-scoped server history without 
  assert.doesNotMatch(history,/localStorage\.clear\(\)/);
  assert.match(history,/Nenhuma transcrição com texto encontrada/);
  assert.match(loader,/nexa-history-recovery-v1\.js/);
- assert.match(worker,/nexa-v18-15-0-ghost-reset-20261024/);
+ assert.match(worker,/nexa-v18-15-0-audit-checkpoint-20261024/);
 });
 test('local unsynced record outranks older synced server copy and other doctors stay isolated',()=>{
  let api;const context={window:{},document:{getElementById:()=>null,querySelector:()=>null,createElement:()=>({id:'',textContent:'',style:{}}),addEventListener:()=>{},head:{appendChild(){}}},addEventListener:()=>{},setTimeout:()=>0,Date,console};
