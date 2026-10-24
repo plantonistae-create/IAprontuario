@@ -4662,7 +4662,7 @@ function pauseSession(){
   window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
   setTimeout(()=>void nexaCheckRecoverableSession(),1800);
   if(!nexaHasMeaningfulSession()) nexaSetSessionState('idle');
-  window.addEventListener('nexa:consultation-reset',()=>nexaSetSessionState('idle'));
+  window.addEventListener('nexa:consultation-reset',()=>{nexaSetSessionState('idle');document.body.classList.remove('nexa-workspace-only');q('nexaCommandWorkspace')?.classList.remove('workspace-open');openSession();setStage('radar');window.nexaRadarAutoReview1812?.setPhase?.('recording','consultation_reset');});
 
 
   document.addEventListener('click',e=>{
@@ -5303,5 +5303,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261020-rescue-audit"></script>
+<script src="./nexa-hotfix.js?v=20261023-identity-reset"></script>
 </body></html>
