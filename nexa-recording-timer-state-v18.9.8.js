@@ -19,12 +19,15 @@ const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%
 function stopGhostTimer(){
   const s=recorderState();
   if(s.active){if(s.secs>0)frozenSeconds=s.secs;return false}
+  if(!s.blob){frozenSeconds=0;return true}
   if(s.secs>0)frozenSeconds=s.secs;
   const timer=$('timer');if(timer&&frozenSeconds>0)timer.textContent=fmt(frozenSeconds);
   const top=$('nexaDesktopPause');
   if(top&&s.blob){top.classList.remove('nexa-top-recording');top.innerHTML='<span class="nexa-hotfix-record-label">✓ Gravação concluída</span>'}
   return true;
 }
+function resetTimer(){frozenSeconds=0;const timer=$('timer');if(timer)timer.textContent='00:00';}
+window.addEventListener('nexa:consultation-reset',resetTimer);
 function afterFinish(){setTimeout(stopGhostTimer,0);setTimeout(stopGhostTimer,80);setTimeout(stopGhostTimer,300)}
 document.addEventListener('click',e=>{
   if(e.target?.closest?.('#nexaDesktopFinish,#nfFinish,#nexaLocalFinishBtn,#nexaFinishBtn,#stopBtn,[data-record-action="finish"],#processBtn'))afterFinish();
