@@ -121,7 +121,7 @@ function buildPayload(row,reviewState,labels,expectedRevision=0,questionReviews=
  const l=sanitizeLabels(labels,conceptOptions(row)),qr=sanitizeQuestionReviews(questionReviews,q),missing=sanitizeMissingQuestions(missingQuestions);
  if(reviewState==="not_reviewed"&&l.length)throw Error("RADAR_REVIEW_NEEDS_CONFIRMATION");
  if(reviewState==="reviewed"){
-  if(!q.length||row?.deidentified_core_context?.radar_capture?.trace_truncated===true)
+  if(!Array.isArray(row?.deidentified_core_context?.radar_capture?.items)||!q.length||row?.deidentified_core_context?.radar_capture?.trace_truncated===true)
     throw Error("RADAR_SNAPSHOT_INSUFFICIENT_FOR_REVIEW");
   if(qr.length!==q.length)throw Error("RADAR_QUESTIONS_REQUIRE_FULL_REVIEW");
  }
@@ -133,7 +133,7 @@ function panelHtml(row,draft={}){
  const ratings=new Map(saved.map(q=>[q.question_id,q])),missing=Array.isArray(draft.missing_questions)?draft.missing_questions:[];
  const reviewed=draft.review_state==="reviewed",audited=row?.status!=="pending",rev=Number(draft.revision||0);
  const concepts=conceptOptions(row).map(x=>[x,({comorbidities:"Comorbidades",allergies:"Alergias",medicines:"Medicações contínuas"}[x]||x)]);
- const canComplete=questions.length>0&&!row?.deidentified_core_context?.radar_capture?.trace_truncated;
+ const canComplete=questions.length>0&&Array.isArray(row?.deidentified_core_context?.radar_capture?.items)&&!row?.deidentified_core_context?.radar_capture?.trace_truncated;
  const cards=questions.map((q,i)=>{
   const state=ratings.get(q.id)||{};
   const kind=q.priority==="critical"||q.red_flag?"Crítica":q.priority==="high"?"Importante":"Complementar";
