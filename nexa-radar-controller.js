@@ -60,6 +60,7 @@
     }
     function respond(id,value,action='answer'){
       const item=state.items.find(i=>i.id===id);if(!item)return false;
+      if(action!=='answer'&&['comorbidities','allergies','medicines'].includes(item.concept))return false; // require documentation
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
