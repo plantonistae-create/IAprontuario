@@ -1,0 +1,15 @@
+/* NEXA Core Radar audit fields, intentionally restricted to the audit workspace. */
+#axReview .ax-radar-v3{display:grid;gap:10px;border:1px solid var(--ax-line,#d3e2e8);border-radius:12px;padding:14px;margin-top:12px;background:var(--ax-panel,#fff);min-width:0}
+#axReview .ax-radar-v3 h3{font-size:14px;margin:0;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-v3 p{font-size:11px;line-height:1.5;margin:0;color:var(--ax-muted,#71818d)}
+#axReview .ax-radar-v3-reviewed{display:flex;gap:9px;align-items:flex-start;background:rgba(18,133,144,.08);border-radius:9px;padding:10px;font-weight:750;font-size:12px}
+#axReview .ax-radar-v3-reviewed input{width:18px;height:18px;accent-color:#0b8e98;flex:0 0 auto}
+#axReview .ax-radar-v3-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:8px}
+#axReview .ax-radar-v3-inputs label{display:grid;gap:4px;min-width:0;font-size:10px;font-weight:800}
+#axReview .ax-radar-v3-inputs select{max-width:100%;width:100%;min-height:42px;border:1px solid var(--ax-line,#c9d6dc);background:var(--ax-panel,#fff);color:var(--ax-text,#16314c);border-radius:8px;padding:7px;font-size:11px}
+#axReview .ax-radar-v3-tags{display:flex;flex-wrap:wrap;gap:7px}
+#axReview .ax-radar-v3-tags>span{border:1px solid #9dc6d0;border-radius:9px;padding:7px 9px;background:rgba(9,137,150,.08);font-size:11px;overflow-wrap:anywhere}
+#axReview .ax-radar-v3-tags button{background:transparent;color:inherit;border:0;min-width:30px;min-height:30px;cursor:pointer;font-weight:900}
+#axReview #axRadarSaveV3{min-height:42px;cursor:pointer}
+#axReview #axRadarStatusV3{font-weight:800;color:var(--ax-text,#17364e)}
+@media(max-width:760px){#axReview .ax-radar-v3-inputs{grid-template-columns:minmax(0,1fr)}#axReview .ax-radar-v3{padding:10px}}
