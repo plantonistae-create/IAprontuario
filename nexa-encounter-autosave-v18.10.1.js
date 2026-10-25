@@ -225,7 +225,7 @@ async function syncOne(rec){
     return data;
    };
    const data=await withSessionRetry(c,rec.owner_user_id,performWrite);
-   if(!error&&!data){
+   if(!data){
      const current=await withSessionRetry(c,rec.owner_user_id,async()=>{
       const result=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
       if(result.error)throw result.error;
