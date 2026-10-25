@@ -149,6 +149,10 @@ async function beforeReset(el){
   }
   performReset(el);
   rotateEncounter(who);
+  // The recording screen needs an actual fresh encounter identity on reset.
+  // Create it only after the previous consultation was durably checkpointed
+  // and the visible form has been cleared; autosave no longer double-creates it.
+  if(autosave?.startNew)await autosave.startNew('after_reset');
   if(conflict)toast('Novo atendimento iniciado. A consulta anterior está preservada e precisa de reconciliação.',true);
   else if(snap)toast('Consulta salva localmente e adicionada à fila de auditoria.');
   else if(saved)toast('Rascunho preservado localmente; ainda sem dados suficientes para auditoria.');
