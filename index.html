@@ -2766,6 +2766,38 @@ $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
 async function saveHistory(){
   if(!currentProf)return show('Sessão expirada.',true);
   const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para salvar.',true);
+  // A single optimistic-concurrency writer owns the clinical encounter.
+  // Native direct UPDATE/INSERT previously advanced the remote version behind
+  // the autosave's back and created false conflicts at the next reset.
+  const autosave=window.nexaEncounterAutosave18101;
+  if(autosave?.preserve&&autosave?.flush&&autosave?.get){
+    saveState('unsaved','salvando…');
+    try{
+      const rec=await autosave.preserve('manual_history_save',{sync:false});
+      if(!rec?.encounter_id||rec.owner_user_id!==currentProf.id)throw new Error('CHECKPOINT_NOT_SAVED');
+      if(rec.sync_state==='conflict')throw new Error('CONFLICT_REQUIRES_REVIEW');
+      if(rec.sync_state==='locked')throw new Error('CLINICAL_RECORD_LOCKED');
+      activeHistoryId=rec.encounter_id;
+      await autosave.flush('manual_history_save');
+      const latest=await autosave.get(rec.encounter_id);
+      const matching=latest&&Object.entries(fields).every(([key,val])=>
+        typeof val!=='string'||String(latest.fields?.[key]||'').trim()===val.trim());
+      if(!matching)throw new Error('LOCAL_CHECKPOINT_CHANGED');
+      if(latest.sync_state==='synced'){
+        saveState('saved','salvo no servidor');
+        await loadHistory();
+        show('Consulta sincronizada no Histórico com controle de versão.');
+      }else{
+        saveState('unsaved','salvo localmente · envio pendente');
+        show('Consulta preservada neste computador; ainda não foi confirmada no servidor. Verifique a sincronização antes de fechar.',true);
+      }
+    }catch(error){
+      saveState('unsaved','salvamento requer revisão');
+      show(error?.message==='CONFLICT_REQUIRES_REVIEW'?'Consulta preservada localmente. Existe uma divergência; revise as versões antes de sincronizar.':'Não foi possível confirmar o salvamento no servidor. O registro local foi mantido para recuperação.',true);
+    }
+    return;
+  }
+  // Legacy fallback is retained only for older clients without encounter autosave.
   saveState('unsaved','salvando…');const now=new Date().toISOString();
   try{
     if(activeHistoryId){
