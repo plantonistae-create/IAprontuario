@@ -21,7 +21,7 @@ function model(s){
  const core=CORE.map(c=>{
   const i=items.find(x=>x.concept===c.id);
   const known=['known_present','known_absent'].includes(s?.facts?.[c.id]?.state);
-  return {...c,item:i,status:known?'documented':i?.status==='confirm'?'confirm':'pending'};
+  return {...c,item:i,status:known?'documented':i?.status==='confirm'?'confirm':i?.status==='asked'?'asked':'pending'};
  });
  const unavailable=!!s?.error||!!s?.transcriptIncomplete||['unavailable','stale'].includes(s?.transcriptStatus);
  return {s,items,alerts,safety,context,core,unavailable};
@@ -56,9 +56,11 @@ function shell(){
  '<div id="nexaFocusHistory18160" class="nexa-focus-history-list18160"></div></section></div></section>';
 }
 function chosen(m){
- if(filter==='safety')return m.safety.slice(0,4);
- if(filter==='context')return m.context.slice(0,4);
- const sorted=[...m.safety,...m.context,...m.items.filter(i=>domain(i)==='history')];
+ // An already spoken question is awaiting its answer, not another suggestion.
+ const unasked=items=>items.filter(i=>i.status!=='asked');
+ if(filter==='safety')return unasked(m.safety).slice(0,4);
+ if(filter==='context')return unasked(m.context).slice(0,4);
+ const sorted=unasked([...m.safety,...m.context,...m.items.filter(i=>domain(i)==='history')]);
  return sorted.filter((x,n)=>sorted.findIndex(i=>i.id===x.id)===n).slice(0,3);
 }
 function questionsMarkup(m){
@@ -78,7 +80,7 @@ function questionsMarkup(m){
 }
 function historyMarkup(m){
  return m.core.map(c=>{
-  const known=c.status==='documented',label=known?'Registrado':c.status==='confirm'?'Confirmar':'Pendente';
+  const known=c.status==='documented',label=known?'Registrado':c.status==='confirm'?'Confirmar':c.status==='asked'?'Aguardando resposta':'Pendente';
   const statusEl=known?'<span class="nexa-focus-history-done18160">✓ Registrado</span>':
     '<button type="button" data-focus-item="'+esc(c.item?.id||'')+'" class="nexa-focus-history-action18160"'+
     (c.item?'':' disabled')+'>'+esc(label)+' <span aria-hidden="true">↗</span></button>';
