@@ -107,3 +107,56 @@ test('quick dismissal/evaluated cannot erase undocumented mandatory history',()=
   assert.ok(has(E.analyze(next.context,next.ledger),'medicines'));assert.deepEqual(next.context.fields,ctx.fields);
  }
 });
+
+test('spoken core-history: three domains refresh from the live conversation without structured fields',()=>{
+ const transcript=[
+  'Paciente: Dor torácica desde hoje.',
+  'Médico: Possui comorbidades?',
+  'Paciente: Tenho hipertensão arterial.',
+  'Médico: Tem alergias?',
+  'Paciente: Nega alergias.',
+  'Médico: Usa medicação de uso contínuo?',
+  'Paciente: Losartana 50 mg pela manhã e à noite.'
+ ].join('\n');
+ const r=E.analyze({transcript});
+ assert.equal(r.facts.comorbidities.state,'known_present');
+ assert.equal(r.facts.allergies.state,'known_absent');
+ assert.equal(r.facts.medicines.state,'known_present');
+ for(const id of ['comorbidities','allergies','medicines']){
+  assert.ok(!has(r,id),id+' must leave pending questions after explicit patient evidence');
+  assert.ok(r.clarified.some(x=>x.id===id),id+' must be visible as clarified');
+ }
+});
+test('spoken core-history: an unanswered clinician question must never become patient evidence',()=>{
+ for(const transcript of [
+   'Médico: Você possui comorbidades?',
+   'Médico: Tem alergias?',
+   'Médico: Faz uso de medicamentos?'
+ ]){
+   const r=E.analyze({transcript});
+   for(const id of ['comorbidities','allergies','medicines'])
+    assert.equal(r.facts[id].state,'not_asked',id);
+ }
+});
+test('spoken core-history: spontaneous patient history and explicit denials are picked up locally',()=>{
+ const r=E.analyze({transcript:'Paciente: Eu tenho diabetes. Paciente: Não tenho alergias. Paciente: Eu tomo metformina 850 mg pela manhã.'});
+ assert.equal(r.facts.comorbidities.state,'known_present');
+ assert.equal(r.facts.allergies.state,'known_absent');
+ assert.equal(r.facts.medicines.state,'known_present');
+});
+test('spoken core-history: relative reports and uncertain answers must not clear universal gaps',()=>{
+ const r=E.analyze({transcript:'Médico: Tem alergias? Paciente: Não sei informar. Minha mãe tem diabetes. Médico: Você faz uso de remédios? Paciente: Não lembro.'});
+ assert.notEqual(r.facts.allergies.state,'known_absent');
+ assert.notEqual(r.facts.comorbidities.state,'known_present');
+ assert.notEqual(r.facts.medicines.state,'known_absent');
+ for(const id of ['comorbidities','allergies','medicines'])assert.ok(has(r,id),id);
+});
+test('spoken core-history: a bare yes without details cannot certify a fully documented history',()=>{
+ const r=E.analyze({transcript:'Médico: Tem alguma alergia? Paciente: Sim. Médico: Tem comorbidades? Paciente: Sim. Médico: Usa medicamentos? Paciente: Sim.'});
+ for(const id of ['comorbidities','allergies','medicines'])assert.ok(has(r,id),id);
+});
+test('spoken core-history: later contradictory patient statements remain visible for confirmation',()=>{
+ const r=E.analyze({transcript:'Paciente: Nega alergias. Paciente: Sou alérgico a dipirona.'});
+ assert.equal(r.facts.allergies.conflict,true);
+ assert.ok(has(r,'conflict:allergies'));
+});
