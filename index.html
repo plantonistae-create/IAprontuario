@@ -2867,7 +2867,7 @@ async function loadCoreDatasetSummary(){
         const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
         const digest=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
         const manifest={
-          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',radarReviewSchema:'nexa-core-radar-labels-v3',
+          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',radarReviewSchema:'nexa-core-radar-labels-v3',radarQuestionReviewSchema:'nexa-core-radar-question-audit-v4',
           coreTrainingReady:false,splitUnit:'audit_case',patientGroupingValidated:false,
           exportedAt:new Date().toISOString(),caseCount:count,sha256:digest,
           batches,documentation:'docs/NEXA_CORE_COMMERCIAL_ARCHITECTURE.md',
