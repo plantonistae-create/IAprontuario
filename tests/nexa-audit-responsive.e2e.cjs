@@ -140,7 +140,7 @@ function contrast(rgb1,rgb2){
           {id:'allergies',concept:'allergies',priority:'high',question:'Existem alergias conhecidas?',reason:'Histórico obrigatório'}
         ];
       });
-      await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="queue"]')?.click());
+      await page.evaluate(async()=>{await window.nexaRefreshAuditExact?.();document.querySelector('#nexaAuditExact [data-ax-view="queue"]')?.click()});
       await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Fila de casos');
       const queue=await page.evaluate(()=>{
         const root=document.getElementById('nexaAuditExact');
