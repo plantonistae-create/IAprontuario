@@ -171,6 +171,23 @@ async function beforeReset(el){
      throw new Error('AUDIT_SNAPSHOT_LOCKED_OR_NOT_SAVED');
    if(conflict)await holdConflictSnapshot(snap);
   }
+  // Prefer a real server acknowledgement before clearing the on-screen case.
+  // The already checked local and audit checkpoints remain durable if offline.
+  let serverConfirmed=false;
+  if(saved&&!conflict&&autosave?.syncOne&&navigator.onLine!==false){
+   try{
+    await autosave.syncOne(saved);
+    const latest=await autosave.get?.(saved.encounter_id);
+    serverConfirmed=latest?.owner_user_id===who&&latest.sync_state==='synced'&&
+      Number(latest.local_revision||0)>=Number(saved.local_revision||0);
+    if(latest?.sync_state==='conflict'){
+     conflict=true;
+     if(snap)await holdConflictSnapshot(snap);
+    }
+   }catch(error){console.warn('NEXA server save pending',String(error?.message||error))}
+  }
+  if(saved&&!conflict&&autosave?.syncOne&&!serverConfirmed&&typeof window.confirm==='function'&&
+     !window.confirm('ATENÇÃO: o servidor ainda NÃO confirmou esta consulta. A cópia está preservada somente neste computador, e a auditoria permanece pendente. Não limpe os dados do navegador. Iniciar outro atendimento mantendo esta cópia para recuperação?'))return;
   if(conflict){
    if(typeof window.confirm==='function'&&!window.confirm(
     'A consulta tem um CONFLITO entre versões. A cópia local ficou preservada; o envio dessa cópia à auditoria ficará bloqueado até a reconciliação. Iniciar outra consulta sem apagar o conflito?'))return;
@@ -182,13 +199,17 @@ async function beforeReset(el){
   // and the visible form has been cleared; autosave no longer double-creates it.
   if(autosave?.startNew)await autosave.startNew('after_reset');
   if(conflict)toast('Novo atendimento iniciado. A consulta anterior está preservada e precisa de reconciliação.',true);
-  else if(snap)toast('Consulta salva localmente e adicionada à fila de auditoria.');
+  else if(saved&&!serverConfirmed&&autosave?.syncOne)toast('Consulta preservada apenas neste computador. Servidor e auditoria pendentes: Histórico → Recuperar atendimento.',true);
+  else if(snap)toast('Consulta confirmada no servidor e adicionada à fila de auditoria.');
   else if(saved)toast('Rascunho preservado localmente; ainda sem dados suficientes para auditoria.');
   if(!conflict)void flush('reset');
   void autosave?.flush?.('audit_final_checkpoint');
  }catch(error){
   console.error('NEXA reset checkpoint',String(error?.message||error));
-  toast('Consulta mantida: '+String(error?.message||error),true);
+  const code=String(error?.message||error||'');
+  toast(code==='AUTH_RELOGIN_REQUIRED'?
+    'Sessão expirada. Consulta não limpa. Preserve a cópia local e entre novamente.':
+    'Consulta NÃO foi limpa: '+code+'. Verifique Histórico → Recuperar atendimento.',true);
  }finally{resetting=false}
 }
 async function manual(button){try{await window.nexaEncounterAutosave18101?.prioritize?.();const snap=await preserve('manual_priority');if(!snap)return toast('Não há conteúdo clínico suficiente para priorizar.',true);toast('Caso priorizado para Auditoria.');void flush('manual_priority');if(button){const text=button.textContent;button.textContent='Priorizado ✓';setTimeout(()=>{button.textContent=text},1500)}}catch(error){toast(error?.message||'Falha ao priorizar caso.',true)}}
