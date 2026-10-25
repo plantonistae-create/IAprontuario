@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.8";
 import { createAuditedCase, createDatasetItem } from "../_shared/nexa-core-foundations.mjs";
 import { findDirectPii } from "../submit-audit-case/audit-contract.mjs";
 import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
-import { compileRadarDatasetLabels, compileRadarQuestionReview, coreExportSafety } from "../_shared/nexa-core-radar-dataset-v3.mjs";
+import { compileRadarDatasetLabels, compileRadarQuestionReview, compileReviewedRadarQuestionInventory, coreExportSafety } from "../_shared/nexa-core-radar-dataset-v3.mjs";
 
 // ADMIN-ONLY batch JSONL export. Requires explicit rights and deidentification approvals.
 // No source consultation ID, doctor/patient ID, audio, transcript or voiceprint is exported.
@@ -138,7 +138,8 @@ Deno.serve(async req=>{
         input:{...item.input,speakerAttribution:speakerMeta},
         annotations:{radarFeedback:sanitizeRadarFeedback(a.deidentified_core_context?.radar_feedback),
           radarReview:compileRadarDatasetLabels(reviewsById.get(a.id)),
-          radarQuestionAudit:compileRadarQuestionReview(reviewsById.get(a.id),(Array.isArray(a.deidentified_core_context?.radar_capture?.items)?a.deidentified_core_context.radar_capture.items:[]).map((q:any)=>String(q.id||'')))},
+          radarQuestionAudit:compileRadarQuestionReview(reviewsById.get(a.id),(Array.isArray(a.deidentified_core_context?.radar_capture?.items)?a.deidentified_core_context.radar_capture.items:[]).map((q:any)=>String(q.id||''))),
+          reviewedQuestionInventory:compileReviewedRadarQuestionInventory(a.deidentified_core_context,reviewsById.get(a.id))},
         datasetSafety:coreExportSafety(),
       };
       // Machine checks supplement, never replace, the mandatory human review.
