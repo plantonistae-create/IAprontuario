@@ -86,3 +86,24 @@ test('spoken vitals: uncertainty stays explicit instead of becoming a reassuring
  assert.notEqual(r.facts.spo2.state,'known_absent');
  assert.ok(has(r,'spo2'),'ambiguous saturation must remain actionable');
 });
+
+test('universal history appears even at the start of the encounter',()=>{
+ const r=E.analyze({});for(const id of ['comorbidities','allergies','medicines'])assert.ok(has(r,id),id);
+});
+test('not reported in consultation does not count as an explicit denial',()=>{
+ const r=E.analyze({fields:{comorbidades:'NÃO RELATADO NA CONSULTA',alergias:'NÃO RELATADO NA CONSULTA',medicacoes:'NÃO RELATADO NA CONSULTA'}});
+ for(const id of ['comorbidities','allergies','medicines']){assert.equal(r.facts[id].state,'unknown');assert.ok(has(r,id));}
+});
+test('explicitly documented positive and negative histories resolve only supported gaps',()=>{
+ const neg=E.analyze({fields:{comorbidades:'Nega comorbidades',alergias:'Nega alergias',medicacoes:'Nega medicamentos de uso contínuo'}});
+ for(const id of ['comorbidities','allergies','medicines']){assert.equal(neg.facts[id].state,'known_absent');assert.ok(!has(neg,id));}
+ const pos=E.analyze({fields:{comorbidades:'Hipertensão arterial',alergias:'Dipirona, urticária',medicacoes:'Losartana 50 mg — 1-0-1'}});
+ for(const id of ['comorbidities','allergies','medicines']){assert.equal(pos.facts[id].state,'known_present');assert.ok(!has(pos,id));}
+});
+test('quick dismissal/evaluated cannot erase undocumented mandatory history',()=>{
+ const ctx={fields:{hda:'Dor torácica'}};
+ for(const action of ['dismissed','evaluated']){
+  const item=E.analyze(ctx).items.find(i=>i.concept==='medicines'),next=E.answer(ctx,{},item,'Avaliado',action);
+  assert.ok(has(E.analyze(next.context,next.ledger),'medicines'));assert.deepEqual(next.context.fields,ctx.fields);
+ }
+});
