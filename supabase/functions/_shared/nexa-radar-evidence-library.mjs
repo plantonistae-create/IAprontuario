@@ -1,3 +1,5 @@
+import {compileApprovedRadarEditorial,selectRadarReviewedQuestions} from "./nexa-radar-editorial.mjs";
+import {RADAR_EDITORIAL_PUBLISHED,RADAR_EDITORIAL_PUBLISHED_VERSION} from "./nexa-radar-editorial-published.mjs";
 // Shared by NEXA clinical Radar orchestration and the future NEXA Core API.
 // Source indexing is NOT validated medical advice and does not ingest copyrighted texts.
 export const RADAR_EVIDENCE_CONTRACT="nexa-radar-evidence-v1";
@@ -43,7 +45,10 @@ export function buildRadarEvidencePlan({fields={},transcript="",allowedConcepts=
   packs.push({id:p.id,source_ids:[...p.sources],focus_concepts:p.focus.filter(x=>allow.has(x))});
  }
  const ids=[...new Set(packs.flatMap(p=>p.source_ids))];
+ const sources=RADAR_SOURCES.filter(x=>ids.includes(x.id)&&x.access==="public").map(({id,title,publisher,url,review})=>({id,title,publisher,url,review}));
+ const compiled=compileApprovedRadarEditorial(RADAR_EDITORIAL_PUBLISHED,{sources:RADAR_SOURCES,playbooks:RADAR_PLAYBOOKS,allowedConcepts});
+ const reviewed_questions=selectRadarReviewedQuestions({plan:{candidate_playbooks:packs,sources},approved:compiled});
  return {schema_version:RADAR_EVIDENCE_CONTRACT,library_version:RADAR_EVIDENCE_VERSION,
    clinical_review:"pending",scope:"retrieval_candidates_only",candidate_playbooks:packs,
-   sources:RADAR_SOURCES.filter(x=>ids.includes(x.id)&&x.access==="public").map(({id,title,publisher,url,review})=>({id,title,publisher,url,review}))};
+   sources,editorial_version:RADAR_EDITORIAL_PUBLISHED_VERSION,reviewed_questions};
 }
