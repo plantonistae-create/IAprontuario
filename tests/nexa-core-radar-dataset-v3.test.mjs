@@ -165,3 +165,19 @@ test("Fine-grained Radar review history uses optimistic locking, authenticated-o
    assert.ok(sql.includes(token),token);
  }
 });
+
+test("Clinical pertinence is a physician annotation, not a fixed pathology rule",()=>{
+ const makeCase=chief=>({deidentified_fields:{queixa_principal:chief},
+  deidentified_core_context:{radar_capture:{items:[{id:"consciousness",concept:"consciousness",priority:"high",status:"to_ask"}]},
+   radar_learning:{items:[{id:"consciousness",concept:"consciousness",question:"Houve alteração do estado de consciência?",reason:"Revisar sinais associados conforme mecanismo"}]}}});
+ const isolatedKnee=makeCase("Contusão isolada de joelho, sem relato de trauma craniano");
+ const headTrauma=makeCase("Trauma cranioencefálico");
+ const knee=Reviewer.buildPayload(isolatedKnee,"reviewed",[],0,
+  [{question_id:"consciousness",verdict:"irrelevant",reason_code:"unrelated"}]);
+ const tce=Reviewer.buildPayload(headTrauma,"reviewed",[],0,
+  [{question_id:"consciousness",verdict:"relevant",reason_code:"appropriate"}]);
+ assert.notEqual(knee.question_reviews[0].verdict,tce.question_reviews[0].verdict);
+ assert.equal(knee.question_reviews[0].question_id,tce.question_reviews[0].question_id);
+ assert.equal(Reviewer.questionCatalogue(isolatedKnee)[0].question,Reviewer.questionCatalogue(headTrauma)[0].question);
+ assert.equal(Reviewer.questionCatalogue(headTrauma)[0].reason,"Revisar sinais associados conforme mecanismo");
+});
