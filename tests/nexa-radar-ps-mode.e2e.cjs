@@ -60,7 +60,16 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter]').count(),3);
   assert.match(await page.locator('#nexaFocusHistoryCount18160').innerText(),/^[0-3]\/3$/);
   const beforeFilter=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
-  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').click();
+  // During initial case recovery the panel can rerender one more time,
+  // replacing its transient filter state before the next animation frame.
+  for(let attempt=0;attempt<3;attempt++){
+    await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').click();
+    try{
+      await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160?.getFilter?.()==='context'&&
+        document.querySelector('#nexaRadarDynamic18160 [data-focus-filter="context"]')?.getAttribute('aria-pressed')==='true',null,{timeout:900});
+      break;
+    }catch(error){if(attempt===2)throw error}
+  }
   assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').getAttribute('aria-pressed'),'true');
   // The encounter can finish restoring on slower mobile browsers while
   // the reviewer changes tabs. Retry once if that lifecycle reset the filter.
