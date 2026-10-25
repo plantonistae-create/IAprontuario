@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.meta.url),'utf8');
 const UUID='11111111-1111-4111-8111-111111111111',WHO='doctor-A';
-function fixture({syncState='conflict',confirmSequence=[true,true],getFails=false,outboxFails=false,modifySaved=false,partial=false,locked=false}={}){
+function fixture({syncState='conflict',confirmSequence=[true,true],getFails=false,outboxFails=false,modifySaved=false,partial=false,locked=false,serverReject=false}={}){
  const rows=new Map(),handlers=new Map(),toasts=[],prompts=[];
  let cleared=0,rotated=0,started=0,flushed=0,remoteSends=0;
  const fields={queixa_principal:partial?'':"Dor torácica",hda:partial?'HDA curta':'Dor torácica iniciada há cerca de duas horas, acompanhada por familiar.',comorbidades:partial?'':'HAS',antecedentes:'',medicacoes:'',alergias:'',hipotese_diagnostica:partial?'':'Dor torácica',orientacoes_alta:'',sugestoes_perguntas:'',exame_fisico:partial?'':'Sem sinais de desconforto.',sinais_vitais:'',conduta:partial?'':'ECG e reavaliação'};
@@ -41,9 +41,14 @@ function fixture({syncState='conflict',confirmSequence=[true,true],getFails=fals
   startNew:async()=>{encounter='22222222-2222-4222-8222-222222222222';started++;return{encounter_id:encounter}},
   preserve:async()=>{stored={
      encounter_id:UUID,owner_user_id:WHO,fields:structuredClone(fields),
-     sync_state:syncState,local_revision:3,last_client_saved_at:'2026-10-25T13:00:00Z'
+     sync_state:syncState,encounter_state:partial?'draft':'ready_for_audit',local_revision:3,last_client_saved_at:'2026-10-25T13:00:00Z'
     };if(modifySaved)stored.fields.hda='VERSÃO ANTIGA';return structuredClone(stored)},
   get:async()=>getFails?null:stored&&structuredClone(stored),
+  syncOne:async()=>{
+   if(serverReject)return{sent:false,error:'AUTH_RELOGIN_REQUIRED'};
+   if(stored?.sync_state==='pending'){stored.sync_state='synced';return{sent:true,item:structuredClone(stored)}}
+   return{sent:false,conflict:stored?.sync_state==='conflict'};
+  },
   flush:async()=>{flushed++;return{}}
  };
  const context={console,document,structuredClone,AbortController,
@@ -148,5 +153,22 @@ test('held snapshot is released only after matching reconciled physician copy',a
  const released=await f.api.releaseHeldAfterReconciliation(UUID);
  assert.equal(released,true);
  assert.notEqual(f.rows.get(UUID+':final-v1').state,'held_conflict');
+});
+
+test('failed server authentication requires explicit local-only custody without losing the audit checkpoint',async()=>{
+ const f=fixture({syncState:'pending',serverReject:true,confirmSequence:[true,true]});
+ await f.api.beforeReset({id:'resetBtn'});
+ assert.equal(f.cleared,1);
+ assert.equal(f.prompts.length,2);
+ assert.match(f.prompts[1],/servidor ainda NÃO confirmou/i);
+ assert.equal(f.rows.get(UUID+':final-v1').state,'queued');
+ assert.equal(f.remoteSends,0);
+});
+test('declining local-only custody retains the clinical form and queued audit snapshot',async()=>{
+ const f=fixture({syncState:'pending',serverReject:true,confirmSequence:[true,false]});
+ await f.api.beforeReset({id:'resetBtn'});
+ assert.equal(f.cleared,0);
+ assert.match(f.fields.hda,/Dor torácica/);
+ assert.equal(f.rows.get(UUID+':final-v1').state,'queued');
 });
 console.log('NEXA reset with checkpoint conflict: preservation, no overwrite and restart validated');
