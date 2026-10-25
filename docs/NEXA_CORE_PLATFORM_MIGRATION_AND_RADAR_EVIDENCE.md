@@ -10,6 +10,22 @@ Versão da proposta: 2026-10-25 (planejamento; não é certificação clínica)
 - O provedor atual usa a **mesma seleção de fontes** nas instruções; isso é contexto de recuperação bibliográfica, não conteúdo de diretriz recuperado nem capacidade de citar uma recomendação validada.
 - Conflitos, anotação clínica, autoria da decisão médica e dados de auditoria permanecem sob os mecanismos atuais.
 
+## Fluxo editorial v1 — implementado nesta PR
+O módulo `supabase/functions/_shared/nexa-radar-editorial.mjs` permite receber **candidatos estruturados de um modelo de IA** sem convertê-los em orientação clínica automaticamente:
+
+1. Um gerador (IA humana supervisionada ou outro provedor) devolve JSON contendo identificador, playbook, conceito já conhecido, pergunta, justificativa, relevância para a decisão, prioridade proposta, público-alvo e proveniência (fonte, versão/ano, seção localizável e data da conferência).
+2. A rotina `proposeRadarEditorialQuestion` rejeita fonte desconhecida ou licenciada não integrada, URL substituída, conceito fora do catálogo, população incompatível, dados pessoais evidentes, campos inesperados, falta de proveniência e autodeclaração de aprovação.
+3. Um editor pode importar **somente rascunhos**, offline, usando `node scripts/nexa-radar-editorial-draft.mjs draft editorial/radar/drafts/chest_dyspnea_2026.json`. O exemplo foi derivado da linha de cuidado pública do Ministério da Saúde para dor torácica, mas permanece sem aprovação clínica.
+4. Duas revisões independentes (médico e responsável pela segurança clínica) precisam verificar fonte e pergunta; a cópia revisada do conteúdo é fixada em cada parecer. Uma mudança posterior na pergunta, no risco proposto ou na referência invalida os pareceres anteriores.
+5. O compilador só admite conteúdo revisado e com fontes ainda constantes do catálogo. A versão inicial do inventário `nexa-radar-editorial-published.mjs` está **vazia**. Consequentemente, nenhuma pergunta editorial inédita é apresentada hoje como clinicamente aprovada.
+6. A API atual e o futuro NEXA Core recebem o mesmo campo `reviewed_questions` quando houver conteúdo aprovado, no contrato de evidências. `candidate_playbooks` continuam sendo somente candidatos bibliográficos, não achados clínicos.
+
+### Limite importante de confiança
+`appendRadarEditorialReview` é uma rotina pura de montagem de revisões, **não autentica pessoas nem assina documentos**. A etapa administrativa futura deve exigir login, autorizações por função, controle de conflito de interesses, trilha de auditoria imutável, aprovação por duas identidades verificadas e assinatura/versão de publicação gerenciadas no servidor. Os testes com nomes fictícios verificam *formato e bloqueios lógicos*, não substituem essas garantias. **Não adicionar entradas à lista publicada até a implantação e validação dos controles reais e a revisão clínica das perguntas.**
+
+### Como a IA ajudará sem cadastrar milhares de patologias manualmente
+A entrada mais escalável será um processo editorial assistido por IA: converter protocolos autorizados e versionados em propostas com critério de ativação, diagnóstico a não perder, pergunta, racional, população/contraindicações e a consequência interpretativa de cada resposta. A biblioteca relaciona essas propostas a **apresentações sindrômicas**, não a uma hipótese diagnóstica já definida. O modelo poderá gerar candidatos, mas regras críticas, conceito clínico e corpus de fontes necessitam homologação humana antes da liberação. O motor de entrevista dinâmico e a expansão do catálogo além dos conceitos atuais ainda são uma etapa seguinte, não parte desta PR.
+
 ## Separação de camadas — destino final
 ```text
 PWA NEXA (consulta, gravação, revisão, auditoria)
