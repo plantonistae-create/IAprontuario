@@ -12,11 +12,11 @@ export function sanitizeRadarCapture(value){
  const items=[],seen=new Set();
  for(const item of entries.slice(0,150)){
   if(!item||typeof item!=="object"||Array.isArray(item))continue;
-  const concept=String(item.concept||"");
-  if(!C.has(concept)||seen.has(concept))continue;
-  seen.add(concept);
+  const concept=String(item.concept||""),id=String(item.id||concept);
+  if(!C.has(concept)||!/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/.test(id)||seen.has(id))continue;
+  seen.add(id);
   items.push({
-   concept,priority:PRIORITY.has(item.priority)?item.priority:"moderate",
+   id,concept,priority:PRIORITY.has(item.priority)?item.priority:"moderate",
    status:STATUS.has(item.status)?item.status:"to_ask",
    red_flag:item.redFlag===true
   });
@@ -29,6 +29,7 @@ export function sanitizeRadarCapture(value){
   prompt_version:string(src.prompt_version),
   evidence_version:string(src.evidence_version),
   frontend_version:string(src.frontend_version),
-  items,raw_transcript_saved:false,clinical_ground_truth:false
+  items,question_count:items.length,trace_truncated:entries.length>150,
+  raw_transcript_saved:false,clinical_ground_truth:false
  });
 }
