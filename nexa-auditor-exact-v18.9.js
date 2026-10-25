@@ -31,7 +31,8 @@ async function loadAuditRows(fromAt){
    seen.add(id);result.push(row);added++;
   }
   const total=Number(batch[0]?.total_count||0);
-  if(batch.length<pageSize||added===0||(total>0&&result.length>=total))return result;
+  if(added===0&&batch.length===pageSize)throw Error('AUDIT_QUEUE_PAGINATION_UNAVAILABLE');
+  if(batch.length<pageSize||(total>0&&result.length>=total))return result;
  }
  throw Error('AUDIT_QUEUE_LIMIT_REACHED: refine o período ou a pesquisa; a fila não será apresentada como completa.');
 }
