@@ -7,7 +7,7 @@ const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.met
 const UUID='11111111-1111-4111-8111-111111111111',WHO='doctor-A';
 function fixture({syncState='conflict',confirmSequence=[true,true],getFails=false,outboxFails=false,modifySaved=false,partial=false,locked=false}={}){
  const rows=new Map(),handlers=new Map(),toasts=[],prompts=[];
- let cleared=0,rotated=0,flushed=0,remoteSends=0;
+ let cleared=0,rotated=0,started=0,flushed=0,remoteSends=0;
  const fields={queixa_principal:partial?'':"Dor torácica",hda:partial?'HDA curta':'Dor torácica iniciada há cerca de duas horas, acompanhada por familiar.',comorbidades:'HAS',antecedentes:'',medicacoes:'',alergias:'',hipotese_diagnostica:'Dor torácica',orientacoes_alta:'',sugestoes_perguntas:'',exame_fisico:'Sem sinais de desconforto.',sinais_vitais:'',conduta:'ECG e reavaliação'};
  let stored=null,encounter=UUID;
  const resetButton={onclick:()=>{
@@ -38,6 +38,7 @@ function fixture({syncState='conflict',confirmSequence=[true,true],getFails=fals
  const autosave={
   currentEncounterId:()=>encounter,
   rotateEncounter:()=>{encounter='';rotated++},
+  startNew:async()=>{encounter='22222222-2222-4222-8222-222222222222';started++;return{encounter_id:encounter}},
   preserve:async()=>{stored={
      encounter_id:UUID,owner_user_id:WHO,fields:structuredClone(fields),
      sync_state:syncState,local_revision:3,last_client_saved_at:'2026-10-25T13:00:00Z'
@@ -72,7 +73,7 @@ function fixture({syncState='conflict',confirmSequence=[true,true],getFails=fals
     owner_user_id:WHO,state:'locked'});
  }
  return{api,fields,rows,autosave,prompts,toasts,recBtn,
-  get cleared(){return cleared},get rotated(){return rotated},get flushed(){return flushed},get remoteSends(){return remoteSends},
+  get cleared(){return cleared},get rotated(){return rotated},get started(){return started},get flushed(){return flushed},get remoteSends(){return remoteSends},
   setRecord:rec=>stored=rec,dispatch:events};
 }
 test('conflict checkpoint is durable and held from audit while new encounter resets exactly once',async()=>{
@@ -80,6 +81,7 @@ test('conflict checkpoint is durable and held from audit while new encounter res
  await f.api.beforeReset({id:'nexaTopReset'});
  assert.equal(f.cleared,1);
  assert.equal(f.rotated,1);
+ assert.equal(f.started,1);
  assert.equal(f.prompts.length,2);
  const snapshot=f.rows.get(UUID+':final-v1');
  assert.equal(snapshot.state,'held_conflict');
