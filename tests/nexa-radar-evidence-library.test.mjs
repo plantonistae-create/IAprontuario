@@ -10,6 +10,8 @@ const plan=(fields,transcript="")=>buildRadarEvidencePlan({fields,transcript,all
 test("national, society and international references are indexed, never ingested as text",()=>{
  assert.ok(RADAR_SOURCES.some(s=>s.id==="ms_chest_upa"));
  assert.ok(RADAR_SOURCES.some(s=>s.id==="ms_stroke"));
+ assert.ok(RADAR_SOURCES.some(s=>s.id==="sbc_chest_2025"));
+ assert.ok(RADAR_SOURCES.some(s=>s.id==="sbavc_guidelines"));
  assert.ok(RADAR_SOURCES.some(s=>s.id==="amb_guidelines"));
  assert.ok(RADAR_SOURCES.some(s=>s.id==="sbp_fever"));
  assert.ok(RADAR_SOURCES.some(s=>s.id==="nice"));
