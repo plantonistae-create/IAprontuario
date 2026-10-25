@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import Reviewer from "../nexa-core-radar-review-v3.js";
 import {sanitizeRadarCapture} from "../supabase/functions/_shared/nexa-radar-capture-v3.mjs";
-import {compileRadarDatasetLabels,compileRadarQuestionReview,coreExportSafety} from "../supabase/functions/_shared/nexa-core-radar-dataset-v3.mjs";
+import {compileRadarDatasetLabels,compileRadarQuestionReview,compileReviewedRadarQuestionInventory,coreExportSafety} from "../supabase/functions/_shared/nexa-core-radar-dataset-v3.mjs";
 const read=x=>fs.readFileSync(new URL("../"+x,import.meta.url),"utf8");
 const row={id:"synthetic-case",status:"pending",deidentified_core_context:{
   radar_capture:{items:[{id:"fever",concept:"fever"},{id:"allergies",concept:"allergies"}]},radar_learning:{engine_version:"test-v1",items:[
@@ -83,7 +83,7 @@ test("Export remains rights-gated, pseudonymized, reviewed and marked not traini
  const s=read("supabase/functions/core-dataset-export/index.ts");
  for(const token of ["nexa_core_dataset_approvals","deidentification_reviewed","revoked_at",
   "findDirectPii(safe)","pseudonym(c.audit_case_id)","compileRadarDatasetLabels","compileRadarQuestionReview",
-  "coreExportSafety()","nexa-jsonl-v4","nexa_core_radar_reviews"]){
+  "coreExportSafety()","compileReviewedRadarQuestionInventory","nexa-jsonl-v4","nexa_core_radar_reviews"]){
   assert.ok(s.includes(token),token);
  }
  const submit=read("supabase/functions/submit-audit-case/index.ts");
@@ -134,6 +134,14 @@ test("Every captured Radar question has an independent relevance assessment, no 
   [{concept:"neurovascular",priority:"high",question:"CPF 123.456.789-00"}]),/PII_OR_INVALID/);
  const exported=compileRadarQuestionReview({...payload,revision:1},["fever","allergies"]);
  assert.equal(exported.fully_reviewed,true);
+ const inventory=compileReviewedRadarQuestionInventory(row.deidentified_core_context,{...payload,revision:1});
+ assert.equal(inventory.length,2);
+ assert.equal(inventory[0].question,"O paciente teve febre?");
+ assert.equal(inventory[1].priority,"high");
+ assert.throws(()=>compileReviewedRadarQuestionInventory({
+  ...row.deidentified_core_context,radar_learning:{items:[]}
+ },{...payload,revision:1}),/TEXT_UNAVAILABLE/);
+ assert.deepEqual(compileReviewedRadarQuestionInventory(row.deidentified_core_context,{review_state:"not_reviewed"}),[]);
  assert.throws(()=>compileRadarQuestionReview({...payload,revision:1},["fever"]),/SNAPSHOT_MISMATCH/);
  assert.deepEqual(exported.question_reviews,good);
  assert.equal(exported.missing_questions[0].question,missing[0].question);
