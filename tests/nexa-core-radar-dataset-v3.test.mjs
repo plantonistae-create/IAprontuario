@@ -103,3 +103,14 @@ test("Auditor can save clinical decision + Radar metadata atomically and amend R
  assert.match(loader,/nexa-audit-outbox-v18\.9\.19\.js\?v=20261025-core-audit-v3/);
 });
 console.log("NEXA Core Radar v3 audit and dataset contracts: PASS");
+
+test("Radar provider/model/evidence provenance is recorded from real remote results, never guessed",()=>{
+ const controller=read("nexa-radar-controller.js"),outbox=read("nexa-audit-outbox-v18.9.19.js"),edge=read("supabase/functions/realtime-radar/index.ts");
+ assert.match(controller,/state\.radarMeta=\{\.\.\.remoteMeta\}/);
+ assert.match(controller,/remoteMeta=\{provider:result\.provider/);
+ assert.match(outbox,/radarMeta\?\.provider/);
+ assert.match(outbox,/radarMeta\?\.model_version/);
+ assert.match(outbox,/radarMeta\?\.evidence_version/);
+ assert.match(edge,/provider:'openai'/);
+ assert.match(edge,/provider:'nexa-core'/);
+});
