@@ -58,12 +58,16 @@ const REASON=new Set(["appropriate","unrelated","duplicate","unsafe","context_de
 const PRIORITY=new Set(["critical","high","moderate","low"]);
 const QUESTION_ID=/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/;
 const SAFE_QUESTION=/^[^\u0000-\u001f]{8,240}$/;
-export function compileRadarQuestionReview(row){
+export function compileRadarQuestionReview(row,snapshotIds=[]){
  if(!obj(row)||row.review_state!=="reviewed")
   return Object.freeze({schema_version:"nexa-core-radar-question-audit-v4",
     fully_reviewed:false,question_reviews:[],missing_questions:[],
     reason:"clinician_review_incomplete"});
  const qr=Array.isArray(row.question_reviews)?row.question_reviews:[];
+ if(!Array.isArray(snapshotIds)||!snapshotIds.length||
+    snapshotIds.length!==qr.length||new Set(snapshotIds).size!==snapshotIds.length||
+    qr.some(x=>!snapshotIds.includes(x?.question_id)))
+    throw Error("RADAR_QUESTIONS_SNAPSHOT_MISMATCH");
  const missing=Array.isArray(row.missing_questions)?row.missing_questions:[];
  if(!qr.length||qr.length>150||missing.length>30)throw Error("RADAR_QUESTIONS_NOT_AUDITED");
  const idSet=new Set(),reviews=[];
