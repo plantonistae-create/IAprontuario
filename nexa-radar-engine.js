@@ -238,7 +238,7 @@
       // Render our question and destination; never inject a model assertion into the record.
       add(id,rank[raw.priority]===undefined?'moderate':raw.priority,'Sugestão contextual da IA; confirmar pertinência.',raw.category==='red_flags');
     }
-    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||a.id.localeCompare(b.id));
+    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||Number(universal.has(a.concept))-Number(universal.has(b.concept))||a.id.localeCompare(b.id));
     const critical=list.filter(i=>i.priority==='critical');
     const unresolvedSafety=[...new Set(activated.flatMap(p=>p.critical))].filter(id=>known[id].state==='unknown'||ledger[id]&&known[id].state==='not_asked');
     const alerts=[];
