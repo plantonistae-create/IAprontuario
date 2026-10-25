@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-ghost-reset-20261024";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261024-ghost-reset";
+const CACHE_NAME="nexa-v18-15-0-cid-stats-20261024";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261024-cid-stats";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
