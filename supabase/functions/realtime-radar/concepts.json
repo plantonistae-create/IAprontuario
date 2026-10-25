@@ -255,6 +255,11 @@
     "section": "hda"
   },
   {
+    "id": "comorbidities",
+    "label": "Comorbidades",
+    "section": "comorbidades"
+  },
+  {
     "id": "medicines",
     "label": "Medicações utilizadas",
     "section": "medicacoes"
