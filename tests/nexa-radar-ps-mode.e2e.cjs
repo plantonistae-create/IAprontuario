@@ -54,6 +54,21 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarVisualQuestions18130').isVisible(),false);
   assert.equal(await page.locator('#nexaPsCoverageProgress').getAttribute('role'),'progressbar');
 
+  // New dynamic focus remains present in both PS and Complete, without overwriting clinical facts.
+  await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160&&document.querySelector('#nexaRadarDynamic18160 .nexa-focus-shell18160'));
+  assert.equal(await page.locator('#nexaFocusHistory18160 .nexa-focus-history-row18160').count(),3);
+  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter]').count(),3);
+  assert.match(await page.locator('#nexaFocusHistoryCount18160').innerText(),/^[0-3]\/3$/);
+  const beforeFilter=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
+  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').click();
+  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').getAttribute('aria-pressed'),'true');
+  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').click();
+  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').getAttribute('aria-pressed'),'true');
+  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="now"]').click();
+  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
+  await assertNoOverflow(page,'dynamic Radar '+viewport.width);
+
+
   // The initial encounter setup emits asynchronous Radar revisions. Wait for
   // its state to be fully initialized before asserting the view toggle is pure.
   await page.waitForFunction(() => {
