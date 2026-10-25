@@ -366,7 +366,7 @@ function bind(){
  document.addEventListener('click',e=>{
    if(e.target?.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return;
    if(e.target?.closest?.(START)){if(!currentEncounterId())void startNew('recording_start');else void preserve('recording_start');return}
-   if(e.target?.closest?.(RESET)){pendingNew=true;void preserve('before_reset');return}
+   if(e.target?.closest?.(RESET)){if(window.nexaAuditOutbox18919?.beforeReset)return;pendingNew=true;void preserve('before_reset');return}
    if(e.target?.closest?.('#logoutBtn')){void preserve('logout');return}
    if(e.target?.closest?.(NAV))void preserve('navigation');
  },true);
