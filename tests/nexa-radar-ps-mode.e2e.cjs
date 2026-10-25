@@ -68,6 +68,23 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
   await assertNoOverflow(page,'dynamic Radar '+viewport.width);
 
+  const jump=page.locator('#nexaFocusQuestions18160 [data-focus-item]').first();
+  if(await jump.count()){
+    const id=await jump.getAttribute('data-focus-item');
+    await jump.click();
+    await page.waitForFunction(()=>document.getElementById('nexaRadarModeComplete18131')?.getAttribute('aria-pressed')==='true');
+    assert.equal(await page.locator('#ngQuestionsTab').getAttribute('aria-selected'),'true');
+    assert.ok(await page.locator('#radarQuestions [data-item="'+id+'"]').count()>0,'Focus shortcut opens the existing clinical question');
+    await page.locator('#nexaRadarModePs18131').click();
+  }
+  // Risks shortcut remains an existing tab; it must not create a new clinical decision.
+  await page.locator('#nexaRadarDynamic18160 [data-focus-alert]').click();
+  assert.equal(await page.locator('#nexaRadarModeComplete18131').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#ngRisksTab').getAttribute('aria-selected'),'true');
+  await page.locator('#nexaRadarModePs18131').click();
+  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
+
+
 
   // The initial encounter setup emits asynchronous Radar revisions. Wait for
   // its state to be fully initialized before asserting the view toggle is pure.
