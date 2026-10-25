@@ -128,7 +128,7 @@ async function beforeReset(el){
      throw new Error('CHECKPOINT_NOT_SAVED');
    for(const [key,value] of Object.entries(fields)){
      if(String(value||'').trim()&&String(saved.fields?.[key]||'').trim()!==String(value).trim())
-       throw new Error('CHECKPOINT_DIFFERENT_FROM_VISIBLE_FORM');
+       throw new Error('CHECKPOINT_FIELD_NOT_PERSISTED:'+key);
    }
    const confirmed=await autosave.get?.(saved.encounter_id);
    if(!confirmed||confirmed.encounter_id!==saved.encounter_id||confirmed.owner_user_id!==who||
@@ -139,7 +139,7 @@ async function beforeReset(el){
    // matches the durable newer record, never by revision equality alone.
    for(const [key,value] of Object.entries(fields)){
      if(String(value||'').trim()&&String(confirmed.fields?.[key]||'').trim()!==String(value).trim())
-       throw new Error('CHECKPOINT_DIFFERENT_FROM_VISIBLE_FORM');
+       throw new Error('CHECKPOINT_FIELD_NEWER_VERSION_MISMATCH:'+key);
    }
    conflict=confirmed.sync_state==='conflict'||saved.sync_state==='conflict';
    if(conflict){
