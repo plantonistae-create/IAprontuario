@@ -54,3 +54,29 @@ test('local unsynced record outranks older synced server copy and other doctors 
  assert.equal(candidates[0].source,'este computador');
  assert.equal(candidates[0].fields.hda,'Nova revisão ainda não sincronizada');
 });
+test('conflict stays recoverable even when the server has a newer timestamp',()=>{
+ let api;
+ const context={window:{},document:{getElementById:()=>null,querySelector:()=>null,createElement:()=>({}),addEventListener:()=>{},head:{appendChild(){}}},addEventListener:()=>{},setTimeout:()=>0,Date,console};
+ context.window=context;
+ new vm.Script(history).runInNewContext(vm.createContext(context));
+ api=context.nexaRecoverHistoryV1;
+ const id='33333333-3333-4333-8333-333333333333';
+ const remote=[{encounter_id:id,user_id:'doctor-A',updated_at:'2026-10-25T16:10:00Z',fields:{hda:'Versão remota mais recente'}}];
+ const local=[{encounter_id:id,owner_user_id:'doctor-A',sync_state:'conflict',last_client_saved_at:'2026-10-25T16:00:00Z',fields:{hda:'Versão local em conflito'}}];
+ const rows=api.candidates(local,remote,'doctor-A');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source,'este computador');
+ assert.equal(rows[0].fields.hda,'Versão local em conflito');
+});
+test('recovery UI exposes manual CAS retry and authenticated audit submission, without blind upsert',()=>{
+ assert.match(history,/Tentar sincronizar/);
+ assert.match(history,/api\.syncOne\(current\)/);
+ assert.match(history,/Revisar divergência/);
+ assert.match(history,/nexaEncounterConflictReview18102/);
+ assert.match(history,/out\.submitRemoteEncounter\(row,auth\)/);
+ assert.match(history,/auth\.userId!==p\.id/);
+ assert.match(history,/sync_state==='conflict'/);
+ assert.doesNotMatch(history,/\.upsert\(/);
+ assert.match(history,/14\*86400000/);
+});
+
