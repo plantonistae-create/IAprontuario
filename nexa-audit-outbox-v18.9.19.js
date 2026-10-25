@@ -128,10 +128,17 @@ async function beforeReset(el){
        throw new Error('CHECKPOINT_DIFFERENT_FROM_VISIBLE_FORM');
    }
    const confirmed=await autosave.get?.(saved.encounter_id);
-   if(!confirmed||confirmed.local_revision!==saved.local_revision||
-      confirmed.last_client_saved_at!==saved.last_client_saved_at)
+   if(!confirmed||confirmed.encounter_id!==saved.encounter_id||confirmed.owner_user_id!==who||
+      Number(confirmed.local_revision||0)<Number(saved.local_revision||0))
      throw new Error('CHECKPOINT_NOT_VERIFIED');
-   conflict=saved.sync_state==='conflict';
+   // Debounced autosaves can create a later local revision while the awaited
+   // reset checkpoint is pending. Accept it ONLY if every current field still
+   // matches the durable newer record, never by revision equality alone.
+   for(const [key,value] of Object.entries(fields)){
+     if(String(value||'').trim()&&String(confirmed.fields?.[key]||'').trim()!==String(value).trim())
+       throw new Error('CHECKPOINT_DIFFERENT_FROM_VISIBLE_FORM');
+   }
+   conflict=confirmed.sync_state==='conflict'||saved.sync_state==='conflict';
   }
   if(hasValid){
    snap=await ensureAuditSnapshotBeforeReset();
