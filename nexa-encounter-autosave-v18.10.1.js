@@ -239,7 +239,6 @@ async function syncOne(rec){
      }
      throw new Error('SYNC_ROW_NOT_WRITABLE');
    }
-   if(error)throw error;
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
    const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
