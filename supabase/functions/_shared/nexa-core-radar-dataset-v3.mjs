@@ -93,3 +93,41 @@ export function compileRadarQuestionReview(row,snapshotIds=[]){
   fully_reviewed:true,question_reviews:reviews,missing_questions:gaps,
   source:"authenticated_clinician_review",human_review_required:false});
 }
+
+
+// After clinical review + separately approved deidentification, preserve the actual
+// *deidentified* question text needed to teach NEXA Core why a question was relevant.
+// Never copy the raw capture text: it contains only canonical IDs, concepts and priorities.
+export function compileReviewedRadarQuestionInventory(coreContext,review){
+ if(!obj(review)||review.review_state!=="reviewed")return [];
+ const capture=Array.isArray(coreContext?.radar_capture?.items)?coreContext.radar_capture.items:[];
+ const source=Array.isArray(coreContext?.radar_learning?.items)?coreContext.radar_learning.items:[];
+ if(!capture.length||capture.length>150||coreContext?.radar_capture?.trace_truncated===true)
+  throw Error("RADAR_REVIEW_INVENTORY_UNAVAILABLE");
+ const ids=new Set(),fromId=new Map(),ambiguous=new Set();
+ for(const item of source){
+  if(!obj(item))continue;
+  const id=String(item.id||item.concept||"");
+  if(!QUESTION_ID.test(id))continue;
+  if(fromId.has(id)){fromId.delete(id);ambiguous.add(id);}
+  else if(!ambiguous.has(id))fromId.set(id,item);
+ }
+ const result=[];
+ for(const item of capture){
+  const id=String(item?.id||"");
+  if(!QUESTION_ID.test(id)||ids.has(id)||!ID.test(String(item?.concept||"")))
+   throw Error("RADAR_REVIEW_INVENTORY_INVALID");
+  ids.add(id);
+  const reviewed=fromId.get(id);
+  if(!reviewed||typeof reviewed.question!=="string"||
+    !reviewed.question.trim()||reviewed.question.length>360)
+    throw Error("RADAR_REVIEW_QUESTION_TEXT_UNAVAILABLE");
+  if(reviewed.reason!=null&&(typeof reviewed.reason!=="string"||reviewed.reason.length>360))
+    throw Error("RADAR_REVIEW_REASON_INVALID");
+  result.push({question_id:id,concept:item.concept,question:reviewed.question.trim(),
+   reason:String(reviewed.reason||"").trim(),
+   priority:["critical","high","moderate","low"].includes(item.priority)?item.priority:"moderate",
+   status:String(item.status||"unknown"),red_flag:item.red_flag===true});
+ }
+ return result;
+}
