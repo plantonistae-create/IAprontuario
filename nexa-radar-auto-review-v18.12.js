@@ -40,7 +40,8 @@ const ASK={
   immuno:'Tem alguma condição ou tratamento que reduza a imunidade?',
   pregnancy:'Existe possibilidade de gestação ou puerpério?',
   allergies:'Tem alergia a algum medicamento?',
-  medicines:'Usa algum medicamento regularmente?',
+  medicines:'Usa medicamentos de uso contínuo? Quais, em que dose e horários?',
+  comorbidities:'Possui alguma doença ou condição crônica?',
   bp:'Qual foi a pressão arterial aferida?',
   hr:'Qual foi a frequência cardíaca aferida?',
   rr:'Qual foi a frequência respiratória aferida?',
@@ -240,9 +241,11 @@ function pendingTarget(item){
 function pendingItems(state){
  const out=[],seen=new Set(),push=(key,label,detail,target,optional=false)=>{if(seen.has(key))return;seen.add(key);out.push({key,label,detail,target,optional})};
  for(const [id,a] of vitalAmbiguities)push('amb:'+id,`${VITALS[id].name} a confirmar`,a.reason||'Valor falado ambíguo.', '#nexaVitalSigns');
- for(const i of (state?.items||[])){
-  if(i.status==='confirm'||i.priority==='critical'||(i.category==='vitals'&&['critical','high'].includes(i.priority))||i.concept==='allergies')push('item:'+i.id,conceptName(i.concept),i.status==='confirm'?'Resposta ambígua ou conflitante; confirmar.':i.priority==='critical'?'Pendência essencial no contexto atual.':'Informação relevante ainda não registrada.',pendingTarget(i));
-  if(out.length>=6)break;
+ const all=state?.items||[],core=new Set(['comorbidities','allergies','medicines']);
+ const safety=item=>item.status==='confirm'||item.priority==='critical'||(item.category==='vitals'&&['critical','high'].includes(item.priority));
+ const prioritized=[...all.filter(safety),...all.filter(item=>core.has(item.concept))];
+ for(const item of prioritized){
+  push('item:'+item.id,conceptName(item.concept),item.status==='confirm'?'Resposta ambígua ou conflitante; confirmar.':item.priority==='critical'?'Pendência essencial no contexto atual.':'Informação relevante ainda não registrada.',pendingTarget(item));
  }
  let a={};try{a=window.nexaClinicalBridge18101?.assessment?.()||{}}catch{}
  if(String(a.text||'').trim()&&!String(a.confirmed_cid||'').trim())push('cid','CID não confirmado','Opcional: a avaliação clínica permanece válida sem CID.','#physicianCid',true);
