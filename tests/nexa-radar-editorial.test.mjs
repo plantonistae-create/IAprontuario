@@ -86,3 +86,20 @@ test('review rejection, wrong role, unsupported source, missing provenance are f
  assert.throws(()=>appendRadarEditorialReview(rejected,review('clinical_safety','medico_02')),/NOT_DRAFT/);
  assert.deepEqual(compileApprovedRadarEditorial([rejected],catalog),[]);
 });
+
+test('first indexed Brazilian chest pain draft remains unapproved and CLI only returns a draft',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {execFileSync}=await import('node:child_process');
+ const {fileURLToPath}=await import('node:url');
+ const path=fileURLToPath(new URL('../editorial/radar/drafts/chest_dyspnea_2026.json',import.meta.url));
+ const raw=JSON.parse(readFileSync(path,'utf8'));
+ const draft=proposeRadarEditorialQuestion(raw,catalog);
+ assert.equal(draft.status,'draft');
+ assert.deepEqual(draft.reviews,[]);
+ assert.equal(draft.concept_id,'dyspnea');
+ assert.equal(draft.provenance.source_id,'ms_chest_upa');
+ assert.equal(compileApprovedRadarEditorial([draft],catalog).length,0);
+ const script=fileURLToPath(new URL('../scripts/nexa-radar-editorial-draft.mjs',import.meta.url));
+ const output=JSON.parse(execFileSync(process.execPath,[script,'draft',path],{encoding:'utf8'}));
+ assert.deepEqual(output,draft);
+});
