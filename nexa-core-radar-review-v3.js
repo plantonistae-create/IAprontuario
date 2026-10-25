@@ -24,7 +24,7 @@ const qidRx=/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/;
 const isObj=v=>!!v&&typeof v==="object"&&!Array.isArray(v);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const opt=(arr,selected="")=>arr.map(([v,label])=>'<option value="'+esc(v)+'"'+(v===selected?" selected":"")+">"+esc(label)+"</option>").join("");
-const scrubText=v=>String(v??"").trim().slice(0,240);
+const scrubText=v=>String(v??"").trim().replace(/\s+/g," ").slice(0,240);
 const detectablePii=v=>/[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\d{7,}/i.test(v);
 function questionCatalogue(row){
  const context=row?.deidentified_core_context||{};
@@ -121,7 +121,7 @@ function buildPayload(row,reviewState,labels,expectedRevision=0,questionReviews=
  const l=sanitizeLabels(labels,conceptOptions(row)),qr=sanitizeQuestionReviews(questionReviews,q),missing=sanitizeMissingQuestions(missingQuestions);
  if(reviewState==="not_reviewed"&&l.length)throw Error("RADAR_REVIEW_NEEDS_CONFIRMATION");
  if(reviewState==="reviewed"){
-  if(!Array.isArray(row?.deidentified_core_context?.radar_capture?.items)||!q.length||row?.deidentified_core_context?.radar_capture?.trace_truncated===true)
+  if(!Array.isArray(row?.deidentified_core_context?.radar_capture?.items)||!q.length||q.some(x=>!x.text_available)||row?.deidentified_core_context?.radar_capture?.trace_truncated===true)
     throw Error("RADAR_SNAPSHOT_INSUFFICIENT_FOR_REVIEW");
   if(qr.length!==q.length)throw Error("RADAR_QUESTIONS_REQUIRE_FULL_REVIEW");
  }
@@ -133,7 +133,7 @@ function panelHtml(row,draft={}){
  const ratings=new Map(saved.map(q=>[q.question_id,q])),missing=Array.isArray(draft.missing_questions)?draft.missing_questions:[];
  const reviewed=draft.review_state==="reviewed",audited=row?.status!=="pending",rev=Number(draft.revision||0);
  const concepts=conceptOptions(row).map(x=>[x,({comorbidities:"Comorbidades",allergies:"Alergias",medicines:"Medicações contínuas"}[x]||x)]);
- const canComplete=questions.length>0&&Array.isArray(row?.deidentified_core_context?.radar_capture?.items)&&!row?.deidentified_core_context?.radar_capture?.trace_truncated;
+ const canComplete=questions.length>0&&questions.every(x=>x.text_available)&&Array.isArray(row?.deidentified_core_context?.radar_capture?.items)&&!row?.deidentified_core_context?.radar_capture?.trace_truncated;
  const cards=questions.map((q,i)=>{
   const state=ratings.get(q.id)||{};
   const kind=q.priority==="critical"||q.red_flag?"Crítica":q.priority==="high"?"Importante":"Complementar";
@@ -149,7 +149,7 @@ function panelHtml(row,draft={}){
  const covered=ratings.size;
  return '<section class="ax-radar-v3" id="axRadarReviewV3" data-revision="'+rev+'">'+
  '<h3>Auditoria de perguntas do Radar</h3><p>Avalie cada pergunta conforme a queixa e os achados registrados. A necessidade de uma pergunta pode mudar com o contexto; esta revisão é humana, não uma regra automática.</p>'+
- '<div class="ax-radar-coverage-v4"><b>'+covered+' de '+questions.length+' classificadas</b><span>Original exibido quando disponível no snapshot desidentificado</span></div>'+
+ '<div class="ax-radar-coverage-v4"><b><span id="axRadarReviewCountV4">'+covered+'</span> de '+questions.length+' classificadas</b><span>Texto de cada pergunta obtido do snapshot desidentificado</span></div>'+
  (questions.length?'<div id="axRadarQuestionListV4" class="ax-radar-question-list-v4">'+cards+'</div>':
  '<p class="ax-radar-v3-note">Este caso não tem histórico suficiente de perguntas; não será possível afirmar que o Radar foi revisado integralmente.</p>')+
  (row?.deidentified_core_context?.radar_capture?.trace_truncated?'<p class="ax-radar-v3-note">Histórico truncado: não é possível concluir a auditoria integral deste Radar.</p>':"")+
