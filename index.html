@@ -2592,8 +2592,10 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <link rel="stylesheet" href="./nexa-radar.css?v=20260915">
 <link rel="stylesheet" href="./nexa-radar-dynamic-focus-v18.16.css?v=20261025-ui1">
 <script src="./nexa-radar-engine.js?v=20261024-core-history"></script>
-<script src="./nexa-radar-controller.js?v=20261024-core-history"></script>
+<script src="./nexa-radar-controller.js?v=20261025-core-audit-v3"></script>
 <script src="./nexa-core-audit-learning-v2.js?v=20261017"></script>
+<script src="./nexa-core-radar-review-v3.js?v=20261025-core-audit-v3"></script>
+<link rel="stylesheet" href="./nexa-core-radar-review-v3.css?v=20261025-core-audit-v3">
 <script src="./nexa-auth-session-v1.js?v=20261019"></script>
 <script src="./nexa-password-onboarding-v1.js?v=20261019"></script>
 <script>
@@ -2865,10 +2867,11 @@ async function loadCoreDatasetSummary(){
         const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
         const digest=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
         const manifest={
-          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',
+          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',radarReviewSchema:'nexa-core-radar-labels-v3',radarQuestionReviewSchema:'nexa-core-radar-question-audit-v4',
+          coreTrainingReady:false,splitUnit:'audit_case',patientGroupingValidated:false,
           exportedAt:new Date().toISOString(),caseCount:count,sha256:digest,
           batches,documentation:'docs/NEXA_CORE_COMMERCIAL_ARCHITECTURE.md',
-          warning:'A exportação usa identificadores pseudonimizados. Mantenha acesso restrito; esta exportação não comprova anonimização irreversível.'
+          warning:'Dados pseudonimizados: não são anonimização irreversível. A divisão atual por caso NÃO está validada por paciente. Este arquivo NÃO está liberado para treinar o NEXA Core; exige avaliação jurídica, de privacidade e validação clínica.'
         };
         const download=(blob,name)=>{
           const url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -5206,7 +5209,7 @@ window.NexaRadarController.mount({
   publish:state=>{radarState=state;window.radarState=state;window.dispatchEvent(new CustomEvent('nexa:radar-state',{detail:{state,reason:'context'}}));},
   persist:nexaPersistSession,
   retryTranscript:()=>{if(recording&&stream){stopRealtimeRadar({wipe:false});void startRealtimeRadar(stream);}},
-  analyze:async(context,signal)=>{const headers=await sessionHeaders();if(signal.aborted)throw new DOMException('Aborted','AbortError');const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeRadarPath,{method:'POST',headers,signal,body:JSON.stringify({transcript:context.transcript,clinical_context:context.fields,radar_contract:1,previous_state:window.nexaRadar?.snapshot(),app_version:APP_CONFIG.appVersion})});if(!r.ok)throw new Error('Radar indisponível');return r.json();}
+  analyze:async(context,signal)=>{const headers=await sessionHeaders();if(signal.aborted)throw new DOMException('Aborted','AbortError');const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeRadarPath,{method:'POST',headers,signal,body:JSON.stringify({transcript:context.transcript,clinical_context:context.fields,radar_contract:1,previous_state:{...window.nexaRadar?.snapshot(),questionTrace:undefined},app_version:APP_CONFIG.appVersion})});if(!r.ok)throw new Error('Radar indisponível');return r.json();}
 });
 window.nexaRadar.setOwner(currentProf?.id||'');
 
@@ -5304,5 +5307,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261025-conflict-safe-reset"></script>
+<script src="./nexa-hotfix.js?v=20261025-core-audit-v4-reset"></script>
 </body></html>

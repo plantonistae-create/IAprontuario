@@ -32,7 +32,7 @@ assert.ok(!layout.includes('MutationObserver')&&!layout.includes('setInterval'))
 for(const token of ['__NEXA_RECORD_DRAFT_HISTORY_V18_6_6__','window.nexaRefreshDraftHistory'])assert.ok(draft.includes(token));
 for(const token of ['__NEXA_MOBILE_SHELL_V18_6_7__','nexaMobileBottomNav','nexaMobileHeader'])assert.ok(mobile.includes(token));
 for(const token of ['__NEXA_MOBILE_FLOW_V18_8_1__','position:sticky!important'])assert.ok(mobileFlow.includes(token));
-for(const token of ['__NEXA_AUDITOR_EXACT_V18_9__','Fila de casos','submit_audit_review'])assert.ok(exact.includes(token));
+for(const token of ['__NEXA_AUDITOR_EXACT_V18_9__','Fila de casos','submit_nexa_audit_review_v4','save_nexa_radar_review_v4'])assert.ok(exact.includes(token));
 for(const token of ['__NEXA_AUDITOR_PANEL_QUEUE_V18_9_2__','get_audit_queue'])assert.ok(panelQueue.includes(token));
 for(const token of ['__NEXA_MEDICAL_LAYOUT_STATE_V18_9_3__','nexaReturnToMedicalModeStable'])assert.ok(medicalState.includes(token));
 for(const token of ['__NEXA_RADAR_STABLE_STATE_V18_9_4__','Disposição do PS'])assert.ok(radarStable.includes(token));

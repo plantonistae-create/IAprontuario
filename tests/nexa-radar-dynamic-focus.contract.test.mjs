@@ -33,9 +33,9 @@ assert.match(style,/body\[data-contextual-radar\] #realtimeRadarCard/);
 assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js[\s\S]*nexa-radar-dynamic-focus-v18\.16\.js/);
 assert.equal((loader.match(/nexa-radar-dynamic-focus-v18\.16\.js/g)||[]).length,1);
 assert.match(index,/nexa-radar-dynamic-focus-v18\.16\.css\?v=20261025-ui1/);
-assert.match(index,/nexa-hotfix\.js\?v=20261025-conflict-safe-reset/);
-assert.match(worker,/nexa-v18-15-0-conflict-safe-reset-20261025/);
-assert.match(worker,/nexa-hotfix\.js\?v=20261025-conflict-safe-reset/);
+assert.match(index,/nexa-hotfix\.js\?v=20261025-core-audit-v4-reset/);
+assert.match(worker,/nexa-v18-15-0-core-audit-v4-reset-20261025/);
+assert.match(worker,/nexa-hotfix\.js\?v=20261025-core-audit-v4-reset/);
 assert.equal(packageJson.version,'18.15.0','Radar UI update does not fork the app release');
 assert.match(psSource,/Falta para decidir/,'PS workflow preserved');
 for(const forbidden of [

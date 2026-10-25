@@ -1,0 +1,40 @@
+/* NEXA Core Radar audit fields, intentionally restricted to the audit workspace. */
+#axReview .ax-radar-v3{display:grid;gap:10px;border:1px solid var(--ax-line,#d3e2e8);border-radius:12px;padding:14px;margin-top:12px;background:var(--ax-panel,#fff);min-width:0}
+#axReview .ax-radar-v3 h3{font-size:14px;margin:0;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-v3 p{font-size:11px;line-height:1.5;margin:0;color:var(--ax-muted,#71818d)}
+#axReview .ax-radar-v3-reviewed{display:flex;gap:9px;align-items:flex-start;background:rgba(18,133,144,.08);border-radius:9px;padding:10px;font-weight:750;font-size:12px}
+#axReview .ax-radar-v3-reviewed input{width:18px;height:18px;accent-color:#0b8e98;flex:0 0 auto}
+#axReview .ax-radar-v3-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:8px}
+#axReview .ax-radar-v3-inputs label{display:grid;gap:4px;min-width:0;font-size:10px;font-weight:800}
+#axReview .ax-radar-v3-inputs select{max-width:100%;width:100%;min-height:42px;border:1px solid var(--ax-line,#c9d6dc);background:var(--ax-panel,#fff);color:var(--ax-text,#16314c);border-radius:8px;padding:7px;font-size:11px}
+#axReview .ax-radar-v3-tags{display:flex;flex-wrap:wrap;gap:7px}
+#axReview .ax-radar-v3-tags>span{border:1px solid #9dc6d0;border-radius:9px;padding:7px 9px;background:rgba(9,137,150,.08);font-size:11px;overflow-wrap:anywhere}
+#axReview .ax-radar-v3-tags button{background:transparent;color:inherit;border:0;min-width:30px;min-height:30px;cursor:pointer;font-weight:900}
+#axReview #axRadarSaveV3{min-height:42px;cursor:pointer}
+#axReview #axRadarStatusV3{font-weight:800;color:var(--ax-text,#17364e)}
+@media(max-width:760px){#axReview .ax-radar-v3-inputs{grid-template-columns:minmax(0,1fr)}#axReview .ax-radar-v3{padding:10px}}
+
+#axReview .ax-radar-coverage-v4{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--ax-line,#294452);background:var(--ax-panel2,#edf7fb);padding:12px;border-radius:10px}
+#axReview .ax-radar-coverage-v4 b{color:var(--ax-teal,#0a867b);font-size:13px}
+#axReview .ax-radar-coverage-v4 span{font-size:10px;color:var(--ax-muted,#5e7c89)}
+#axReview .ax-radar-question-list-v4{display:grid;gap:9px;max-height:680px;overflow:auto;overscroll-behavior:contain;padding:2px}
+#axReview .ax-radar-question-v4{min-width:0;border:1px solid var(--ax-line,#294452);border-left:3px solid #2189ae;background:var(--ax-panel2,#f4fafc);border-radius:11px;padding:12px;display:grid;gap:8px}
+#axReview .ax-radar-qheader-v4{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:10px;color:var(--ax-muted,#637887)}
+#axReview .ax-radar-qheader-v4 b{color:var(--ax-teal,#0b938b)}
+#axReview .ax-radar-question-v4>strong{color:var(--ax-text,#16314c);font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+#axReview .ax-radar-question-v4 p{font-size:11px;line-height:1.55;color:var(--ax-muted,#607a89);overflow-wrap:anywhere}
+#axReview .ax-radar-question-v4:has(select[data-radar-question-verdict] option[value="irrelevant"]:checked){border-left-color:#f29548}
+#axReview .ax-radar-question-v4:has(select[data-radar-question-verdict] option[value="relevant"]:checked){border-left-color:#16a883}
+#axReview .ax-radar-text-v4{display:grid;gap:5px;font-weight:800;font-size:11px;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-text-v4 textarea{width:100%;min-height:76px;max-width:100%;min-width:0;background:var(--ax-panel2,#f9fcff);border:1px solid var(--ax-line,#becfd8);border-radius:9px;padding:10px;font:12px/1.5 inherit;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-missing-list-v4{display:grid;gap:8px}
+#axReview .ax-radar-missing-v4{border:1px solid var(--ax-line,#c9dce5);border-left:3px solid var(--ax-teal,#058579);padding:10px;border-radius:9px;display:grid;gap:5px;overflow-wrap:anywhere}
+#axReview .ax-radar-missing-v4>div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#axReview .ax-radar-missing-v4 button{min-height:36px;min-width:36px;background:transparent;border:1px solid var(--ax-line,#d2e0e6);border-radius:8px;color:var(--ax-text,#17334a);cursor:pointer}
+#axReview .ax-radar-missing-v4 strong{font-size:12px}
+#axReview .ax-radar-missing-v4 small{color:var(--ax-muted,#647b88)}
+#axReview .ax-radar-extra-v4{border-top:1px solid var(--ax-line,#cee0e7);padding-top:10px}
+#axReview .ax-radar-extra-v4 summary{cursor:pointer;font-size:11px;font-weight:800;min-height:36px}
+#axReview .ax-radar-question-v4 :is(select,textarea):focus-visible,
+#axReview .ax-radar-text-v4 textarea:focus-visible{outline:3px solid var(--ax-cyan,#208ba1);outline-offset:2px}
+@media(max-width:760px){#axReview .ax-radar-question-list-v4{max-height:none;overflow:visible}#axReview .ax-radar-question-v4{padding:10px}}

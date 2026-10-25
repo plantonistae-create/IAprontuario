@@ -7,9 +7,19 @@
   const states={to_ask:'A perguntar',asked:'Perguntada · aguardando resposta',confirm:'A confirmar'};
   const cats={history:'História',red_flags:'Sinais de alarme',exam:'Exame físico',vitals:'Sinais vitais',risk:'Antecedentes / riscos',medications:'Medicações',contradiction:'Contradição',differential:'Diferencial'};
   function create(adapter){
-    let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
-    const listeners=new Set();
-    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger)};}
+    let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
+    let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
+    function traceQuestions(items){
+      for(const item of Array.isArray(items)?items:[]){
+        const id=String(item?.id||''),concept=String(item?.concept||'');
+        if(!/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/.test(id)||!concept||questionTrace.has(id))continue;
+        if(questionTrace.size>=150){questionTraceTruncated=true;continue;}
+        questionTrace.set(id,{id,concept,question:String(item.question||'').slice(0,360),
+          reason:String(item.reason||'').slice(0,360),priority:String(item.priority||'moderate'),
+          status:String(item.status||'to_ask'),redFlag:item.redFlag===true,category:String(item.category||'')});
+      }
+    }
+    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionTraceTruncated};}
     // A streaming transcript usually grows monotonically. Retain one in-flight
     // analysis when new completed utterances only append text, then refresh it.
     // Changing clinical fields, owner, or encounter still invalidates immediately.
@@ -28,7 +38,8 @@
         if(!(busy&&appendOnly(lastContext,context)))invalidate();
         lastKey=key;lastContext=JSON.parse(key);aiKey='';
       }
-      state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;
+      state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
+      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
@@ -49,7 +60,10 @@
         if(epoch!==revision||encounterAtStart!==encounter||
            (key!==JSON.stringify(current)&&!appendOnly(context,current)))return;
         if(!Array.isArray(result?.items))throw new Error('Resposta da IA incompatível com o Radar contextual.');
-        aiItems=result.items;observations=Array.isArray(result.observations)?result.observations:[];aiKey=key;
+        aiItems=result.items;observations=Array.isArray(result.observations)?result.observations:[];
+        const version=value=>typeof value==='string'&&/^[A-Za-z0-9._:-]{1,80}$/.test(value)?value:'unknown';
+        remoteMeta={provider:result.provider==='nexa-core'?'nexa-core':result.provider==='openai'?'openai':'unknown',model_version:version(result.model),evidence_version:version(result.evidence_library_version),prompt_version:'unknown'};
+        aiKey=key;
       }catch(e){if(epoch===revision){
         error=signal.aborted?'IA excedeu o tempo limite. Checagens locais continuam disponíveis.':'IA indisponível. Checagens locais continuam disponíveis.';
         aiKey=key; // Do not endlessly repeat a failing request without new evidence.
@@ -64,8 +78,16 @@
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
-    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;}recalculate();}
+    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
+      questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
+      for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
+        const id=String(x?.id||''),concept=String(x?.concept||'');
+        if(!/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;
+        questionTrace.set(id,{id,concept,question:String(x.question||'').slice(0,360),
+          reason:String(x.reason||'').slice(0,360),priority:String(x.priority||'moderate'),
+          status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});
+      }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
     return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}transcriptStatus=value==='live'&&transcriptIncomplete?'stale':value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};

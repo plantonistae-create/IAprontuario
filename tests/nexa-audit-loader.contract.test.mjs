@@ -27,7 +27,7 @@ assert.ok(guard.includes("reviewInflight"),'revisão concorrente precisa ser ded
 assert.ok(guard.includes("[CPF REMOVIDO]")&&guard.includes("[E-MAIL REMOVIDO]")&&guard.includes("[TELEFONE REMOVIDO]"),'defesa de desidentificação ausente');
 for(const token of ['createClient','persistSession:false','autoRefreshToken:false','bridgeFetch','client.rpc','window.sb=client'])assert.ok(compat.includes(token),`compatibilidade Supabase sem ${token}`);
 for(const token of ['Em revisão','Principais campos com correções','/^\\+\\d/'])assert.ok(uiIntegrity.includes(token),`integridade visual sem ${token}`);
-assert.ok(exact.includes("submit_audit_review"),'workspace deve continuar usando o backend de revisão existente');
+assert.ok(exact.includes("submit_nexa_audit_review_v4")&&exact.includes("save_nexa_radar_review_v4"),'workspace deve usar revisão atômica e salvar correções posteriores do Radar');
 assert.ok(panel.includes("get_audit_queue"),'painel deve continuar usando a fila existente');
 
 new Function(guard);new Function(compat);new Function(uiIntegrity);

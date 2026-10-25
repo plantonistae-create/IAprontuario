@@ -64,7 +64,7 @@ Deno.serve(async(req:Request)=>{
     const result=JSON.parse(outputText(await upstream.json()));
     const items=validate(result,catalog.map(c=>c.id),JSON.stringify(fields)+' '+String(body.transcript||''));
     const observations=validateObservations(result,catalog.map(c=>c.id),fields,String(body.transcript||''));
-    return json({items,observations,model,evidence_library_version:evidencePlan.library_version,transient:true,official_record:false});
+    return json({items,observations,model,provider:'openai',evidence_library_version:evidencePlan.library_version,transient:true,official_record:false});
    },
    validate:(value: unknown)=>value instanceof Response,
   });

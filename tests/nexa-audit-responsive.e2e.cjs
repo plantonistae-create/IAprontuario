@@ -128,7 +128,19 @@ function contrast(rgb1,rgb2){
       fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
       await page.screenshot({path:path.join(root,`test-results/audit-panel-${viewport.width}.png`),fullPage:true});
 
-      await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="queue"]')?.click());
+      // Synthetic question history exercises the reviewer flow across screen sizes.
+      await page.evaluate(()=>{
+        const x=window.__qa.auditRows[0].deidentified_core_context;
+        x.radar_capture={items:[
+          {id:'bp',concept:'bp',priority:'high',status:'to_ask',red_flag:false},
+          {id:'allergies',concept:'allergies',priority:'high',status:'to_ask',red_flag:false}
+        ]};
+        x.radar_learning.items=[
+          {id:'bp',concept:'bp',priority:'high',question:'Foi registrada a pressão arterial?',reason:'Sinais vitais relevantes'},
+          {id:'allergies',concept:'allergies',priority:'high',question:'Existem alergias conhecidas?',reason:'Histórico obrigatório'}
+        ];
+      });
+      await page.evaluate(async()=>{await window.nexaRefreshAuditExact?.();document.querySelector('#nexaAuditExact [data-ax-view="queue"]')?.click()});
       await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Fila de casos');
       const queue=await page.evaluate(()=>{
         const root=document.getElementById('nexaAuditExact');
@@ -149,6 +161,26 @@ function contrast(rgb1,rgb2){
       if(viewport.width<=900)assert.ok(queue.filtersScroll>=queue.filtersClient,'Mobile filters remain horizontally accessible');
 
       await page.screenshot({path:path.join(root,`test-results/audit-queue-${viewport.width}.png`),fullPage:true});
+
+      await page.locator('#nexaAuditExact .ax-row:not(.head) .ax-reviewbtn').first().click();
+      await page.locator('#axReview [data-ax-tab="radar"]').first().click();
+      await page.waitForSelector('#axRadarQuestionListV4 .ax-radar-question-v4');
+      assert.equal(await page.locator('#axRadarQuestionListV4 .ax-radar-question-v4').count(),2);
+      await page.locator('#axRadarQuestionListV4 [data-radar-question-verdict="bp"]').selectOption('irrelevant');
+      await page.locator('#axRadarQuestionListV4 [data-radar-question-reason="bp"]').selectOption('unrelated');
+      await page.locator('#axRadarQuestionListV4 [data-radar-question-verdict="allergies"]').selectOption('relevant');
+      assert.equal(await page.locator('#axRadarReviewCountV4').innerText(),'2');
+      await page.locator('#axRadarMissingConceptV4').selectOption('bp');
+      await page.locator('#axRadarMissingTextV4').fill('Há alterações de perfusão distal após o trauma?');
+      await page.locator('#axRadarMissingReasonV4').fill('Revisar perfusão de extremidade lesionada');
+      await page.locator('#axRadarMissingAddV4').click();
+      assert.equal(await page.locator('#axRadarReviewV3 .ax-radar-missing-v4').count(),1);
+      assert.equal(await page.locator('#axRadarQuestionListV4 [data-radar-question-verdict="bp"]').inputValue(),'irrelevant');
+      assert.equal(await page.locator('#axRadarQuestionListV4 [data-radar-question-verdict="allergies"]').inputValue(),'relevant');
+      await page.locator('#axRadarReviewedV3').check();
+      assert.equal(await page.locator('#axRadarReviewedV3').isChecked(),true);
+      await page.locator('#axReview [data-ax-back]').first().click();
+
 
       await page.evaluate(()=>document.querySelector('#nexaAuditExact [data-ax-view="audited"]')?.click());
       await page.waitForFunction(()=>document.querySelector('#axContent h1')?.textContent==='Auditados');
