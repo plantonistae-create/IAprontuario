@@ -131,6 +131,9 @@ begin
    from public.nexa_core_radar_reviews r;
 end;
 $$;
+-- Retire the legacy direct v3 writer so a client cannot assert "reviewed" without per-question checks.
+revoke all on function public.save_nexa_radar_review_v3(uuid,text,jsonb,jsonb,integer) from authenticated;
+revoke all on function public.submit_nexa_audit_review_v3(uuid,text,jsonb,text,text,jsonb,jsonb) from authenticated;
 revoke all on function public.save_nexa_radar_review_v4(uuid,text,jsonb,jsonb,integer,jsonb,jsonb) from public,anon;
 revoke all on function public.submit_nexa_audit_review_v4(uuid,text,jsonb,text,text,jsonb,jsonb,jsonb,jsonb) from public,anon;
 revoke all on function public.get_nexa_radar_reviews_v4() from public,anon;
