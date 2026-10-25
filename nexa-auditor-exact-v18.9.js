@@ -138,7 +138,7 @@ function auditClinicalDetails(c){
  return{core,plan,dest,protocols,radar}
 }
 function detailSection(title,value){return `<div class="ax-section"><strong>${esc(title)}</strong><div class="ax-original">${esc(pretty(value))}</div></div>`}
-function openCase(id){current=rows.find(r=>String(r.id)===String(id));if(!current)return;const saved=radarReviews.get(current.id);current._radarReview={review_state:saved?.review_state||'not_reviewed',labels:Array.isArray(saved?.labels)?saved.labels.map(x=>({...x})):[],question_reviews:Array.isArray(saved?.question_reviews)?saved.question_reviews.map(x=>({...x})):[],missing_questions:Array.isArray(saved?.missing_questions)?saved.missing_questions.map(x=>({...x})):[],revision:Number(saved?.revision||0)};current._edited={...physicianFields(current)};current._note=current.review_note||'';$('axRTitle').textContent=`Revisão de caso #${String(current.id).slice(0,5).toUpperCase()}`;$('axRMeta').textContent=`${date(current.submitted_at)} · Radar ${coverage(current)}% · ${mode(current)} · ${statusText(current.status)}`;$('axReview').classList.add('open');renderReview('documentacao')}
+function openCase(id){$('axReviewSuccessV4')?.remove();current=rows.find(r=>String(r.id)===String(id));if(!current)return;const saved=radarReviews.get(current.id);current._radarReview={review_state:saved?.review_state||'not_reviewed',labels:Array.isArray(saved?.labels)?saved.labels.map(x=>({...x})):[],question_reviews:Array.isArray(saved?.question_reviews)?saved.question_reviews.map(x=>({...x})):[],missing_questions:Array.isArray(saved?.missing_questions)?saved.missing_questions.map(x=>({...x})):[],revision:Number(saved?.revision||0)};current._edited={...physicianFields(current)};current._note=current.review_note||'';$('axRTitle').textContent=`Revisão de caso #${String(current.id).slice(0,5).toUpperCase()}`;$('axRMeta').textContent=`${date(current.submitted_at)} · Radar ${coverage(current)}% · ${mode(current)} · ${statusText(current.status)}`;$('axReview').classList.add('open');renderReview('documentacao')}
 function renderReview(t){
  if(!current)return;
  tab=t==='decisao'?'documentacao':t;
@@ -218,7 +218,23 @@ async function decide(decision){if(!current||current.status!=='pending'){alert('
  const p=h.buildPayload(current,decision==='discarded'?'not_reviewed':draft.review_state,decision==='discarded'?[]:draft.labels,0,decision==='discarded'?[]:draft.question_reviews,decision==='discarded'?[]:draft.missing_questions);
  const version=await rpc('submit_nexa_audit_review_v4',{p_case_id:current.id,p_decision:decision,p_corrected_fields:decision==='corrected'?(current._edited||physicianFields(current)):null,p_note:note||null,p_radar_review_state:p.review_state,p_radar_labels:p.labels,p_capture_meta:p.capture_meta,p_question_reviews:p.question_reviews,p_missing_questions:p.missing_questions});
  current.status=decision;if(decision!=='discarded')radarReviews.set(current.id,{...p,revision:Number(version)});showSuccess(decision)}catch(e){alert(e.message)}finally{btns.forEach(b=>b.disabled=false)}}
-function showSuccess(decision){const msg=decision==='discarded'?'Caso descartado e excluído do dataset utilizável.':decision==='corrected'?'Correções salvas; a versão original foi preservada separadamente.':'Caso aprovado; a versão auditada foi registrada no NEXA Core.';$('axReview').innerHTML=`<div class="ax-success"><div><div class="circle">✓</div><h2>Auditoria registrada</h2><p>${msg}</p><button class="ax-greenbtn" style="height:42px;padding:0 24px" onclick="document.getElementById('axReview').classList.remove('open');window.nexaRefreshAuditExact?.()">Próximo caso</button></div></div>`;setTimeout(()=>{ensureReview()},0)}
+function showSuccess(decision){
+ const msg=decision==='discarded'?'Caso descartado, sem incluir suas informações no conjunto de aprendizado.':
+  decision==='corrected'?'Correções salvas; dados originais e revisados preservados separadamente.':
+  'Caso aprovado; auditoria clínica registrada com o estado da avaliação Radar.';
+ // Preserve #axReview and its native event handlers. A previous success screen replaced
+ // the entire audit drawer DOM, which broke opening the next case or post-audit revision.
+ let panel=$('axReviewSuccessV4');
+ if(!panel){panel=document.createElement('div');panel.id='axReviewSuccessV4';panel.className='ax-success';
+  panel.style.cssText='position:fixed;inset:0;z-index:68500;display:grid;place-items:center;background:var(--ax-bg);padding:18px;';
+  $('axReview').append(panel)}
+ panel.innerHTML='<div><div class="circle">✓</div><h2>Auditoria registrada</h2><p>'+esc(msg)+
+  '</p><button type="button" id="axAuditNextV4" class="ax-greenbtn" style="min-height:44px;padding:0 24px">Próximo caso</button></div>';
+ panel.querySelector('#axAuditNextV4').addEventListener('click',()=>{
+  panel.remove();$('axReview').classList.remove('open');current=null;void load(activeView);
+ },{once:true});
+}
+
 function closeDrawer(){q('#nexaMobileDrawer')?.classList.remove('open');q('#nexaMobileDrawerOverlay')?.classList.remove('open');document.documentElement.classList.remove('nm-drawer-lock')}
 function hideLegacy(){['nexaAuditWorkspace','coreAuditModal','auditModal'].forEach(id=>{const el=$(id);if(el){el.classList.remove('open','show');el.hidden=true;el.style.display='none'}})}
 function open(){if(!privileged()){alert('Auditoria disponível para administrador/revisor.');return}installStyle();ensure();hideLegacy();closeDrawer();$('nexaAuditExact').classList.add('open');document.documentElement.style.overflow='hidden';load()}
