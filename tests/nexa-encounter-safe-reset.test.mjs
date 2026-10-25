@@ -8,7 +8,7 @@ const UUID='11111111-1111-4111-8111-111111111111',WHO='doctor-A';
 function fixture({syncState='conflict',confirmSequence=[true,true],getFails=false,outboxFails=false,modifySaved=false,partial=false,locked=false}={}){
  const rows=new Map(),handlers=new Map(),toasts=[],prompts=[];
  let cleared=0,rotated=0,started=0,flushed=0,remoteSends=0;
- const fields={queixa_principal:partial?'':"Dor torácica",hda:partial?'HDA curta':'Dor torácica iniciada há cerca de duas horas, acompanhada por familiar.',comorbidades:'HAS',antecedentes:'',medicacoes:'',alergias:'',hipotese_diagnostica:'Dor torácica',orientacoes_alta:'',sugestoes_perguntas:'',exame_fisico:'Sem sinais de desconforto.',sinais_vitais:'',conduta:'ECG e reavaliação'};
+ const fields={queixa_principal:partial?'':"Dor torácica",hda:partial?'HDA curta':'Dor torácica iniciada há cerca de duas horas, acompanhada por familiar.',comorbidades:partial?'':'HAS',antecedentes:'',medicacoes:'',alergias:'',hipotese_diagnostica:partial?'':'Dor torácica',orientacoes_alta:'',sugestoes_perguntas:'',exame_fisico:partial?'':'Sem sinais de desconforto.',sinais_vitais:'',conduta:partial?'':'ECG e reavaliação'};
  let stored=null,encounter=UUID;
  const resetButton={onclick:()=>{
    cleared++;
@@ -66,7 +66,7 @@ function fixture({syncState='conflict',confirmSequence=[true,true],getFails=fals
  api.setStoreAdapter({
   get:async id=>rows.has(id)?structuredClone(rows.get(id)):null,
   put:async item=>{if(outboxFails)throw Error('SIMULATED_INDEXEDDB_WRITE_FAILURE');rows.set(item.idempotency_key,structuredClone(item));return structuredClone(item)},
-  all:async()=>[...rows.values()].map(structuredClone)
+  all:async()=>[...rows.values()].map(item=>structuredClone(item))
  });
  if(locked){
    rows.set(UUID+':final-v1',{idempotency_key:UUID+':final-v1',source_consultation_id:UUID,
