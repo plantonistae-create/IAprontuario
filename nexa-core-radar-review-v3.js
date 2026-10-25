@@ -163,6 +163,7 @@ function panelHtml(row,draft={}){
  '<h3>Perguntas que deveriam ter sido feitas</h3><p>Escreva uma pergunta genérica, sem nome, data exata, documento ou outra identificação do paciente. A necessidade clínica depende do caso.</p>'+
  '<div class="ax-radar-v3-inputs"><label>Conceito<select id="axRadarMissingConceptV4">'+opt(concepts)+'</select></label>'+
  '<label>Prioridade<select id="axRadarMissingPriorityV4">'+opt(PRIORITIES,"high")+'</select></label></div>'+
+ '<label class="ax-radar-text-v4">Conceito não listado (opcional)<input type="text" id="axRadarMissingCustomConceptV4" maxlength="64" pattern="[a-z][a-z0-9_]*" placeholder="Ex.: neurovascular; letras minúsculas, sem espaço"></label>'+ 
  '<label class="ax-radar-text-v4">Pergunta proposta<textarea id="axRadarMissingTextV4" maxlength="240" placeholder="Ex.: Há alteração de sensibilidade distal ao trauma?"></textarea></label>'+
  '<label class="ax-radar-text-v4">Por que seria relevante? (opcional)<textarea id="axRadarMissingReasonV4" maxlength="240" placeholder="Justificativa clínica sem dados identificáveis"></textarea></label>'+
  '<button type="button" class="ax-reviewbtn" id="axRadarMissingAddV4">+ Adicionar pergunta faltante</button>'+
