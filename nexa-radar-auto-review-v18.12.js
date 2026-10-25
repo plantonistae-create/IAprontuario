@@ -154,12 +154,12 @@ function renderMetrics(state){
 }
 function renderNext(state){
  const host=$('nexaNextBest');if(!host)return;
- const items=Array.isArray(state?.items)?state.items:[],item=items[0],copy=displayQuestion(item);
+ const items=Array.isArray(state?.items)?state.items:[],item=items.find(i=>i.status!=='asked'),copy=displayQuestion(item);
  if(!copy){host.innerHTML='<div class="nexa-next-kicker">Próxima pergunta</div><h3>Nenhuma pergunta prioritária no momento.</h3><p>Continue a consulta normalmente. O Radar volta a priorizar se surgir nova lacuna relevante.</p>';return}
  host.innerHTML=`<div class="nexa-next-kicker">${item.status==='confirm'?'A confirmar':'Próxima melhor pergunta'}</div><h3>${esc(copy.title)}</h3><p>${esc(copy.reason)}</p><p class="nexa-next-how"><strong>Forma sugerida:</strong> “${esc(copy.suggested)}”</p>`;
 }
 function renderPriorities(state){
- const host=$('nexaPriorityList');if(!host)return;const items=(state?.items||[]).slice(1,5);
+ const host=$('nexaPriorityList');if(!host)return;const items=(state?.items||[]).filter(i=>i.status!=='asked').slice(1,5);
  host.innerHTML=items.length?items.map(i=>`<div class="nexa-priority-item" data-priority="${esc(i.priority)}"><b>${esc(conceptName(i.concept))}</b><small>${i.status==='confirm'?'A confirmar':i.priority==='critical'?'Essencial agora':i.priority==='high'?'Importante':'Depois'}</small></div>`).join(''):'<div class="nexa-priority-item"><b>Sem outras pendências prioritárias</b><small>O Radar continua acompanhando a conversa.</small></div>';
 }
 function parseVital(id,quote){
