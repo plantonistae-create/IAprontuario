@@ -32,7 +32,8 @@ const isObj=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const safeValue=v=>typeof v==='string'&&valid.test(v)?v:'';
 function conceptOptions(caseRow){
  const radar=caseRow?.deidentified_core_context?.radar_learning||{};
- const items=Array.isArray(radar.items)?radar.items:[];
+ const captured=caseRow?.deidentified_core_context?.radar_capture;
+ const items=Array.isArray(radar.items)&&radar.items.length?radar.items:(Array.isArray(captured?.items)?captured.items:[]);
  const values=new Set(CORE_IDS);
  for(const item of items){
   const value=String(item?.concept||item?.id||'');
@@ -45,13 +46,14 @@ function snapshotMeta(row){
  const source=isObj(context.provenance)?context.provenance:{};
  const snapshot=isObj(context.audit_submission_snapshot)?context.audit_submission_snapshot:{};
  const radar=isObj(context.radar_learning)?context.radar_learning:{};
+ const captured=isObj(context.radar_capture)?context.radar_capture:{};
  const props={
-  engine_version:radar.engine_version||source.radar_engine_version||'unknown',
-  provider:radar.provider||source.radar_provider||'unknown',
-  model_version:radar.model_version||source.radar_model_version||'unknown',
-  prompt_version:radar.prompt_version||source.radar_prompt_version||'unknown',
-  evidence_version:radar.evidence_version||source.evidence_version||'unknown',
-  frontend_version:snapshot.frontend_version||source.app_version||'unknown'
+  engine_version:captured.engine_version||radar.engine_version||source.radar_engine_version||'unknown',
+  provider:captured.provider||radar.provider||source.radar_provider||'unknown',
+  model_version:captured.model_version||radar.model_version||source.radar_model_version||'unknown',
+  prompt_version:captured.prompt_version||radar.prompt_version||source.radar_prompt_version||'unknown',
+  evidence_version:captured.evidence_version||radar.evidence_version||source.evidence_version||'unknown',
+  frontend_version:captured.frontend_version||snapshot.frontend_version||source.app_version||'unknown'
  };
  const meta={};for(const key of META_KEYS)meta[key]=safeValue(props[key])||'unknown';
  return meta;
@@ -77,7 +79,8 @@ function buildPayload(row,reviewState,labels,expectedRevision=0){
  if(!Number.isInteger(expectedRevision)||expectedRevision<0)throw Error('RADAR_REVIEW_REVISION_INVALID');
  const l=sanitizeLabels(labels,conceptOptions(row));
  const radarItems=row?.deidentified_core_context?.radar_learning?.items;
- if(reviewState==='reviewed'&&(!Array.isArray(radarItems)||!radarItems.length))
+ const captureItems=row?.deidentified_core_context?.radar_capture?.items;
+ if(reviewState==='reviewed'&&(!Array.isArray(radarItems)||!radarItems.length)&&(!Array.isArray(captureItems)||!captureItems.length))
    throw Error('RADAR_SNAPSHOT_INSUFFICIENT_FOR_REVIEW');
  if(reviewState==='not_reviewed'&&l.length)throw Error('RADAR_REVIEW_NEEDS_CONFIRMATION');
  return Object.freeze({schema_version:SCHEMA,
@@ -89,8 +92,8 @@ function optionsHtml(options,selected=''){
 }
 function panelHtml(row,draft){
  const concepts=conceptOptions(row);
- const src=Array.isArray(row?.deidentified_core_context?.radar_learning?.items)
-  ? row.deidentified_core_context.radar_learning.items.length:0;
+ const src=Array.isArray(row?.deidentified_core_context?.radar_learning?.items)&&row.deidentified_core_context.radar_learning.items.length
+  ? row.deidentified_core_context.radar_learning.items.length:Number(row?.deidentified_core_context?.radar_capture?.items?.length||0);
  const isReviewed=draft?.review_state==='reviewed';
  const labels=Array.isArray(draft?.labels)?draft.labels:[];
  const archive=row?.status!=='pending',revision=Math.max(0,Number(draft?.revision||0));
