@@ -64,8 +64,8 @@ test("Signed-off metadata can be exported, operational clicks never become clini
 });
 test("Atomic database reviewer workflow is granted only to authenticated reviewers and requires versions",()=>{
  const sql=read("supabase/migrations/20261025150000_nexa_core_radar_reviews_v3.sql");
- for(const token of ["submit_nexa_audit_review_v4","save_nexa_radar_review_v4",
-  "get_nexa_radar_reviews_v4","get_nexa_radar_readiness_v3",
+ for(const token of ["submit_nexa_audit_review_v3","save_nexa_radar_review_v3",
+  "get_nexa_radar_reviews_v3","get_nexa_radar_readiness_v3",
   "p_expected_revision","RADAR_REVIEW_REVISION_CONFLICT","RADAR_CLINICAL_REVIEW_REQUIRED",
   "nexa_core_radar_review_events","nexa_core_radar_reviews",
   "grant execute on function public.submit_nexa_audit_review_v3",
