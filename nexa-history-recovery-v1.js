@@ -116,10 +116,12 @@ async function refresh(force=false){
      const current=await api.get(row.encounter_id);
      if(!current||current.owner_user_id!==p.id)throw new Error('REGISTRO_LOCAL_INDISPONIVEL');
      const result=await api.syncOne(current);
-     if(result.conflict)status.textContent='Versões divergentes: revise antes de enviar.';
-     else if(result.error)status.textContent='Sincronização pendente: '+String(result.error);
-     else status.textContent='Sincronização verificada.';
+     const latest=await api.get(row.encounter_id);
      await refreshAfterAction();
+     if(result.conflict||latest?.sync_state==='conflict')status.textContent='Versões divergentes: revise antes de enviar.';
+     else if(result.error)status.textContent='Sincronização pendente: '+String(result.error);
+     else if(latest?.sync_state==='synced')status.textContent='Consulta confirmada no servidor.';
+     else status.textContent='Consulta preservada localmente; envio ao servidor ainda não confirmado.';
     }catch(error){status.textContent='Envio não confirmado: '+String(error?.message||error)}
     finally{retry.disabled=false}
    };
@@ -138,8 +140,8 @@ async function refresh(force=false){
      const result=await out.submitRemoteEncounter(row,auth);
      if(!result.sent)throw new Error(result.error||'AUDITORIA_NAO_CONFIRMADA');
      confirmedInSession.add(row.encounter_id);
-     status.textContent='Servidor confirmou o envio do caso à auditoria.';
      await refreshAfterAction();
+     status.textContent='Servidor confirmou o envio do caso à auditoria.';
     }catch(error){status.textContent='Auditoria pendente: '+String(error?.message||error)}
     finally{audit.disabled=false}
    };
