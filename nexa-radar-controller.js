@@ -43,7 +43,7 @@
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
-        aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(650,5000-(Date.now()-lastRequestAt)));
+        aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(300,1500-(Date.now()-lastRequestAt)));
       }
       return state;
     }
@@ -90,7 +90,7 @@
       }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}transcriptStatus=value==='live'&&transcriptIncomplete?'stale':value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
+    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
     const api=create(adapter),q=id=>document.getElementById(id);
