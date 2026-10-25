@@ -29,7 +29,7 @@ export function sanitizeRadarCapture(value){
   prompt_version:string(src.prompt_version),
   evidence_version:string(src.evidence_version),
   frontend_version:string(src.frontend_version),
-  items,question_count:items.length,trace_truncated:entries.length>150,
+  items,question_count:items.length,trace_truncated:src.trace_truncated===true||entries.length>150,
   raw_transcript_saved:false,clinical_ground_truth:false
  });
 }
