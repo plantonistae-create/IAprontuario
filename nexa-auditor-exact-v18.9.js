@@ -169,6 +169,7 @@ function renderReview(t){
 function radarMessage(msg){const el=$('axRadarStatusV3');if(el)el.textContent=msg}
 function radarAdd(){
  const h=window.NexaCoreRadarReviewV3;if(!h||!current)return;
+ if(current._radarReview?.review_state!=='reviewed'){radarMessage('Conclua a avaliação de todas as perguntas antes de classificar falhas adicionais.');return;}
  try{
   const labels=[...(current._radarReview.labels||[]),{concept:$('axRadarConceptV3').value,issue:$('axRadarIssueV3').value,outcome:$('axRadarOutcomeV3').value}];
   current._radarReview.labels=h.sanitizeLabels(labels,h.conceptOptions(current));
