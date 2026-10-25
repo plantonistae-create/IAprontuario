@@ -205,7 +205,7 @@ function radarAddMissing(){
  try{
   const missing=[...(current._radarReview.missing_questions||[]),{
    question:$('axRadarMissingTextV4')?.value||'',
-   concept:$('axRadarMissingConceptV4')?.value||'',
+   concept:($('axRadarMissingCustomConceptV4')?.value||'').trim()||$('axRadarMissingConceptV4')?.value||'',
    priority:$('axRadarMissingPriorityV4')?.value||'high',
    rationale:$('axRadarMissingReasonV4')?.value||''
   }];
