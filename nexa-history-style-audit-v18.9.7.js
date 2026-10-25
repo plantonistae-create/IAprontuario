@@ -65,7 +65,31 @@ function historyHost(){return q('.nexa-stage-view[data-stage="history"]')||$('wo
 function historyVisible(){const legacy=q('.nexa-stage-view[data-stage="history"]');if(legacy?.classList.contains('active')&&!legacy.hidden)return true;return !!($('workspaceHistoryPane')?.classList.contains('active')&&document.body.classList.contains('nexa-workspace-only'))}
 function ensureHistory(){const host=historyHost();if(!host)return null;let root=$('nexa197History');if(!root){root=document.createElement('section');root.id='nexa197History';root.innerHTML=`<div class="n197-head"><div><span style="font-size:9px;font-weight:900;letter-spacing:.12em;color:var(--nf-teal,var(--accent))">HISTÓRICO</span><h2>Consultas dos últimos 7 dias</h2><p>Casos salvos neste perfil. Uma cópia local protege atendimentos até a sincronização.</p></div><button class="n197-btn" id="n197Refresh">Atualizar</button></div><div class="n197-search"><input id="n197Search" type="search" inputmode="search" autocomplete="off" placeholder="Pesquisar por data, CID, QP, HDA, diagnóstico ou conduta" aria-label="Pesquisar no histórico"></div><div class="n197-status" id="n197Status"></div><div class="n197-list" id="n197List"></div>`;host.prepend(root);$('n197Refresh').onclick=()=>refreshHistory(true)}else if(root.parentElement!==host)host.prepend(root);const search=$('n197Search');if(search&&!search.dataset.nexaBound){search.dataset.nexaBound='1';search.addEventListener('input',()=>{clearTimeout(historySearchTimer);historySearchTimer=setTimeout(renderHistoryRows,150)})}qa('#nexaSevenDayHistory,#nexaHistory196').forEach(x=>x.style.setProperty('display','none','important'));if(host.id==='workspaceHistoryPane'){[$('historyHead'),$('historyBody')].filter(Boolean).forEach(x=>x.style.setProperty('display','none','important'))}return root}
 function reopen(r){try{if(typeof fill==='function')fill(r.fields||{});try{activeHistoryId=r._local_pending?null:r.id}catch{};try{lastProcessedMeta=r.processing_meta||{}}catch{};void window.nexaEncounterAutosave18101?.adoptExisting?.(r);q('#nfSide [data-go="summary"]')?.click()||q('#nexaMobileBottomNav [data-mobile-stage="summary"]')?.click();toast('Consulta reaberta.')}catch(e){console.warn('NEXA_HISTORY_REOPEN_FAILED',e?.name||'Error');if(window.__qa)console.warn('NEXA_TEST_REOPEN_CAUSE',String(e?.message||'').slice(0,130));if(window.__qa)console.warn('NEXA_TEST_REOPEN_STACK',String(e?.stack||'').split('\n').slice(0,5).join('|').slice(0,650));toast('Não foi possível reabrir esta consulta.',true)}}
-async function syncLocalPending(){const c=client(),p=prof();if(!c||!p?.id)return;for(const r of localRows().filter(x=>x._local_pending)){try{let res=await c.from('consultation_history').upsert({...r,user_id:p.id,_local_pending:undefined},{onConflict:'id'});if(!res.error)mirrorRow({...r,_local_pending:false})}catch{}}}
+async function syncLocalPending(){
+ const c=client(),p=prof();if(!c||!p?.id)return;
+ for(const r of localRows().filter(x=>x._local_pending&&x.id)){
+  try{
+   // The legacy local mirror must never overwrite a canonical encounter.
+   // Unconditional upsert raced with versioned encounter autosave.
+   const {data:existing,error:readError}=await c.from('consultation_history')
+     .select('id,fields').eq('id',r.id).eq('user_id',p.id).maybeSingle();
+   if(readError)continue;
+   if(existing){
+    // Mark as synchronized ONLY if the record really matches.
+    if(JSON.stringify(existing.fields||{})===JSON.stringify(r.fields||{}))
+      mirrorRow({...r,_local_pending:false});
+    continue;
+   }
+   const payload={id:r.id,user_id:p.id,fields:r.fields||{},status:'draft',
+     created_at:r.created_at||new Date().toISOString(),
+     updated_at:r.updated_at||new Date().toISOString(),
+     ...(r.consent_recorded_at?{consent_recorded_at:r.consent_recorded_at}:{})};
+   const inserted=await c.from('consultation_history').insert(payload);
+   if(!inserted.error)mirrorRow({...r,_local_pending:false});
+   // An insert collision is preserved locally for manual reconciliation.
+  }catch{}
+ }
+}
 async function backfillStyle(){return}
 async function refreshHistory(force=false){if(!force&&!historyVisible())return;if(historyRefreshPromise)return historyRefreshPromise;historyRefreshPromise=(async()=>{const root=ensureHistory();if(!root)return;importNativeMemory();await syncLocalPending();let db=[];try{db=await dbRows()}catch(e){console.warn('NEXA v18.9.7 history DB',e)}db.forEach(r=>mirrorRow({...r,_local_pending:false}));const cutoff=Date.now()-7*864e5,all=[...db,...localRows().filter(r=>new Date(r.created_at||r.updated_at||0).getTime()>=cutoff)];const map=new Map();all.forEach(r=>map.set(String(r.id),r));historyRowsCache=[...map.values()].sort((a,b)=>new Date(b.created_at||b.updated_at||0)-new Date(a.created_at||a.updated_at||0));renderHistoryRows();backfillStyle(historyRowsCache).then(()=>{if($('nexa197StyleModal')?.classList.contains('open'))refreshStyle()})})();try{return await historyRefreshPromise}finally{historyRefreshPromise=null}}
 async function styleRows(){const p=prof(),c=client();if(!p?.id||!c)throw new Error('Sessão clínica ainda não está pronta.');let r=await c.from('style_examples').select('*').eq('user_id',p.id).order('updated_at',{ascending:false});if(r.error)r=await c.from('style_examples').select('id,title,fields,created_at,updated_at').eq('user_id',p.id).order('updated_at',{ascending:false});if(r.error)throw r.error;return r.data||[]}
