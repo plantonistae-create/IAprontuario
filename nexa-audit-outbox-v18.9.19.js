@@ -111,7 +111,7 @@ async function beforeReset(el){
   const fields=collect(),hasClinical=Object.values(fields).some(v=>String(v||'').trim()),
         hasValid=valid(fields);
   const recorder=String(document.getElementById('recBtn')?.dataset?.recordingState||'');
-  if(['recording','paused'].includes(recorder))throw new Error('FINALIZE_GRAVACAO_ANTES_DE_LIMPAR');
+  if(['recording','paused','stopped'].includes(recorder))throw new Error('TRANSCRIVA_OU_FINALIZE_O_AUDIO_ANTES_DE_LIMPAR');
   if(hasClinical&&typeof window.confirm==='function'&&!window.confirm(
    'Iniciar novo atendimento? A consulta atual será preservada localmente antes de limpar.'))return;
   const autosave=window.nexaEncounterAutosave18101;
