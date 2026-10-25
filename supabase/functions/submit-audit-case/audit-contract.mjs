@@ -23,7 +23,7 @@ export function safeCoreContext(input={}){
     hypothesis_validation:{status:String(hv.status||'').slice(0,40),ai:String(hv.ai||'').slice(0,4000),final:String(hv.final||'').slice(0,4000),cid:String(hv.cid||'').slice(0,80),source:String(hv.source||'').slice(0,120)},
     clinical_plan:isPlainObject(input.clinical_plan)?input.clinical_plan:{},
     protocol_usage:cleanObjectArray(input.protocol_usage,24),
-    radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts),items:cleanObjectArray(radar.items,100),answers:safeObject(radar.answers)},
+    radar_learning:{chief_complaint:String(radar.chief_complaint||'').slice(0,1500),covered:cleanStringArray(radar.covered),missing:cleanStringArray(radar.missing),questions:cleanStringArray(radar.questions),alerts:cleanStringArray(radar.alerts),items:cleanObjectArray(radar.items,150),answers:safeObject(radar.answers)},
     radar_feedback:sanitizeRadarFeedback(input.radar_feedback),
     destination:{recommended:String(destination.recommended||'').slice(0,40),final:String(destination.final||'').slice(0,40),status:String(destination.status||'').slice(0,40),source:String(destination.source||'').slice(0,120),updated_at:String(destination.updated_at||'').slice(0,80),recommendation_stale:!!destination.recommendation_stale,reason:String(destination.reason||'').slice(0,2000)},
     speaker_attribution:{
