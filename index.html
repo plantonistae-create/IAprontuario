@@ -3733,7 +3733,7 @@ async function drainRadarChunks(revision){
 function radarAudioMime(){return ['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(type=>MediaRecorder.isTypeSupported(type))||'';}
 function startRadarChunkFallback(mediaStream,revision=radarTransportRevision){
   if(radarFallbackActive||!recording||revision!==radarTransportRevision)return;
-  radarFallbackActive=true;clearTimeout(radarConnectTimeout);radarTransportStatus('stale');
+  radarFallbackActive=true;clearTimeout(radarConnectTimeout);
   if(realtimeDc){realtimeDc.onmessage=null;realtimeDc.onclose=null;}try{realtimeDc?.close();realtimePc?.close();}catch{}realtimeDc=null;realtimePc=null;
   radarTransportStatus(sessionPaused?'paused':'connecting');
   const loop=()=>{

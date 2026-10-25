@@ -24,6 +24,22 @@ function sameLocalRevision(current,expected){
 }
 async function putSyncResultIfCurrent(original,result){return store.comparePut(original,result)}
 
+/* An in-flight save may succeed while the clinician enters newer data.
+   Propagate only the server version from OUR confirmed write, not old fields. */
+async function carryForwardOwnAck(original,remoteVersion){
+ if(!Number.isInteger(remoteVersion)||remoteVersion<0)return false;
+ for(let retry=0;retry<3;retry++){
+  const latest=await store.get(original.encounter_id);
+  if(!latest||latest.owner_user_id!==original.owner_user_id||
+     latest.sync_state!=='pending'||['audited','discarded'].includes(latest.encounter_state)||
+     Number(latest.local_revision||0)<=Number(original.local_revision||0)||
+     Number(latest.sync_version||0)!==Number(original.sync_version||0))return false;
+  const updated={...latest,sync_version:remoteVersion,server_updated_at:nowIso(),next_attempt_at:null};
+  if(await store.comparePut(latest,updated))return true;
+ }
+ return false;
+}
+
 
 function client(){try{return window.nexaClinicalSupabase18101||null}catch{return null}}
 function prof(){try{return window.nexaClinicalRuntime18121?.getProfile?.()||window.currentProf||(typeof currentProf!=='undefined'?currentProf:null)}catch{return window.currentProf||null}}
@@ -165,6 +181,8 @@ async function syncOne(rec){
  if(!rec||rec.owner_user_id!==owner())return{skipped:true};
  if(rec.sync_state==='conflict')return{sent:false,conflict:true,item:rec};
  if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='locked')return{locked:true,item:rec};
+ // A blank new encounter is a local placeholder, not a server-side consultation.
+ if(rec.encounter_state==='draft'&&!meaningful(rec.fields)&&!rec.audit_ready_at)return{sent:false,empty:true,item:rec};
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
  const attempt=Number(rec.attempt_count||0)+1;
  try{
@@ -206,7 +224,10 @@ async function syncOne(rec){
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
    const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};
-   if(!(await putSyncResultIfCurrent(rec,saved)))return{sent:false,stale:true};window.dispatchEvent(new CustomEvent(terminal?'nexa:encounter-locked':'nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:!terminal,locked:terminal,item:saved};
+   if(!(await putSyncResultIfCurrent(rec,saved))){
+   if(!terminal)await carryForwardOwnAck(rec,Number(data?.sync_version));
+   return{sent:false,stale:true};
+  }window.dispatchEvent(new CustomEvent(terminal?'nexa:encounter-locked':'nexa:encounter-synced',{detail:{encounter_id:rec.encounter_id,state:saved.encounter_state}}));return{sent:!terminal,locked:terminal,item:saved};
  }catch(error){
    try{
      const {data:remote}=await c.from('consultation_history').select('id,encounter_id,encounter_state,updated_at,sync_version,status').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();

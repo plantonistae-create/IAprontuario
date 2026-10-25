@@ -207,3 +207,42 @@ test('14 stale open form after keep-server cannot auto overwrite remote',async()
  await a.api.preserve('input');
  assert.equal((await a.api.get(id)).sync_state,'conflict');assert.equal(w.remote.get(id).fields.hda,'Nova remota');
 });
+
+test('15 blank new encounter remains local instead of flooding server with empty draft',async()=>{
+ const w=world(),a=w.browser(),id=uuid();
+ const blank=local(id,{queixa_principal:'',hda:'',exame_fisico:'',conduta:''});
+ await a.api.put(blank);
+ const result=await a.api.syncOne(blank);
+ assert.equal(result.empty,true);
+ assert.equal(w.writes(),0);
+ assert.equal(w.remote.has(id),false);
+ const stored=await a.api.get(id);
+ assert.equal(stored.sync_state,'pending');
+});
+test('16 same-device edit while previous server save is in-flight must not become a false conflict',async()=>{
+ const w=world(),a=w.browser(),id=uuid();
+ const initial=local(id,{hda:'Anamnese sintética inicial.'});
+ await a.api.put(initial);
+ await a.api.syncOne(initial);
+ const prior=await a.api.get(id);
+ const first={...prior,fields:{hda:'Primeira edição do médico.'},
+  sync_state:'pending',local_revision:prior.local_revision+1,
+  last_client_saved_at:new Date(Date.now()+1000).toISOString()};
+ await a.api.put(first);
+ w.slow(35);
+ const inflight=a.api.syncOne(first);
+ await new Promise(resolve=>setTimeout(resolve,5));
+ const newer={...first,fields:{hda:'Primeira edição do médico. Segunda edição enquanto sincroniza.'},
+  local_revision:first.local_revision+1,last_client_saved_at:new Date(Date.now()+2000).toISOString()};
+ await a.api.put(newer);
+ const oldResult=await inflight;
+ assert.equal(oldResult.stale,true,'old response must never overwrite newer local fields');
+ const now=await a.api.get(id);
+ assert.equal(now.sync_state,'pending','same-device edit must remain pending, not conflict');
+ assert.equal(now.sync_version,1,'our own acknowledged server version must be forwarded');
+ assert.equal(now.fields.hda,newer.fields.hda,'new clinical text must stay untouched');
+ const next=await a.api.syncOne(now);
+ assert.equal(next.sent,true);
+ assert.equal((await a.api.get(id)).sync_state,'synced');
+ assert.equal(w.remote.get(id).fields.hda,newer.fields.hda);
+});
