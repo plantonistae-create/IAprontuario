@@ -26,6 +26,7 @@ export const RADAR_PLAYBOOKS=Object.freeze([
   sources:["sbp_emergency","sbp_fever"],focus:["onset","temperature","consciousness","immuno","vomiting"]}
 ]);
 const norm=x=>String(x??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+/** @param {{fields?:Record<string,unknown>,transcript?:string,allowedConcepts?:string[]}} [options] */
 export function buildRadarEvidencePlan({fields={},transcript="",allowedConcepts=[]}={}){
  if(!fields||typeof fields!=="object"||Array.isArray(fields)||typeof transcript!=="string"||!Array.isArray(allowedConcepts))throw Error("RADAR_EVIDENCE_INPUT_INVALID");
  // Treat only complaint and documented HDA as activation context; a clinician's question is not a clinical finding.
