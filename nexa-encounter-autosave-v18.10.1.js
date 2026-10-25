@@ -54,7 +54,7 @@ function collectFields(){
  try{out=clone(window.nexaClinicalBridge18101?.collect?.()||window.collect?.()||{})}catch{}
  document.querySelectorAll?.('.field[data-key]').forEach?.(field=>{
    const key=field.dataset?.key;if(!key)return;
-   const input=field.querySelector?.('textarea,input,select');if(input&&typeof input.value==='string')out[key]=input.value;
+   const input=field.querySelector?.('textarea')||field.querySelector?.('input,select');if(input&&typeof input.value==='string')out[key]=input.value;
  });
  const extra={
    exames_sugeridos:document.getElementById?.('suggestedExams')?.value,
