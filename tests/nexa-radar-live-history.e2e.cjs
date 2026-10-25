@@ -47,7 +47,7 @@ function server(){
    const speak=async(id,utterance)=>page.evaluate(({id,utterance})=>window.__qa.speak(id,utterance),{id,utterance});
    await speak('core-q-allergy','Médico: Tem alergias?');
    await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.state==='not_asked');
-   assert.equal(await stateOf('allergies'),'pending','A question from the clinician cannot become an answer');
+   assert.equal(await stateOf('allergies'),'asked','A question from the clinician should be awaiting an answer, not already documented');
    await speak('core-a-allergy-unknown','Paciente: Não sei informar.');
    await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.state!=='known_absent');
    assert.notEqual(await stateOf('allergies'),'documented','Uncertain history must not be certified');
