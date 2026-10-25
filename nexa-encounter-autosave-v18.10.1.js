@@ -142,6 +142,20 @@ const store={
  }
 };
 
+function isAuthFailure(error){
+ const code=String(error?.code||''),status=Number(error?.status||error?.statusCode||0),msg=String(error?.message||'');
+ return status===401||code==='PGRST301'||/JWT.*(?:expired|invalid)|invalid.*JWT|token.*expired|unauthorized|not authenticated/i.test(msg);
+}
+async function withSessionRetry(c,expectedOwner,operation){
+ try{return await operation()}catch(error){
+  if(!isAuthFailure(error))throw error;
+  const renewed=await c?.auth?.refreshSession?.();
+  if(renewed?.error||!renewed?.data?.session?.access_token||
+     String(renewed.data.session.user?.id||'')!==String(expectedOwner))
+    throw new Error('AUTH_RELOGIN_REQUIRED');
+  return await operation(); // Same owner and CAS version. No privilege changes.
+ }
+}
 function backoff(attempt){return Math.min(300000,3000*Math.pow(2,Math.max(0,attempt-1)))}
 function due(item){return !item?.next_attempt_at||new Date(item.next_attempt_at).getTime()<=Date.now()}
 async function buildLocal(reason='autosave',forcedId='',capturedFields=null){
@@ -186,32 +200,37 @@ async function syncOne(rec){
  const c=client();if(!c)return{sent:false,error:'NO_CLIENT'};
  const attempt=Number(rec.attempt_count||0)+1;
  try{
-   // Optimistic concurrency: never overwrite a newer server revision.
-   const table=c.from('consultation_history');
+   // One authenticated compare-and-swap attempt, with one JWT renewal on 401.
    const columns='id,encounter_id,encounter_state,audit_priority,audit_ready_at,updated_at,sync_version,status';
-   const payload=remotePayload(rec);
-   const expected=Number(rec.sync_version||0);
-   let data=null,error=null;
-   if(expected>0){
+   const payload=remotePayload(rec),expected=Number(rec.sync_version||0);
+   const performWrite=async()=>{
+    const table=c.from('consultation_history');
+    let data=null,error=null;
+    if(expected>0){
      const update=await table.update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
      data=update.data;error=update.error;
-   }else{
-     // Newly inserted rows start at version zero. Check existence first:
-     // zero-version rows must use the same conditional update, not insert.
+    }else{
      const found=await table.select('sync_version').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
      if(found.error)throw found.error;
      if(found.data){
-       const update=await c.from('consultation_history').update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
-       data=update.data;error=update.error;
+      const update=await c.from('consultation_history').update(payload).eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).eq('sync_version',expected).select(columns).maybeSingle();
+      data=update.data;error=update.error;
      }else{
-       const insert=await c.from('consultation_history').insert(payload).select(columns).single();
-       data=insert.data;error=insert.error;
-       if(error?.code==='23505'){error=null;data=null}
+      const insert=await c.from('consultation_history').insert(payload).select(columns).single();
+      data=insert.data;error=insert.error;
+      if(error?.code==='23505'){error=null;data=null}
      }
-   }
-   if(!error&&!data){
-     const {data:current,error:readError}=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
-     if(readError)throw readError;
+    }
+    if(error)throw error;
+    return data;
+   };
+   const data=await withSessionRetry(c,rec.owner_user_id,performWrite);
+   if(!data){
+     const current=await withSessionRetry(c,rec.owner_user_id,async()=>{
+      const result=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+      if(result.error)throw result.error;
+      return result.data;
+     });
      if(current){
        const conflict={...rec,sync_state:'conflict',last_error:'SERVER_VERSION_CONFLICT',next_attempt_at:null};
        if(!(await putSyncResultIfCurrent(rec,conflict)))return{sent:false,stale:true};
@@ -220,7 +239,6 @@ async function syncOne(rec){
      }
      throw new Error('SYNC_ROW_NOT_WRITABLE');
    }
-   if(error)throw error;
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
    const saved={...rec,sync_state:terminal?'locked':'synced',attempt_count:attempt,next_attempt_at:null,last_error:null,server_updated_at:data?.updated_at||nowIso(),sync_version:Number(data?.sync_version||rec.sync_version||0),legacy_status:data?.status||rec.legacy_status||'draft',encounter_state:remoteState,audit_ready_at:data?.audit_ready_at||rec.audit_ready_at};

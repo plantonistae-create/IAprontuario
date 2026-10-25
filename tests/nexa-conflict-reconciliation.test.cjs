@@ -30,7 +30,7 @@ function memoryStore(){
  }};
 }
 function world(){
- const remote=new Map();let fail=0,delay=0,writes=0;
+ const remote=new Map();let fail=0,unauthorized=0,refreshCalls=0,denyRefresh=false,delay=0,writes=0;
  const db={from(){
    let op='',payload=null,filters={},selection='';
    const q={
@@ -43,6 +43,7 @@ function world(){
    };
    async function execute(){
      if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+     if(unauthorized>0){unauthorized--;return{data:null,error:{status:401,code:'PGRST301',message:'JWT expired (synthetic)'}}}
      if(fail>0){fail--;return{data:null,error:{code:'TEST_FAILURE',message:'Synthetic network failure'}}}
      const id=filters.id||payload?.id;
      let record=remote.get(id);
@@ -63,6 +64,10 @@ function world(){
      throw new Error('Unsupported query');
    }
    return q;
+ }};
+ db.auth={refreshSession:async()=>{refreshCalls++;
+  if(denyRefresh)return{data:{session:null},error:{message:'Refresh rejected'}};
+  return{data:{session:{access_token:'synthetic-refreshed',user:{id:USER}}},error:null};
  }};
  function browser(store=memoryStore()){
    const session=new Map(),handlers={};
@@ -85,7 +90,7 @@ function world(){
    api.setArchiveAdapter(async(a,b,choice)=>{if(archiveError)throw new Error('CONFLICT_ARCHIVE_WRITE_FAILED');archives.push({a:copy(a),b:copy(b),choice});return true});
    return{api,win,navigator,store,archives,failArchives:()=>{archiveError=true}};
  }
- return{remote,browser,fail:(n=1)=>{fail=n},slow:ms=>{delay=ms},writes:()=>writes};
+ return{remote,browser,fail:(n=1)=>{fail=n},expireOnce:()=>{unauthorized=1},rejectRefresh:()=>{denyRefresh=true},refreshes:()=>refreshCalls,slow:ms=>{delay=ms},writes:()=>writes};
 }
 function remoteDraft(id,fields,version=0){
  return{...local(id,fields,version,'synced'),id,user_id:USER,sync_version:version,updated_at:new Date().toISOString()};
@@ -245,4 +250,31 @@ test('16 same-device edit while previous server save is in-flight must not becom
  assert.equal(next.sent,true);
  assert.equal((await a.api.get(id)).sync_state,'synced');
  assert.equal(w.remote.get(id).fields.hda,newer.fields.hda);
+});
+
+test('17 expired clinical JWT retries exactly once with same patient-owned CAS write',async()=>{
+ const w=world(),a=w.browser(),id=uuid();
+ const initial=local(id,{hda:'História sintética inicialmente documentada.'});
+ await a.api.put(initial);
+ await a.api.syncOne(initial);
+ const pending={...(await a.api.get(id)),fields:{hda:'Revisão sintética do médico, ainda não enviada.'},sync_state:'pending',local_revision:2};
+ await a.api.put(pending);w.expireOnce();
+ const result=await a.api.syncOne(pending);
+ assert.equal(result.sent,true);
+ assert.equal(w.refreshes(),1);
+ assert.equal(w.remote.get(id).fields.hda,pending.fields.hda);
+ assert.equal(w.remote.get(id).sync_version,1,'write must not be duplicated');
+ assert.equal((await a.api.get(id)).sync_state,'synced');
+});
+test('18 a rejected JWT refresh preserves local data and never overwrites remote case',async()=>{
+ const w=world(),a=w.browser(),id=uuid();
+ const initial=local(id,{hda:'Rascunho sintético importante.'});
+ await a.api.put(initial);w.expireOnce();w.rejectRefresh();
+ const result=await a.api.syncOne(initial);
+ assert.equal(result.sent,false);
+ assert.equal(result.error,'AUTH_RELOGIN_REQUIRED');
+ assert.equal(w.refreshes(),1);
+ assert.equal(w.remote.has(id),false);
+ assert.equal((await a.api.get(id)).sync_state,'pending');
+ assert.equal((await a.api.get(id)).fields.hda,initial.fields.hda);
 });

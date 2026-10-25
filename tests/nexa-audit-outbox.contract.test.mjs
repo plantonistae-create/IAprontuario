@@ -64,10 +64,29 @@ sessionUserId='doctor-B';result=await api.sendItem({...s1,state:'queued'});asser
 sessionUserId='doctor-A';local.set('sb-auth-token',JSON.stringify({access_token:'token-A',user:{id:'doctor-A'}}));
 
 const remoteResult=await api.reconcileRemoteReady(5);assert.equal(remoteResult.processed,1,'remote reconciliation must inspect ready encounters');assert.equal(remoteResult.sent,1,'remote reconciliation must submit ready encounter idempotently');
+const sentAfterFirstReconcile=fetchCount;
+const reconcileAgain=await api.reconcileRemoteReady(5);
+assert.equal(reconcileAgain.sent,0,'already acknowledged remote version must not be resent in loops');
+assert.equal(reconcileAgain.skipped,1);
+assert.equal(fetchCount,sentAfterFirstReconcile,'focus/visibility must not flood audit endpoint with duplicate 409 requests');
 
 const oldId=s1.source_consultation_id;api.rotateEncounter('doctor-A');const s3=await api.buildSnapshot('new_case');assert.notEqual(s3.source_consultation_id,oldId,'new encounter must rotate identity');
 await api.enqueue(s3);fetchMode='already';result=await api.sendItem(memory.get(s3.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s3.idempotency_key).server_result,'ALREADY_SUBMITTED');
 api.rotateEncounter('doctor-A');const s4=await api.buildSnapshot('retry_case');await api.enqueue(s4);fetchMode='500';result=await api.sendItem(memory.get(s4.idempotency_key));assert.equal(result.sent,false);assert.equal(memory.get(s4.idempotency_key).state,'queued');assert.equal(memory.get(s4.idempotency_key).last_error,'SERVER_FAIL');assert.ok(memory.get(s4.idempotency_key).next_attempt_at,'failed item needs retry schedule');
 assert.ok(api.backoff(2)>=5000,'backoff must be positive and increasing');
+
+
+const syntheticAutosave={sync_state:'pending',encounter_state:'ready_for_audit',owner_user_id:'doctor-A'};
+context.nexaEncounterAutosave18101={get:async()=>structuredClone(syntheticAutosave)};
+const beforePending=fetchCount;
+const pendingSource=await api.sendItem({...s4,state:'queued'});
+assert.equal(pendingSource.pending,true,'audit must wait for server confirmation of clinical source');
+assert.equal(fetchCount,beforePending,'an unconfirmed source must not hit audit endpoint');
+syntheticAutosave.sync_state='synced';
+syntheticAutosave.encounter_state='ready_for_audit';
+fetchMode='success';
+const confirmedSource=await api.sendItem({...s4,state:'queued'});
+assert.equal(confirmedSource.sent,true,'after server ACK queued audit should be deliverable');
+assert.equal(fetchCount,beforePending+1);
 
 console.log('NEXA Audit outbox functional + contract: PASS');

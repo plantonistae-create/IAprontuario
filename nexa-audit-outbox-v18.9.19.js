@@ -11,6 +11,7 @@ function publishableKey(){try{const c=client(),runtime=window.nexaClinicalRuntim
 const SNAPSHOT_VERSION='final-v1',SEND_TIMEOUT_MS=12000,STALE_SENDING_MS=60000;
 const KEYS=['queixa_principal','hda','comorbidades','antecedentes','medicacoes','alergias','hipotese_diagnostica','orientacoes_alta','sugestoes_perguntas','exame_fisico','sinais_vitais','conduta'];
 let bypass=false,flushPromise=null,retryTimer=null,autoHandoffTimer=null,storeAdapter=null;
+ const remotelyReconciled=new Map();const remoteRetryAfter=new Map();
 const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.stringify(x))}};
 const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const nowIso=()=>new Date().toISOString();
@@ -64,7 +65,18 @@ async function releaseHeldAfterReconciliation(id){
 function authHeaders(auth){const access=String(auth?.access||'');if(!access)throw new Error('Sessão do NEXA Core indisponível.');const key=publishableKey();return{Authorization:`Bearer ${access}`,...(key?{apikey:key}:{}),'Content-Type':'application/json'}}
 function backoff(attempt){const base=Math.min(300000,5000*Math.pow(2,Math.max(0,attempt-1))),jitter=Math.floor(Math.random()*Math.min(3000,Math.max(500,base*.15)));return base+jitter}
 function due(item,now=Date.now()){const next=item?.next_attempt_at?new Date(item.next_attempt_at).getTime():0;return!next||next<=now}
-async function sendItem(item){if(item?.state==='held_conflict'||heldEncounterIds.has(item?.source_consultation_id))return{sent:false,held:true};const auth=await sessionAuth();if(!auth.userId||auth.userId!==String(item.owner_user_id||''))return{skipped:true};const attempt=Number(item.attempt_count||0)+1,start=nowIso();let working={...clone(item),state:'sending',attempt_count:attempt,last_attempt_at:start,last_error:null};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-started',{detail:{idempotency_key:item.idempotency_key,attempt}}));const controller=new AbortController(),timer=setTimeout(()=>controller.abort('audit-timeout'),SEND_TIMEOUT_MS);try{const response=await fetch(auditSubmitUrl(),{method:'POST',headers:authHeaders(auth),body:JSON.stringify(clone(item.payload)),signal:controller.signal}),data=await response.json().catch(()=>({}));const terminal=data?.error==='ALREADY_REVIEWED',idempotent=data?.error==='ALREADY_SUBMITTED';if(!response.ok&&!idempotent&&!terminal)throw new Error(data?.error||`HTTP_${response.status}`);working={...working,state:terminal?'locked':'sent',sent_at:nowIso(),next_attempt_at:null,last_error:null,server_result:terminal?'ALREADY_REVIEWED':idempotent?'ALREADY_SUBMITTED':data?.updated?'updated':'accepted'};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-success',{detail:{idempotency_key:item.idempotency_key,idempotent,locked:terminal,updated:data?.updated===true}}));return{sent:true,locked:terminal,item:working}}catch(error){const message=error?.name==='AbortError'||String(error||'').includes('audit-timeout')?'TIMEOUT':String(error?.message||error||'NETWORK_ERROR'),wait=backoff(attempt);working={...working,state:'queued',last_error:message,next_attempt_at:new Date(Date.now()+wait).toISOString()};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-failed',{detail:{idempotency_key:item.idempotency_key,error:message,attempt}}));return{sent:false,error:message,item:working}}finally{clearTimeout(timer)}}
+async function sendItem(item){
+ if(item?.state==='held_conflict'||heldEncounterIds.has(item?.source_consultation_id))return{sent:false,held:true};
+ // The audit endpoint requires a ready, persisted source. Never send a new
+ // snapshot while its encounter is only in IndexedDB or still syncing.
+ const encounterApi=window.nexaEncounterAutosave18101;
+ const source=await encounterApi?.get?.(String(item.source_consultation_id||''));
+ if(source&&source.owner_user_id===item.owner_user_id){
+  if(source.sync_state==='conflict')return{sent:false,held:true};
+  if(source.sync_state!=='synced'||source.encounter_state!=='ready_for_audit')
+   return{sent:false,pending:true,reason:'SOURCE_NOT_SYNCED'};
+ }
+const auth=await sessionAuth();if(!auth.userId||auth.userId!==String(item.owner_user_id||''))return{skipped:true};const attempt=Number(item.attempt_count||0)+1,start=nowIso();let working={...clone(item),state:'sending',attempt_count:attempt,last_attempt_at:start,last_error:null};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-started',{detail:{idempotency_key:item.idempotency_key,attempt}}));const controller=new AbortController(),timer=setTimeout(()=>controller.abort('audit-timeout'),SEND_TIMEOUT_MS);try{const response=await fetch(auditSubmitUrl(),{method:'POST',headers:authHeaders(auth),body:JSON.stringify(clone(item.payload)),signal:controller.signal}),data=await response.json().catch(()=>({}));const terminal=data?.error==='ALREADY_REVIEWED',idempotent=data?.error==='ALREADY_SUBMITTED';if(!response.ok&&!idempotent&&!terminal)throw new Error(data?.error||`HTTP_${response.status}`);working={...working,state:terminal?'locked':'sent',sent_at:nowIso(),next_attempt_at:null,last_error:null,server_result:terminal?'ALREADY_REVIEWED':idempotent?'ALREADY_SUBMITTED':data?.updated?'updated':'accepted'};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-success',{detail:{idempotency_key:item.idempotency_key,idempotent,locked:terminal,updated:data?.updated===true}}));return{sent:true,locked:terminal,item:working}}catch(error){const message=error?.name==='AbortError'||String(error||'').includes('audit-timeout')?'TIMEOUT':String(error?.message||error||'NETWORK_ERROR'),wait=backoff(attempt);working={...working,state:'queued',last_error:message,next_attempt_at:new Date(Date.now()+wait).toISOString()};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-failed',{detail:{idempotency_key:item.idempotency_key,error:message,attempt}}));return{sent:false,error:message,item:working}}finally{clearTimeout(timer)}}
 async function recoverStale(items){const t=Date.now();for(const item of items){if(item.state==='sending'&&t-new Date(item.last_attempt_at||0).getTime()>STALE_SENDING_MS)await store.put({...item,state:'queued',last_error:'RECOVERED_STALE_SENDING',next_attempt_at:null})}}
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const auth=currentAuth();if(!auth.userId)return;const times=items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)&&x.next_attempt_at).map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite);if(!times.length)return;const delay=Math.max(500,Math.min(...times)-Date.now());retryTimer=setTimeout(()=>flush('scheduled_retry'),Math.min(delay,300000))}
 async function flush(reason='manual'){if(flushPromise)return flushPromise;flushPromise=(async()=>{const auth=await sessionAuth();if(!auth.userId||!auth.access)return{sent:0,pending:0,reason:'no_session'};let items=await store.all();await recoverStale(items);items=await store.all();let sent=0;for(const item of items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)&&due(x))){const result=await sendItem(item);if(result.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise}
@@ -159,6 +171,23 @@ async function beforeReset(el){
      throw new Error('AUDIT_SNAPSHOT_LOCKED_OR_NOT_SAVED');
    if(conflict)await holdConflictSnapshot(snap);
   }
+  // Prefer a real server acknowledgement before clearing the on-screen case.
+  // The already checked local and audit checkpoints remain durable if offline.
+  let serverConfirmed=false;
+  if(saved&&!conflict&&autosave?.syncOne&&navigator.onLine!==false){
+   try{
+    await autosave.syncOne(saved);
+    const latest=await autosave.get?.(saved.encounter_id);
+    serverConfirmed=latest?.owner_user_id===who&&latest.sync_state==='synced'&&
+      Number(latest.local_revision||0)>=Number(saved.local_revision||0);
+    if(latest?.sync_state==='conflict'){
+     conflict=true;
+     if(snap)await holdConflictSnapshot(snap);
+    }
+   }catch(error){console.warn('NEXA server save pending',String(error?.message||error))}
+  }
+  if(saved&&!conflict&&autosave?.syncOne&&!serverConfirmed&&typeof window.confirm==='function'&&
+     !window.confirm('ATENÇÃO: o servidor ainda NÃO confirmou esta consulta. A cópia está preservada somente neste computador, e a auditoria permanece pendente. Não limpe os dados do navegador. Iniciar outro atendimento mantendo esta cópia para recuperação?'))return;
   if(conflict){
    if(typeof window.confirm==='function'&&!window.confirm(
     'A consulta tem um CONFLITO entre versões. A cópia local ficou preservada; o envio dessa cópia à auditoria ficará bloqueado até a reconciliação. Iniciar outra consulta sem apagar o conflito?'))return;
@@ -170,21 +199,48 @@ async function beforeReset(el){
   // and the visible form has been cleared; autosave no longer double-creates it.
   if(autosave?.startNew)await autosave.startNew('after_reset');
   if(conflict)toast('Novo atendimento iniciado. A consulta anterior está preservada e precisa de reconciliação.',true);
-  else if(snap)toast('Consulta salva localmente e adicionada à fila de auditoria.');
+  else if(saved&&!serverConfirmed&&autosave?.syncOne)toast('Consulta preservada apenas neste computador. Servidor e auditoria pendentes: Histórico → Recuperar atendimento.',true);
+  else if(snap)toast('Consulta confirmada no servidor e adicionada à fila de auditoria.');
   else if(saved)toast('Rascunho preservado localmente; ainda sem dados suficientes para auditoria.');
   if(!conflict)void flush('reset');
   void autosave?.flush?.('audit_final_checkpoint');
  }catch(error){
   console.error('NEXA reset checkpoint',String(error?.message||error));
-  toast('Consulta mantida: '+String(error?.message||error),true);
+  const code=String(error?.message||error||'');
+  toast(code==='AUTH_RELOGIN_REQUIRED'?
+    'Sessão expirada. Consulta não limpa. Preserve a cópia local e entre novamente.':
+    'Consulta NÃO foi limpa: '+code+'. Verifique Histórico → Recuperar atendimento.',true);
  }finally{resetting=false}
 }
 async function manual(button){try{await window.nexaEncounterAutosave18101?.prioritize?.();const snap=await preserve('manual_priority');if(!snap)return toast('Não há conteúdo clínico suficiente para priorizar.',true);toast('Caso priorizado para Auditoria.');void flush('manual_priority');if(button){const text=button.textContent;button.textContent='Priorizado ✓';setTimeout(()=>{button.textContent=text},1500)}}catch(error){toast(error?.message||'Falha ao priorizar caso.',true)}}
 async function automaticHandoff(reason='automatic'){try{const autosave=window.nexaEncounterAutosave18101;const fields=collect();if(valid(fields)&&autosave?.preserve){const saved=await autosave.preserve('audit_'+reason,{sync:false});if(saved?.sync_state==='conflict')return{pending:true,reason:'conflict'};}const snap=await preserve(reason);if(!snap)return null;void autosave?.flush?.('audit_'+reason);return await flush(reason)}catch(error){console.warn('NEXA audit automatic handoff pending',reason,error);return null}}
 async function submitRemoteEncounter(row,auth){const source=String(row?.encounter_id||'');if(!source)return{skipped:true};const controller=new AbortController(),timer=setTimeout(()=>controller.abort('audit-reconcile-timeout'),SEND_TIMEOUT_MS);try{const response=await fetch(auditSubmitUrl(),{method:'POST',headers:authHeaders(auth),signal:controller.signal,body:JSON.stringify({source_consultation_id:source,snapshot_version:SNAPSHOT_VERSION,audit_priority:Number(row?.audit_priority||0),core_context:{audit_submission_snapshot:{capture_reason:'remote_reconcile',frontend_version:'18.10.2'}}})}),data=await response.json().catch(()=>({}));if(response.ok||data?.error==='ALREADY_SUBMITTED'||data?.error==='ALREADY_REVIEWED')return{sent:true,idempotent:data?.error==='ALREADY_SUBMITTED',locked:data?.error==='ALREADY_REVIEWED'};return{sent:false,error:data?.error||`HTTP_${response.status}`}}catch(error){return{sent:false,error:error?.name==='AbortError'?'TIMEOUT':String(error?.message||error||'NETWORK_ERROR')}}finally{clearTimeout(timer)}}
-async function reconcileRemoteReady(limit=10){const auth=await sessionAuth(),c=client();if(!auth.userId||!auth.access||!c?.from)return{processed:0,sent:0,reason:'no_session'};const{data,error}=await c.from('consultation_history').select('encounter_id,audit_priority,updated_at,sync_version').eq('user_id',auth.userId).eq('encounter_state','ready_for_audit').order('updated_at',{ascending:false}).limit(Math.max(1,Math.min(20,Number(limit||10))));if(error)return{processed:0,sent:0,error:String(error.message||error)};let sent=0,failed=0;for(const row of data||[]){const r=await submitRemoteEncounter(row,auth);if(r.sent)sent++;else if(!r.skipped)failed++}window.dispatchEvent(new CustomEvent('nexa:audit-remote-reconciled',{detail:{processed:(data||[]).length,sent,failed}}));return{processed:(data||[]).length,sent,failed}}
+async function reconcileRemoteReady(limit=10){
+ const auth=await sessionAuth(),c=client();
+ if(!auth.userId||!auth.access||!c?.from)return{processed:0,sent:0,reason:'no_session'};
+ const {data,error}=await c.from('consultation_history')
+  .select('encounter_id,audit_priority,updated_at,sync_version')
+  .eq('user_id',auth.userId).eq('encounter_state','ready_for_audit')
+  .order('updated_at',{ascending:false}).limit(Math.max(1,Math.min(20,Number(limit||10))));
+ if(error)return{processed:0,sent:0,error:String(error.message||error)};
+ let sent=0,failed=0,skipped=0;
+ for(const row of data||[]){
+  const id=String(row.encounter_id||'');
+  const key=auth.userId+':'+id+':'+String(row.sync_version??'0');
+  if(remotelyReconciled.has(key)||(remoteRetryAfter.get(key)||0)>Date.now()){skipped++;continue}
+  const r=await submitRemoteEncounter(row,auth);
+  if(r.sent){sent++;remotelyReconciled.set(key,true);remoteRetryAfter.delete(key)}
+  else if(!r.skipped){failed++;remoteRetryAfter.set(key,Date.now()+120000)}
+ }
+ window.dispatchEvent(new CustomEvent('nexa:audit-remote-reconciled',{detail:{processed:(data||[]).length,sent,failed,skipped}}));
+ return{processed:(data||[]).length,sent,failed,skipped};
+}
 function scheduleAutomaticHandoff(reason='stable_encounter'){clearTimeout(autoHandoffTimer);autoHandoffTimer=setTimeout(()=>{void automaticHandoff(reason);void reconcileRemoteReady(10)},1500)}
 const AUTO_TRANSITION='#nexaHomeNav,[data-desk="home"],[data-quick="history"],[data-desk="history"],#navAuditBtn,#navProtocolsBtn,#navAdminBtn,#coreAdminBtn,#logoutBtn';
-function bind(){document.addEventListener('click',event=>{const reset=event.target?.closest?.(RESET);if(reset){if(bypass){event.stopImmediatePropagation();return}event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();beforeReset(reset);return}const manualButton=event.target?.closest?.('#submitAuditBtn');if(manualButton){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();manual(manualButton);return}if(event.target?.closest?.(AUTO_TRANSITION)){void automaticHandoff('navigation');void reconcileRemoteReady(10)}},true);addEventListener('online',()=>{void flush('online');void reconcileRemoteReady(10)});addEventListener('focus',()=>{void flush('focus');void reconcileRemoteReady(10)});addEventListener('pagehide',()=>void preserve('pagehide'));document.addEventListener('visibilitychange',()=>{if(document.hidden)void automaticHandoff('visibility_hidden');else{void flush('visible');void reconcileRemoteReady(10)}});addEventListener('nexa:encounter-synced',event=>{if(event?.detail?.state==='ready_for_audit')scheduleAutomaticHandoff('stable_encounter')});addEventListener('nexa:encounter-conflict-resolved',event=>{const id=String(event?.detail?.encounter_id||'');if(id)void releaseHeldAfterReconciliation(id).catch(()=>{})});addEventListener('nexa:clinical-structured',()=>scheduleAutomaticHandoff('structured_after_review'));addEventListener('nexa:audit-outbox-flush-request',()=>{void flush('event');void reconcileRemoteReady(10)});setTimeout(()=>{void flush('startup');void reconcileRemoteReady(10)},1800)}
+function bind(){document.addEventListener('click',event=>{const reset=event.target?.closest?.(RESET);if(reset){if(bypass){event.stopImmediatePropagation();return}event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();beforeReset(reset);return}const manualButton=event.target?.closest?.('#submitAuditBtn');if(manualButton){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();manual(manualButton);return}if(event.target?.closest?.(AUTO_TRANSITION)){void automaticHandoff('navigation');void reconcileRemoteReady(10)}},true);addEventListener('online',()=>{void flush('online');void reconcileRemoteReady(10)});addEventListener('focus',()=>{void flush('focus');void reconcileRemoteReady(10)});addEventListener('pagehide',()=>void preserve('pagehide'));document.addEventListener('visibilitychange',()=>{if(document.hidden)void automaticHandoff('visibility_hidden');else{void flush('visible');void reconcileRemoteReady(10)}});addEventListener('nexa:encounter-synced',event=>{if(event?.detail?.state==='ready_for_audit'){
+ // Never call automaticHandoff here: it preserves a NEW revision, writes
+ // the server, emits encounter-synced and recurses indefinitely.
+ void flush('encounter-server-ack');
+}});addEventListener('nexa:encounter-conflict-resolved',event=>{const id=String(event?.detail?.encounter_id||'');if(id)void releaseHeldAfterReconciliation(id).catch(()=>{})});addEventListener('nexa:clinical-structured',()=>scheduleAutomaticHandoff('structured_after_review'));addEventListener('nexa:audit-outbox-flush-request',()=>{void flush('event');void reconcileRemoteReady(10)});setTimeout(()=>{void flush('startup');void reconcileRemoteReady(10)},1800)}
 bind();window.ensureAuditSnapshotBeforeReset=ensureAuditSnapshotBeforeReset;window.nexaAuditOutbox18919={beforeReset,holdConflictSnapshot,releaseHeldAfterReconciliation,buildSnapshot,snapshot:buildSnapshot,preserve,enqueue,flush,sendItem,reconcileRemoteReady,submitRemoteEncounter,get:store.get,put:store.put,all:store.all,valid,sanitize,owner,stableEncounterId,rotateEncounter,currentAuth,sessionAuth,backoff,due,performReset,setStoreAdapter:adapter=>{storeAdapter=adapter||null},constants:{DB,STORE,SNAPSHOT_VERSION,SEND_TIMEOUT_MS,STALE_SENDING_MS,AUDIT_SUBMIT_PATH}};
 })();
