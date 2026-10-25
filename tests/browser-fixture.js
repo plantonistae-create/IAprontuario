@@ -11,6 +11,42 @@
   {id:'33333333-3333-4333-8333-333333333332',source_consultation_id:'44444444-4444-4444-8444-444444444442',status:'pending',priority:0,submitted_at:'2026-09-25T11:00:00Z',deidentified_fields:{queixa_principal:'CASO QA B',hda:'HISTÓRICO SINTÉTICO B',hipotese_diagnostica:'HIPÓTESE QA B',conduta:'CONDUTA QA B'},deidentified_core_context:{case_mode:'upper',learning_layers:{original_ai:{fields:{hda:'ORIGINAL QA B'}},physician_final:{fields:{hda:'FINAL QA B'}},audit_corrected:null}}},
   {id:'33333333-3333-4333-8333-333333333333',source_consultation_id:'44444444-4444-4444-8444-444444444443',status:'pending',priority:0,submitted_at:'2026-09-25T12:00:00Z',deidentified_fields:{queixa_principal:'CASO QA C',hda:'HISTÓRICO SINTÉTICO C',hipotese_diagnostica:'HIPÓTESE QA C',conduta:'CONDUTA QA C'},deidentified_core_context:{case_mode:'upper',learning_layers:{original_ai:{fields:{hda:'ORIGINAL QA C'}},physician_final:{fields:{hda:'FINAL QA C'}},audit_corrected:null}}}
  ];
+
+ // Synthetic Radar v4 RPCs, used only in browser regression tests.
+ qa.radarReviews=[];
+ const simulateRadarAuditV4=(name,args={})=>{
+   if(name==='get_nexa_radar_reviews_v4')return {data:[...qa.radarReviews],error:null};
+   if(name==='get_nexa_radar_readiness_v3'){
+     const audited=qa.auditRows.filter(r=>['approved','corrected'].includes(r.status)).length;
+     const reviewed=qa.radarReviews.filter(r=>r.review_state==='reviewed').length;
+     return {data:{audited_total:audited,remaining_to_pilot:Math.max(0,30-audited),radar_reviewed:reviewed,radar_not_reviewed:audited-reviewed},error:null};
+   }
+   if(!['submit_nexa_audit_review_v4','save_nexa_radar_review_v4'].includes(name))return null;
+   const id=String(args?.p_case_id||''),row=qa.auditRows.find(r=>r.id===id);
+   if(!row)return {data:null,error:{message:'AUDIT_CASE_NOT_FOUND'}};
+   if(qa.capabilities.access_status!=='active'||!(qa.capabilities.is_admin||qa.capabilities.is_reviewer))
+     return {data:null,error:{message:'AUDIT_REVIEW_FORBIDDEN'}};
+   const prior=qa.radarReviews.find(r=>r.audit_case_id===id),revision=Number(prior?.revision||0)+1;
+   if(name==='save_nexa_radar_review_v4'){
+     if(!['approved','corrected'].includes(row.status))return {data:null,error:{message:'CASE_NOT_AUDITED'}};
+     if(Number(args.p_expected_revision||0)!==Number(prior?.revision||0))
+       return {data:null,error:{message:'RADAR_REVIEW_VERSION_CONFLICT'}};
+   }else{
+     const decision=args.p_decision;
+     if(row.status!=='pending')return {data:null,error:{message:'AUDIT_REVIEW_CONFLICT'}};
+     if(!['approved','corrected','discarded'].includes(decision))return {data:null,error:{message:'INVALID_DECISION'}};
+     if(decision==='discarded'&&!String(args.p_note||'').trim())return {data:null,error:{message:'DISCARD_REASON_REQUIRED'}};
+     row.status=decision;row.reviewed_fields=decision==='corrected'?args.p_corrected_fields:decision==='approved'?row.deidentified_fields:null;
+     row.review_note=args.p_note||null;row.reviewed_at=new Date().toISOString();
+     qa.auditDecisions.push({case_id:id,decision,note:row.review_note,corrected_fields:args.p_corrected_fields||null});
+   }
+   if(prior)qa.radarReviews.splice(qa.radarReviews.indexOf(prior),1);
+   if(row.status!=='discarded')qa.radarReviews.push({
+     audit_case_id:id,review_state:args.p_radar_review_state||args.p_review_state||'not_reviewed',
+     labels:args.p_radar_labels||args.p_labels||[],capture_meta:args.p_capture_meta||{},
+     question_reviews:args.p_question_reviews||[],missing_questions:args.p_missing_questions||[],revision});
+   return {data:revision,error:null};
+ };
  const empty=()=>{const chain={then:resolve=>Promise.resolve({data:[],error:null}).then(resolve)};for(const k of ['select','eq','gte','order','limit','update','insert','delete','upsert','maybeSingle','single','in'])chain[k]=()=>chain;return chain;};
  const historyQuery=()=>{const s={filters:{},payload:null,op:'select'};const finish=single=>{if(s.op==='upsert'||s.op==='insert'){const row={...s.payload,updated_at:new Date().toISOString(),sync_version:Number(s.payload?.sync_version||0)+1};const i=qa.consultationRows.findIndex(x=>String(x.id)===String(row.id));if(i>=0)qa.consultationRows[i]={...qa.consultationRows[i],...row};else qa.consultationRows.unshift(row);return{data:single?row:[row],error:null}}if(s.op==='update'){const rows=qa.consultationRows.filter(r=>Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));rows.forEach(r=>Object.assign(r,s.payload,{updated_at:new Date().toISOString()}));return{data:single?(rows[0]||null):rows,error:null}}if(s.op==='delete'){qa.consultationRows=qa.consultationRows.filter(r=>!Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));return{data:[],error:null}}const rows=qa.consultationRows.filter(r=>Object.entries(s.filters).every(([k,v])=>String(r[k])===String(v)));return{data:single?(rows[0]||null):rows,error:null}};const chain={select(){return chain},eq(k,v){s.filters[k]=v;return chain},gte(){return chain},order(){return chain},in(){return chain},limit:async()=>finish(false),upsert(v){s.payload=v;s.op='upsert';return chain},insert(v){s.payload=v;s.op='insert';return chain},update(v){s.payload=v;s.op='update';return chain},delete(){s.op='delete';return chain},maybeSingle:async()=>finish(true),single:async()=>finish(true),then(resolve){return Promise.resolve(finish(false)).then(resolve)}};return chain};
  const conductQuery=()=>{
@@ -44,7 +80,7 @@
   return chain;
  };
 
- window.supabase={createClient:(url,key)=>({supabaseUrl:url,supabaseKey:key,auth:{getSession:async()=>({data:{session},error:null}),getUser:async()=>session?{data:{user:session.user},error:null}:{data:{user:null},error:{message:'invalid session'}},refreshSession:async()=>session?{data:{session},error:null}:{data:{session:null},error:{message:'invalid refresh'}},onAuthStateChange:fn=>{authChange=fn;return {data:{subscription:{unsubscribe(){}}}}},signOut:async()=>{session=null;localStorage.removeItem('sb-synthetic-auth-token');authChange?.('SIGNED_OUT',null);return {error:null};}},rpc:async (name,args)=>{if(qa.denyCapabilities)return{error:{message:'Unavailable'}};if(name==='reorder_conduct_templates'){const ids=args?.p_ids||[];if(ids.length!==qa.conductTemplates.length||new Set(ids).size!==ids.length)return{data:null,error:{message:'CONDUCT_ORDER_MUST_INCLUDE_ALL'}};const byId=new Map(qa.conductTemplates.map(item=>[item.id,item]));if(ids.some(id=>!byId.has(id)))return{data:null,error:{message:'INVALID_CONDUCT_ID'}};qa.conductTemplates=ids.map((id,i)=>({...byId.get(id),sort_order:i}));return{data:null,error:null}}return{data:name==='get_my_capabilities'?[{...qa.capabilities}]:[],error:null}},from:table=>table==='consultation_history'?historyQuery():table==='conduct_templates'?conductQuery():empty(),functions:{invoke:async(slug,{body}={})=>{const res=await fetch('https://synthetic.supabase.co/functions/v1/'+slug,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const data=await res.json().catch(()=>null);return res.ok?{data,error:null}:{data:null,error:{message:data?.error||'Function error',context:{status:res.status}}}}}})};
+ window.supabase={createClient:(url,key)=>({supabaseUrl:url,supabaseKey:key,auth:{getSession:async()=>({data:{session},error:null}),getUser:async()=>session?{data:{user:session.user},error:null}:{data:{user:null},error:{message:'invalid session'}},refreshSession:async()=>session?{data:{session},error:null}:{data:{session:null},error:{message:'invalid refresh'}},onAuthStateChange:fn=>{authChange=fn;return {data:{subscription:{unsubscribe(){}}}}},signOut:async()=>{session=null;localStorage.removeItem('sb-synthetic-auth-token');authChange?.('SIGNED_OUT',null);return {error:null};}},rpc:async (name,args)=>{if(qa.denyCapabilities)return{error:{message:'Unavailable'}};const syntheticAudit=simulateRadarAuditV4(name,args);if(syntheticAudit)return syntheticAudit;if(name==='reorder_conduct_templates'){const ids=args?.p_ids||[];if(ids.length!==qa.conductTemplates.length||new Set(ids).size!==ids.length)return{data:null,error:{message:'CONDUCT_ORDER_MUST_INCLUDE_ALL'}};const byId=new Map(qa.conductTemplates.map(item=>[item.id,item]));if(ids.some(id=>!byId.has(id)))return{data:null,error:{message:'INVALID_CONDUCT_ID'}};qa.conductTemplates=ids.map((id,i)=>({...byId.get(id),sort_order:i}));return{data:null,error:null}}return{data:name==='get_my_capabilities'?[{...qa.capabilities}]:[],error:null}},from:table=>table==='consultation_history'?historyQuery():table==='conduct_templates'?conductQuery():empty(),functions:{invoke:async(slug,{body}={})=>{const res=await fetch('https://synthetic.supabase.co/functions/v1/'+slug,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const data=await res.json().catch(()=>null);return res.ok?{data,error:null}:{data:null,error:{message:data?.error||'Function error',context:{status:res.status}}}}}})};
  const persistSession=()=>localStorage.setItem('sb-synthetic-auth-token',JSON.stringify(session));persistSession();
  qa.switchUser=id=>{session={...session,user:{id,email:'qa@example.invalid'}};persistSession();authChange?.('SIGNED_IN',session);};
  qa.speak=(id,transcript,index=qa.channels.length-1)=>{const channel=qa.channels[index];channel.receive?.({data:JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript})});};
@@ -54,6 +90,9 @@
  const url=String(input?.url||input);if(url.includes('.supabase.co')){
   qa.requests.push({url,method:init.method,body:typeof init.body==='string'?init.body:null});
   if(url.includes('/rpc/get_my_capabilities'))return qa.denyCapabilities?Response.json({error:'Unavailable'},{status:503}):Response.json([{...qa.capabilities}]);
+  const radarRpcNames=['submit_nexa_audit_review_v4','save_nexa_radar_review_v4','get_nexa_radar_reviews_v4','get_nexa_radar_readiness_v3'];
+  const radarRpc=radarRpcNames.find(name=>url.includes('/rpc/'+name));
+  if(radarRpc){const result=simulateRadarAuditV4(radarRpc,JSON.parse(init.body||'{}'));return result.error?Response.json({message:result.error.message},{status:409}):Response.json(result.data);}
   if(url.includes('/rpc/get_audit_queue_v2')||url.includes('/rpc/get_audit_queue'))return Response.json(qa.auditRows);
   if(url.includes('/rpc/get_audit_dashboard')){const c={pending:0,approved:0,corrected:0,discarded:0};qa.auditRows.forEach(r=>c[r.status]=(c[r.status]||0)+1);const completed=c.approved+c.corrected+c.discarded;return Response.json([{total_received:qa.auditRows.length,...c,completed,agreement_rate:(c.approved+c.corrected)?Math.round(100*c.approved/(c.approved+c.corrected)):0,documentation_quality:80}]);}
   if(url.includes('/rpc/get_core_dataset_summary'))return Response.json([{total_cases:qa.auditRows.filter(r=>['approved','corrected'].includes(r.status)).length,approved_cases:qa.auditRows.filter(r=>r.status==='approved').length,corrected_cases:qa.auditRows.filter(r=>r.status==='corrected').length,documentation_ready_cases:qa.auditRows.filter(r=>['approved','corrected'].includes(r.status)).length,clinical_plan_ready_cases:0,radar_ready_cases:0,last_published_at:null}]);
