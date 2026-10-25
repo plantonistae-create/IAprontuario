@@ -49,3 +49,43 @@ export function coreExportSafety(){
   raw_transcript_included:false
  });
 }
+
+
+// v4 human verification: only complete case-level question assessments qualify as audited labels.
+// The question text itself comes from the separately gated, human-deidentified additions.
+const VERDICT=new Set(["relevant","irrelevant","uncertain"]);
+const REASON=new Set(["appropriate","unrelated","duplicate","unsafe","context_dependent","wrong_priority","other"]);
+const PRIORITY=new Set(["critical","high","moderate","low"]);
+const QUESTION_ID=/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/;
+const SAFE_QUESTION=/^[^\u0000-\u001f]{8,240}$/;
+export function compileRadarQuestionReview(row){
+ if(!obj(row)||row.review_state!=="reviewed")
+  return Object.freeze({schema_version:"nexa-core-radar-question-audit-v4",
+    fully_reviewed:false,question_reviews:[],missing_questions:[],
+    reason:"clinician_review_incomplete"});
+ const qr=Array.isArray(row.question_reviews)?row.question_reviews:[];
+ const missing=Array.isArray(row.missing_questions)?row.missing_questions:[];
+ if(!qr.length||qr.length>150||missing.length>30)throw Error("RADAR_QUESTIONS_NOT_AUDITED");
+ const idSet=new Set(),reviews=[];
+ for(const q of qr){
+  if(!obj(q)||Object.keys(q).sort().join(",")!=="question_id,reason_code,verdict"||
+    !QUESTION_ID.test(q.question_id)||!VERDICT.has(q.verdict)||!REASON.has(q.reason_code)||
+    idSet.has(q.question_id))throw Error("RADAR_QUESTION_RATING_INVALID");
+  idSet.add(q.question_id);
+  reviews.push({question_id:q.question_id,verdict:q.verdict,reason_code:q.reason_code});
+ }
+ const gaps=[],seen=new Set();
+ for(const q of missing){
+  if(!obj(q)||Object.keys(q).sort().join(",")!=="concept,priority,question,rationale"||
+   !ID.test(q.concept)||!PRIORITY.has(q.priority)||
+   typeof q.question!=="string"||!SAFE_QUESTION.test(q.question)||
+   typeof q.rationale!=="string"||q.rationale.length>240||
+   seen.has(q.concept+":"+q.question.toLowerCase()))
+   throw Error("RADAR_MISSING_QUESTION_INVALID");
+  seen.add(q.concept+":"+q.question.toLowerCase());
+  gaps.push({question:q.question,concept:q.concept,priority:q.priority,rationale:q.rationale});
+ }
+ return Object.freeze({schema_version:"nexa-core-radar-question-audit-v4",
+  fully_reviewed:true,question_reviews:reviews,missing_questions:gaps,
+  source:"authenticated_clinician_review",human_review_required:false});
+}
