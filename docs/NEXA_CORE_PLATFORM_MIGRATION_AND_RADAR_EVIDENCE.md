@@ -67,6 +67,8 @@ Preferência editorial: Ministério da Saúde/Conitec (linhas de cuidado e PCDT)
 ## Catálogos públicos indexados
 - MS — Dor torácica (UPA): https://linhasdecuidado.saude.gov.br/portal/dor-toracica/unidade-de-pronto-atendimento/avaliacao-conduta/
 - MS — Suspeita de IAM: https://linhasdecuidado.saude.gov.br/portal/infarto-agudo-do-miocardio/unidade-de-atencao-primaria/suspeita-iam/
+- Sociedade Brasileira de Cardiologia — Diretriz de atendimento à dor torácica na emergência (2025): https://abccardiol.org/article/diretriz-brasileira-de-atendimento-a-dor-toracica-na-unidade-de-emergencia-2025/
+- Sociedade Brasileira de AVC — Diretrizes atualizadas (outubro/2026): https://avc.org.br/membros-e-profissionais/diretrizes-avc/
 - MS/Conitec — PCDT AVC isquêmico agudo: https://www.gov.br/saude/pt-br/assuntos/pcdt/a/acidente-vascular-cerebral-isquemico-agudo/view
 - AMB/Sociedades: https://diretrizes.amb.org.br/
 - SBP — Emergência: https://www.sbp.com.br/departamentos/emergencia/documentos-cientificos/
