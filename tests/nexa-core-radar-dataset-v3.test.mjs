@@ -82,7 +82,7 @@ test("Atomic database reviewer workflow is granted only to authenticated reviewe
 test("Export remains rights-gated, pseudonymized, reviewed and marked not training-ready",()=>{
  const s=read("supabase/functions/core-dataset-export/index.ts");
  for(const token of ["nexa_core_dataset_approvals","deidentification_reviewed","revoked_at",
-  "findDirectPii(safe)","pseudonym(c.audit_case_id)","compileRadarDatasetLabels",
+  "findDirectPii(safe)","pseudonym(c.audit_case_id)","compileRadarDatasetLabels","compileRadarQuestionReview",
   "coreExportSafety()","nexa-jsonl-v4","nexa_core_radar_reviews"]){
   assert.ok(s.includes(token),token);
  }
@@ -132,11 +132,12 @@ test("Every captured Radar question has an independent relevance assessment, no 
   [...good,good[0]]),/RADAR_QUESTION_REVIEW_INVALID/);
  assert.throws(()=>Reviewer.buildPayload(row,"reviewed",[],0,good,
   [{concept:"neurovascular",priority:"high",question:"CPF 123.456.789-00"}]),/PII_OR_INVALID/);
- const exported=compileRadarQuestionReview({...payload,revision:1});
+ const exported=compileRadarQuestionReview({...payload,revision:1},["fever","allergies"]);
  assert.equal(exported.fully_reviewed,true);
+ assert.throws(()=>compileRadarQuestionReview({...payload,revision:1},["fever"]),/SNAPSHOT_MISMATCH/);
  assert.deepEqual(exported.question_reviews,good);
  assert.equal(exported.missing_questions[0].question,missing[0].question);
- assert.equal(compileRadarQuestionReview({review_state:"not_reviewed",question_reviews:good}).fully_reviewed,false);
+ assert.equal(compileRadarQuestionReview({review_state:"not_reviewed",question_reviews:good},["fever","allergies"]).fully_reviewed,false);
 });
 test("Legacy question snapshots remain reviewable only as partial feedback",()=>{
  const historical={deidentified_core_context:{radar_learning:{items:[{id:"fever",concept:"fever",question:"Febre?"}]}}};
