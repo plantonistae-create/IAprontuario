@@ -2867,10 +2867,11 @@ async function loadCoreDatasetSummary(){
         const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
         const digest=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
         const manifest={
-          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',
+          datasetVersion:version,format:'JSONL',schemaVersion:'nexa-dataset-item-v1',radarReviewSchema:'nexa-core-radar-labels-v3',
+          coreTrainingReady:false,splitUnit:'audit_case',patientGroupingValidated:false,
           exportedAt:new Date().toISOString(),caseCount:count,sha256:digest,
           batches,documentation:'docs/NEXA_CORE_COMMERCIAL_ARCHITECTURE.md',
-          warning:'A exportação usa identificadores pseudonimizados. Mantenha acesso restrito; esta exportação não comprova anonimização irreversível.'
+          warning:'Dados pseudonimizados: não são anonimização irreversível. A divisão atual por caso NÃO está validada por paciente. Este arquivo NÃO está liberado para treinar o NEXA Core; exige avaliação jurídica, de privacidade e validação clínica.'
         };
         const download=(blob,name)=>{
           const url=URL.createObjectURL(blob),a=document.createElement('a');
