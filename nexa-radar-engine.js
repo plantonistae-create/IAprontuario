@@ -96,6 +96,63 @@
     }
     return {evidence,asked,uncertain};
   }
+  // Core-history utterances must be processed from completed speech, not only
+  // from the final structured fields. An unanswered clinician question is not evidence.
+  // The matcher is deliberately conservative: no relative history, hypothetical
+  // scenarios or isolated denials of one specific disease are global negatives.
+  function spokenCoreHistory(transcript=''){
+    const out={comorbidities:[],allergies:[],medicines:[]};
+    const cues={
+      comorbidities:/\b(?:comorbid\w*|doencas? (?:cronicas?|preexistentes?|conhecidas?)|problemas? de saude|antecedentes? pessoais)\b/,
+      allergies:/\b(?:alerg\w*|reac(?:ao|oes) (?:a|ao) (?:medicamentos?|remedios?))\b/,
+      medicines:/\b(?:medic\w*|remedios?|farmacos?|uso continuo|uso regular|faz uso|tomo|toma|tomando|utilizo|utiliza)\b/
+    };
+    const disease=/\b(?:hipertens\w*|diabet\w*|asmatic\w*|asma|dpoc|hipotireoid\w*|epileps\w*|cardiopatia|doenca renal|insuficiencia cardiaca|depressao|fibromialgia|lupus|artrite|artrose|dislipid\w*|hipercolesterol\w*|doenca hepatica)\b/;
+    const drug=/\b(?:losartana|enalapril|captopril|metformina|insulina|levotiroxina|omeprazol|rivaroxabana|apixabana|dipirona|paracetamol)\b/;
+    let pending='';
+    for(const raw of String(transcript).match(/[^.!?;\n]+[.!?;\n]?/g)||[]){
+      const speaker=norm(raw).match(/^\s*(medic[oa]|profissional|paciente|acompanhante)\s*:/)?.[1]||'';
+      const t=norm(raw).replace(/^(?:medic[oa]|profissional|paciente|acompanhante)\s*:\s*/,'').replace(/[.!?;\s]+$/,'').trim();
+      if(!t)continue;
+      if(/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|usa)\b/.test(t)){pending='';continue;}
+      const targets=Object.keys(cues).filter(id=>cues[id].test(t));
+      if(/[?]\s*$/.test(raw.trim())||/^(?:voce|o senhor|a senhora|paciente) (?:tem|possui|usa|toma|faz uso)\b/.test(t)&&speaker==='medico'){
+        pending=targets.length===1?targets[0]:'';
+        continue;
+      }
+      // A question/statement from the clinician cannot document an answer.
+      if(speaker==='medico'||speaker==='medica'||speaker==='profissional'||speaker==='acompanhante'){pending='';continue;}
+      if(/^(?:investigar|considerar|avaliar|perguntar|caso (?:tenha|apresente))\b/.test(t)){pending='';continue;}
+      const unknown=/\b(?:nao sei|nao sabe|nao lembro|nao informado|nao relatado|desconhec\w*|talvez|acho que|nao entendi)\b/.test(t);
+      const candidates=new Set(targets);
+      const answerTo=pending;pending='';
+      if(answerTo)candidates.add(answerTo);
+      if(!candidates.size&&disease.test(t)&&/^(?:(?:eu|o paciente|a paciente)\s+)?(?:tenho|sou|possuo|apresento|refiro|tem|possui|apresenta)\b/.test(t))candidates.add('comorbidities');
+      for(const id of candidates){
+        let state='unknown';
+        const neg=/^(?:nao|nunca|nenhum[a]?|nego|nega|negou|sem)\b/.test(t)||/\b(?:nega|negou|sem|nao (?:tenho|tem|possui|uso|usa|tomo|toma|faz uso))\b/.test(t);
+        if(!unknown){
+          if(id==='allergies'){
+            const absent=/\b(?:nega|negou|sem|nao (?:tenho|tem|possui))\s+(?:nenhuma?\s+)?alerg\w*/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhuma?)$/.test(t);
+            const present=/(?:\balerg\w*\s+(?:a|ao)\s+\w+|\breacao (?:a|ao)\s+\w+)/.test(t)||answerTo===id&&/^sim[, ]+\S+/.test(t);
+            state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
+          }else if(id==='medicines'){
+            const absent=/\b(?:nega|negou|sem|nao (?:uso|usa|tomo|toma|faz uso|utilizo|utiliza))\s+(?:(?:uso|faz uso)\s+(?:de\s+)?)?(?:nenhum[a]?\s+|de\s+)?(?:medic\w*|remedios?|farmacos?|uso continuo|nada\b)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?|nao (?:tomo|uso|faco uso) nada)$/.test(t);
+            const present=/\b(?:uso|usa|tomo|toma|utilizo|utiliza|faz uso de|em uso de)\s+(?:\w+\s+){0,3}(?:\d+\s*mg|losartana|metformina|insulina|levotiroxina|enalapril|captopril|rivaroxabana|apixabana|omeprazol|medic\w*|remedios?)/.test(t)||answerTo===id&&(drug.test(t)||/\b\d+\s*(?:mg|mcg|ml)\b/.test(t)||/^sim[, ]+\S{3,}/.test(t));
+            state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
+          }else{
+            const absent=/\b(?:nega|negou|sem|nao (?:tenho|tem|possui))\s+(?:comorbid\w*|doencas?|problemas? de saude|antecedentes? pessoais)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?)$/.test(t);
+            const present=disease.test(t)&&!neg||answerTo===id&&(disease.test(t)&&!neg||/^sim[, ]+\S{4,}/.test(t));
+            state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
+          }
+        }
+        // Do not manufacture a negative finding from unrelated or missing text.
+        if(state==='unknown'&&!(answerTo===id&&(/^(?:nao sei|nao lembro|talvez|acho que)/.test(t)))&&!targets.includes(id))continue;
+        out[id].push({state,temporal:'current',section:'transcript',quote:raw.trim()});
+      }
+    }
+    return out;
+  }
   // Demographics come from explicit patient statements/fields, never from names, voice or relatives.
   function demographics(context={}){
     const fields=context.fields||{},evidence={age:[],sex:[]};
@@ -129,6 +186,7 @@
     const sources=sections.map(section=>({section,text:String(fields[section]||'')}));
     const turns=conversation(context.transcript);
     sources.push(...turns.evidence.filter(e=>e.text));
+    const spokenHistory=spokenCoreHistory(context.transcript);
     for(const concept of Object.values(concepts)){
       const evidence=turns.evidence.filter(e=>e.concept===concept.id).map(e=>({...e}));
       if(turns.uncertain[concept.id])evidence.push(turns.uncertain[concept.id]);
@@ -156,6 +214,7 @@
           }
         }
       }
+      if(universal.has(concept.id))evidence.push(...spokenHistory[concept.id]);
       for(const observation of Array.isArray(observations)?observations:[]){
         if(observation.concept!==concept.id||observation.subject!=='patient'||!['known_present','known_absent','unknown'].includes(observation.state))continue;
         const source=observation.section==='transcript'?String(context.transcript||''):String(fields[observation.section]||'');
