@@ -135,6 +135,7 @@ function buildPayload(row,reviewState,labels,expectedRevision=0,questionReviews=
   question_reviews:qr,missing_questions:missing,expected_revision:expectedRevision});
 }
 function panelHtml(row,draft={}){
+ if(row?.status==='discarded')return '<section class="ax-radar-v3"><h3>Radar</h3><p>Este caso foi descartado e não integra o aprendizado do NEXA Core.</p></section>';
  const questions=questionCatalogue(row),saved=Array.isArray(draft.question_reviews)?draft.question_reviews:[];
  const ratings=new Map(saved.map(q=>[q.question_id,q])),missing=Array.isArray(draft.missing_questions)?draft.missing_questions:[];
  const reviewed=draft.review_state==="reviewed",audited=row?.status!=="pending",rev=Number(draft.revision||0);
