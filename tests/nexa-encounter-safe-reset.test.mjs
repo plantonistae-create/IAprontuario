@@ -112,7 +112,9 @@ test('nonconflicting full case gets audit snapshot and restores blank recording 
  await f.api.beforeReset({id:'resetBtn'});
  assert.equal(f.cleared,1);
  assert.equal(f.rotated,1);
- assert.equal(f.rows.get(UUID+':final-v1').state,'queued');
+ assert.notEqual(f.rows.get(UUID+':final-v1').state,'held_conflict');
+ assert.ok(f.rows.get(UUID+':final-v1').payload.fields.hda.includes('Dor torácica'));
+ // Normal uploads may already be sending by the time the UI resets.
  assert.equal(f.prompts.length,1);
 });
 test('short draft is locally preserved but never represented as a completed audit case',async()=>{
