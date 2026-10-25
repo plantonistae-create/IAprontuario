@@ -53,24 +53,29 @@ function counts(){const local={pending:0,approved:0,corrected:0,discarded:0};row
 function filtered(source=rows){return source.filter(r=>{if(filter!=='all'&&statusClass(r.status)!==filter)return false;if(!search)return true;return (JSON.stringify(r.deidentified_fields||{})+' '+JSON.stringify(r.deidentified_core_context||{})+' '+r.id).toLowerCase().includes(search)})}
 function completedRows(){return rows.filter(r=>['approved','corrected','discarded'].includes(statusClass(r.status)))}
 function correctionStats(){const m=new Map();for(const r of rows.filter(x=>statusClass(x.status)==='corrected')){const stored=r.audit_changes&&typeof r.audit_changes==='object'?Object.keys(r.audit_changes):[];if(stored.length){stored.forEach(k=>m.set(k,(m.get(k)||0)+1));continue}const a=r.deidentified_fields||{},b=r.reviewed_fields||{};for(const k of new Set([...Object.keys(a),...Object.keys(b)])){if(JSON.stringify(a[k]??null)!==JSON.stringify(b[k]??null))m.set(k,(m.get(k)||0)+1)}}return[...m.entries()].sort((a,b)=>b[1]-a[1])}
+function normalizeCid(raw){
+ const text=typeof raw==='string'?raw:raw&&typeof raw==='object'?JSON.stringify(raw):String(raw??'');
+ const match=text.toUpperCase().match(/\b([A-Z][0-9]{2})(?:\.?([0-9A-Z]{1,4}))?\b/);
+ return match?match[1]+(match[2]?'.'+match[2]:''):'';
+}
 function cidStats(){
  const counts=new Map();
  for(const item of rows){
-  if(item.status!=='approved'&&item.status!=='corrected')continue;
+  if(!['approved','corrected'].includes(statusClass(item.status)))continue;
   const sources=[item.reviewed_fields,item.deidentified_core_context?.learning_layers?.physician_final?.fields,item.deidentified_fields];
   let cid='';
   for(const fields of sources){
-   if(!fields)continue;
-   for(const key of ['cid_medico_final','cid','cid10','codigo_cid','hipotese_diagnostica']){
-    const value=String(fields[key]||'').toUpperCase();
-    const match=value.match(/([A-Z][0-9]{2}[.][0-9A-Z]{1,4})/);
-    if(match){cid=match[1];break}
+   if(!fields||typeof fields!=='object')continue;
+   for(const key of ['cid_medico_final','cid_final','cid','cid10','codigo_cid','cid_10','hipotese_diagnostica','diagnostico']){
+    if(!Object.prototype.hasOwnProperty.call(fields,key))continue;
+    cid=normalizeCid(fields[key]);
+    if(cid)break;
    }
    if(cid)break;
   }
   if(cid)counts.set(cid,(counts.get(cid)||0)+1);
  }
- return [...counts.entries()].sort((a,b)=>b[1]-a[1]);
+ return [...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
 }
 function activeNav(){qa('#nexaAuditExact [data-ax-view]').forEach(b=>b.classList.toggle('active',b.dataset.axView===activeView))}
 function queueTable(list){

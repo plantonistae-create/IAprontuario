@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-cid-stats-20261024";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261024-cid-stats";
+const CACHE_NAME="nexa-v18-15-0-audit-checkpoint-cid-stats-20261024";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261024-cid-stats-checkpoint";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){

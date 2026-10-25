@@ -28,3 +28,19 @@ assert.ok(loader.includes('nexa-recorder-layout-v18.12.4.js?v=20260928-v18124'),
 new Function(continuous);
 new Function(auditor);
 console.log('NEXA v18.15.0 Auditor + consent + SOAP selector regression contract: PASS');
+
+const cidStart=auditor.indexOf('function normalizeCid(');
+const cidEnd=auditor.indexOf('function activeNav(',cidStart);
+assert.ok(cidStart>0&&cidEnd>cidStart,'CID grouping helper must exist in auditor');
+const cidCounts=new Function('rows','statusClass',auditor.slice(cidStart,cidEnd)+'\nreturn cidStats();');
+const syntheticCases=[
+ {status:'approved',deidentified_fields:{cid:'A09 — gastroenterite'}},
+ {status:'approved',deidentified_fields:{hipotese_diagnostica:'CID-10: A09; gastroenterite'}},
+ {status:'approved',deidentified_core_context:{learning_layers:{physician_final:{fields:{cid_medico_final:'J06.9 – infecção aguda'}}}}},
+ {status:'corrected',reviewed_fields:{cid_medico_final:'j069 – IVAS'},deidentified_fields:{cid:'B34.9'}},
+ {status:'approved',deidentified_fields:{cid:'B34.9 – virose'}},
+ {status:'corrected',reviewed_fields:{cid:'B349 – virose'},deidentified_fields:{cid:'J06.9'}},
+ {status:'discarded',deidentified_fields:{cid:'R05'}},
+ {status:'pending',deidentified_fields:{cid:'R51'}}
+];
+assert.deepEqual(cidCounts(syntheticCases,s=>s),[['A09',2],['B34.9',2],['J06.9',2]],'Six audited cases must normalize coded descriptions, compact codes and edited fields');
