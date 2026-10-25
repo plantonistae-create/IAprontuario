@@ -283,7 +283,7 @@ function derive(source=currentState()){
     return{
       kind:'modern',state,
       attention,pending,covered,
-      questions:items,
+      questions:items.filter(i=>i.status!=='asked'),
       attentionCount:alerts.length,
       pendingCount:items.length,
       coveredCount:clarified.length,
