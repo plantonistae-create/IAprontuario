@@ -1,5 +1,5 @@
 const CACHE_NAME="nexa-v18-15-0-conflict-safe-reset-20261025";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261025-radar-dynamic-ui";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261025-conflict-safe-reset";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
