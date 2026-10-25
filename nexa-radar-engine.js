@@ -135,15 +135,15 @@
         if(!unknown){
           if(id==='allergies'){
             const absent=/\b(?:nega|negou|sem|nao (?:tenho|tem|possui))\s+(?:nenhuma?\s+)?alerg\w*/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhuma?)$/.test(t);
-            const present=/(?:\balerg\w*\s+(?:a|ao)\s+\w+|\breacao (?:a|ao)\s+\w+)/.test(t)||answerTo===id&&/^sim\b/.test(t);
+            const present=/(?:\balerg\w*\s+(?:a|ao)\s+\w+|\breacao (?:a|ao)\s+\w+)/.test(t)||answerTo===id&&/^sim[, ]+\S+/.test(t);
             state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
           }else if(id==='medicines'){
             const absent=/\b(?:nega|negou|sem|nao (?:uso|usa|tomo|toma|faz uso|utilizo|utiliza))\s+(?:(?:uso|faz uso)\s+(?:de\s+)?)?(?:medic\w*|remedios?|farmacos?|uso continuo)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?)$/.test(t);
-            const present=/\b(?:uso|usa|tomo|toma|utilizo|utiliza|faz uso de|em uso de)\s+(?:\w+\s+){0,3}(?:\d+\s*mg|losartana|metformina|insulina|levotiroxina|enalapril|captopril|rivaroxabana|apixabana|omeprazol|medic\w*|remedios?)/.test(t)||answerTo===id&&(/^sim\b/.test(t)||drug.test(t)||/\b\d+\s*(?:mg|mcg|ml)\b/.test(t));
+            const present=/\b(?:uso|usa|tomo|toma|utilizo|utiliza|faz uso de|em uso de)\s+(?:\w+\s+){0,3}(?:\d+\s*mg|losartana|metformina|insulina|levotiroxina|enalapril|captopril|rivaroxabana|apixabana|omeprazol|medic\w*|remedios?)/.test(t)||answerTo===id&&(drug.test(t)||/\b\d+\s*(?:mg|mcg|ml)\b/.test(t)||/^sim[, ]+\S{3,}/.test(t));
             state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
           }else{
             const absent=/\b(?:nega|negou|sem|nao (?:tenho|tem|possui))\s+(?:comorbid\w*|doencas?|problemas? de saude|antecedentes? pessoais)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?)$/.test(t);
-            const present=disease.test(t)&&!neg||answerTo===id&&(/^sim\b/.test(t)||disease.test(t)&&!neg);
+            const present=disease.test(t)&&!neg||answerTo===id&&(disease.test(t)&&!neg||/^sim[, ]+\S{4,}/.test(t));
             state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
           }
         }
