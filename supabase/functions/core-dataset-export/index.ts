@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.8";
 import { createAuditedCase, createDatasetItem } from "../_shared/nexa-core-foundations.mjs";
 import { findDirectPii } from "../submit-audit-case/audit-contract.mjs";
 import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
+import { compileRadarDatasetLabels, coreExportSafety } from "../_shared/nexa-core-radar-dataset-v3.mjs";
 
 // ADMIN-ONLY batch JSONL export. Requires explicit rights and deidentification approvals.
 // No source consultation ID, doctor/patient ID, audio, transcript or voiceprint is exported.
@@ -75,17 +76,21 @@ Deno.serve(async req=>{
     if(aerr)throw Error("APPROVAL_QUERY_FAILED");
     const ids=(approved||[]).map(x=>x.audit_case_id);
     if(!ids.length)return res(req,{error:"NO_APPROVED_CASES",offset,limit},404);
-    const [{data:cases,error:cerror},{data:audits,error:derror}]=await Promise.all([
+    const [{data:cases,error:cerror},{data:audits,error:derror},{data:reviews,error:rerror}]=await Promise.all([
       admin.from("nexa_core_cases")
         .select("audit_case_id,quality_status,case_data,learning_profile,core_schema_version,audit_reviewed_at")
         .in("audit_case_id",ids),
       admin.from("audit_cases")
         .select("id,status,reviewed_fields,deidentified_core_context")
-        .in("id",ids)
+        .in("id",ids),
+      admin.from("nexa_core_radar_reviews")
+        .select("audit_case_id,review_state,labels,capture_meta,revision")
+        .in("audit_case_id",ids)
     ]);
-    if(cerror||derror)throw Error("DATASET_QUERY_FAILED");
+    if(cerror||derror||rerror)throw Error("DATASET_QUERY_FAILED");
     const casesById=new Map((cases||[]).map(c=>[c.audit_case_id,c]));
     const auditsById=new Map((audits||[]).map(a=>[a.id,a]));
+    const reviewsById=new Map((reviews||[]).map(r=>[r.audit_case_id,r]));
     const lines:string[]=[];
     for(const approvedRow of approved||[]){
       const c=casesById.get(approvedRow.audit_case_id),a=auditsById.get(approvedRow.audit_case_id);
@@ -131,7 +136,9 @@ Deno.serve(async req=>{
           trainingPurpose:pairedInputAvailable ? "supervised_document_revision" : "reviewed_reference_only",
           pairedInputAvailable},
         input:{...item.input,speakerAttribution:speakerMeta},
-        annotations:{radarFeedback:sanitizeRadarFeedback(a.deidentified_core_context?.radar_feedback)},
+        annotations:{radarFeedback:sanitizeRadarFeedback(a.deidentified_core_context?.radar_feedback),
+          radarReview:compileRadarDatasetLabels(reviewsById.get(a.id))},
+        datasetSafety:coreExportSafety(),
       };
       // Machine checks supplement, never replace, the mandatory human review.
       if(findDirectPii(safe).length)throw Error("POTENTIAL_IDENTIFIER_DETECTED");
@@ -142,7 +149,7 @@ Deno.serve(async req=>{
     const digest=Array.from(new Uint8Array(hash)).map(n=>n.toString(16).padStart(2,"0")).join("");
     const {error:logError}=await admin.from("nexa_core_dataset_export_events")
       .insert({requested_by:user.id,dataset_version:version,case_count:lines.length,
-        exporter_version:"nexa-jsonl-v1"});
+        exporter_version:"nexa-jsonl-v3"});
     if(logError)throw Error("EXPORT_AUDIT_LOG_FAILED");
     return new Response(output,{status:200,headers:{
       "Content-Type":"application/x-ndjson; charset=utf-8",
