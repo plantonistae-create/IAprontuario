@@ -6,7 +6,7 @@ import {sanitizeRadarCapture} from "../supabase/functions/_shared/nexa-radar-cap
 import {compileRadarDatasetLabels,compileRadarQuestionReview,compileReviewedRadarQuestionInventory,coreExportSafety} from "../supabase/functions/_shared/nexa-core-radar-dataset-v3.mjs";
 const read=x=>fs.readFileSync(new URL("../"+x,import.meta.url),"utf8");
 const row={id:"synthetic-case",status:"pending",deidentified_core_context:{
-  radar_capture:{items:[{id:"fever",concept:"fever"},{id:"allergies",concept:"allergies"}]},radar_learning:{engine_version:"test-v1",items:[
+  radar_capture:{items:[{id:"fever",concept:"fever",priority:"high"},{id:"allergies",concept:"allergies",priority:"high"}]},radar_learning:{engine_version:"test-v1",items:[
    {concept:"fever",priority:"high",question:"O paciente teve febre?"},
    {concept:"allergies",priority:"high",question:"Possui alergia?"}
   ]},audit_submission_snapshot:{frontend_version:"test-v1"}
