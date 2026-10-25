@@ -697,6 +697,18 @@ ou:
 
 7. não acrescente a indicação coloquial do medicamento.
 
+PADRÃO DE POSOLOGIA DOCUMENTAL EM PERIODOS — MEDICAMENTOS CONTÍNUOS:
+Quando o paciente informar explicitamente a quantidade de unidades tomada pela manhã, à tarde e/ou à noite, registre após o medicamento e a concentração no formato MANHÃ-TARDE-NOITE (n-n-n), por exemplo:
+- "1 comprimido de manhã e outro à noite" -> "1-0-1";
+- "1 comprimido à tarde" -> "0-1-0";
+- "2 comprimidos pela manhã" -> "2-0-0";
+- "1 comprimido de manhã, 1 à tarde e 1 à noite" -> "1-1-1".
+Exemplo completo: "Losartana 50 mg, 1 comprimido de manhã e um à noite" -> "Losartana 50 mg — 1-0-1 (comprimidos)".
+Este é registro do USO RELATADO, não prescrição. Preserve a concentração e a unidade efetivamente referidas e jamais confunda mg, comprimidos, mL, gotas e unidades de insulina.
+Se disser apenas "duas vezes ao dia", "12/12 horas" ou "8/8 horas" SEM explicitar os períodos, mantenha a frequência relatada; não invente "1-0-1".
+Se houver conflito, dúvida, regime variável ou horários desconhecidos, preserve o texto do relato, sem converter para n-n-n, e sinalize "posologia a confirmar".
+Se citar o nome sem concentração, mantenha a regra "(dose não informada)". Não deduza dose, horário, via, frequência nem adesão.
+
 Evite expressões como:
 
 "para dor";

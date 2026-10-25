@@ -12,7 +12,7 @@ for(const token of [
   'spoken_vitals','review','consult'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20260927-v18121'),'v18.12 module must be loaded with the current cache bust');
+assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20261024-core-history'),'v18.12 module must be loaded with the current cache bust');
 assert.ok(engine.includes('pressao')&&engine.includes('por')&&engine.includes('talvez'),'engine must accept spoken blood pressure using "por" and retain uncertainty markers');
 assert.ok(engine.includes('\\s+e\\s+meio'),'engine must recognize spoken half-degree temperature');
 assert.ok(code.includes("item.status==='confirm'"),'ambiguous Radar state must remain visible for confirmation');
@@ -23,3 +23,9 @@ assert.ok(!code.includes('submit-audit-case'),'v18.12 flow module must not reope
 
 new Function(code);
 console.log('NEXA v18.12 automatic Radar/review contract: PASS');
+
+assert.ok(code.includes("new Set(['comorbidities','allergies','medicines'])"),'Three mandatory clinical history groups must be present in final review');
+const documentation=fs.readFileSync(new URL('../supabase/functions/process-consultation/index.ts',import.meta.url),'utf8');
+for(const token of ['MANHÃ-TARDE-NOITE','1-0-1','0-1-0','posologia a confirmar','duas vezes ao dia']){
+ assert.ok(documentation.includes(token),'Medication time-of-day rule missing: '+token);
+}

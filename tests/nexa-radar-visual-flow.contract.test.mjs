@@ -78,7 +78,7 @@ assert.doesNotMatch(psSource,/\bfetch\s*\(/,'switching or rendering PS mode must
 assert.doesNotMatch(psSource,/MutationObserver/,'PS mode must not add DOM observers');
 assert.doesNotMatch(psSource,/radar\.subscribe/,'PS mode must not duplicate the existing Radar subscription');
 assert.equal((loader.match(/nexa-radar-ps-mode-v18\.14\.js/g)||[]).length,1,'PS module must be loaded exactly once');
-assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261001-v18140/);
+assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js\?v=20261024-core-history/);
 assert.equal(pkg.version,'18.15.0','release branch must carry the production version');
 assert.match(sw,/CACHE_NAME="nexa-v18-15-0-[a-z0-9-]+"/,'release cache must be versioned for production');
 
