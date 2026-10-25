@@ -105,9 +105,9 @@
     const cues={
       comorbidities:/\b(?:comorbid\w*|doencas? (?:cronicas?|preexistentes?|conhecidas?)|problemas? de saude|antecedentes? pessoais)\b/,
       allergies:/\b(?:alerg\w*|reac(?:ao|oes) (?:a|ao) (?:medicamentos?|remedios?))\b/,
-      medicines:/\b(?:medic\w*|remedios?|farmacos?|uso continuo|uso regular|faz uso|toma|tomando)\b/
+      medicines:/\b(?:medic\w*|remedios?|farmacos?|uso continuo|uso regular|faz uso|tomo|toma|tomando|utilizo|utiliza)\b/
     };
-    const disease=/\b(?:hipertens\w*|diabet\w*|asmatic\w*|asma|dpoc|hipotireoid\w*|epileps\w*|cardiopatia|doenca renal|insuficiencia cardiaca)\b/;
+    const disease=/\b(?:hipertens\w*|diabet\w*|asmatic\w*|asma|dpoc|hipotireoid\w*|epileps\w*|cardiopatia|doenca renal|insuficiencia cardiaca|depressao|fibromialgia|lupus|artrite|artrose|dislipid\w*|hipercolesterol\w*|doenca hepatica)\b/;
     const drug=/\b(?:losartana|enalapril|captopril|metformina|insulina|levotiroxina|omeprazol|rivaroxabana|apixabana|dipirona|paracetamol)\b/;
     let pending='';
     for(const raw of String(transcript).match(/[^.!?;\n]+[.!?;\n]?/g)||[]){
@@ -131,14 +131,13 @@
       for(const id of candidates){
         let state='unknown';
         const neg=/^(?:nao|nunca|nenhum[a]?|nego|nega|negou|sem)\b/.test(t)||/\b(?:nega|negou|sem|nao (?:tenho|tem|possui|uso|usa|tomo|toma|faz uso))\b/.test(t);
-        const affirmative=/^(?:sim|tenho|sou|uso|tomo|utilizo|faco uso|faz uso|refiro|paciente (?:tem|usa|toma|faz uso))\b/.test(t);
         if(!unknown){
           if(id==='allergies'){
             const absent=/\b(?:nega|negou|sem|nao (?:tenho|tem|possui))\s+(?:nenhuma?\s+)?alerg\w*/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhuma?)$/.test(t);
             const present=/(?:\balerg\w*\s+(?:a|ao)\s+\w+|\breacao (?:a|ao)\s+\w+)/.test(t)||answerTo===id&&/^sim[, ]+\S+/.test(t);
             state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
           }else if(id==='medicines'){
-            const absent=/\b(?:nega|negou|sem|nao (?:uso|usa|tomo|toma|faz uso|utilizo|utiliza))\s+(?:(?:uso|faz uso)\s+(?:de\s+)?)?(?:medic\w*|remedios?|farmacos?|uso continuo)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?)$/.test(t);
+            const absent=/\b(?:nega|negou|sem|nao (?:uso|usa|tomo|toma|faz uso|utilizo|utiliza))\s+(?:(?:uso|faz uso)\s+(?:de\s+)?)?(?:nenhum[a]?\s+|de\s+)?(?:medic\w*|remedios?|farmacos?|uso continuo|nada\b)/.test(t)||answerTo===id&&/^(?:nao|nunca|nenhum[a]?|nao (?:tomo|uso|faco uso) nada)$/.test(t);
             const present=/\b(?:uso|usa|tomo|toma|utilizo|utiliza|faz uso de|em uso de)\s+(?:\w+\s+){0,3}(?:\d+\s*mg|losartana|metformina|insulina|levotiroxina|enalapril|captopril|rivaroxabana|apixabana|omeprazol|medic\w*|remedios?)/.test(t)||answerTo===id&&(drug.test(t)||/\b\d+\s*(?:mg|mcg|ml)\b/.test(t)||/^sim[, ]+\S{3,}/.test(t));
             state=absent&&!present?'known_absent':present&&!absent?'known_present':'unknown';
           }else{
