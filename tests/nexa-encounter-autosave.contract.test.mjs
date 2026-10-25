@@ -55,7 +55,7 @@ const context={
   console,structuredClone,document:{
     documentElement:{dataset:{}},
     querySelectorAll:selector=>selector==='.field[data-key]'?Object.keys(fields).map(key=>({
-      dataset:{key},querySelector:()=>({value:fields[key]})
+      dataset:{key},querySelector:selector=>({value:selector==='textarea'?fields[key]:(key==='exame_fisico'?'auxiliary-checkbox-value':fields[key])})
     })):[],
     getElementById:()=>null,addEventListener(){}
   },
@@ -90,6 +90,7 @@ fields.hda='Paciente fictício com dor iniciada há duas horas, sem síncope.';
 fields.exame_fisico='Bom estado geral, eupneico.';
 const ready=await api.preserve('input',{sync:false});
 assert.equal(ready.encounter_state,'ready_for_audit');
+assert.equal(ready.fields.exame_fisico,'Bom estado geral, eupneico.','a clinical textarea must take precedence over auxiliary exam inputs');
 assert.ok(ready.audit_ready_at);
 fields.hda='';fields.exame_fisico='';
 const revision=await api.preserve('next',{sync:false});

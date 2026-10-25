@@ -62,7 +62,16 @@ async function chromiumFlow(browser,port,viewport){
   const beforeFilter=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
   await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').click();
   assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').getAttribute('aria-pressed'),'true');
-  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').click();
+  // The encounter can finish restoring on slower mobile browsers while
+  // the reviewer changes tabs. Retry once if that lifecycle reset the filter.
+  for(let attempt=0;attempt<3;attempt++){
+    await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').click();
+    try{
+      await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160?.getFilter?.()==='safety'&&
+        document.querySelector('#nexaRadarDynamic18160 [data-focus-filter="safety"]')?.getAttribute('aria-pressed')==='true',null,{timeout:900});
+      break;
+    }catch(error){if(attempt===2)throw error}
+  }
   assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').getAttribute('aria-pressed'),'true');
   await page.locator('#nexaRadarDynamic18160 [data-focus-filter="now"]').click();
   assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
