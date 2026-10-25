@@ -13,3 +13,28 @@
 #axReview #axRadarSaveV3{min-height:42px;cursor:pointer}
 #axReview #axRadarStatusV3{font-weight:800;color:var(--ax-text,#17364e)}
 @media(max-width:760px){#axReview .ax-radar-v3-inputs{grid-template-columns:minmax(0,1fr)}#axReview .ax-radar-v3{padding:10px}}
+
+#axReview .ax-radar-coverage-v4{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--ax-line,#294452);background:var(--ax-panel2,#edf7fb);padding:12px;border-radius:10px}
+#axReview .ax-radar-coverage-v4 b{color:var(--ax-teal,#0a867b);font-size:13px}
+#axReview .ax-radar-coverage-v4 span{font-size:10px;color:var(--ax-muted,#5e7c89)}
+#axReview .ax-radar-question-list-v4{display:grid;gap:9px;max-height:680px;overflow:auto;overscroll-behavior:contain;padding:2px}
+#axReview .ax-radar-question-v4{min-width:0;border:1px solid var(--ax-line,#294452);border-left:3px solid #2189ae;background:var(--ax-panel2,#f4fafc);border-radius:11px;padding:12px;display:grid;gap:8px}
+#axReview .ax-radar-qheader-v4{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:10px;color:var(--ax-muted,#637887)}
+#axReview .ax-radar-qheader-v4 b{color:var(--ax-teal,#0b938b)}
+#axReview .ax-radar-question-v4>strong{color:var(--ax-text,#16314c);font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+#axReview .ax-radar-question-v4 p{font-size:11px;line-height:1.55;color:var(--ax-muted,#607a89);overflow-wrap:anywhere}
+#axReview .ax-radar-question-v4:has(select[data-radar-question-verdict] option[value="irrelevant"]:checked){border-left-color:#f29548}
+#axReview .ax-radar-question-v4:has(select[data-radar-question-verdict] option[value="relevant"]:checked){border-left-color:#16a883}
+#axReview .ax-radar-text-v4{display:grid;gap:5px;font-weight:800;font-size:11px;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-text-v4 textarea{width:100%;min-height:76px;max-width:100%;min-width:0;background:var(--ax-panel2,#f9fcff);border:1px solid var(--ax-line,#becfd8);border-radius:9px;padding:10px;font:12px/1.5 inherit;color:var(--ax-text,#16314c)}
+#axReview .ax-radar-missing-list-v4{display:grid;gap:8px}
+#axReview .ax-radar-missing-v4{border:1px solid var(--ax-line,#c9dce5);border-left:3px solid var(--ax-teal,#058579);padding:10px;border-radius:9px;display:grid;gap:5px;overflow-wrap:anywhere}
+#axReview .ax-radar-missing-v4>div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#axReview .ax-radar-missing-v4 button{min-height:36px;min-width:36px;background:transparent;border:1px solid var(--ax-line,#d2e0e6);border-radius:8px;color:var(--ax-text,#17334a);cursor:pointer}
+#axReview .ax-radar-missing-v4 strong{font-size:12px}
+#axReview .ax-radar-missing-v4 small{color:var(--ax-muted,#647b88)}
+#axReview .ax-radar-extra-v4{border-top:1px solid var(--ax-line,#cee0e7);padding-top:10px}
+#axReview .ax-radar-extra-v4 summary{cursor:pointer;font-size:11px;font-weight:800;min-height:36px}
+#axReview .ax-radar-question-v4 :is(select,textarea):focus-visible,
+#axReview .ax-radar-text-v4 textarea:focus-visible{outline:3px solid var(--ax-cyan,#208ba1);outline-offset:2px}
+@media(max-width:760px){#axReview .ax-radar-question-list-v4{max-height:none;overflow:visible}#axReview .ax-radar-question-v4{padding:10px}}
