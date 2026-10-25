@@ -250,7 +250,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.waitForFunction(()=>/ORIGINAL QA A/.test(document.getElementById('axRBody')?.textContent||'')&&/FINAL QA A/.test(document.getElementById('axRBody')?.textContent||''));
   await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="radar"]')?.click());
   await page.waitForFunction(()=>/Hipotensão/.test(document.getElementById('axRBody')?.textContent||'')&&/known_present/.test(document.getElementById('axRBody')?.textContent||''));
-  assert.match(await page.locator('#axRBody').innerText(),/Transcript bruto não é armazenado/);
+  assert.match(await page.locator('#axRBody').innerText(),/Transcrição bruta não integra o dataset do NEXA Core/);
   await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="conduta"]')?.click());
   const auditPlanText=await page.locator('#axRBody').innerText();
   assert.match(auditPlanText,/EXAME QA/);assert.match(auditPlanText,/PRESCRIÇÃO QA/);assert.match(auditPlanText,/internacao/i);assert.match(auditPlanText,/Protocolos\/versionamento usados/);
