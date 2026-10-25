@@ -30,7 +30,13 @@ function questionCatalogue(row){
  const context=row?.deidentified_core_context||{};
  const raw=Array.isArray(context?.radar_capture?.items)?context.radar_capture.items:[];
  const deid=Array.isArray(context?.radar_learning?.items)?context.radar_learning.items:[];
- const index=new Map(deid.filter(isObj).map(x=>[String(x.id||""),x]));
+ const index=new Map(),ambiguous=new Set();
+ for(const item of deid.filter(isObj)){
+   const id=String(item.id||item.concept||"");
+   if(!qidRx.test(id))continue;
+   if(index.has(id)){index.delete(id);ambiguous.add(id);}
+   else if(!ambiguous.has(id))index.set(id,item);
+ }
  const base=raw.length?raw:deid;
  const found=new Set(),items=[];
  for(const item of base){
