@@ -50,6 +50,7 @@ test('AI draft cannot enter a patient-facing evidence plan without independent r
  assert.equal(compileApprovedRadarEditorial([once],catalog).length,0);
  assert.throws(()=>appendRadarEditorialReview(once,review('clinical_safety','medico_01')),/INDEPENDENT/);
  const twice=appendRadarEditorialReview(once,review('clinical_safety','medico_02'));
+ assert.equal(twice.status,'reviewed');
  const approved=compileApprovedRadarEditorial([twice],catalog);
  assert.equal(approved.length,1);
  assert.equal(approved[0].review.status,'clinically_approved');
@@ -73,6 +74,9 @@ test('altered, missing or invalid reviews are not editorial approvals',()=>{
   {...both,reviews:both.reviews.map(x=>({...x,source_verified:false}))},
   {...both,provenance:{...both.provenance,source_url:'https://evil.example/path'}},
   {...both,question:'Confirme um diagnóstico antes de investigar',concept_id:'unknown'},
+  {...both,question:'Existe algum sintoma diferente associado ao desconforto torácico?'},
+  {...both,priority_proposal:'critical'},
+  {...both,provenance:{...both.provenance,source_section:'Outra sessão documental não revisada'}},
   {...both,provenance:{...both.provenance,source_id:'uptodate',source_url:RADAR_SOURCES.find(s=>s.id==='uptodate').url}}
  ];
  for(const entry of bad)assert.deepEqual(compileApprovedRadarEditorial([entry],catalog),[]);
