@@ -115,7 +115,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.match(await page.locator('.field[data-key="hda"] textarea').inputValue(),/queda/);
   assert.equal(await page.evaluate(()=>window.nexaDestinationFlow18915.state.final),'internacao');
   page.once('dialog',d=>d.accept());await page.locator('#resetBtn').evaluate(el=>el.click());
-  await page.waitForFunction(()=>window.radarState.items.length===0);
+  await page.waitForFunction(()=>['comorbidities','allergies','medicines'].every(id=>window.radarState.items.some(i=>i.concept===id))&&window.radarState.items.length===3);
   for(const key of ['hda','exame_fisico','sinais_vitais','hipotese_diagnostica','conduta'])for(const el of await page.locator(`.field[data-key="${key}"] textarea`).all())assert.equal(await el.inputValue(),'');
   assert.equal(await page.evaluate(()=>window.nexaDestinationFlow18915.state.final),'');
   assert.deepEqual(await page.evaluate(()=>window.nexaRadar.snapshot().ledger),{});
