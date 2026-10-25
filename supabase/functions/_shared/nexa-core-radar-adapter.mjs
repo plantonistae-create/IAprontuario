@@ -1,3 +1,4 @@
+import {buildRadarEvidencePlan} from "./nexa-radar-evidence-library.mjs";
 // NEXA Core Radar API contract v1.
 // Used by Supabase Edge Function only; no client or patient identifiers sent.
 export const RADAR_API_CONTRACT = "nexa-core-radar-v1";
@@ -30,6 +31,9 @@ export function createCoreRadarRequest({transcript="",fields={},previous={},conc
     model: String(model||"nexa-core-radar").slice(0,80),
     context: {transcript,clinical_context:fields,previous_state:previous},
     allowed_concepts: conceptIds,
+    // Same public source index used by OpenAI and the future independent NEXA Core.
+    // Only source IDs/URLs and objectives; no patient excerpts copied into this metadata.
+    evidence_context: buildRadarEvidencePlan({fields,transcript,allowedConcepts:conceptIds}),
     constraints: {
       no_inferred_negatives: true,
       evidence_must_be_literal: true,
