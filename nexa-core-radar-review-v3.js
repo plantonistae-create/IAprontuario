@@ -76,6 +76,9 @@ function buildPayload(row,reviewState,labels,expectedRevision=0){
  if(!['not_reviewed','reviewed'].includes(reviewState))throw Error('RADAR_REVIEW_STATE_INVALID');
  if(!Number.isInteger(expectedRevision)||expectedRevision<0)throw Error('RADAR_REVIEW_REVISION_INVALID');
  const l=sanitizeLabels(labels,conceptOptions(row));
+ const radarItems=row?.deidentified_core_context?.radar_learning?.items;
+ if(reviewState==='reviewed'&&(!Array.isArray(radarItems)||!radarItems.length))
+   throw Error('RADAR_SNAPSHOT_INSUFFICIENT_FOR_REVIEW');
  if(reviewState==='not_reviewed'&&l.length)throw Error('RADAR_REVIEW_NEEDS_CONFIRMATION');
  return Object.freeze({schema_version:SCHEMA,
    review_state:reviewState,labels:l,capture_meta:snapshotMeta(row),
