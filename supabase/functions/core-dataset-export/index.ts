@@ -138,7 +138,7 @@ Deno.serve(async req=>{
         input:{...item.input,speakerAttribution:speakerMeta},
         annotations:{radarFeedback:sanitizeRadarFeedback(a.deidentified_core_context?.radar_feedback),
           radarReview:compileRadarDatasetLabels(reviewsById.get(a.id)),
-          radarQuestionAudit:compileRadarQuestionReview(reviewsById.get(a.id))},
+          radarQuestionAudit:compileRadarQuestionReview(reviewsById.get(a.id),(Array.isArray(a.deidentified_core_context?.radar_capture?.items)?a.deidentified_core_context.radar_capture.items:[]).map((q:any)=>String(q.id||'')))},
         datasetSafety:coreExportSafety(),
       };
       // Machine checks supplement, never replace, the mandatory human review.
