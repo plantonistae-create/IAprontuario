@@ -35,16 +35,8 @@ alter table public.nexa_core_radar_review_events enable row level security;
 revoke all on public.nexa_core_radar_reviews from public,anon,authenticated;
 revoke all on public.nexa_core_radar_review_events from public,anon,authenticated;
 
--- Avoid accidental update/remove of the historical revisions (even by privileged app code).
-create or replace function public.nexa_radar_block_event_mutation()
-returns trigger language plpgsql set search_path=public,pg_temp as $$
-begin
-  raise exception 'RADAR_REVIEW_HISTORY_IMMUTABLE' using errcode='55000';
-end;
-$$;
-drop trigger if exists nexa_radar_review_events_immutable on public.nexa_core_radar_review_events;
-create trigger nexa_radar_review_events_immutable before update or delete
- on public.nexa_core_radar_review_events for each row execute function public.nexa_radar_block_event_mutation();
+-- Historical revision rows are append-only to authenticated clients (RLS + revoked DML).
+-- On legitimate patient-data erasure, FK cascade must remain possible.
 
 -- Validate metadata before persistence: only recognized categorical labels and technical versions.
 create or replace function public.save_nexa_radar_review_v3(
