@@ -101,7 +101,7 @@
   // The matcher is deliberately conservative: no relative history, hypothetical
   // scenarios or isolated denials of one specific disease are global negatives.
   function spokenCoreHistory(transcript=''){
-    const out={comorbidities:[],allergies:[],medicines:[]};
+    const out={comorbidities:[],allergies:[],medicines:[],asked:{}};
     const cues={
       comorbidities:/\b(?:comorbid\w*|doencas? (?:cronicas?|preexistentes?|conhecidas?)|problemas? de saude|antecedentes? pessoais)\b/,
       allergies:/\b(?:alerg\w*|reac(?:ao|oes) (?:a|ao) (?:medicamentos?|remedios?))\b/,
@@ -118,6 +118,7 @@
       const targets=Object.keys(cues).filter(id=>cues[id].test(t));
       if(/[?]\s*$/.test(raw.trim())||/^(?:voce|o senhor|a senhora|paciente) (?:tem|possui|usa|toma|faz uso)\b/.test(t)&&speaker==='medico'){
         pending=targets.length===1?targets[0]:'';
+        if(pending&&speaker!=='paciente'&&speaker!=='acompanhante')out.asked[pending]={quote:raw.trim(),section:'transcript'};
         continue;
       }
       // A question/statement from the clinician cannot document an answer.
@@ -234,7 +235,7 @@
       const timedResolution=evidence.some(e=>e.temporal==='resolved')||(pos.length&&neg.length&&pos.every(e=>e.temporal==='recent')&&neg.every(e=>/agora|atualmente|hoje|no momento/.test(norm(e.quote))));
       const conflict=!!(pos.length&&neg.length&&!timedResolution);
       const last=timedResolution?(relevant.findLast(e=>e.temporal==='resolved'||e.state==='known_absent')):active.at(-1)||relevant.at(-1);
-      out[concept.id]={state:last?.state||'not_asked',temporal:last?.temporal||'unknown',evidence,currentEvidence:last||null,conflict,asked:turns.asked[concept.id]||null};
+      out[concept.id]={state:last?.state||'not_asked',temporal:last?.temporal||'unknown',evidence,currentEvidence:last||null,conflict,asked:(universal.has(concept.id)?spokenHistory.asked[concept.id]:turns.asked[concept.id])||null};
     }
     return out;
   }

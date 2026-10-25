@@ -160,3 +160,11 @@ test('spoken core-history: later contradictory patient statements remain visible
  assert.equal(r.facts.allergies.conflict,true);
  assert.ok(has(r,'conflict:allergies'));
 });
+
+test('spoken universal history questions become asked but never documented until patient answers',()=>{
+ const r=E.analyze({transcript:'Médico: Tem alergias? Médico: Tem comorbidades? Médico: Faz uso de medicamentos?'});
+ for(const id of ['allergies','comorbidities','medicines']){
+  assert.equal(r.facts[id].state,'not_asked',id+' is unanswered');
+  assert.equal(r.items.find(i=>i.concept===id)?.status,'asked',id+' should be visibly awaiting response');
+ }
+});
