@@ -56,6 +56,13 @@ export function proposeRadarEditorialQuestion(raw,catalog){
  * Local pure review compiler, NOT an authentication service.
  * Caller must verify reviewer identity, clinical role and provenance before calling.
  */
+// Content snapshot for detecting accidental edits after reviewers approved a question.
+// This is NOT an authentication signature; trusted reviewer authorization belongs to the server.
+export function editorialReviewSnapshot(draft){
+ return JSON.stringify([draft.schema_version,draft.id,draft.playbook_id,draft.concept_id,
+  draft.question,draft.why_ask,draft.decision_relevance,draft.priority_proposal,
+  draft.population,draft.provenance]);
+}
 export function appendRadarEditorialReview(draft,review){
  if(!isObject(draft)||draft.schema_version!==RADAR_EDITORIAL_SCHEMA||draft.status!=="draft"||
     !Array.isArray(draft.reviews))throw Error("RADAR_EDITORIAL_NOT_DRAFT");
@@ -72,8 +79,8 @@ export function appendRadarEditorialReview(draft,review){
  if(draft.reviews.some(x=>x.decision==="reject"))throw Error("RADAR_EDITORIAL_REJECTED");
  const reviews=[...draft.reviews,{reviewer_id:review.reviewer_id,role:review.role,
    decision:review.decision,reviewed_at:review.reviewed_at,
-   source_verified:true,question_verified:true}];
- return {...draft,reviews,status:review.decision==="reject"?"rejected":"draft"};
+   source_verified:true,question_verified:true,reviewed_snapshot:editorialReviewSnapshot(draft)}];
+ return {...draft,reviews,status:review.decision==="reject"?"rejected":reviews.length===2?"reviewed":"draft"};
 }
 
 /**
@@ -86,7 +93,7 @@ export function compileApprovedRadarEditorial(entries,{sources,playbooks,allowed
    throw Error("RADAR_EDITORIAL_COMPILE_INVALID");
  const results=[],seen=new Set();
  for(const entry of entries){
-  if(!isObject(entry)||entry.schema_version!==RADAR_EDITORIAL_SCHEMA||
+  if(!isObject(entry)||entry.schema_version!==RADAR_EDITORIAL_SCHEMA||entry.status!=="reviewed"||
      !isObject(entry.provenance)||!Array.isArray(entry.reviews))continue;
   const p=playbooks.find(x=>x.id===entry.playbook_id),
         src=sources.find(x=>x.id===entry.provenance.source_id);
@@ -102,7 +109,7 @@ export function compileApprovedRadarEditorial(entries,{sources,playbooks,allowed
   const reviewers=entry.reviews;
   const md=reviewers.find(x=>x?.role==="physician"&&x.decision==="approve"&&x.source_verified===true&&x.question_verified===true);
   const safety=reviewers.find(x=>x?.role==="clinical_safety"&&x.decision==="approve"&&x.source_verified===true&&x.question_verified===true);
-  if(reviewers.length!==2||!md||!safety||md.reviewer_id===safety.reviewer_id||
+  if(reviewers.length!==2||!md||!safety||reviewers.some(x=>x.reviewed_snapshot!==editorialReviewSnapshot(entry))||md.reviewer_id===safety.reviewer_id||
      !ids.test(md.reviewer_id)||!ids.test(safety.reviewer_id)||
      !validDate(md.reviewed_at)||!validDate(safety.reviewed_at)||
      reviewers.some(x=>x.reviewed_at<entry.provenance.checked_at||x.reviewed_at>new Date().toISOString().slice(0,10)))continue;
