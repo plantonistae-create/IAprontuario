@@ -18,7 +18,7 @@
           status:String(item.status||'to_ask'),redFlag:item.redFlag===true,category:String(item.category||'')});
       }
     }
-    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger)};}
+    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x}))};}
     // A streaming transcript usually grows monotonically. Retain one in-flight
     // analysis when new completed utterances only append text, then refresh it.
     // Changing clinical fields, owner, or encounter still invalidates immediately.
@@ -78,7 +78,14 @@
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
     function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
-    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;}recalculate();}
+    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
+      for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
+        const id=String(x?.id||''),concept=String(x?.concept||'');
+        if(!/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;
+        questionTrace.set(id,{id,concept,question:String(x.question||'').slice(0,360),
+          reason:String(x.reason||'').slice(0,360),priority:String(x.priority||'moderate'),
+          status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});
+      }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
     return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}transcriptStatus=value==='live'&&transcriptIncomplete?'stale':value;recalculate();},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
