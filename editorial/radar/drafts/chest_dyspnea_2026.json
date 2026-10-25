@@ -1,0 +1,15 @@
+{
+  "id": "chest_dyspnea_2026",
+  "playbook_id": "chest_pain",
+  "concept_id": "dyspnea",
+  "question": "O desconforto ou dor no peito vem acompanhado de falta de ar?",
+  "why_ask": "Na avaliação de dor torácica, dispneia associada caracteriza a apresentação e deve ser investigada diante de possíveis condições graves.",
+  "decision_relevance": "A resposta deve orientar a avaliação clínica contextual de sinais de alerta e diferenciais, sem determinar diagnóstico, destino ou terapia automaticamente.",
+  "priority_proposal": "essential",
+  "population": "any",
+  "source_id": "ms_chest_upa",
+  "source_url": "https://linhasdecuidado.saude.gov.br/portal/dor-toracica/unidade-de-pronto-atendimento/avaliacao-conduta/",
+  "source_version": "Linha de cuidado MS — Dor torácica UPA, atualização de 2022",
+  "source_section": "Avaliação e conduta — história clínica, manifestações e sinais associados",
+  "checked_at": "2026-10-25"
+}
