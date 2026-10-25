@@ -4,6 +4,7 @@
   const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
   const rank={critical:0,high:1,moderate:2,low:3};
   const sections=['queixa_principal','hda','alergias','comorbidades','medicacoes','antecedentes','exame_fisico','sinais_vitais'];
+  const universal=new Set(['comorbidities','allergies','medicines']);
   // Each concept has evidence aliases and an explicit documentation destination.
   const concepts={};
   function c(id,label,pattern,section='hda',type='boolean'){concepts[id]={id,label,pattern,section,type};}
@@ -58,6 +59,7 @@
   c('aggravation','Fatores de piora',/piora (?:com|ao)|agrava|pior ao/,'hda','text');
   c('relief','Fatores de melhora',/melhora (?:com|ao)|alivia|sem alivio/,'hda','text');
   c('evolution','Evolução da dor',/progressiv\w*|intermitente|recorrente|constante|melhorando|piorando|estavel desde/,'hda','text');
+  c('comorbidities','Comorbidades',/.+/,'comorbidades','text');
   c('medicines','Medicações utilizadas',/.+/,'medicacoes','text');
   c('allergies','Alergias',/.+/,'alergias','text');
   c('bp','Pressão arterial',/\b(?:pa|pressao arterial|pressao)\s*[:=]?\s*(?:talvez|aproximadamente|aprox\.?|por volta(?: de)?|cerca de)?\s*\d{2,3}\s*(?:[x\/]|por)\s*\d{2,3}/,'sinais_vitais','text');
@@ -131,7 +133,7 @@
       const evidence=turns.evidence.filter(e=>e.concept===concept.id).map(e=>({...e}));
       if(turns.uncertain[concept.id])evidence.push(turns.uncertain[concept.id]);
       for(const source of sources){
-        if(['medicines','allergies'].includes(concept.id)&&source.section!==concept.section)continue;
+        if(universal.has(concept.id)&&source.section!==concept.section)continue;
         // Historical diseases do not become current complaints; explicit old trauma is retained as prior only.
         if(symptomIds.has(concept.id)&&['antecedentes','comorbidades','medicacoes','alergias'].includes(source.section))continue;
         for(const raw of source.text.replace(/[^.!?\n]*\?/g,'').split(/\.(?!\d)|[;!?\n]+|\bmas\b|\bporem\b/i)){
@@ -141,8 +143,9 @@
             const prefix=text.slice(0,m.index),suffix=text.slice(m.index+m[0].length);
             // Negation spans lists, but stops at an affirmative clause.
             const clause=prefix.split(/\b(?:refere|apresenta|relata|tem|teve|com)\b/).pop();
-            const unknown=/talvez|acho que|nao lembro|nao entendi|nao (?:sei|sabe|soube)|nao (?:informad|investigad|avaliad|perguntad)|desconhec/.test(text)||(concept.id==='consciousness'&&/glasgow/.test(m[0])&&measurement(concept.id,m[0])===null);
+            const unknown=/talvez|acho que|nao lembro|nao entendi|nao (?:sei|sabe|soube)|nao (?:informad|relatad|investigad|avaliad|perguntad)|desconhec/.test(text)||(concept.id==='consciousness'&&/glasgow/.test(m[0])&&measurement(concept.id,m[0])===null);
             let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
+            if(universal.has(concept.id))negative=/^(?:(?:comorbidades|alergias|medicacoes(?: utilizadas)?)\s*:\s*)?(?:nega\b|negou\b|sem\b|nao\s+(?:tem|possui|usa|toma|faz uso)\b)/.test(text);
             const value=measurement(concept.id,m[0]);
             if(concept.id==='consciousness'&&(/^lucid/.test(m[0])||value===15))negative=!negative;
             const prior=/ha \d+ anos|antecedente|historico de|previ[oa]|no passado/.test(text);
@@ -201,10 +204,14 @@
       const record=ledger[key];
       // Ledger acknowledgements only suppress the evidence snapshot they actually addressed.
       const evidenceKey=JSON.stringify(f.evidence);
-      if(record&&(record.evidenceKey===evidenceKey||!f.conflict&&record.action==='answer'&&record.documented&&String(fields[record.section]||'').includes(record.documented)))return;
+      if(record&&!universal.has(id)&&(record.evidenceKey===evidenceKey||!f.conflict&&record.action==='answer'&&record.documented&&String(fields[record.section]||'').includes(record.documented)))return;
       const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
       if(!items.has(key)||rank[item.priority]<rank[items.get(key).priority])items.set(key,item);
     };
+    // Universal history is always pending until documented, even before a syndrome is identified.
+    add('comorbidities','high','Registrar comorbidades ou negativa explícita.');
+    add('allergies','high','Esclarecer alergias e reação quando conhecida, sem presumir ausência.');
+    add('medicines','high','Registrar medicações contínuas e posologia relatada ou negativa explícita.');
     const activated=packs.filter(p=>active(p.id));
     for(const pack of activated)for(const priority of ['critical','high'])for(const id of pack[priority])add(id,priority,`Informação relevante para avaliar ${concepts[pack.id].label.toLowerCase()}.`,priority==='critical');
     const currentText=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
@@ -221,7 +228,7 @@
     if(active('fever')&&/nao aferi\w*|nao mediu|nao mensurad\w*/.test(currentText))items.delete('temperature');
     for(const [id,f] of Object.entries(known))if(f.conflict)add(id,'high','Confirmar cronologia e conteúdo antes de manter afirmações incompatíveis.');
     const post=!!fields.hipotese_diagnostica;
-    if(post&&activated.length){add('allergies','high','Informação necessária para planejar cuidados.');add('medicines','moderate','Esclarecer medicações antes de planejar cuidados.');}
+    // Universal checks above do not depend on a recorded hypothesis.
     // AI is additive: it cannot remove/downgrade deterministic gaps or create factual findings.
     for(const raw of Array.isArray(aiItems)?aiItems.slice(0,24):[]){
       if(!raw||typeof raw!=='object'||!concepts[raw.concept])continue;
