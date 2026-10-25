@@ -53,7 +53,30 @@ function counts(){const local={pending:0,approved:0,corrected:0,discarded:0};row
 function filtered(source=rows){return source.filter(r=>{if(filter!=='all'&&statusClass(r.status)!==filter)return false;if(!search)return true;return (JSON.stringify(r.deidentified_fields||{})+' '+JSON.stringify(r.deidentified_core_context||{})+' '+r.id).toLowerCase().includes(search)})}
 function completedRows(){return rows.filter(r=>['approved','corrected','discarded'].includes(statusClass(r.status)))}
 function correctionStats(){const m=new Map();for(const r of rows.filter(x=>statusClass(x.status)==='corrected')){const stored=r.audit_changes&&typeof r.audit_changes==='object'?Object.keys(r.audit_changes):[];if(stored.length){stored.forEach(k=>m.set(k,(m.get(k)||0)+1));continue}const a=r.deidentified_fields||{},b=r.reviewed_fields||{};for(const k of new Set([...Object.keys(a),...Object.keys(b)])){if(JSON.stringify(a[k]??null)!==JSON.stringify(b[k]??null))m.set(k,(m.get(k)||0)+1)}}return[...m.entries()].sort((a,b)=>b[1]-a[1])}
-function cidStats(){const m=new Map();for(const r of rows){const f=r.reviewed_fields||r.deidentified_fields||{},v=String(f.cid_medico_final||f.cid||f.cid10||'').trim();if(v)m.set(v,(m.get(v)||0)+1)}return[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8)}
+function normalizeCid(raw){
+ const text=typeof raw==='string'?raw:raw&&typeof raw==='object'?JSON.stringify(raw):String(raw??'');
+ const match=text.toUpperCase().match(/\b([A-Z][0-9]{2})(?:\.?([0-9A-Z]{1,4}))?\b/);
+ return match?match[1]+(match[2]?'.'+match[2]:''):'';
+}
+function cidStats(){
+ const counts=new Map();
+ for(const item of rows){
+  if(!['approved','corrected'].includes(statusClass(item.status)))continue;
+  const sources=[item.reviewed_fields,item.deidentified_core_context?.learning_layers?.physician_final?.fields,item.deidentified_fields];
+  let cid='';
+  for(const fields of sources){
+   if(!fields||typeof fields!=='object')continue;
+   for(const key of ['cid_medico_final','cid_final','cid','cid10','codigo_cid','cid_10','hipotese_diagnostica','diagnostico']){
+    if(!Object.prototype.hasOwnProperty.call(fields,key))continue;
+    cid=normalizeCid(fields[key]);
+    if(cid)break;
+   }
+   if(cid)break;
+  }
+  if(cid)counts.set(cid,(counts.get(cid)||0)+1);
+ }
+ return [...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
 function activeNav(){qa('#nexaAuditExact [data-ax-view]').forEach(b=>b.classList.toggle('active',b.dataset.axView===activeView))}
 function queueTable(list){
  return `<div class="ax-table"><div class="ax-row head"><div>ID</div><div>Data/Hora</div><div>Modo</div><div>Queixa principal</div><div>Hipótese (IA)</div><div>Radar</div><div>Status</div><div>Ação</div></div>${list.map(r=>`<div class="ax-row"><div>#${esc(String(r.id).slice(0,5))}${Number(r.priority||0)>0?' ★':''}</div><div>${date(r.submitted_at)}</div><div>${mode(r)}</div><div>${esc(String(field(r,'queixa_principal')||title(r)).slice(0,42))}</div><div>${esc(String(r.deidentified_core_context?.learning_layers?.original_ai?.hypothesis||field(r,'hipotese_diagnostica')||'—').slice(0,36))}</div><div>${coverage(r)}%</div><div><span class="ax-status ${statusClass(r.status)}">${statusText(r.status)}</span></div><div><button class="ax-reviewbtn" data-ax-open="${esc(r.id)}">Revisar</button></div></div>`).join('')||'<div class="ax-card">Nenhum caso neste filtro.</div>'}</div>`
@@ -68,7 +91,7 @@ function renderQueue(source=rows,titleText='Fila de casos'){
 }
 function renderStats(){
  const c=counts(),corr=correctionStats(),cids=cidStats(),days=new Map();for(const r of rows){const k=new Date(r.submitted_at).toLocaleDateString('pt-BR');days.set(k,(days.get(k)||0)+1)}
- $('axContent').innerHTML=`<div class="ax-head"><div><h1>Estatísticas</h1><p>Métricas derivadas exclusivamente dos casos no período selecionado.</p></div>${rangeControl()}</div><section class="ax-kpis">${[['Atendimentos',Number(dashboard?.total_received??rows.length),''],['Auditados',Number(dashboard?.completed??(c.approved+c.corrected+c.discarded)),'ax-green'],['Correções',c.corrected,'ax-blue'],['Pendentes',c.pending,'ax-red']].map(([n,v,cl])=>`<div class="ax-kpi"><small>${n}</small><strong>${v}</strong><em class="${cl}"></em></div>`).join('')}</section><section class="ax-grid"><div class="ax-card"><h3>Distribuição por CID</h3><div class="ax-list">${cids.length?cids.map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join(''):'<span>Sem CID estruturado no período.</span>'}</div></div><div class="ax-card"><h3>Campos corrigidos</h3><div class="ax-list">${corr.length?corr.slice(0,8).map(([k,v])=>`<div><span>${esc(LABEL[k]||k)}</span><b>${v}</b></div>`).join(''):'<span>Sem correções concluídas no período.</span>'}</div></div><div class="ax-card"><h3>Evolução temporal</h3><div class="ax-list">${[...days.entries()].slice(-10).map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join('')||'<span>Sem casos no período.</span>'}</div></div></section>`;
+ $('axContent').innerHTML=`<div class="ax-head"><div><h1>Estatísticas</h1><p>Métricas derivadas exclusivamente dos casos no período selecionado.</p></div>${rangeControl()}</div><section class="ax-kpis">${[['Atendimentos',Number(dashboard?.total_received??rows.length),''],['Auditados',Number(dashboard?.completed??(c.approved+c.corrected+c.discarded)),'ax-green'],['Correções',c.corrected,'ax-blue'],['Pendentes',c.pending,'ax-red']].map(([n,v,cl])=>`<div class="ax-kpi"><small>${n}</small><strong>${v}</strong><em class="${cl}"></em></div>`).join('')}</section><section class="ax-grid"><div class="ax-card"><h3>Distribuição por CID dos auditados</h3><div class="ax-list">${cids.length?cids.map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join(''):'<span>Sem CID estruturado no período.</span>'}</div></div><div class="ax-card"><h3>Campos corrigidos</h3><div class="ax-list">${corr.length?corr.slice(0,8).map(([k,v])=>`<div><span>${esc(LABEL[k]||k)}</span><b>${v}</b></div>`).join(''):'<span>Sem correções concluídas no período.</span>'}</div></div><div class="ax-card"><h3>Evolução temporal</h3><div class="ax-list">${[...days.entries()].slice(-10).map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join('')||'<span>Sem casos no período.</span>'}</div></div></section>`;
 }
 function renderLearning(){
  const c=counts(),core=summary||{};$('axContent').innerHTML=`<div class="ax-head"><div><h1>Aprendizado</h1><p>Preparação do dataset auditado. Nenhum treinamento de modelo é executado nesta versão.</p></div>${rangeControl()}</div><section class="ax-kpis">${[['Casos auditados',Number(core.total_cases||0),'ax-green'],['Correções acumuladas',c.corrected,'ax-blue'],['Liberados para dataset',Number(learningMetrics?.training_rights_approved||0),'ax-green'],['Descartados',c.discarded,'ax-red']].map(([n,v,cl])=>`<div class="ax-kpi"><small>${n}</small><strong>${v}</strong><em class="${cl}"></em></div>`).join('')}</section><section class="ax-card" style="margin-top:9px"><h3>Prontidão do NEXA Core</h3><div class="ax-list"><div><span>Documentação auditada</span><b>${Number(core.documentation_ready_cases||core.total_cases||0)}</b></div><div><span>Casos úteis para Radar</span><b>${Number(core.radar_ready_cases||0)}</b></div><div><span>Casos com plano clínico auditável</span><b>${Number(core.clinical_plan_ready_cases||0)}</b></div><div><span>Treinamento de modelo</span><b>Não realizado</b></div></div></section>`;
