@@ -46,7 +46,7 @@ function server(){
    await page.waitForFunction(()=>window.__qa.channels.length>0&&window.nexaRadar.state.transcriptStatus==='live');
    const speak=async(id,utterance)=>page.evaluate(({id,utterance})=>window.__qa.speak(id,utterance),{id,utterance});
    await speak('core-q-allergy','Médico: Tem alergias?');
-   await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.state==='not_asked');
+   await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.state==='not_asked'&&document.querySelector('#nexaFocusHistory18160 [data-concept="allergies"]')?.dataset.state==='asked');
    assert.equal(await stateOf('allergies'),'asked','A question from the clinician should be awaiting an answer, not already documented');
    await speak('core-a-allergy-unknown','Paciente: Não sei informar.');
    await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.state!=='known_absent');
