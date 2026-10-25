@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { isPlainObject, normalizeSnapshotVersion, safeCoreContext, validateDeidentifiedEnvelope } from "./audit-contract.mjs";
 import { sanitizeRadarFeedback } from "../_shared/nexa-radar-feedback.mjs";
+import { sanitizeRadarCapture } from "../_shared/nexa-radar-capture-v3.mjs";
 
 const env=(name:string)=>Deno.env.get(name)||'';
 const SUPABASE_URL=env('SUPABASE_URL');
@@ -39,7 +40,7 @@ function sourceCoreContext(body:any,source:any){
       frontend_version:String(body?.core_context?.audit_submission_snapshot?.frontend_version||'18.10.1'),
     },
   };
-  return safeCoreContext(merged);
+  return {...safeCoreContext(merged),radar_capture:sanitizeRadarCapture({...merged.radar_learning,frontend_version:merged.audit_submission_snapshot.frontend_version})};
 }
 
 serve(async(req)=>{
@@ -112,7 +113,9 @@ serve(async(req)=>{
   const deidentifiedFields=deidExecution.fields;
   const deidentifiedCore={
     ...deidExecution.core,
-    radar_feedback:sanitizeRadarFeedback(coreContext.radar_feedback)
+    radar_feedback:sanitizeRadarFeedback(coreContext.radar_feedback),
+    // Preserve categorical evidence independent of model deidentification, never raw text.
+    radar_capture:sanitizeRadarCapture(coreContext.radar_capture)
   };
   const withAuditExecution=(response:Response)=>withTechnicalExecutionHeaders(response,auditExecutionMetadata);
 
