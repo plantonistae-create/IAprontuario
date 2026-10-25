@@ -101,6 +101,9 @@ function performReset(target){
  try{window.confirm=()=>true;core.onclick.call(core)}
  finally{window.confirm=originalConfirm;window.removeEventListener('nexa:consultation-reset',onReset)}
  if(!cleared)throw new Error('RESET_NOT_CONFIRMED');
+ // The hidden native button no longer receives synthetic clicks; perform
+ // its intended viewport reset directly after the single confirmed cleanup.
+ try{window.scrollTo?.({top:0,left:0,behavior:'smooth'})}catch{}
  return true;
 }
 async function beforeReset(el){
