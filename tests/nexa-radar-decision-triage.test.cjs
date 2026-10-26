@@ -26,6 +26,13 @@ test('A09 with bloody stools: flag documented finding, do not infer bacterial ca
  assert.equal(r.facts.stoolBlood.state,'known_present');
  assert.ok(!JSON.stringify(r).toLowerCase().includes('antibiotico indicado'),'bloody stools alone cannot mandate empiric antibiotic');
 });
+test('A09 spontaneous verbal negatives must not trigger fever or vomiting pathways',()=>{
+ const r=scan('Diarreia há dois dias. Não teve febre e não apresenta vômitos.');
+ assert.equal(r.facts.fever.state,'known_absent');
+ assert.equal(r.facts.giVomiting.state,'known_absent');
+ assert.equal(present(r,'fever'),undefined);
+ assert.equal(present(r,'giVomiting'),undefined);
+});
 test('CID A09 routes even when transcript has just early symptom history',()=>{
  const r=scan('Evacuações líquidas há um dia.',{cid:'A09'});
  assert.ok(present(r,'hydration'));
