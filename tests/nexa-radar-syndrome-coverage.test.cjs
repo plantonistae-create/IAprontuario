@@ -5,7 +5,7 @@ const has=(r,id)=>r.items.some(x=>x.concept===id);
 const conditions=[
  ['faringite e odinofagia','Dor de garganta há dois dias.','swallowDifficulty'],
  ['otite','Dor no ouvido desde ontem.','earDischarge'],
- ['sinusite','Dor facial e sinusite há 4 dias.','onset'],
+ ['sinusite','Dor facial e sinusite há 4 dias.','fever'],
  ['joelho atraumático','Dor no joelho com edema, sem queda.','jointHot'],
  ['ombro pós-trauma','Dor no ombro após queda.','neurovascular'],
  ['lombalgia','Lombalgia há dois dias.','saddle'],
