@@ -272,7 +272,12 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.waitForFunction(()=>/ORIGINAL QA A/.test(document.getElementById('axRBody')?.textContent||'')&&/FINAL QA A/.test(document.getElementById('axRBody')?.textContent||''));
   await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="radar"]')?.click());
   await page.waitForFunction(()=>/Hipotensão/.test(document.getElementById('axRBody')?.textContent||'')&&/known_present/.test(document.getElementById('axRBody')?.textContent||''));
-  assert.match(await page.locator('#axRBody').innerText(),/Transcrição bruta não integra o dataset do NEXA Core/);
+  const radarReviewText=await page.locator('#axRBody').innerText();
+  assert.match(radarReviewText,/CONTEXTO CLÍNICO PARA AVALIAR PERTINÊNCIA/);
+  assert.match(radarReviewText,/HDA estruturada/);
+  assert.match(radarReviewText,/Exame físico/);
+  assert.match(radarReviewText,/transcrição bruta não (?:integra|são retidos)/i,
+    'raw conversation must not be represented as stored in the audit dataset');
   await page.evaluate(()=>document.querySelector('#axReview [data-ax-tab="conduta"]')?.click());
   const auditPlanText=await page.locator('#axRBody').innerText();
   assert.match(auditPlanText,/EXAME QA/);assert.match(auditPlanText,/PRESCRIÇÃO QA/);assert.match(auditPlanText,/internacao/i);assert.match(auditPlanText,/Protocolos\/versionamento usados/);
