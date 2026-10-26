@@ -350,11 +350,6 @@
     "section": "hda"
   },
   {
-    "id": "urinaryFever",
-    "label": "Febre associada a sintomas urinários",
-    "section": "hda"
-  },
-  {
     "id": "urinaryRetention",
     "label": "Retenção urinária atual",
     "section": "hda"
