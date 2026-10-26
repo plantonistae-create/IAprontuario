@@ -83,7 +83,6 @@
   c('visionChange','Alteração visual aguda',/\b(?:perda visual|visao turva|diplopia|visao dupla|baixa visual subita)\b/);
   c('seizure','Crise convulsiva',/\b(?:convulsao|crise convulsiva|crise epileptica|epilepsia em crise)\b/);
   c('postictal','Confusão pós-ictal / recuperação',/\b(?:pos.ictal|pos crise|recuperacao apos crise|confusao apos convulsao)\b/,'hda','text');
-  c('urinaryFever','Febre associada a sintomas urinários',/\b(?:febre|calafrios|tremores)\b/);
   c('urinaryRetention','Retenção urinária atual',/\b(?:retencao urinaria|nao consegue urinar|bexiga cheia sem urinar)\b/);
   c('colic','Cólica renal / dor em flanco',/\b(?:colica renal|nefrolitiase|calcul\w* renal|dor (?:no|em) flanco)\b/);
   c('testicularPain','Dor testicular aguda',/\b(?:dor testicular|torcao testicular|escroto doloroso|dor no testiculo)\b/);
