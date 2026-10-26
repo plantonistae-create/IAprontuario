@@ -289,12 +289,60 @@
       const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
       if(!items.has(key)||rank[item.priority]<rank[items.get(key).priority])items.set(key,item);
     };
-    // Universal history is always pending until documented, even before a syndrome is identified.
-    add('comorbidities','high','Registrar comorbidades ou negativa explícita.');
-    add('allergies','high','Esclarecer alergias e reação quando conhecida, sem presumir ausência.');
-    add('medicines','high','Registrar medicações contínuas e posologia relatada ou negativa explícita.');
-    const activated=packs.filter(p=>active(p.id));
-    for(const pack of activated)for(const priority of ['critical','high'])for(const id of pack[priority])add(id,priority,`Informação relevante para avaliar ${concepts[pack.id].label.toLowerCase()}.`,priority==='critical');
+    // Universal clinical background is tracked in its own pane, not promoted
+    // above syndrome-specific problems or made a compulsory 'next question'.
+    add('comorbidities','low','Histórico para contextualizar riscos e prescrição.');
+    add('allergies','low','Checar antes de prescrever; silêncio não é negativa de alergia.');
+    add('medicines','low','Revisar medicações e interações pertinentes à prescrição.');
+    const preliminary=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
+    const hypothesis=norm([fields.hipotese_diagnostica,fields.cid,fields.cid10,fields.cid_principal,fields.cid_codigo,context.cid,context.cid10].filter(Boolean).join(' '));
+    // A provisional ICD-10 is a routing hint, not proof of any clinical finding.
+    const giContext=active('diarrhea')||/\b(?:a09|gastroenterite|diarreia|enterocolite)\b/.test(hypothesis);
+    const headacheContext=active('headache')||/\b(?:r51|g43|g44|cefaleia|enxaqueca|migranea)\b/.test(hypothesis);
+    const respiratoryContext=active('respiratory')||/\b(?:j0[0-6]|j20|j40|j45|j46|j18|tosse|broncospasmo|asma|pneumonia|infeccao respiratoria)\b/.test(hypothesis);
+    const activated=packs.filter(p=>p.id==='diarrhea'?giContext:p.id==='headache'?headacheContext:p.id==='respiratory'?respiratoryContext:active(p.id));
+    const giReason={
+      stoolBlood:'Sangue nas fezes pode indicar investigação etiológica; isoladamente não justifica antibiótico.',
+      hydration:'Grau de hidratação diferencia reidratação oral, venosa e observação.',
+      oralTolerance:'A capacidade de ingerir líquidos modifica a escolha da reidratação.',
+      urineOutput:'Diurese auxilia a avaliar perdas e possível hipovolemia.',
+      fever:'Febre associada a diarreia pode justificar investigação conforme gravidade e contexto.',
+      giVomiting:'Vômitos persistentes podem impedir hidratação oral.',
+      severeAbdominalPain:'Dor intensa/localizada exige reconsiderar o diagnóstico diferencial.',
+      stoolFrequency:'Frequência das evacuações auxilia a estimar perdas e evolução.',
+      stoolMucus:'Muco pode orientar investigação com outros sinais; sozinho não prova infecção bacteriana.',
+      stoolPus:'Secreção purulenta relatada exige caracterização e diferencial.',
+      onset:'Duração ajuda a distinguir doença aguda e persistente.'
+    };
+    const headacheReason={
+      sudden:'Início súbito com pico imediato muda a investigação de cefaleia secundária.',
+      focal:'Alteração focal aumenta a necessidade de avaliar etiologia secundária.',
+      fever:'Febre associada é contextual, sobretudo com meningismo.',
+      meningism:'Sinais meníngeos podem indicar condição secundária grave.',
+      trauma:'Trauma recente modifica o diagnóstico diferencial.',
+      headachePattern:'Mudança significativa do padrão exige investigação contextual.',
+      photophobia:'Sintoma associado ajuda a caracterizar cefaleia primária.',
+      phonophobia:'Sintoma associado ajuda a caracterizar cefaleia primária.',
+      headacheNausea:'Náusea e vômitos contribuem para a caracterização.',
+      intensity:'Caracterizar intensidade e evolução da dor.',
+      character:'Caracterizar dor e diferenciais.',
+      onset:'Tempo de início e duração são relevantes para risco.'
+    };
+    for(const pack of activated)for(const priority of ['critical','high','moderate']){
+      for(const id of pack[priority]||[]){
+        const reason=pack.id==='diarrhea'?giReason[id]:pack.id==='headache'?headacheReason[id]:
+          'Investigar diferencial e sinais de gravidade pertinentes à síndrome '+concepts[pack.id].label.toLowerCase()+'.';
+        add(id,priority,reason||'Avaliação dirigida a '+concepts[pack.id].label.toLowerCase()+'.',priority==='critical');
+      }
+    }
+    // A broncho-obstructive presentation needs severity checks and differential.
+    // Mental-status change is an alert only if documented, never a routine question.
+    const bronchospasm=respiratoryContext&&(/\b(?:chiad\w*|sibil\w*|broncoespasmo|crise asmatica)\b/.test(preliminary)||/\b(?:j45|j46|asma|broncoespasmo)\b/.test(hypothesis));
+    if(bronchospasm)for(const id of ['wheeze','speechLimit','effort','rr','spo2'])
+      add(id,id==='spo2'||id==='speechLimit'?'high':'moderate','Avaliar gravidade do broncoespasmo e limitação funcional.');
+    if(respiratoryContext&&/\b(?:pneumonia|j18)\b/.test(hypothesis))
+      for(const id of ['pleuriticPain','respFocal','rr','spo2'])
+        add(id,'high','Investigar sinais respiratórios pertinentes à possibilidade de pneumonia.');
     const currentText=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
     if(active('trauma')&&/tornozelo|pe/.test(currentText))for(const id of ['weightThen','fourSteps','malleoli','midfoot'])add(id,'high','Caracteriza o trauma de tornozelo/pé; não aplica automaticamente uma regra de imagem.');
     if(active('trauma')&&/cranio|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
@@ -316,6 +364,8 @@
       const evidence=String(raw.contextEvidence||'');
       if(evidence.length<5||!norm(sections.map(s=>fields[s]||'').join(' ')+' '+(context.transcript||'')).includes(norm(evidence)))continue;
       const id=raw.concept;if(known[id].state!=='not_asked'||ledger[id])continue;
+      // A model cannot surface a generic out-of-syndrome item as mandatory.
+      if(!expected.has(id))continue;
       // Render our question and destination; never inject a model assertion into the record.
       add(id,rank[raw.priority]===undefined?'moderate':raw.priority,'Sugestão contextual da IA; confirmar pertinência.',raw.category==='red_flags');
     }
@@ -327,6 +377,14 @@
     const related=id=>list.filter(i=>activated.some(p=>[p.id,...p.critical,...p.high].includes(id)&&[...p.critical,...p.high].includes(i.concept))).map(i=>i.id);
     const finding=(id,reason,source)=>alerts.push({id:'finding:'+id,concept:id,priority:'critical',question:`Reavaliar o achado documentado: ${concepts[id].label.toLowerCase()}.`,evidence:[known[id].currentEvidence],reason,related:related(id),kind:'documented_finding',...(source?{sourceUrl:source}:{})});
     for(const id of flagIds)if(active(id)&&!known[id].conflict&&(concepts[id].type==='boolean'||id==='consciousness'))finding(id,expected.get(id)?.reason||'Achado relevante no contexto atual; requer avaliação médica.');
+    // Abnormal mental state is an important documented finding in any syndrome.
+    if(active('consciousness')&&!known.consciousness.conflict&&!flagIds.has('consciousness'))
+      finding('consciousness','Alteração do estado mental documentada: reavaliar gravidade e causas sistêmicas.');
+    if(giContext&&active('stoolBlood')&&!known.stoolBlood.conflict)
+      alerts.push({id:'finding:stoolBlood',concept:'stoolBlood',priority:'high',
+        question:'Diarreia com sangue: investigar etiologias inflamatórias e avaliar STEC conforme contexto.',
+        evidence:[known.stoolBlood.currentEvidence],reason:giReason.stoolBlood,
+        related:list.filter(i=>['fever','severeAbdominalPain','hydration'].includes(i.concept)).map(i=>i.id),kind:'documented_finding'});
     // Individual extreme measurements prompt review; this is not a NEWS2 score or a destination rule.
     // Adult thresholds are not applied to children, unknown age, pregnancy or documented hypercapnia targets.
     const adult=age>=16&&!active('pregnancy'),physiology={bp:v=>v<=90||v>=220,hr:v=>v<=40||v>=131,rr:v=>v<=8||v>=25,spo2:v=>v<=91,temperature:v=>v<=35};
