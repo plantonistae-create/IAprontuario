@@ -5235,8 +5235,10 @@ window.fill=data=>{clearClinicalSession();fill(data);};
 
 // Adapter uses the actual lexical application state, not DOM scraping or a second clinical store.
 const vitalField=document.createElement('div');vitalField.className='field';vitalField.dataset.key='sinais_vitais';vitalField.innerHTML='<label for="nexaVitalSigns">Sinais vitais registrados</label><textarea id="nexaVitalSigns" placeholder="Registre apenas os valores efetivamente avaliados"></textarea>';$('examPhysicalBlock').before(vitalField);
-window.NexaRadarController.mount({
-  context:()=>({fields:collect(),transcript:realtimeTranscript.trim()}),
+// CID is a triage hint; changing it refreshes Radar without changing fields.
+ document.getElementById('physicianCid')?.addEventListener('input',()=>window.nexaRadar?.schedule?.());
+ window.NexaRadarController.mount({
+  context:()=>({fields:collect(),transcript:realtimeTranscript.trim(),cid:String(hypothesisReview?.cid||document.getElementById('physicianCid')?.value||'').trim()}),
   apply:fields=>{for(const [key,value] of Object.entries(fields)){const el=ta(key);if(el&&el.value!==value){el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))}}},
   publish:state=>{radarState=state;window.radarState=state;window.dispatchEvent(new CustomEvent('nexa:radar-state',{detail:{state,reason:'context'}}));},
   persist:nexaPersistSession,
