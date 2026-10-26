@@ -73,6 +73,12 @@ test('model suggestions cannot elevate unrelated neuro or background history as 
  assert.equal(present(r,'consciousness'),undefined);
  assert.equal(present(r,'allergies')?.priority,'low');
 });
+test('cranial trauma still requires focused neurological assessment; simple A09 does not',()=>{
+ const headTrauma=scan('Trauma craniano após colisão de motocicleta.');
+ assert.equal(present(headTrauma,'consciousness')?.priority,'critical');
+ assert.equal(present(headTrauma,'focal')?.priority,'critical');
+ assert.equal(present(scan('Diarreia aquosa há 2 dias.'),'consciousness'),undefined);
+});
 test('extreme documented vital sign is still flagged even in common gastroenteritis',()=>{
  const r=E.analyze({transcript:'Paciente de 32 anos. Diarreia há dois dias. PA 80/50. FC 130.'});
  assert.ok(r.alerts.some(a=>a.concept==='bp'));
