@@ -89,7 +89,7 @@ function sanitizeLabels(raw,concepts){
   if(!isObj(x)||Object.keys(x).some(k=>!["concept","issue","outcome"].includes(k))||
    !allowed.has(x.concept)||!issues.has(x.issue)||!outcomes.has(x.outcome))
     throw Error("RADAR_REVIEW_LABEL_INVALID");
-  const key=x.concept+":"+x.issue;if(seen.has(key))continue;seen.add(key);
+  const key=auditConcept(x.concept)+":"+x.issue;if(seen.has(key))continue;seen.add(key);
   out.push({concept:auditConcept(x.concept),issue:x.issue,outcome:x.outcome});
  }
  return out;
@@ -117,7 +117,7 @@ function sanitizeMissingQuestions(raw){
   if(question.length<8||question.length>240||!idRx.test(concept)||
      !PRIORITIES.some(y=>y[0]===x.priority)||detectablePii(question)||detectablePii(rationale))
     throw Error("RADAR_MISSING_QUESTION_PII_OR_INVALID");
-  const key=x.concept+":"+question.toLowerCase();if(seen.has(key))continue;seen.add(key);
+  const key=concept+":"+question.toLowerCase();if(seen.has(key))continue;seen.add(key);
   out.push({question,concept,priority:x.priority,rationale});
  }
  return out;
