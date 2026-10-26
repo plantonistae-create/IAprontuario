@@ -47,7 +47,7 @@ test('spontaneous sudden onset and affirmative trauma are findings, not question
 test('consciousness: abnormal findings persist while normal and invalid results do not become alarms',()=>{
  for(const quote of ['Confusão mental.','Glasgow 14.','Rebaixamento de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.ok(r.alerts.some(a=>a.concept==='consciousness'));assert.ok(!has(r,'consciousness'));}
  for(const quote of ['Lúcido.','Glasgow 15.','Nega alteração de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.equal(r.facts.consciousness.state,'known_absent');assert.ok(!r.alerts.some(a=>a.concept==='consciousness'));}
- const invalid=E.analyze({transcript:'Cefaleia. Glasgow 99.'});assert.equal(invalid.items.find(i=>i.concept==='consciousness').status,'confirm');
+ const invalid=E.analyze({transcript:'Cefaleia. Glasgow 99.'});assert.equal(invalid.facts.consciousness.state,'unknown');assert.ok(!invalid.items.some(i=>i.concept==='consciousness'),'invalid Glasgow is never an obligatory headache checklist item');
 });
 test('demographics: explicit patient speech informs context without borrowing ages from history or relatives',()=>{
  const r=E.analyze({transcript:'Mulher, 32 anos. Dor abdominal. Cirurgia há 10 anos. Minha mãe tem 70 anos.'});assert.equal(r.demographics.age,32);assert.equal(r.demographics.sex,'feminino');assert.ok(has(r,'pregnancy'));assert.match(r.demographics.evidence.age[0].quote,/32 anos/);
