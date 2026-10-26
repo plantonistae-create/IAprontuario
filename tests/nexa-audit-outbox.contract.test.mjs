@@ -81,6 +81,10 @@ context.nexaEncounterAutosave18101={get:async()=>structuredClone(syntheticAutosa
 const beforePending=fetchCount;
 const pendingSource=await api.sendItem({...s4,state:'queued'});
 assert.equal(pendingSource.pending,true,'audit must wait for server confirmation of clinical source');
+const deferredSource=await api.get(s4.idempotency_key);
+assert.equal(deferredSource.last_error,'SOURCE_NOT_SYNCED','pending source must leave durable retry reason');
+assert.ok(deferredSource.next_attempt_at,'pending source must have a persisted audit retry deadline');
+assert.equal(deferredSource.state,'queued','pending source must stay recoverable in audit queue');
 assert.equal(fetchCount,beforePending,'an unconfirmed source must not hit audit endpoint');
 syntheticAutosave.sync_state='synced';
 syntheticAutosave.encounter_state='ready_for_audit';
