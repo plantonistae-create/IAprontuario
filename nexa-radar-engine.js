@@ -223,7 +223,7 @@
             // Negation spans lists, but stops at an affirmative clause.
             const clause=prefix.split(/\b(?:refere|apresenta|relata|tem|teve|com)\b/).pop();
             const unknown=/talvez|acho que|nao lembro|nao entendi|nao (?:sei|sabe|soube)|nao (?:informad|relatad|investigad|avaliad|perguntad)|desconhec/.test(text)||(concept.id==='consciousness'&&/glasgow/.test(m[0])&&measurement(concept.id,m[0])===null);
-            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
+            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/\b(?:nao|nunca)\s+(?:teve|tem|apresenta|sente|possui|refere)\s*$/.test(prefix)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
             if(universal.has(concept.id))negative=/^(?:(?:comorbidades|alergias|medicacoes(?: utilizadas)?)\s*:\s*)?(?:nega\b|negou\b|sem\b|nao\s+(?:tem|possui|usa|toma|faz uso)\b)/.test(text);
             const value=measurement(concept.id,m[0]);
             if(concept.id==='consciousness'&&(/^lucid/.test(m[0])||value===15))negative=!negative;
