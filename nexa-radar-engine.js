@@ -136,7 +136,7 @@
   c('temperature','Temperatura aferida',/(?:\b(?:3\d|4[0-3])(?:[.,]\d)?\s*°\s*c?|(?:temperatura|febre|\bt\b)\s*(?:de|:|=)?\s*(?:3\d|4[0-3])(?:(?:[.,]\d)|(?:\s+e\s+meio))?)/,'sinais_vitais','text');
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
-  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea']);
+  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea','throatPain','earPain','sinusSymptoms','jointPain','constipation','upperGI','giBleed','palpitations','dizziness','seizure','colic','testicularPain','pelvicPain','vaginalBleeding','rash','eyePain']);
   // Interpret questions separately from patient evidence. No conversational inference is written to the record.
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
@@ -350,7 +350,49 @@
       // Ledger acknowledgements only suppress the evidence snapshot they actually addressed.
       const evidenceKey=JSON.stringify(f.evidence);
       if(record&&!universal.has(id)&&(record.evidenceKey===evidenceKey||!f.conflict&&record.action==='answer'&&record.documented&&String(fields[record.section]||'').includes(record.documented)))return;
-      const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
+      const ask={
+        stoolBlood:'Houve sangue nas fezes?',
+        stoolMucus:'Houve muco nas fezes?',
+        hydration:'Como está a hidratação ao exame?',
+        oralTolerance:'Consegue ingerir e manter líquidos por via oral?',
+        urineOutput:'A diurese diminuiu?',
+        stoolFrequency:'Quantas evacuações ocorreram nas últimas 24 horas?',
+        giVomiting:'Há vômitos? Impedem a hidratação oral?',
+        sudden:'A cefaleia atingiu intensidade máxima subitamente?',
+        focal:'Houve fraqueza, alteração da fala ou déficit neurológico focal?',
+        photophobia:'A luz incomoda durante a cefaleia?',
+        phonophobia:'O som piora a cefaleia?',
+        headacheNausea:'Há náuseas ou vômitos associados à cefaleia?',
+        respFocal:'Há achados focais à ausculta pulmonar?',
+        spo2:'Qual a saturação de oxigênio?',
+        speechLimit:'Consegue falar frases completas sem interromper para respirar?',
+        jointHot:'Há calor ou hiperemia articular?',
+        jointRange:'Existe limitação de mobilidade ou amplitude articular?',
+        weightBearing:'O paciente consegue apoiar e caminhar?',
+        neurovascular:'Há alteração de pulso, perfusão, força ou sensibilidade distal?',
+        wound:'Existe ferida aberta ou exposição no local?',
+        saddle:'Há alteração de sensibilidade em sela?',
+        retention:'Há retenção urinária ou alteração esfincteriana?',
+        weakness:'Existe fraqueza progressiva?',
+        stridor:'Há estridor ou dificuldade para manter via aérea?',
+        swallowDifficulty:'Consegue engolir líquidos e saliva?',
+        exudate:'Existe exsudato tonsilar ao exame?',
+        cervicalNodes:'Há linfonodos cervicais dolorosos?',
+        earDischarge:'Há saída de secreção pelo ouvido?',
+        hearingChange:'Houve perda de audição?',
+        obstruction:'Há distensão e parada de eliminação de gases?',
+        hemodynamic:'Há hipotensão, lipotímia ou instabilidade hemodinâmica?',
+        exertional:'Os sintomas surgem ou pioram ao esforço?',
+        gaitChange:'Existe ataxia ou incapacidade para caminhar?',
+        visionChange:'Houve perda ou mudança aguda da visão?',
+        urinaryRetention:'Há dificuldade importante ou incapacidade de urinar?',
+        postictal:'Como ocorreu a recuperação após a crise?',
+        vaginalBleeding:'Há sangramento vaginal associado?',
+        skinSpread:'A lesão cutânea está progredindo rapidamente?',
+        skinPainDisproportion:'A dor é desproporcional ao aspecto da lesão?',
+        foreignBody:'Houve trauma, produto químico ou corpo estranho no olho?'
+      };
+      const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(ask[id]|| (concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`)),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
       if(!items.has(key)||rank[item.priority]<rank[items.get(key).priority])items.set(key,item);
     };
     // Universal clinical background is tracked in its own pane, not promoted
@@ -364,7 +406,25 @@
     const giContext=active('diarrhea')||/\b(?:a09|gastroenterite|diarreia|enterocolite)\b/.test(hypothesis);
     const headacheContext=active('headache')||/\b(?:r51|g43|g44|cefaleia|enxaqueca|migranea)\b/.test(hypothesis);
     const respiratoryContext=active('respiratory')||/\b(?:j0[0-6]|j20|j40|j45|j46|j18|tosse|broncospasmo|asma|pneumonia|infeccao respiratoria)\b/.test(hypothesis);
-    const activated=packs.filter(p=>p.id==='diarrhea'?giContext:p.id==='headache'?headacheContext:p.id==='respiratory'?respiratoryContext:active(p.id));
+    const codeHints={
+      throatPain:/\bj0[23]\b|faringite|amigdalite/,
+      earPain:/\bh6[056]\b|otite/,
+      sinusSymptoms:/\bj01\b|sinusite|rinossinusite/,
+      jointPain:/\bm25\b|artralgia|artrite/,
+      constipation:/\bk59\b|constipacao|obstipacao/,
+      upperGI:/\bk(?:21|29|30)\b|dispepsia|gastrite/,
+      giBleed:/\bk92\b|hemorragia digestiva/,
+      palpitations:/\br00\b|palpitacoes/,
+      dizziness:/\br42\b|vertigem|tontura/,
+      seizure:/\br56\b|convulsao/,
+      colic:/\bn2[03]\b|nefrolitiase|colica renal/,
+      pelvicPain:/\br10[.]?2\b|dor pelvica/,
+      vaginalBleeding:/\bn93\b|sangramento uterino/,
+      rash:/\br21\b|exantema|urticaria/,
+      eyePain:/\bh57\b|dor ocular/
+    };
+    const activated=packs.filter(p=>p.id==='diarrhea'?giContext:p.id==='headache'?headacheContext:
+      p.id==='respiratory'?respiratoryContext:active(p.id)||!!codeHints[p.id]?.test(hypothesis));
     // No syndrome-specific rule is activated solely from a code if the
     // underlying diagnosis is not clearly attributed to the current visit.
     const giReason={
