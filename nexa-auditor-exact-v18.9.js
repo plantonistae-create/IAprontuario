@@ -151,8 +151,34 @@ function renderReview(t){
    left=`<div class="ax-pane"><h3>NEXA ORIGINAL</h3><div class="ax-section"><div class="ax-original">${original?esc(JSON.stringify(original,null,2)):'Não disponível no snapshot legado.'}</div></div></div>`;
    right=`<div class="ax-pane review-right"><h3>VERSÃO FINAL DO MÉDICO / AUDITOR</h3><div class="ax-section"><div class="ax-original">${esc(JSON.stringify(edit,null,2))}</div></div></div>`;
  }else if(tab==='radar'){
-   left=`<div class="ax-pane"><h3>RADAR · SNAPSHOT ESTRUTURADO</h3>${detailSection('Queixa principal',radar.chief_complaint||field(current,'queixa_principal'))}${detailSection('Itens / achados',radar.items||[])}${detailSection('Cobertos',radar.covered||[])}${detailSection('Ausentes / lacunas',radar.missing||[])}${detailSection('Alertas',radar.alerts||[])}</div>`;
-   right=`<div class="ax-pane review-right"><h3>RESPOSTAS / PERGUNTAS DO RADAR</h3>${detailSection('Perguntas',radar.questions||[])}${detailSection('Respostas estruturadas',radar.answers||{})}<div class="ax-section"><strong>Privacidade</strong><div class="ax-original">Transcrição bruta não integra o dataset do NEXA Core.</div></div>${window.NexaCoreRadarReviewV3?.panelHtml(current,current._radarReview)||'<p>Editor do Radar indisponível.</p>'}</div>`;
+   // A deidentified structured HDA is NOT a verbatim transcript.
+   // No raw audio or sensitive transcript is added to the audit database.
+   const segments=[
+     ['queixa_principal','Queixa principal'],
+     ['hda','HDA estruturada'],
+     ['exame_fisico','Exame físico'],
+     ['sinais_vitais','Sinais vitais'],
+     ['hipotese_diagnostica','Hipótese diagnóstica'],
+     ['conduta','Conduta']
+   ];
+   const summary=segments.map(([key,label])=>{
+     const before=String(physician[key]??''),after=String(edit[key]??before);
+     return '<div class="ax-section"><strong>'+esc(label)+(before!==after?' · edição do auditor':'')+
+       '</strong><div class="ax-original">'+esc(after||'Não documentado neste snapshot')+'</div></div>';
+   }).join('');
+   left=`<div class="ax-pane"><h3>CONTEXTO CLÍNICO PARA AVALIAR PERTINÊNCIA</h3>
+     <p class="ax-radar-v3-note">Compare as sugestões com o quadro clínico, exame físico, hipótese e conduta. A HDA é estruturada; não representa a transcrição integral da conversa.</p>
+     ${summary}
+     <details><summary>Rastreamento técnico e alertas do Radar</summary>
+       ${detailSection('Queixa reconhecida',radar.chief_complaint||field(current,'queixa_principal'))}
+       ${detailSection('Itens e achados',radar.items||[])}
+       ${detailSection('Lacunas',radar.missing||[])}
+       ${detailSection('Alertas',radar.alerts||[])}
+     </details></div>`;
+   right=`<div class="ax-pane review-right"><h3>PERGUNTAS GERADAS PELO RADAR</h3>
+     <p class="ax-radar-v3-note">Classifique cada sugestão conforme a pertinência para este atendimento e acrescente perguntas que deveriam ter sido feitas. A captura representa sugestões geradas; nem todas apareceram nas três primeiras posições.</p>
+     <p class="ax-radar-v3-note">O áudio e a transcrição bruta não são retidos no dataset de auditoria. O contexto acessível aqui é a documentação clínica desidentificada.</p>
+     ${window.NexaCoreRadarReviewV3?.panelHtml(current,current._radarReview)||'<p>Editor do Radar indisponível.</p>'}</div>`;
  }else if(tab==='conduta'){
    const keys=['conduta','orientacoes_alta','exames_sugeridos','prescricao'];
    left=`<div class="ax-pane"><h3>NEXA ORIGINAL</h3>${keys.map(k=>detailSection(LABEL[k]||k,original?.[k])).join('')}${detailSection('Plano clínico estruturado',plan)}</div>`;
