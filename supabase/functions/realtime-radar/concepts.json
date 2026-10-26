@@ -100,6 +100,96 @@
     "section": "hda"
   },
   {
+    "id": "diarrhea",
+    "label": "Diarreia aguda",
+    "section": "hda"
+  },
+  {
+    "id": "stoolBlood",
+    "label": "Sangue nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "stoolMucus",
+    "label": "Muco nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "stoolPus",
+    "label": "Pus nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "hydration",
+    "label": "Estado de hidratação",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "oralTolerance",
+    "label": "Tolerância à ingestão oral",
+    "section": "hda"
+  },
+  {
+    "id": "urineOutput",
+    "label": "Diurese / redução urinária",
+    "section": "hda"
+  },
+  {
+    "id": "stoolFrequency",
+    "label": "Frequência das evacuações",
+    "section": "hda"
+  },
+  {
+    "id": "giVomiting",
+    "label": "Vômitos / hidratação oral",
+    "section": "hda"
+  },
+  {
+    "id": "severeAbdominalPain",
+    "label": "Dor abdominal intensa ou localizada",
+    "section": "hda"
+  },
+  {
+    "id": "photophobia",
+    "label": "Fotofobia",
+    "section": "hda"
+  },
+  {
+    "id": "phonophobia",
+    "label": "Fonofobia",
+    "section": "hda"
+  },
+  {
+    "id": "headacheNausea",
+    "label": "Náuseas ou vômitos com cefaleia",
+    "section": "hda"
+  },
+  {
+    "id": "headachePattern",
+    "label": "Mudança de padrão / progressão da cefaleia",
+    "section": "hda"
+  },
+  {
+    "id": "respFocal",
+    "label": "Achados focais à ausculta pulmonar",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "wheeze",
+    "label": "Sibilos / broncoespasmo",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "speechLimit",
+    "label": "Limitação para falar frases",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "pleuriticPain",
+    "label": "Dor torácica pleurítica",
+    "section": "hda"
+  },
+  {
     "id": "pregnancy",
     "label": "Possibilidade de gestação / puerpério",
     "section": "antecedentes"
