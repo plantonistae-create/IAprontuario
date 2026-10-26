@@ -335,7 +335,7 @@
     {id:'rash',critical:[],high:['fever','skinSpread','skinPainDisproportion','onset']},
     {id:'eyePain',critical:[],high:['visionChange','foreignBody','photopsia','onset']},
     {id:'fever',critical:[],high:['temperature','onset','immuno']},
-    {id:'neuro',critical:['focal','consciousness','sudden'],high:['glucose','bp','onset']}
+    {id:'neuro',critical:['focal'],high:['glucose','bp','onset']}
   ];
   const category=concept=>concept.section==='sinais_vitais'?'vitals':concept.section==='exame_fisico'?'exam':concept.section==='medicacoes'?'medications':['comorbidades','antecedentes','alergias'].includes(concept.section)?'risk':'history';
   function analyze(context={},ledger={},aiItems=[],observations=[]){
@@ -424,7 +424,8 @@
       eyePain:/\bh57\b|dor ocular/
     };
     const activated=packs.filter(p=>p.id==='diarrhea'?giContext:p.id==='headache'?headacheContext:
-      p.id==='respiratory'?respiratoryContext:active(p.id)||!!codeHints[p.id]?.test(hypothesis));
+      p.id==='respiratory'?respiratoryContext:p.id==='jointPain'&&active('trauma')?false:
+      active(p.id)||!!codeHints[p.id]?.test(hypothesis));
     // No syndrome-specific rule is activated solely from a code if the
     // underlying diagnosis is not clearly attributed to the current visit.
     const giReason={
@@ -456,6 +457,8 @@
     };
     for(const pack of activated)for(const priority of ['critical','high','moderate']){
       for(const id of pack[priority]||[]){
+        const cranialTrauma=pack.id==='trauma'&&/\b(?:cranio|craniano|craniana|crani\w*|tce|cabeca)\b/.test(preliminary);
+        if(cranialTrauma&&['neurovascular','deformity'].includes(id))continue;
         const reason=pack.id==='diarrhea'?giReason[id]:pack.id==='headache'?headacheReason[id]:
           'Investigar diferencial e sinais de gravidade pertinentes à síndrome '+concepts[pack.id].label.toLowerCase()+'.';
         add(id,priority,reason||'Avaliação dirigida a '+concepts[pack.id].label.toLowerCase()+'.',priority==='critical');
