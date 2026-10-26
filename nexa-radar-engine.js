@@ -345,7 +345,7 @@
         add(id,'high','Investigar sinais respiratórios pertinentes à possibilidade de pneumonia.');
     const currentText=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
     if(active('trauma')&&/tornozelo|pe/.test(currentText))for(const id of ['weightThen','fourSteps','malleoli','midfoot'])add(id,'high','Caracteriza o trauma de tornozelo/pé; não aplica automaticamente uma regra de imagem.');
-    if(active('trauma')&&/cranio|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
+    if(active('trauma')&&/crani\w*|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
     if(active('limb')&&active('edema')){add('dvtRisk','high','Esclarecer risco tromboembólico no contexto do edema.');if(/unilateral|esquerd|direit/.test(currentText)){add('dvt','high','Edema unilateral pode exigir investigação de causas vasculares.');const d=items.get('dvt');if(d){d.category='differential';d.question='Considerar TVP no diferencial; não representa diagnóstico confirmado.';}}}
     const patient=demographics(context),age=Number(patient.age);
     if(activated.some(p=>['abdomen','headache','urinary'].includes(p.id))&&patient.sex==='feminino'&&(!age||age>=10&&age<=55))add('pregnancy','high','Gestação ou puerpério podem modificar a avaliação.');
