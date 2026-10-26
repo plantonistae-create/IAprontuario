@@ -28,6 +28,26 @@
   c('peritonism','Sinais de irritação peritoneal',/peritonismo|defesa abdominal|rigidez abdominal|blumberg|descompressao brusca/,'exame_fisico');
   c('vomiting','Vômitos persistentes',/vomitos persistentes|vomitando continuamente/);
   c('bleeding','Sangramento',/sangramento|hematemese|melena|hematoquezia/);
+
+  // Syndrome-specific PS differentiation, not universal mandatory questions.
+  c('diarrhea','Diarreia aguda',/\bdiarrei\w*|gastroenterite|enterocolite|evacuac\w* liquidas?|fezes liquidas?/);
+  c('stoolBlood','Sangue nas fezes',/\bsangue (?:vivo )?(?:nas?|misturado (?:as?|com as?)) fezes\b|diarreia com sangue|evacuac\w* sanguinolent\w*|disenteria|hematoquezia/);
+  c('stoolMucus','Muco nas fezes',/\bmuco(?:sidade)? (?:nas?|misturado (?:as?|com as?)) fezes\b|fezes com muco|diarreia com muco/);
+  c('stoolPus','Pus nas fezes',/\bpus nas? fezes\b|fezes com pus|diarreia purulenta/);
+  c('hydration','Estado de hidratação',/\bdesidrat\w*|hidratad\w*|mucosas? (?:secas?|umidas?)|sede intensa|olhos fundos/,'exame_fisico','text');
+  c('oralTolerance','Tolerância à ingestão oral',/\b(?:toler\w*|aceita\w*|consegue\w*|mantem)\b.{0,30}\b(?:via oral|liquidos?|agua|aliment\w*)\b|\b(?:nao consegue|incapaz de)\b.{0,30}\b(?:beber|ingerir)\b/,'hda','text');
+  c('urineOutput','Diurese / redução urinária',/\bdiurese\b|\b(?:urina|urinou|urinando|micc\w*)\b.{0,30}\b(?:menos|pouco|normal|reduzid\w*|diminu\w*|mantid\w*)\b|\boliguri\w*|\banuri\w*/,'hda','text');
+  c('stoolFrequency','Frequência das evacuações',/\b(?:\d+|varias|muitas|poucas)\s*(?:vezes|episodios|evacuacoes)\b.{0,35}\b(?:dia|diarreia|fezes)\b|\b(?:evacuac\w*|diarrei\w*)\b.{0,30}\b(?:\d+|varias vezes|frequentes?)\b/,'hda','text');
+  c('giVomiting','Vômitos / hidratação oral',/\bvomit\w*|\bvomitand\w*|\bemese\b|\bnause\w*/,'hda');
+  c('severeAbdominalPain','Dor abdominal intensa ou localizada',/\bdor (?:abdominal|na barriga)\b.{0,35}\b(?:intensa?|forte|localizad\w*|progressiv\w*)\b|\b(?:dor intensa?|defesa|abdome agudo)\b.{0,25}\babdomin\w*/,'hda');
+  c('photophobia','Fotofobia',/\bfotofobi\w*|\bsensibilidade (?:a|a )?luz\b/,'hda');
+  c('phonophobia','Fonofobia',/\bfonofobi\w*|\bsensibilidade (?:a|ao) som\b/,'hda');
+  c('headacheNausea','Náuseas ou vômitos com cefaleia',/\bnause\w*|\bvomit\w*|\bemese\b/,'hda');
+  c('headachePattern','Mudança de padrão / progressão da cefaleia',/\b(?:mudanc\w*|alterac\w*) (?:do |de )?padrao\b|\b(?:dor|cefaleia)\b.{0,40}\b(?:diferente|progressiv\w*|pior\w*|nova|primeira)\b/,'hda','text');
+  c('respFocal','Achados focais à ausculta pulmonar',/\bcrepit\w*|\bestertor\w*|\bconsolidac\w*|\bsopro tubari\w*|\b(?:murmurio vesicular)\b.{0,30}\b(?:reduzid\w*|diminu\w*)/,'exame_fisico','text');
+  c('wheeze','Sibilos / broncoespasmo',/\bsibil\w*|\bchiad\w*|\bbroncoespasmo\b/,'exame_fisico');
+  c('speechLimit','Limitação para falar frases',/\b(?:fala|consegue falar|falar)\b.{0,35}\b(?:frases?|palavras?|entrecortad\w*|dificuldade)\b|\bnao consegue (?:completar|falar) frases\b/,'exame_fisico','text');
+  c('pleuriticPain','Dor torácica pleurítica',/\bdor\b.{0,30}\b(?:respirar|inspirar|pleurit\w*)\b|\bdor pleurit\w*/,'hda');
   c('pregnancy','Possibilidade de gestação / puerpério',/gesta\w*|gravid\w*|puerper\w*|menopausa|histerectomia/,'antecedentes','text');
   c('anticoagulant','Uso de anticoagulante',/anticoagul\w*|varfarina|rivaroxabana|apixabana|dabigatrana|heparina/,'medicacoes');
   c('cvRisk','Fatores de risco cardiovascular',/hipertens\w*|\bhas\b|diabet\w*|tabag\w*|dislipidem\w*|fatores (?:de risco )?cardiovasculares/,'comorbidades','text');
@@ -69,7 +89,7 @@
   c('temperature','Temperatura aferida',/(?:\b(?:3\d|4[0-3])(?:[.,]\d)?\s*°\s*c?|(?:temperatura|febre|\bt\b)\s*(?:de|:|=)?\s*(?:3\d|4[0-3])(?:(?:[.,]\d)|(?:\s+e\s+meio))?)/,'sinais_vitais','text');
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
-  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma']);
+  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea']);
   // Interpret questions separately from patient evidence. No conversational inference is written to the record.
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
@@ -243,12 +263,13 @@
   const packs=[
     {id:'chest',critical:['dyspnea','syncope','bp'],high:['sweating','radiation','hr','spo2','cvRisk']},
     {id:'abdomen',critical:['peritonism','bp'],high:['vomiting','bleeding','syncope','localization']},
-    {id:'headache',critical:['sudden','focal','consciousness'],high:['fever','meningism','trauma']},
+    {id:'headache',critical:['sudden','focal'],high:['fever','meningism','trauma','headachePattern','headacheNausea','photophobia','phonophobia','intensity','character','onset']},
     {id:'back',critical:['saddle','retention','weakness'],high:['fever','trauma']},
     {id:'trauma',critical:[],high:['mechanism','neurovascular','deformity','anticoagulant']},
     {id:'limb',critical:[],high:['trauma','pulses','perfusion','edema']},
     {id:'urinary',critical:[],high:['fever','flank','hematuria']},
-    {id:'respiratory',critical:['dyspnea','spo2'],high:['effort','rr','fever','auscultation','hemoptysis']},
+    {id:'respiratory',critical:['dyspnea','spo2'],high:['effort','rr','fever','auscultation','respFocal']},
+    {id:'diarrhea',critical:[],high:['stoolBlood','hydration','oralTolerance','urineOutput','fever','giVomiting','severeAbdominalPain','onset'],moderate:['stoolFrequency','stoolMucus','stoolPus']},
     {id:'fever',critical:[],high:['temperature','onset','immuno']},
     {id:'neuro',critical:['focal','consciousness','sudden'],high:['glucose','bp','onset']}
   ];
