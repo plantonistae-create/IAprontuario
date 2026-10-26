@@ -97,7 +97,7 @@ test("Auditor can save clinical decision + Radar metadata atomically and amend R
  for(const token of ["submit_nexa_audit_review_v4","save_nexa_radar_review_v4",
    "p_expected_revision","get_nexa_radar_reviews_v4","get_nexa_radar_readiness_v3",
    "radarSave","RADAR","Revisão do Radar"])assert.ok(s.includes(token),token);
- assert.match(html,/nexa-core-radar-review-v3\.js\?v=20261025-core-audit-v3/);
+ assert.match(html,/nexa-core-radar-review-v3\.js\?v=20261026-syndromic-audit/);
  assert.match(html,/nexa-core-radar-review-v3\.css\?v=20261025-core-audit-v3/);
  assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=20261026-clinical-radar-audit/);
  assert.match(loader,/nexa-audit-outbox-v18\.9\.19\.js\?v=20261026-radar-syndrome-audit/);
