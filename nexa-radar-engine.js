@@ -367,7 +367,8 @@
       // A model cannot surface a generic out-of-syndrome item as mandatory.
       if(!expected.has(id))continue;
       // Render our question and destination; never inject a model assertion into the record.
-      add(id,rank[raw.priority]===undefined?'moderate':raw.priority,'Sugestão contextual da IA; confirmar pertinência.',raw.category==='red_flags');
+      const approved=expected.get(id);
+      add(id,approved.priority,'Sugestão contextual sujeita às regras clínicas; confirmar pertinência.',approved.redFlag);
     }
     const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||Number(universal.has(a.concept))-Number(universal.has(b.concept))||a.id.localeCompare(b.id));
     const critical=list.filter(i=>i.priority==='critical');
