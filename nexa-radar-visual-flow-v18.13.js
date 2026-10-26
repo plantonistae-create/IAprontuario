@@ -277,15 +277,19 @@ function derive(source=currentState()){
     const items=Array.isArray(state.items)?state.items:[];
     const clarified=Array.isArray(state.clarified)?state.clarified:[];
     const attention=alerts.map(a=>conceptLabel(a?.concept)||a?.label||a?.reason).filter(Boolean);
-    const pending=items.map(i=>conceptLabel(i?.concept)||i?.label||i?.question).filter(Boolean);
+    // PS shows only decision-driving gaps. Universal background remains in
+    // Historical Essentials and the full view; it is not a forced click.
+    const relevant=items.filter(i=>i.status!=='asked'&&i.priority!=='low'&&
+      !['comorbidities','allergies','medicines'].includes(i.concept));
+    const pending=relevant.map(i=>conceptLabel(i?.concept)||i?.label||i?.question).filter(Boolean);
     const covered=clarified.map(i=>i?.label||conceptLabel(i?.concept)||i?.question).filter(Boolean);
-    const denom=clarified.length+items.length;
+    const denom=clarified.length+relevant.length;
     return{
       kind:'modern',state,
       attention,pending,covered,
-      questions:items.filter(i=>i.status!=='asked'),
+      questions:relevant,
       attentionCount:alerts.length,
-      pendingCount:items.length,
+      pendingCount:relevant.length,
       coveredCount:clarified.length,
       coverage:denom?Math.max(0,Math.min(100,Math.round((clarified.length/denom)*100))):null
     };
