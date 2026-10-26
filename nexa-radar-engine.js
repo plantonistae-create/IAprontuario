@@ -349,9 +349,9 @@
     if(active('limb')&&active('edema')){add('dvtRisk','high','Esclarecer risco tromboembólico no contexto do edema.');if(/unilateral|esquerd|direit/.test(currentText)){add('dvt','high','Edema unilateral pode exigir investigação de causas vasculares.');const d=items.get('dvt');if(d){d.category='differential';d.question='Considerar TVP no diferencial; não representa diagnóstico confirmado.';}}}
     const patient=demographics(context),age=Number(patient.age);
     if(activated.some(p=>['abdomen','headache','urinary'].includes(p.id))&&patient.sex==='feminino'&&(!age||age>=10&&age<=55))add('pregnancy','high','Gestação ou puerpério podem modificar a avaliação.');
-    if(activated.length&&/\bdor\b|cefaleia|lombalgia/.test(currentText)){
+    if((active('chest')||active('abdomen')||active('headache')||active('back')||active('limb'))&&/\bdor\b|cefaleia|lombalgia/.test(currentText)){
       ['localization','onset','intensity','character'].forEach(id=>add(id,id==='localization'?'high':'moderate','Caracterização útil da dor atual.'));
-      if(!active('trauma'))['radiation','aggravation','relief','evolution'].forEach(id=>add(id,'low','Complementar a caracterização da dor conforme pertinência.'));
+      if(!active('trauma')&&!headacheContext)['radiation','aggravation','relief','evolution'].forEach(id=>add(id,'low','Complementar a caracterização da dor conforme pertinência.'));
     }
     // A reported but unmeasured fever is known information, not a missing temperature question.
     if(active('fever')&&/nao aferi\w*|nao mediu|nao mensurad\w*/.test(currentText))items.delete('temperature');
@@ -370,7 +370,14 @@
       const approved=expected.get(id);
       add(id,approved.priority,'Sugestão contextual sujeita às regras clínicas; confirmar pertinência.',approved.redFlag);
     }
-    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||Number(universal.has(a.concept))-Number(universal.has(b.concept))||a.id.localeCompare(b.id));
+    // Actionable discrimination first, not alphabetical sorting or checklist length.
+    const decisionOrder=giContext?['stoolBlood','hydration','oralTolerance','urineOutput','fever','severeAbdominalPain','giVomiting','onset','stoolFrequency','stoolMucus','stoolPus']:
+      headacheContext?['sudden','focal','fever','meningism','headachePattern','trauma','onset','intensity','character','headacheNausea','photophobia','phonophobia']:
+      respiratoryContext?['dyspnea','spo2','effort','rr','speechLimit','fever','auscultation','respFocal','wheeze','pleuriticPain']:[];
+    const decisionRank=id=>{const i=decisionOrder.indexOf(id);return i<0?999:i};
+    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||
+      Number(universal.has(a.concept))-Number(universal.has(b.concept))||
+      decisionRank(a.concept)-decisionRank(b.concept)||a.id.localeCompare(b.id));
     const critical=list.filter(i=>i.priority==='critical');
     const unresolvedSafety=[...new Set(activated.flatMap(p=>p.critical))].filter(id=>known[id].state==='unknown'||ledger[id]&&known[id].state==='not_asked');
     const alerts=[];
@@ -397,7 +404,7 @@
       finding(id,'Medida extrema documentada em adulto. Confirmar medida, contexto e evolução; requer avaliação médica.','https://www.rcp.ac.uk/resources/national-early-warning-score-news-2/');
     }
     const clarified=[...expected.values()].filter(i=>!known[i.id].conflict&&['known_present','known_absent'].includes(known[i.id].state)).map(i=>({...i,label:concepts[i.id].label,status:'clarified',...known[i.id]}));
-    return {version:1,demographics:patient,clarified,confirm:list.filter(i=>i.status==='confirm'),focus:activated.map(p=>concepts[p.id].label),stage:post?'post_hypothesis':'pre_hypothesis',items:list,facts:known,alerts,criticalCount:critical.length,unresolvedSafety,chief_complaint:fields.queixa_principal||'',covered:Object.entries(known).filter(([,f])=>f.state!=='not_asked').map(([id])=>concepts[id].label),missing:list.map(i=>i.question),questions:list.map(i=>i.question),dispositionCaution:critical.length>0||alerts.length>0||unresolvedSafety.length>0,hasContext:currentText.length>0};
+    return {version:1,demographics:patient,clarified,confirm:list.filter(i=>i.status==='confirm'),focus:activated.map(p=>concepts[p.id].label),stage:post?'post_hypothesis':'pre_hypothesis',items:list,facts:known,alerts,criticalCount:critical.length,unresolvedSafety,chief_complaint:fields.queixa_principal||'',covered:Object.entries(known).filter(([,f])=>f.state!=='not_asked').map(([id])=>concepts[id].label),missing:list.map(i=>i.question),questions:list.map(i=>i.question),dispositionCaution:critical.length>0||alerts.length>0||unresolvedSafety.length>0,hasContext:currentText.length>0||hypothesis.length>0};
   }
   function answer(context,ledger,item,value,action='answer'){
     if(!item||!concepts[item.concept])throw new Error('Sugestão inválida.');
