@@ -100,14 +100,30 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.evaluate(()=>document.querySelector('.nexa-session-tab[data-stage="radar"]')?.click());
   if(await page.locator('#nexaRadarModeComplete18131').count())await page.locator('#nexaRadarModeComplete18131').click();
   if(await page.locator('#nexaRadarFullDetails').count())await page.locator('#nexaRadarFullDetails').evaluate(el=>{el.open=true;});
-  const trauma=page.locator('[data-item="trauma"]');await trauma.locator('.ng-manual summary').click();
+  // Syndromic ordering may put mechanism beyond the first five suggestions.
+  // Navigate through the real "Ver outras sugestões" control.
+  const exposeQuestion=async id=>{
+    const selector=`#radarQuestions [data-item="${id}"]`;
+    await page.waitForFunction(id=>window.radarState?.items?.some(x=>x.id===id),id);
+    if(!await page.locator(selector).count()){
+      const more=page.locator('#nexaRadarMore');
+      assert.equal(await more.isVisible(),true,'off-screen clinical question must remain reachable via More');
+      await more.click();
+    }
+    await page.locator(selector).waitFor({state:'visible'});
+    return page.locator(selector);
+  };
+  const trauma=await exposeQuestion('trauma');await trauma.locator('.ng-manual summary').click();
   await trauma.locator('textarea').fill('Sim, queda da própria altura ontem.');await trauma.getByRole('button',{name:'Registrar resposta',exact:true}).click();
   await page.waitForFunction(()=>!window.radarState.items.some(i=>i.id==='trauma'));
   assert.match(await page.locator('.field[data-key="hda"] textarea').inputValue(),/queda da própria altura/);
   assert.ok(await page.evaluate(()=>window.radarState.items.some(i=>i.id==='fourSteps')));
+  // Restore the compact view explicitly before testing the More toggle;
+  // the mechanism question may already have expanded the list above.
+  if(await page.evaluate(()=>window.nexaRadar?.expanded))await page.locator('#nexaRadarMore').click();
   assert.ok(await page.locator('#radarQuestions .ng-item').count()<=5);
   await page.locator('#nexaRadarMore').click();assert.ok(await page.locator('#radarQuestions .ng-item').count()>5);
-  const neuro=page.locator('[data-item="neurovascular"]');await neuro.locator('.ng-manual summary').click();await neuro.locator('textarea').fill('Pulsos presentes, sensibilidade e motricidade preservadas');await neuro.getByRole('button',{name:'Registrar resposta',exact:true}).click();
+  const neuro=await exposeQuestion('neurovascular');await neuro.locator('.ng-manual summary').click();await neuro.locator('textarea').fill('Pulsos presentes, sensibilidade e motricidade preservadas');await neuro.getByRole('button',{name:'Registrar resposta',exact:true}).click();
   assert.match(await page.locator('.field[data-key="exame_fisico"] textarea').inputValue(),/sensibilidade e motricidade/);
   await page.evaluate(()=>window.nexaDestinationFlow18915.setPhysicianFinal('internacao'));
   // Cancelling reset preserves both the clinical record and destination.
