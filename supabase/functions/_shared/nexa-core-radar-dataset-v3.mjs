@@ -56,7 +56,8 @@ export function coreExportSafety(){
 const VERDICT=new Set(["relevant","irrelevant","uncertain"]);
 const REASON=new Set(["appropriate","unrelated","duplicate","unsafe","context_dependent","wrong_priority","other"]);
 const PRIORITY=new Set(["critical","high","moderate","low"]);
-const QUESTION_ID=/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/;
+const QUESTION_ID=/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/;
+const CAPTURE_CONCEPT_ID=/^[a-z][A-Za-z0-9_]{0,63}$/;
 const SAFE_QUESTION=/^[^\u0000-\u001f]{8,240}$/;
 export function compileRadarQuestionReview(row,snapshotIds=[]){
  if(!obj(row)||row.review_state!=="reviewed")
@@ -115,7 +116,7 @@ export function compileReviewedRadarQuestionInventory(coreContext,review){
  const result=[];
  for(const item of capture){
   const id=String(item?.id||"");
-  if(!QUESTION_ID.test(id)||ids.has(id)||!ID.test(String(item?.concept||"")))
+  if(!QUESTION_ID.test(id)||ids.has(id)||!CAPTURE_CONCEPT_ID.test(String(item?.concept||"")))
    throw Error("RADAR_REVIEW_INVENTORY_INVALID");
   ids.add(id);
   const reviewed=fromId.get(id);

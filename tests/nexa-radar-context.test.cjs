@@ -25,7 +25,7 @@ test('AI cannot remove deterministic red flags or turn findings into fact',()=>{
 test('AI unsupported evidence rejected',()=>{const r=E.analyze(context('Dor torácica.'),{},[{concept:'saddle',contextEvidence:'Lombalgia'}]);assert.ok(!has(r,'saddle'));});
 test('new encounter with empty ledger carries no answers',()=>{const r=E.analyze(context('Dor torácica.'),{});assert.ok(has(r,'dyspnea'));});
 const cases=[['dor torácica','Dor torácica.','dyspnea'],['dor abdominal','Dor abdominal.','peritonism'],['cefaleia','Cefaleia.','sudden'],['lombalgia','Lombalgia.','saddle'],['trauma','Queda da própria altura.','neurovascular'],['urinários','Disúria há dois dias.','flank'],['respiratórios','Tosse há três dias.','spo2'],['febre','Febre.','temperature'],['membro','Dor em perna esquerda.','pulses'],['neurológico','Tontura desde ontem.','focal']];
-for(const [name,text,id] of cases)test('simulated case: '+name,()=>{const r=result(text);assert.ok(has(r,id));assert.equal(new Set(r.items.map(i=>i.id)).size,r.items.length);assert.ok(r.items.every(i=>i.question.startsWith('Investigar')||i.question.startsWith('Esclarecer')));});
+for(const [name,text,id] of cases)test('simulated case: '+name,()=>{const r=result(text);assert.ok(has(r,id));assert.equal(new Set(r.items.map(i=>i.id)).size,r.items.length);assert.ok(r.items.every(i=>i.question.startsWith('Investigar')||i.question.startsWith('Esclarecer')||i.question.endsWith('?')));});
 
 test('conversation: a question is not a patient finding',()=>{const r=E.analyze({transcript:'Cefaleia desde hoje. Médico: Teve febre?'});assert.equal(r.facts.fever.state,'not_asked');assert.equal(r.items.find(i=>i.id==='fever').status,'asked');assert.equal(r.alerts.length,0);});
 test('conversation: isolated answer resolves the preceding boolean question',()=>{const r=E.analyze({transcript:'Cefaleia desde hoje. Médico: Teve febre? Paciente: Não.'});assert.equal(r.facts.fever.state,'known_absent');assert.ok(!has(r,'fever'));assert.ok(r.clarified.some(i=>i.id==='fever'));});
@@ -47,7 +47,7 @@ test('spontaneous sudden onset and affirmative trauma are findings, not question
 test('consciousness: abnormal findings persist while normal and invalid results do not become alarms',()=>{
  for(const quote of ['Confusão mental.','Glasgow 14.','Rebaixamento de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.ok(r.alerts.some(a=>a.concept==='consciousness'));assert.ok(!has(r,'consciousness'));}
  for(const quote of ['Lúcido.','Glasgow 15.','Nega alteração de consciência.']){const r=E.analyze({transcript:'Cefaleia. '+quote});assert.equal(r.facts.consciousness.state,'known_absent');assert.ok(!r.alerts.some(a=>a.concept==='consciousness'));}
- const invalid=E.analyze({transcript:'Cefaleia. Glasgow 99.'});assert.equal(invalid.items.find(i=>i.concept==='consciousness').status,'confirm');
+ const invalid=E.analyze({transcript:'Cefaleia. Glasgow 99.'});assert.equal(invalid.facts.consciousness.state,'unknown');assert.ok(!invalid.items.some(i=>i.concept==='consciousness'),'invalid Glasgow is never an obligatory headache checklist item');
 });
 test('demographics: explicit patient speech informs context without borrowing ages from history or relatives',()=>{
  const r=E.analyze({transcript:'Mulher, 32 anos. Dor abdominal. Cirurgia há 10 anos. Minha mãe tem 70 anos.'});assert.equal(r.demographics.age,32);assert.equal(r.demographics.sex,'feminino');assert.ok(has(r,'pregnancy'));assert.match(r.demographics.evidence.age[0].quote,/32 anos/);

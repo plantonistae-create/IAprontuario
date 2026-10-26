@@ -20,7 +20,9 @@ const CORE_IDS=Object.freeze(["comorbidities","allergies","medicines"]);
 const META_KEYS=Object.freeze(["engine_version","provider","model_version","prompt_version","evidence_version","frontend_version"]);
 const safeVersion=/^[A-Za-z0-9._:-]{1,80}$/;
 const idRx=/^[a-z][a-z0-9_]{0,63}$/;
-const qidRx=/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/;
+const qidRx=/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/;
+const conceptRx=/^[a-z][A-Za-z0-9_]{0,63}$/;
+const auditConcept=id=>String(id||'').replace(/([a-z0-9])([A-Z])/g,'$1_$2').toLowerCase();
 const isObj=v=>!!v&&typeof v==="object"&&!Array.isArray(v);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const opt=(arr,selected="")=>arr.map(([v,label])=>'<option value="'+esc(v)+'"'+(v===selected?" selected":"")+">"+esc(label)+"</option>").join("");
@@ -43,7 +45,7 @@ function questionCatalogue(row){
   if(!isObj(item))continue;
   const id=String(item.id||item.concept||"");
   const concept=String(item.concept||"");
-  if(!qidRx.test(id)||!idRx.test(concept)||found.has(id))continue;
+  if(!qidRx.test(id)||!conceptRx.test(concept)||found.has(id))continue;
   const desc=index.get(id)||item;
   // Text shown only from the model-deidentified audit snapshot, not raw pre-deidentification capture.
   const q=typeof desc.question==="string"&&!detectablePii(desc.question)?desc.question.trim().slice(0,360):"";
@@ -81,14 +83,14 @@ function snapshotMeta(row){
 }
 function sanitizeLabels(raw,concepts){
  if(!Array.isArray(raw)||raw.length>24)throw Error("RADAR_REVIEW_LABELS_INVALID");
- const allowed=new Set(concepts),issues=new Set(ISSUE_OPTIONS.map(x=>x[0])),outcomes=new Set(OUTCOMES.map(x=>x[0]));
+ const allowed=new Set(concepts.flatMap(x=>[x,auditConcept(x)])),issues=new Set(ISSUE_OPTIONS.map(x=>x[0])),outcomes=new Set(OUTCOMES.map(x=>x[0]));
  const out=[],seen=new Set();
  for(const x of raw){
   if(!isObj(x)||Object.keys(x).some(k=>!["concept","issue","outcome"].includes(k))||
    !allowed.has(x.concept)||!issues.has(x.issue)||!outcomes.has(x.outcome))
     throw Error("RADAR_REVIEW_LABEL_INVALID");
-  const key=x.concept+":"+x.issue;if(seen.has(key))continue;seen.add(key);
-  out.push({concept:x.concept,issue:x.issue,outcome:x.outcome});
+  const key=auditConcept(x.concept)+":"+x.issue;if(seen.has(key))continue;seen.add(key);
+  out.push({concept:auditConcept(x.concept),issue:x.issue,outcome:x.outcome});
  }
  return out;
 }
@@ -111,12 +113,12 @@ function sanitizeMissingQuestions(raw){
  for(const x of raw){
   if(!isObj(x)||Object.keys(x).some(k=>!["question","concept","priority","rationale"].includes(k)))
    throw Error("RADAR_MISSING_QUESTION_INVALID");
-  const question=scrubText(x.question),rationale=scrubText(x.rationale);
-  if(question.length<8||question.length>240||!idRx.test(x.concept)||
+  const question=scrubText(x.question),rationale=scrubText(x.rationale),concept=auditConcept(x.concept);
+  if(question.length<8||question.length>240||!idRx.test(concept)||
      !PRIORITIES.some(y=>y[0]===x.priority)||detectablePii(question)||detectablePii(rationale))
     throw Error("RADAR_MISSING_QUESTION_PII_OR_INVALID");
-  const key=x.concept+":"+question.toLowerCase();if(seen.has(key))continue;seen.add(key);
-  out.push({question,concept:x.concept,priority:x.priority,rationale});
+  const key=concept+":"+question.toLowerCase();if(seen.has(key))continue;seen.add(key);
+  out.push({question,concept,priority:x.priority,rationale});
  }
  return out;
 }

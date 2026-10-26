@@ -51,7 +51,7 @@ for(const invented of [
 const moduleRefs=[...loader.matchAll(/nexa-radar-visual-flow-v18\.13\.js/g)];
 assert.equal(moduleRefs.length,1,'visual-flow module must be loaded exactly once');
 assert.match(loader,/NEXA loader v18\.15\.0/);
-assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20260929-v18131/);
+assert.match(loader,/nexa-radar-visual-flow-v18\.13\.js\?v=20261026-decision-triage/);
 assert.match(index,/nexa-hotfix\.js\?v=[0-9]{8}-[a-z0-9-]+/);
 assert.match(sw,/CACHE_NAME="nexa-v18-15-0-[a-z0-9-]+"/);
 assert.match(sw,/HOTFIX_URL="\.\/nexa-hotfix\.js\?v=[0-9]{8}-[a-z0-9-]+"/);

@@ -100,6 +100,311 @@
     "section": "hda"
   },
   {
+    "id": "diarrhea",
+    "label": "Diarreia aguda",
+    "section": "hda"
+  },
+  {
+    "id": "stoolBlood",
+    "label": "Sangue nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "stoolMucus",
+    "label": "Muco nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "stoolPus",
+    "label": "Pus nas fezes",
+    "section": "hda"
+  },
+  {
+    "id": "hydration",
+    "label": "Estado de hidratação",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "oralTolerance",
+    "label": "Tolerância à ingestão oral",
+    "section": "hda"
+  },
+  {
+    "id": "urineOutput",
+    "label": "Diurese / redução urinária",
+    "section": "hda"
+  },
+  {
+    "id": "stoolFrequency",
+    "label": "Frequência das evacuações",
+    "section": "hda"
+  },
+  {
+    "id": "giVomiting",
+    "label": "Vômitos / hidratação oral",
+    "section": "hda"
+  },
+  {
+    "id": "severeAbdominalPain",
+    "label": "Dor abdominal intensa ou localizada",
+    "section": "hda"
+  },
+  {
+    "id": "photophobia",
+    "label": "Fotofobia",
+    "section": "hda"
+  },
+  {
+    "id": "phonophobia",
+    "label": "Fonofobia",
+    "section": "hda"
+  },
+  {
+    "id": "headacheNausea",
+    "label": "Náuseas ou vômitos com cefaleia",
+    "section": "hda"
+  },
+  {
+    "id": "headachePattern",
+    "label": "Mudança de padrão / progressão da cefaleia",
+    "section": "hda"
+  },
+  {
+    "id": "respFocal",
+    "label": "Achados focais à ausculta pulmonar",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "wheeze",
+    "label": "Sibilos / broncoespasmo",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "speechLimit",
+    "label": "Limitação para falar frases",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "pleuriticPain",
+    "label": "Dor torácica pleurítica",
+    "section": "hda"
+  },
+  {
+    "id": "throatPain",
+    "label": "Dor de garganta",
+    "section": "hda"
+  },
+  {
+    "id": "swallowDifficulty",
+    "label": "Disfagia / dificuldade para deglutir",
+    "section": "hda"
+  },
+  {
+    "id": "stridor",
+    "label": "Estridor / obstrução de via aérea",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "exudate",
+    "label": "Exsudato tonsilar",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "cervicalNodes",
+    "label": "Linfonodos cervicais dolorosos",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "earPain",
+    "label": "Otalgia",
+    "section": "hda"
+  },
+  {
+    "id": "earDischarge",
+    "label": "Otorreia",
+    "section": "hda"
+  },
+  {
+    "id": "hearingChange",
+    "label": "Alteração auditiva",
+    "section": "hda"
+  },
+  {
+    "id": "sinusSymptoms",
+    "label": "Sintomas nasossinusais",
+    "section": "hda"
+  },
+  {
+    "id": "unilateralSinus",
+    "label": "Dor facial unilateral importante",
+    "section": "hda"
+  },
+  {
+    "id": "jointPain",
+    "label": "Artralgia / dor articular",
+    "section": "hda"
+  },
+  {
+    "id": "jointHot",
+    "label": "Articulação quente / hiperemiada",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "jointRange",
+    "label": "Amplitude de movimento / limitação funcional",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "weightBearing",
+    "label": "Capacidade de apoiar / caminhar",
+    "section": "hda"
+  },
+  {
+    "id": "jointEffusion",
+    "label": "Derrame articular / edema localizado",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "wound",
+    "label": "Ferida aberta / exposição",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "paresthesia",
+    "label": "Parestesia ou déficit sensitivo",
+    "section": "hda"
+  },
+  {
+    "id": "radicular",
+    "label": "Dor irradiada / ciatalgia",
+    "section": "hda"
+  },
+  {
+    "id": "backRedSystemic",
+    "label": "Sinais sistêmicos / risco de infecção ou neoplasia",
+    "section": "antecedentes"
+  },
+  {
+    "id": "constipation",
+    "label": "Constipação intestinal",
+    "section": "hda"
+  },
+  {
+    "id": "obstruction",
+    "label": "Distensão, parada de gases / fezes",
+    "section": "hda"
+  },
+  {
+    "id": "upperGI",
+    "label": "Dispepsia / epigastralgia",
+    "section": "hda"
+  },
+  {
+    "id": "giBleed",
+    "label": "Sangramento digestivo",
+    "section": "hda"
+  },
+  {
+    "id": "hemodynamic",
+    "label": "Instabilidade hemodinâmica / pré-síncope",
+    "section": "hda"
+  },
+  {
+    "id": "palpitations",
+    "label": "Palpitações",
+    "section": "hda"
+  },
+  {
+    "id": "exertional",
+    "label": "Relação com esforço",
+    "section": "hda"
+  },
+  {
+    "id": "legSwelling",
+    "label": "Edema assimétrico de membro inferior",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "dizziness",
+    "label": "Tontura / vertigem",
+    "section": "hda"
+  },
+  {
+    "id": "gaitChange",
+    "label": "Alteração de marcha / ataxia",
+    "section": "exame_fisico"
+  },
+  {
+    "id": "visionChange",
+    "label": "Alteração visual aguda",
+    "section": "hda"
+  },
+  {
+    "id": "seizure",
+    "label": "Crise convulsiva",
+    "section": "hda"
+  },
+  {
+    "id": "postictal",
+    "label": "Confusão pós-ictal / recuperação",
+    "section": "hda"
+  },
+  {
+    "id": "urinaryRetention",
+    "label": "Retenção urinária atual",
+    "section": "hda"
+  },
+  {
+    "id": "colic",
+    "label": "Cólica renal / dor em flanco",
+    "section": "hda"
+  },
+  {
+    "id": "testicularPain",
+    "label": "Dor testicular aguda",
+    "section": "hda"
+  },
+  {
+    "id": "pelvicPain",
+    "label": "Dor pélvica",
+    "section": "hda"
+  },
+  {
+    "id": "vaginalBleeding",
+    "label": "Sangramento vaginal",
+    "section": "hda"
+  },
+  {
+    "id": "rash",
+    "label": "Lesão cutânea / exantema",
+    "section": "hda"
+  },
+  {
+    "id": "skinSpread",
+    "label": "Progressão rápida / extensão cutânea",
+    "section": "hda"
+  },
+  {
+    "id": "skinPainDisproportion",
+    "label": "Dor desproporcional em lesão cutânea",
+    "section": "hda"
+  },
+  {
+    "id": "eyePain",
+    "label": "Dor ocular / olho vermelho",
+    "section": "hda"
+  },
+  {
+    "id": "photopsia",
+    "label": "Fotopsias / moscas volantes / perda de campo",
+    "section": "hda"
+  },
+  {
+    "id": "foreignBody",
+    "label": "Corpo estranho / exposição ocular",
+    "section": "hda"
+  },
+  {
     "id": "pregnancy",
     "label": "Possibilidade de gestação / puerpério",
     "section": "antecedentes"

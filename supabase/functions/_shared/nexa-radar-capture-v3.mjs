@@ -13,7 +13,7 @@ export function sanitizeRadarCapture(value){
  for(const item of entries.slice(0,150)){
   if(!item||typeof item!=="object"||Array.isArray(item))continue;
   const concept=String(item.concept||""),id=String(item.id||concept);
-  if(!C.has(concept)||!/^(?:conflict:)?[a-z][a-z0-9_]{0,63}$/.test(id)||seen.has(id))continue;
+  if(!C.has(concept)||!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||seen.has(id))continue;
   seen.add(id);
   items.push({
    id,concept,priority:PRIORITY.has(item.priority)?item.priority:"moderate",

@@ -31,7 +31,7 @@ function status(m){
  if(m.s?.busy)return 'Interpretando informações registradas';
  if(m.alerts.length||m.safety.length)return 'Há pontos de segurança para revisar';
  if(!m.s?.hasContext)return 'Aguardando contexto clínico';
- return m.items.length?'Investigação em andamento':'Sem novas lacunas identificadas no momento';
+ return m.safety.length||m.context.length?'Investigação dirigida em andamento':'Sem novas perguntas sindrômicas no momento';
 }
 function mount(){
  const card=$('realtimeRadarCard'),head=$('nexaRadarOpsHeader18130');
@@ -60,7 +60,9 @@ function chosen(m){
  const unasked=items=>items.filter(i=>i.status!=='asked');
  if(filter==='safety')return unasked(m.safety).slice(0,4);
  if(filter==='context')return unasked(m.context).slice(0,4);
- const sorted=unasked([...m.safety,...m.context,...m.items.filter(i=>domain(i)==='history')]);
+ // Universal chart history belongs to the side panel, not to the live
+ // decision-focused "Agora" queue. No repeated dismissals of low-value items.
+ const sorted=unasked([...m.safety,...m.context]);
  return sorted.filter((x,n)=>sorted.findIndex(i=>i.id===x.id)===n).slice(0,3);
 }
 function questionsMarkup(m){

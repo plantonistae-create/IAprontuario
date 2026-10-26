@@ -97,11 +97,32 @@ test("Auditor can save clinical decision + Radar metadata atomically and amend R
  for(const token of ["submit_nexa_audit_review_v4","save_nexa_radar_review_v4",
    "p_expected_revision","get_nexa_radar_reviews_v4","get_nexa_radar_readiness_v3",
    "radarSave","RADAR","Revisão do Radar"])assert.ok(s.includes(token),token);
- assert.match(html,/nexa-core-radar-review-v3\.js\?v=20261025-core-audit-v3/);
+ assert.match(html,/nexa-core-radar-review-v3\.js\?v=20261026-syndromic-audit/);
  assert.match(html,/nexa-core-radar-review-v3\.css\?v=20261025-core-audit-v3/);
- assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=20261025-core-audit-v3/);
- assert.match(loader,/nexa-audit-outbox-v18\.9\.19\.js\?v=20261025-core-audit-v4-reset/);
+ assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=20261026-clinical-radar-audit/);
+ assert.match(loader,/nexa-audit-outbox-v18\.9\.19\.js\?v=20261026-radar-syndrome-audit/);
 });
+test("Syndrome-specific camelCase concepts remain traceable, reviewed and safely canonicalized",()=>{
+ const row2={deidentified_core_context:{
+  radar_capture:{items:[{id:"stoolBlood",concept:"stoolBlood",priority:"high",status:"to_ask"}]},
+  radar_learning:{items:[{id:"stoolBlood",concept:"stoolBlood",question:"Houve sangue nas fezes?",reason:"Pode modificar investigação etiológica."}]}
+ }};
+ const capture=sanitizeRadarCapture({items:[{id:"stoolBlood",concept:"stoolBlood",priority:"high",status:"to_ask"}]});
+ assert.equal(capture.items.length,1,"mixed-case concepts must not be silently dropped");
+ const catalogue=Reviewer.questionCatalogue(row2);
+ assert.equal(catalogue.length,1);
+ assert.equal(catalogue[0].question,"Houve sangue nas fezes?");
+ const ratings=[{question_id:"stoolBlood",verdict:"relevant",reason_code:"appropriate"}];
+ const rated=Reviewer.buildPayload(row2,"reviewed",[],0,ratings);
+ assert.equal(rated.question_reviews[0].question_id,"stoolBlood");
+ const inventory=compileReviewedRadarQuestionInventory(row2.deidentified_core_context,{...rated,revision:1});
+ assert.equal(inventory[0].concept,"stoolBlood");
+ const missing=Reviewer.sanitizeMissingQuestions([{concept:"stoolBlood",priority:"high",question:"Houve sangue nas fezes?",rationale:"Contexto clínico."}]);
+ assert.equal(missing[0].concept,"stool_blood","manual feedback respects database constraint");
+ const label=Reviewer.sanitizeLabels([{concept:"stoolBlood",issue:"wrong_priority",outcome:"corrected"}],Reviewer.conceptOptions(row2));
+ assert.equal(label[0].concept,"stool_blood");
+});
+
 console.log("NEXA Core Radar v3 audit and dataset contracts: PASS");
 
 test("Radar provider/model/evidence provenance is recorded from real remote results, never guessed",()=>{

@@ -28,6 +28,72 @@
   c('peritonism','Sinais de irritação peritoneal',/peritonismo|defesa abdominal|rigidez abdominal|blumberg|descompressao brusca/,'exame_fisico');
   c('vomiting','Vômitos persistentes',/vomitos persistentes|vomitando continuamente/);
   c('bleeding','Sangramento',/sangramento|hematemese|melena|hematoquezia/);
+
+  // Syndrome-specific PS differentiation, not universal mandatory questions.
+  c('diarrhea','Diarreia aguda',/\bdiarrei\w*|gastroenterite|enterocolite|evacuac\w* liquidas?|fezes liquidas?/);
+  c('stoolBlood','Sangue nas fezes',/\bsangue (?:vivo )?(?:nas?|misturado (?:as?|com as?)) fezes\b|diarreia com sangue|evacuac\w* sanguinolent\w*|disenteria|hematoquezia/);
+  c('stoolMucus','Muco nas fezes',/\bmuco(?:sidade)? (?:nas?|misturado (?:as?|com as?)) fezes\b|fezes com muco|diarreia com muco/);
+  c('stoolPus','Pus nas fezes',/\bpus nas? fezes\b|fezes com pus|diarreia purulenta/);
+  c('hydration','Estado de hidratação',/\bdesidrat\w*|hidratad\w*|mucosas? (?:secas?|umidas?)|sede intensa|olhos fundos/,'exame_fisico','text');
+  c('oralTolerance','Tolerância à ingestão oral',/\b(?:toler\w*|aceita\w*|consegue\w*|mantem)\b.{0,30}\b(?:via oral|liquidos?|agua|aliment\w*)\b|\b(?:nao consegue|incapaz de)\b.{0,30}\b(?:beber|ingerir)\b/,'hda','text');
+  c('urineOutput','Diurese / redução urinária',/\bdiurese\b|\b(?:urina|urinou|urinando|micc\w*)\b.{0,30}\b(?:menos|pouco|normal|reduzid\w*|diminu\w*|mantid\w*)\b|\boliguri\w*|\banuri\w*/,'hda','text');
+  c('stoolFrequency','Frequência das evacuações',/\b(?:\d+|varias|muitas|poucas)\s*(?:vezes|episodios|evacuacoes)\b.{0,35}\b(?:dia|diarreia|fezes)\b|\b(?:evacuac\w*|diarrei\w*)\b.{0,30}\b(?:\d+|varias vezes|frequentes?)\b/,'hda','text');
+  c('giVomiting','Vômitos / hidratação oral',/\bvomit\w*|\bvomitand\w*|\bemese\b|\bnause\w*/,'hda');
+  c('severeAbdominalPain','Dor abdominal intensa ou localizada',/\bdor (?:abdominal|na barriga)\b.{0,35}\b(?:intensa?|forte|localizad\w*|progressiv\w*)\b|\b(?:dor intensa?|defesa|abdome agudo)\b.{0,25}\babdomin\w*/,'hda');
+  c('photophobia','Fotofobia',/\bfotofobi\w*|\bsensibilidade (?:a|a )?luz\b/,'hda');
+  c('phonophobia','Fonofobia',/\bfonofobi\w*|\bsensibilidade (?:a|ao) som\b/,'hda');
+  c('headacheNausea','Náuseas ou vômitos com cefaleia',/\bnause\w*|\bvomit\w*|\bemese\b/,'hda');
+  c('headachePattern','Mudança de padrão / progressão da cefaleia',/\b(?:mudanc\w*|alterac\w*) (?:do |de )?padrao\b|\b(?:dor|cefaleia)\b.{0,40}\b(?:diferente|progressiv\w*|pior\w*|nova|primeira)\b/,'hda','text');
+  c('respFocal','Achados focais à ausculta pulmonar',/\bcrepit\w*|\bestertor\w*|\bconsolidac\w*|\bsopro tubari\w*|\b(?:murmurio vesicular)\b.{0,30}\b(?:reduzid\w*|diminu\w*)/,'exame_fisico','text');
+  c('wheeze','Sibilos / broncoespasmo',/\bsibil\w*|\bchiad\w*|\bbroncoespasmo\b/,'exame_fisico');
+  c('speechLimit','Limitação para falar frases',/\b(?:fala|consegue falar|falar)\b.{0,35}\b(?:frases?|palavras?|entrecortad\w*|dificuldade)\b|\bnao consegue (?:completar|falar) frases\b/,'exame_fisico','text');
+  c('pleuriticPain','Dor torácica pleurítica',/\bdor\b.{0,30}\b(?:respirar|inspirar|pleurit\w*)\b|\bdor pleurit\w*/,'hda');
+
+  // Broad chief-complaint routing. These are prompts for clinical assessment,
+  // NOT validated diagnosis rules or discharge/antibiotic recommendations.
+  c('throatPain','Dor de garganta',/\b(?:dor de garganta|odinofagia|faringite|amigdalite|tonsilite)\b/);
+  c('swallowDifficulty','Disfagia / dificuldade para deglutir',/\bdisfagi\w*|dificuldade (?:para )?(?:engolir|deglutir)|nao consegue engolir/);
+  c('stridor','Estridor / obstrução de via aérea',/\bestridor|ruido inspiratorio|obstruc\w* de via aerea/,'exame_fisico');
+  c('exudate','Exsudato tonsilar',/\bexsudat\w*|placas? (?:nas?|em) amigdala|amigdalas? com placas?/,'exame_fisico');
+  c('cervicalNodes','Linfonodos cervicais dolorosos',/\b(?:linfonod\w*|adenopati\w*|gangli\w*)\b.{0,35}\b(?:cervic\w*|pescoço|doloros\w*)/,'exame_fisico','text');
+  c('earPain','Otalgia',/\b(?:otalgia|dor (?:no|de) ouvido|otite)\b/);
+  c('earDischarge','Otorreia',/\b(?:otorrei\w*|secrec\w* no ouvido|saida de secrecao pelo ouvido)\b/);
+  c('hearingChange','Alteração auditiva',/\b(?:hipoacusi\w*|perda auditiva|audicao reduzida)\b/);
+  c('sinusSymptoms','Sintomas nasossinusais',/\b(?:sinusite|rinossinusite|dor facial|pressao facial|secrecao nasal|coriza)\b/);
+  c('unilateralSinus','Dor facial unilateral importante',/\bdor (?:facial|na face)\b.{0,30}\b(?:unilateral|forte|intensa)\b/);
+  c('jointPain','Artralgia / dor articular',/\b(?:artralgia|artrite|dor (?:no|na|nos|nas) (?:joelho|ombro|cotovelo|punho|quadril|articulac\w*)|joelho doloroso)\b/);
+  c('jointHot','Articulação quente / hiperemiada',/\b(?:articulac\w*|joelho|tornozelo)\b.{0,45}\b(?:quente|calor|hiperemi\w*|vermelh\w*|rubor)\b/,'exame_fisico');
+  c('jointRange','Amplitude de movimento / limitação funcional',/\b(?:amplitude de movimento|mobilidade|movimentac\w*|flexao|extensao|limitac\w* funcional|limita\w* movimento)\b/,'exame_fisico','text');
+  c('weightBearing','Capacidade de apoiar / caminhar',/\b(?:consegue|incapaz|impossib\w*|dificuldade de)\b.{0,30}\b(?:andar|caminhar|apoiar|deambular)\b|\bapoio de peso\b/,'hda','text');
+  c('jointEffusion','Derrame articular / edema localizado',/\b(?:derrame articular|hidartrose|edema articular|joelho inchado|joelho com edema)\b/,'exame_fisico','text');
+  c('wound','Ferida aberta / exposição',/\b(?:ferida aberta|ferimento aberto|exposicao ossea|fratura exposta|lacerac\w*)\b/,'exame_fisico');
+  c('paresthesia','Parestesia ou déficit sensitivo',/\b(?:parestesi\w*|formigamento|dormencia|perda de sensibilidade)\b/,'hda');
+  c('radicular','Dor irradiada / ciatalgia',/\b(?:ciatalgia|ciatica|radiculopati\w*|dor irradiad\w* para (?:perna|membro inferior))\b/);
+  c('backRedSystemic','Sinais sistêmicos / risco de infecção ou neoplasia',/\b(?:perda de peso inexplicada|cancer|neoplasia|imunossupress\w*|uso de drogas intravenosas)\b/,'antecedentes','text');
+  c('constipation','Constipação intestinal',/\b(?:constipac\w*|obstipac\w*|intestino preso|sem evacuar|prisao de ventre)\b/);
+  c('obstruction','Distensão, parada de gases / fezes',/\b(?:distensao abdominal|abdome distendido|parada de eliminacao de gases|nao elimina gases|obstrucao intestinal)\b/);
+  c('upperGI','Dispepsia / epigastralgia',/\b(?:epigastralgia|dispepsia|azia|pirose|queimacao no estomago)\b/);
+  c('giBleed','Sangramento digestivo',/\b(?:melena|hematemese|vomito com sangue|sangramento digestivo|sangue nas fezes)\b/);
+  c('hemodynamic','Instabilidade hemodinâmica / pré-síncope',/\b(?:instabilidade hemodinamica|hipotensao|lipotimia|pre-sincope)\b/);
+  c('palpitations','Palpitações',/\b(?:palpitac\w*|coracao acelerado|taquicardia percebida)\b/);
+  c('exertional','Relação com esforço',/\b(?:aos? esforc\w*|ao caminhar|ao subir escadas|com exercicio)\b/,'hda','text');
+  c('legSwelling','Edema assimétrico de membro inferior',/\b(?:edema|inchaco|perna inchada)\b.{0,35}\b(?:unilateral|assimetr\w*|perna|panturrilha)\b/,'exame_fisico','text');
+  c('dizziness','Tontura / vertigem',/\b(?:tontura|vertigem|labirintite|sensacao de girar)\b/);
+  c('gaitChange','Alteração de marcha / ataxia',/\b(?:ataxia|marcha alterada|dificuldade para caminhar|desequilibrio importante)\b/,'exame_fisico');
+  c('visionChange','Alteração visual aguda',/\b(?:perda visual|visao turva|diplopia|visao dupla|baixa visual subita)\b/);
+  c('seizure','Crise convulsiva',/\b(?:convulsao|crise convulsiva|crise epileptica|epilepsia em crise)\b/);
+  c('postictal','Confusão pós-ictal / recuperação',/\b(?:pos.ictal|pos crise|recuperacao apos crise|confusao apos convulsao)\b/,'hda','text');
+  c('urinaryRetention','Retenção urinária atual',/\b(?:retencao urinaria|nao consegue urinar|bexiga cheia sem urinar)\b/);
+  c('colic','Cólica renal / dor em flanco',/\b(?:colica renal|nefrolitiase|calcul\w* renal|dor (?:no|em) flanco)\b/);
+  c('testicularPain','Dor testicular aguda',/\b(?:dor testicular|torcao testicular|escroto doloroso|dor no testiculo)\b/);
+  c('pelvicPain','Dor pélvica',/\b(?:dor pelvica|dor no baixo ventre|dor hipogastrica|anexite)\b/);
+  c('vaginalBleeding','Sangramento vaginal',/\b(?:sangramento vaginal|sangramento uterino|metrorragia)\b/);
+  c('rash','Lesão cutânea / exantema',/\b(?:rash|exantema|lesao de pele|urticaria|manchas na pele|erupcao cutanea)\b/);
+  c('skinSpread','Progressão rápida / extensão cutânea',/\b(?:vermelhidao se espalhando|lesao progredindo|aumento rapido da lesao|eritema progressivo)\b/);
+  c('skinPainDisproportion','Dor desproporcional em lesão cutânea',/\bdor desproporcional\b|dor muito intensa na pele/);
+  c('eyePain','Dor ocular / olho vermelho',/\b(?:dor ocular|olho vermelho|conjuntivite|dor no olho)\b/);
+  c('photopsia','Fotopsias / moscas volantes / perda de campo',/\b(?:fotopsi\w*|moscas volantes|perda de campo visual|flashes de luz)\b/);
+  c('foreignBody','Corpo estranho / exposição ocular',/\b(?:corpo estranho|produto quimico no olho|trauma ocular)\b/);
   c('pregnancy','Possibilidade de gestação / puerpério',/gesta\w*|gravid\w*|puerper\w*|menopausa|histerectomia/,'antecedentes','text');
   c('anticoagulant','Uso de anticoagulante',/anticoagul\w*|varfarina|rivaroxabana|apixabana|dabigatrana|heparina/,'medicacoes');
   c('cvRisk','Fatores de risco cardiovascular',/hipertens\w*|\bhas\b|diabet\w*|tabag\w*|dislipidem\w*|fatores (?:de risco )?cardiovasculares/,'comorbidades','text');
@@ -69,7 +135,7 @@
   c('temperature','Temperatura aferida',/(?:\b(?:3\d|4[0-3])(?:[.,]\d)?\s*°\s*c?|(?:temperatura|febre|\bt\b)\s*(?:de|:|=)?\s*(?:3\d|4[0-3])(?:(?:[.,]\d)|(?:\s+e\s+meio))?)/,'sinais_vitais','text');
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
-  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma']);
+  const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea','throatPain','earPain','sinusSymptoms','jointPain','constipation','upperGI','giBleed','palpitations','dizziness','seizure','colic','testicularPain','pelvicPain','vaginalBleeding','rash','eyePain']);
   // Interpret questions separately from patient evidence. No conversational inference is written to the record.
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
@@ -203,7 +269,7 @@
             // Negation spans lists, but stops at an affirmative clause.
             const clause=prefix.split(/\b(?:refere|apresenta|relata|tem|teve|com)\b/).pop();
             const unknown=/talvez|acho que|nao lembro|nao entendi|nao (?:sei|sabe|soube)|nao (?:informad|relatad|investigad|avaliad|perguntad)|desconhec/.test(text)||(concept.id==='consciousness'&&/glasgow/.test(m[0])&&measurement(concept.id,m[0])===null);
-            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
+            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/\b(?:nao|nunca)\s+(?:teve|tem|apresenta|sente|possui|refere)\s*$/.test(prefix)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
             if(universal.has(concept.id))negative=/^(?:(?:comorbidades|alergias|medicacoes(?: utilizadas)?)\s*:\s*)?(?:nega\b|negou\b|sem\b|nao\s+(?:tem|possui|usa|toma|faz uso)\b)/.test(text);
             const value=measurement(concept.id,m[0]);
             if(concept.id==='consciousness'&&(/^lucid/.test(m[0])||value===15))negative=!negative;
@@ -243,14 +309,32 @@
   const packs=[
     {id:'chest',critical:['dyspnea','syncope','bp'],high:['sweating','radiation','hr','spo2','cvRisk']},
     {id:'abdomen',critical:['peritonism','bp'],high:['vomiting','bleeding','syncope','localization']},
-    {id:'headache',critical:['sudden','focal','consciousness'],high:['fever','meningism','trauma']},
+    {id:'headache',critical:['sudden','focal'],high:['fever','meningism','trauma','headachePattern','headacheNausea','photophobia','phonophobia','intensity','character','onset']},
     {id:'back',critical:['saddle','retention','weakness'],high:['fever','trauma']},
     {id:'trauma',critical:[],high:['mechanism','neurovascular','deformity','anticoagulant']},
     {id:'limb',critical:[],high:['trauma','pulses','perfusion','edema']},
     {id:'urinary',critical:[],high:['fever','flank','hematuria']},
-    {id:'respiratory',critical:['dyspnea','spo2'],high:['effort','rr','fever','auscultation','hemoptysis']},
+    {id:'respiratory',critical:['dyspnea','spo2'],high:['effort','rr','fever','auscultation','respFocal']},
+    {id:'diarrhea',critical:[],high:['stoolBlood','hydration','oralTolerance','urineOutput','fever','giVomiting','severeAbdominalPain','onset'],moderate:['stoolFrequency','stoolMucus','stoolPus']},
+
+    {id:'throatPain',critical:['stridor','swallowDifficulty'],high:['fever','exudate','cervicalNodes','dyspnea']},
+    {id:'earPain',critical:[],high:['earDischarge','hearingChange','fever','onset']},
+    {id:'sinusSymptoms',critical:[],high:['fever','unilateralSinus','onset']},
+    {id:'jointPain',critical:[],high:['fever','jointHot','jointRange','weightBearing','jointEffusion','trauma']},
+    {id:'constipation',critical:['obstruction'],high:['vomiting','severeAbdominalPain','onset']},
+    {id:'upperGI',critical:[],high:['giBleed','vomiting','onset']},
+    {id:'giBleed',critical:['hemodynamic','syncope','bp'],high:['hr','anticoagulant','onset']},
+    {id:'palpitations',critical:['syncope','bp'],high:['hr','chest','dyspnea','onset']},
+    {id:'dizziness',critical:['focal','gaitChange'],high:['syncope','hearingChange','onset']},
+    {id:'seizure',critical:['focal','consciousness'],high:['postictal','fever','trauma']},
+    {id:'colic',critical:[],high:['fever','hematuria','urinaryRetention','onset']},
+    {id:'testicularPain',critical:[],high:['onset','vomiting','trauma']},
+    {id:'pelvicPain',critical:[],high:['pregnancy','vaginalBleeding','fever','peritonism']},
+    {id:'vaginalBleeding',critical:[],high:['pregnancy','syncope','bp','onset']},
+    {id:'rash',critical:[],high:['fever','skinSpread','skinPainDisproportion','onset']},
+    {id:'eyePain',critical:[],high:['visionChange','foreignBody','photopsia','onset']},
     {id:'fever',critical:[],high:['temperature','onset','immuno']},
-    {id:'neuro',critical:['focal','consciousness','sudden'],high:['glucose','bp','onset']}
+    {id:'neuro',critical:['focal'],high:['glucose','bp','onset']}
   ];
   const category=concept=>concept.section==='sinais_vitais'?'vitals':concept.section==='exame_fisico'?'exam':concept.section==='medicacoes'?'medications':['comorbidades','antecedentes','alergias'].includes(concept.section)?'risk':'history';
   function analyze(context={},ledger={},aiItems=[],observations=[]){
@@ -265,24 +349,143 @@
       // Ledger acknowledgements only suppress the evidence snapshot they actually addressed.
       const evidenceKey=JSON.stringify(f.evidence);
       if(record&&!universal.has(id)&&(record.evidenceKey===evidenceKey||!f.conflict&&record.action==='answer'&&record.documented&&String(fields[record.section]||'').includes(record.documented)))return;
-      const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
+      const ask={
+        stoolBlood:'Houve sangue nas fezes?',
+        stoolMucus:'Houve muco nas fezes?',
+        hydration:'Como está a hidratação ao exame?',
+        oralTolerance:'Consegue ingerir e manter líquidos por via oral?',
+        urineOutput:'A diurese diminuiu?',
+        stoolFrequency:'Quantas evacuações ocorreram nas últimas 24 horas?',
+        giVomiting:'Há vômitos? Impedem a hidratação oral?',
+        sudden:'A cefaleia atingiu intensidade máxima subitamente?',
+        focal:'Houve fraqueza, alteração da fala ou déficit neurológico focal?',
+        photophobia:'A luz incomoda durante a cefaleia?',
+        phonophobia:'O som piora a cefaleia?',
+        headacheNausea:'Há náuseas ou vômitos associados à cefaleia?',
+        respFocal:'Há achados focais à ausculta pulmonar?',
+        spo2:'Qual a saturação de oxigênio?',
+        speechLimit:'Consegue falar frases completas sem interromper para respirar?',
+        jointHot:'Há calor ou hiperemia articular?',
+        jointRange:'Existe limitação de mobilidade ou amplitude articular?',
+        weightBearing:'O paciente consegue apoiar e caminhar?',
+        neurovascular:'Há alteração de pulso, perfusão, força ou sensibilidade distal?',
+        wound:'Existe ferida aberta ou exposição no local?',
+        saddle:'Há alteração de sensibilidade em sela?',
+        retention:'Há retenção urinária ou alteração esfincteriana?',
+        weakness:'Existe fraqueza progressiva?',
+        stridor:'Há estridor ou dificuldade para manter via aérea?',
+        swallowDifficulty:'Consegue engolir líquidos e saliva?',
+        exudate:'Existe exsudato tonsilar ao exame?',
+        cervicalNodes:'Há linfonodos cervicais dolorosos?',
+        earDischarge:'Há saída de secreção pelo ouvido?',
+        hearingChange:'Houve perda de audição?',
+        obstruction:'Há distensão e parada de eliminação de gases?',
+        hemodynamic:'Há hipotensão, lipotímia ou instabilidade hemodinâmica?',
+        exertional:'Os sintomas surgem ou pioram ao esforço?',
+        gaitChange:'Existe ataxia ou incapacidade para caminhar?',
+        visionChange:'Houve perda ou mudança aguda da visão?',
+        urinaryRetention:'Há dificuldade importante ou incapacidade de urinar?',
+        postictal:'Como ocorreu a recuperação após a crise?',
+        vaginalBleeding:'Há sangramento vaginal associado?',
+        skinSpread:'A lesão cutânea está progredindo rapidamente?',
+        skinPainDisproportion:'A dor é desproporcional ao aspecto da lesão?',
+        foreignBody:'Houve trauma, produto químico ou corpo estranho no olho?'
+      };
+      const item={id:key,concept:id,category:f.conflict?'contradiction':redFlag?'red_flags':category(concept),priority:f.conflict&&rank[priority]>1?'high':priority,question:f.conflict?`Há informações conflitantes sobre ${concept.label.toLowerCase()}. Confirmar.`:(ask[id]|| (concept.type==='boolean'?`Investigar ${concept.label.toLowerCase()}.`:`Esclarecer / registrar ${concept.label.toLowerCase()}.`)),reason,targetSection:concept.section,answerType:f.conflict?'text':concept.type,answered:false,status:f.conflict||f.state==='unknown'?'confirm':f.asked?'asked':'to_ask',evidence:f.evidence,askedEvidence:f.asked,evidenceKey,source:'rule',redFlag};
       if(!items.has(key)||rank[item.priority]<rank[items.get(key).priority])items.set(key,item);
     };
-    // Universal history is always pending until documented, even before a syndrome is identified.
-    add('comorbidities','high','Registrar comorbidades ou negativa explícita.');
-    add('allergies','high','Esclarecer alergias e reação quando conhecida, sem presumir ausência.');
-    add('medicines','high','Registrar medicações contínuas e posologia relatada ou negativa explícita.');
-    const activated=packs.filter(p=>active(p.id));
-    for(const pack of activated)for(const priority of ['critical','high'])for(const id of pack[priority])add(id,priority,`Informação relevante para avaliar ${concepts[pack.id].label.toLowerCase()}.`,priority==='critical');
+    // Universal clinical background is tracked in its own pane, not promoted
+    // above syndrome-specific problems or made a compulsory 'next question'.
+    add('comorbidities','low','Histórico para contextualizar riscos e prescrição.');
+    add('allergies','low','Checar antes de prescrever; silêncio não é negativa de alergia.');
+    add('medicines','low','Revisar medicações e interações pertinentes à prescrição.');
+    const preliminary=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
+    const hypothesis=norm([fields.hipotese_diagnostica,fields.cid,fields.cid10,fields.cid_principal,fields.cid_codigo,context.cid,context.cid10].filter(Boolean).join(' '));
+    // A provisional ICD-10 is a routing hint, not proof of any clinical finding.
+    const giContext=active('diarrhea')||/\b(?:a09|gastroenterite|diarreia|enterocolite)\b/.test(hypothesis);
+    const headacheContext=active('headache')||/\b(?:r51|g43|g44|cefaleia|enxaqueca|migranea)\b/.test(hypothesis);
+    const respiratoryContext=active('respiratory')||/\b(?:j0[0-6]|j20|j40|j45|j46|j18|tosse|broncospasmo|asma|pneumonia|infeccao respiratoria)\b/.test(hypothesis);
+    const codeHints={
+      throatPain:/\bj0[23]\b|faringite|amigdalite/,
+      earPain:/\bh6[056]\b|otite/,
+      sinusSymptoms:/\bj01\b|sinusite|rinossinusite/,
+      jointPain:/\bm25\b|artralgia|artrite/,
+      constipation:/\bk59\b|constipacao|obstipacao/,
+      upperGI:/\bk(?:21|29|30)\b|dispepsia|gastrite/,
+      giBleed:/\bk92\b|hemorragia digestiva/,
+      palpitations:/\br00\b|palpitacoes/,
+      dizziness:/\br42\b|vertigem|tontura/,
+      seizure:/\br56\b|convulsao/,
+      colic:/\bn2[03]\b|nefrolitiase|colica renal/,
+      pelvicPain:/\br10[.]?2\b|dor pelvica/,
+      vaginalBleeding:/\bn93\b|sangramento uterino/,
+      rash:/\br21\b|exantema|urticaria/,
+      eyePain:/\bh57\b|dor ocular/
+    };
+    const activated=packs.filter(p=>p.id==='diarrhea'?giContext:p.id==='headache'?headacheContext:
+      p.id==='respiratory'?respiratoryContext:p.id==='jointPain'&&active('trauma')?false:
+      active(p.id)||!!codeHints[p.id]?.test(hypothesis));
+    // No syndrome-specific rule is activated solely from a code if the
+    // underlying diagnosis is not clearly attributed to the current visit.
+    const giReason={
+      stoolBlood:'Sangue nas fezes pode indicar investigação etiológica; isoladamente não justifica antibiótico.',
+      hydration:'Grau de hidratação diferencia reidratação oral, venosa e observação.',
+      oralTolerance:'A capacidade de ingerir líquidos modifica a escolha da reidratação.',
+      urineOutput:'Diurese auxilia a avaliar perdas e possível hipovolemia.',
+      fever:'Febre associada a diarreia pode justificar investigação conforme gravidade e contexto.',
+      giVomiting:'Vômitos persistentes podem impedir hidratação oral.',
+      severeAbdominalPain:'Dor intensa/localizada exige reconsiderar o diagnóstico diferencial.',
+      stoolFrequency:'Frequência das evacuações auxilia a estimar perdas e evolução.',
+      stoolMucus:'Muco pode orientar investigação com outros sinais; sozinho não prova infecção bacteriana.',
+      stoolPus:'Secreção purulenta relatada exige caracterização e diferencial.',
+      onset:'Duração ajuda a distinguir doença aguda e persistente.'
+    };
+    const headacheReason={
+      sudden:'Início súbito com pico imediato muda a investigação de cefaleia secundária.',
+      focal:'Alteração focal aumenta a necessidade de avaliar etiologia secundária.',
+      fever:'Febre associada é contextual, sobretudo com meningismo.',
+      meningism:'Sinais meníngeos podem indicar condição secundária grave.',
+      trauma:'Trauma recente modifica o diagnóstico diferencial.',
+      headachePattern:'Mudança significativa do padrão exige investigação contextual.',
+      photophobia:'Sintoma associado ajuda a caracterizar cefaleia primária.',
+      phonophobia:'Sintoma associado ajuda a caracterizar cefaleia primária.',
+      headacheNausea:'Náusea e vômitos contribuem para a caracterização.',
+      intensity:'Caracterizar intensidade e evolução da dor.',
+      character:'Caracterizar dor e diferenciais.',
+      onset:'Tempo de início e duração são relevantes para risco.'
+    };
+    for(const pack of activated)for(const priority of ['critical','high','moderate']){
+      for(const id of pack[priority]||[]){
+        const cranialTrauma=pack.id==='trauma'&&/\b(?:cranio|craniano|craniana|crani\w*|tce|cabeca)\b/.test(preliminary);
+        if(cranialTrauma&&['neurovascular','deformity'].includes(id))continue;
+        const reason=pack.id==='diarrhea'?giReason[id]:pack.id==='headache'?headacheReason[id]:
+          'Investigar diferencial e sinais de gravidade pertinentes à síndrome '+concepts[pack.id].label.toLowerCase()+'.';
+        add(id,priority,reason||'Avaliação dirigida a '+concepts[pack.id].label.toLowerCase()+'.',priority==='critical');
+      }
+    }
+    // A broncho-obstructive presentation needs severity checks and differential.
+    // Mental-status change is an alert only if documented, never a routine question.
+    const bronchospasm=respiratoryContext&&(/\b(?:chiad\w*|sibil\w*|broncoespasmo|crise asmatica)\b/.test(preliminary)||/\b(?:j45|j46|asma|broncoespasmo)\b/.test(hypothesis));
+    if(bronchospasm)for(const id of ['wheeze','speechLimit','effort','rr','spo2'])
+      add(id,id==='spo2'||id==='speechLimit'?'high':'moderate','Avaliar gravidade do broncoespasmo e limitação funcional.');
+    if(respiratoryContext&&/\b(?:pneumonia|j18)\b/.test(hypothesis))
+      for(const id of ['pleuriticPain','respFocal','rr','spo2'])
+        add(id,'high','Investigar sinais respiratórios pertinentes à possibilidade de pneumonia.');
     const currentText=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
     if(active('trauma')&&/tornozelo|pe/.test(currentText))for(const id of ['weightThen','fourSteps','malleoli','midfoot'])add(id,'high','Caracteriza o trauma de tornozelo/pé; não aplica automaticamente uma regra de imagem.');
-    if(active('trauma')&&/cranio|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
+    if(active('trauma')&&/crani\w*|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
+    if((active('trauma')||active('limb'))&&/\b(?:joelho|tornozelo|perna|braco|punho|cotovelo|ombro|membro)\b/.test(currentText)){
+      for(const id of ['jointRange','weightBearing'])add(id,'moderate','Limitação funcional influencia avaliação de lesão osteomuscular.');
+      for(const id of ['neurovascular','deformity','wound'])add(id,'high','Avaliar sinais de lesão grave no segmento acometido, conforme mecanismo e exame.');
+    }
+    if(active('back')&&(/\b(?:febre|cancer|imunossupressao|trauma|uso de drogas)\b/.test(currentText)))
+      add('backRedSystemic','high','Investigar causas específicas de lombalgia com fatores de risco.');
     if(active('limb')&&active('edema')){add('dvtRisk','high','Esclarecer risco tromboembólico no contexto do edema.');if(/unilateral|esquerd|direit/.test(currentText)){add('dvt','high','Edema unilateral pode exigir investigação de causas vasculares.');const d=items.get('dvt');if(d){d.category='differential';d.question='Considerar TVP no diferencial; não representa diagnóstico confirmado.';}}}
     const patient=demographics(context),age=Number(patient.age);
     if(activated.some(p=>['abdomen','headache','urinary'].includes(p.id))&&patient.sex==='feminino'&&(!age||age>=10&&age<=55))add('pregnancy','high','Gestação ou puerpério podem modificar a avaliação.');
-    if(activated.length&&/\bdor\b|cefaleia|lombalgia/.test(currentText)){
+    if((active('chest')||active('abdomen')||active('headache')||active('back')||active('limb'))&&/\bdor\b|cefaleia|lombalgia/.test(currentText)){
       ['localization','onset','intensity','character'].forEach(id=>add(id,id==='localization'?'high':'moderate','Caracterização útil da dor atual.'));
-      if(!active('trauma'))['radiation','aggravation','relief','evolution'].forEach(id=>add(id,'low','Complementar a caracterização da dor conforme pertinência.'));
+      if(!active('trauma')&&!headacheContext)['radiation','aggravation','relief','evolution'].forEach(id=>add(id,'low','Complementar a caracterização da dor conforme pertinência.'));
     }
     // A reported but unmeasured fever is known information, not a missing temperature question.
     if(active('fever')&&/nao aferi\w*|nao mediu|nao mensurad\w*/.test(currentText))items.delete('temperature');
@@ -295,10 +498,26 @@
       const evidence=String(raw.contextEvidence||'');
       if(evidence.length<5||!norm(sections.map(s=>fields[s]||'').join(' ')+' '+(context.transcript||'')).includes(norm(evidence)))continue;
       const id=raw.concept;if(known[id].state!=='not_asked'||ledger[id])continue;
+      // A model cannot surface a generic out-of-syndrome item as mandatory.
+      if(!expected.has(id))continue;
       // Render our question and destination; never inject a model assertion into the record.
-      add(id,rank[raw.priority]===undefined?'moderate':raw.priority,'Sugestão contextual da IA; confirmar pertinência.',raw.category==='red_flags');
+      const approved=expected.get(id);
+      add(id,approved.priority,'Sugestão contextual sujeita às regras clínicas; confirmar pertinência.',approved.redFlag);
     }
-    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||Number(universal.has(a.concept))-Number(universal.has(b.concept))||a.id.localeCompare(b.id));
+    // Actionable discrimination first, not alphabetical sorting or checklist length.
+    const decisionOrder=giContext?['stoolBlood','hydration','oralTolerance','urineOutput','fever','severeAbdominalPain','giVomiting','onset','stoolFrequency','stoolMucus','stoolPus']:
+      headacheContext?['sudden','focal','fever','meningism','headachePattern','trauma','onset','intensity','character','headacheNausea','photophobia','phonophobia']:
+      respiratoryContext?['dyspnea','spo2','effort','rr','speechLimit','fever','auscultation','respFocal','wheeze','pleuriticPain']:
+      active('jointPain')?['fever','jointHot','jointRange','weightBearing','jointEffusion','trauma']:
+      active('back')?['saddle','retention','weakness','fever','trauma','radicular']:
+      active('throatPain')?['stridor','swallowDifficulty','fever','exudate','cervicalNodes']:
+      active('dizziness')?['focal','gaitChange','syncope','onset']:
+      active('giBleed')?['hemodynamic','syncope','bp','hr','anticoagulant']:
+      active('eyePain')?['visionChange','foreignBody','photopsia']:[];
+    const decisionRank=id=>{const i=decisionOrder.indexOf(id);return i<0?999:i};
+    const list=[...items.values()].sort((a,b)=>rank[a.priority]-rank[b.priority]||
+      Number(universal.has(a.concept))-Number(universal.has(b.concept))||
+      decisionRank(a.concept)-decisionRank(b.concept)||a.id.localeCompare(b.id));
     const critical=list.filter(i=>i.priority==='critical');
     const unresolvedSafety=[...new Set(activated.flatMap(p=>p.critical))].filter(id=>known[id].state==='unknown'||ledger[id]&&known[id].state==='not_asked');
     const alerts=[];
@@ -306,6 +525,14 @@
     const related=id=>list.filter(i=>activated.some(p=>[p.id,...p.critical,...p.high].includes(id)&&[...p.critical,...p.high].includes(i.concept))).map(i=>i.id);
     const finding=(id,reason,source)=>alerts.push({id:'finding:'+id,concept:id,priority:'critical',question:`Reavaliar o achado documentado: ${concepts[id].label.toLowerCase()}.`,evidence:[known[id].currentEvidence],reason,related:related(id),kind:'documented_finding',...(source?{sourceUrl:source}:{})});
     for(const id of flagIds)if(active(id)&&!known[id].conflict&&(concepts[id].type==='boolean'||id==='consciousness'))finding(id,expected.get(id)?.reason||'Achado relevante no contexto atual; requer avaliação médica.');
+    // Abnormal mental state is an important documented finding in any syndrome.
+    if(active('consciousness')&&!known.consciousness.conflict&&!flagIds.has('consciousness'))
+      finding('consciousness','Alteração do estado mental documentada: reavaliar gravidade e causas sistêmicas.');
+    if(giContext&&active('stoolBlood')&&!known.stoolBlood.conflict)
+      alerts.push({id:'finding:stoolBlood',concept:'stoolBlood',priority:'high',
+        question:'Diarreia com sangue: investigar etiologias inflamatórias e avaliar STEC conforme contexto.',
+        evidence:[known.stoolBlood.currentEvidence],reason:giReason.stoolBlood,
+        related:list.filter(i=>['fever','severeAbdominalPain','hydration'].includes(i.concept)).map(i=>i.id),kind:'documented_finding'});
     // Individual extreme measurements prompt review; this is not a NEWS2 score or a destination rule.
     // Adult thresholds are not applied to children, unknown age, pregnancy or documented hypercapnia targets.
     const adult=age>=16&&!active('pregnancy'),physiology={bp:v=>v<=90||v>=220,hr:v=>v<=40||v>=131,rr:v=>v<=8||v>=25,spo2:v=>v<=91,temperature:v=>v<=35};
@@ -317,7 +544,7 @@
       finding(id,'Medida extrema documentada em adulto. Confirmar medida, contexto e evolução; requer avaliação médica.','https://www.rcp.ac.uk/resources/national-early-warning-score-news-2/');
     }
     const clarified=[...expected.values()].filter(i=>!known[i.id].conflict&&['known_present','known_absent'].includes(known[i.id].state)).map(i=>({...i,label:concepts[i.id].label,status:'clarified',...known[i.id]}));
-    return {version:1,demographics:patient,clarified,confirm:list.filter(i=>i.status==='confirm'),focus:activated.map(p=>concepts[p.id].label),stage:post?'post_hypothesis':'pre_hypothesis',items:list,facts:known,alerts,criticalCount:critical.length,unresolvedSafety,chief_complaint:fields.queixa_principal||'',covered:Object.entries(known).filter(([,f])=>f.state!=='not_asked').map(([id])=>concepts[id].label),missing:list.map(i=>i.question),questions:list.map(i=>i.question),dispositionCaution:critical.length>0||alerts.length>0||unresolvedSafety.length>0,hasContext:currentText.length>0};
+    return {version:1,demographics:patient,clarified,confirm:list.filter(i=>i.status==='confirm'),focus:activated.map(p=>concepts[p.id].label),stage:post?'post_hypothesis':'pre_hypothesis',items:list,facts:known,alerts,criticalCount:critical.length,unresolvedSafety,chief_complaint:fields.queixa_principal||'',covered:Object.entries(known).filter(([,f])=>f.state!=='not_asked').map(([id])=>concepts[id].label),missing:list.map(i=>i.question),questions:list.map(i=>i.question),dispositionCaution:critical.length>0||alerts.length>0||unresolvedSafety.length>0,hasContext:currentText.length>0||hypothesis.length>0};
   }
   function answer(context,ledger,item,value,action='answer'){
     if(!item||!concepts[item.concept])throw new Error('Sugestão inválida.');
