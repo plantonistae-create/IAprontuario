@@ -10,8 +10,15 @@ test('A09 uncomplicated: contextual stool/hydration questions, not Glasgow or ge
  assert.equal(present(r,'consciousness'),undefined);
  assert.equal(present(r,'focal'),undefined);
  assert.equal(present(r,'stoolBlood'),undefined,'negative blood in stool was documented');
+ assert.equal(present(r,'character'),undefined,'negated abdominal pain must not trigger a generic pain questionnaire');
+ assert.equal(present(r,'intensity'),undefined,'negated abdominal pain must not trigger intensity question');
  assert.ok(r.items.indexOf(present(r,'hydration'))<r.items.indexOf(present(r,'allergies')),'decision-relevant item outranks generic history');
  assert.ok(!r.alerts.some(a=>a.concept==='consciousness'));
+});
+test('A09 without completed history prioritizes blood over hydration and general chart background',()=>{
+ const r=scan('Diarreia há um dia.');
+ assert.deepEqual(r.items.slice(0,3).map(x=>x.concept),['stoolBlood','hydration','oralTolerance']);
+ assert.equal(present(r,'allergies')?.priority,'low');
 });
 test('A09 with bloody stools: flag documented finding, do not infer bacterial cause or antibiotic treatment',()=>{
  const r=scan('Diarreia com sangue, cólicas intensas, febre alta.',{hipotese_diagnostica:'CID A09'});
