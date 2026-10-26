@@ -99,7 +99,7 @@ test("Auditor can save clinical decision + Radar metadata atomically and amend R
    "radarSave","RADAR","Revisão do Radar"])assert.ok(s.includes(token),token);
  assert.match(html,/nexa-core-radar-review-v3\.js\?v=20261025-core-audit-v3/);
  assert.match(html,/nexa-core-radar-review-v3\.css\?v=20261025-core-audit-v3/);
- assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=20261025-core-audit-v3/);
+ assert.match(loader,/nexa-auditor-exact-v18\.9\.js\?v=20261026-clinical-radar-audit/);
  assert.match(loader,/nexa-audit-outbox-v18\.9\.19\.js\?v=20261025-core-audit-v4-reset/);
 });
 console.log("NEXA Core Radar v3 audit and dataset contracts: PASS");
