@@ -76,6 +76,9 @@ try{
  const organizations={A:randomUUID(),B:randomUUID(),C:randomUUID()};
  const memberships={};
  const rows=[
+  // Global platform administration and institutional audit authorization are distinct.
+  // This positive-path dataset reviewer belongs to B; no other cross-org grants.
+  ['global','B',['reviewer']],
   ['adminA','A',['admin']],['doctorA','A',['clinician']],['ownerA','A',['owner']],
   ['doctorB','B',['clinician']],['reviewerB','B',['reviewer']],['ownerB','B',['owner']],
   ['ownerC1','C',['owner']],['ownerC2','C',['owner']]
