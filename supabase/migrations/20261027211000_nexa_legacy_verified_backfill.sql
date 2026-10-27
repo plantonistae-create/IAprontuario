@@ -22,6 +22,36 @@ BEGIN
  -- The privileged operator must hold a stable lock for the entire validation and update.
  LOCK TABLE private.nexa_legacy_tenant_mapping IN SHARE ROW EXCLUSIVE MODE;
  LOCK TABLE public.organization_memberships IN SHARE MODE;
+ -- Independent evidence + authorized decision gate for every pending clinical mapping.
+ -- A current membership or backdated activated_at is never sufficient.
+ IF EXISTS (
+ SELECT 1 FROM private.nexa_legacy_tenant_mapping m
+ WHERE m.applied_at IS NULL AND NOT EXISTS (
+ SELECT 1 FROM private.nexa_historical_evidence e
+ JOIN private.nexa_historical_evidence_decisions d ON d.evidence_id=e.id
+ JOIN public.organization_memberships approver ON approver.user_id=d.approver_id
+   AND approver.organization_id=e.organization_id
+   AND approver.status='active'
+   AND approver.roles && ARRAY['owner','admin']::text[]
+ WHERE e.entity_type=m.entity_type AND e.entity_id=m.entity_id
+   AND e.organization_id=m.organization_id
+   AND e.status='verified'
+   AND e.source_authenticated_at IS NOT NULL
+   AND e.integrity_verified_at IS NOT NULL
+   AND d.organization_id=e.organization_id AND d.decision='approved'
+   AND d.proposer_id<>d.approver_id
+   AND NOT EXISTS (SELECT 1 FROM private.nexa_historical_evidence_decisions newer
+     WHERE newer.evidence_id=e.id AND (newer.decided_at,newer.id)>(d.decided_at,d.id))
+   AND NOT EXISTS (SELECT 1 FROM private.nexa_historical_evidence conflicting
+     WHERE conflicting.entity_type=e.entity_type AND conflicting.entity_id=e.entity_id
+       AND conflicting.id<>e.id AND conflicting.status IN ('verified','contested')
+       AND conflicting.organization_id<>e.organization_id)
+   AND (m.entity_type<>'consultation_history' OR EXISTS (
+     SELECT 1 FROM public.consultation_history c
+     WHERE c.id=m.entity_id AND c.user_id=e.professional_user_id
+       AND c.created_at>=e.valid_from AND c.created_at<e.valid_until))
+ )
+ ) THEN RAISE EXCEPTION 'historical evidence and independent institutional approval required'; END IF;
  -- Reject any attempt to overwrite an existing assignment, even a previously applied one.
  IF EXISTS (
  SELECT 1 FROM private.nexa_legacy_tenant_mapping m
