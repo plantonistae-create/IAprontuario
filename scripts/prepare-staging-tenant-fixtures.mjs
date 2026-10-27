@@ -30,6 +30,7 @@ function stagingPgEnv(target){
    PGSSLMODE:'require',PGCONNECT_TIMEOUT:'15'};
 }
 
+if(dbTarget.hostname.endsWith('.pooler.supabase.com') && decodeURIComponent(dbTarget.username)!=='postgres.phaitiijsjwrggdnoxiz') throw new Error('Staging pooler username must be postgres.<staging-project-ref>; update the GitHub Environment database URL');
 if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
    !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
      (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
