@@ -73,6 +73,23 @@ before(async()=>{
   await Promise.all(required.map(login));
 });
 
+test('synthetic identities have least privilege and consume no clinical slots',()=>{
+  const read=name=>dbRow('SELECT is_admin,is_reviewer,clinical_access,access_status FROM public.profiles WHERE id='+uuid(fixture.actors[name].id));
+  for(const name of ['adminA','doctorA','doctorB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB']){
+    const p=read(name);
+    assert.equal(p.is_admin,false,name+' unexpectedly became global administrator');
+    assert.equal(p.is_reviewer,false,name+' unexpectedly became global reviewer');
+    assert.equal(p.clinical_access,false,name+' unexpectedly consumed clinical access');
+    assert.equal(p.access_status,'active');
+  }
+  assert.equal(read('global').is_admin,true);
+  assert.equal(read('global').is_reviewer,false);
+  assert.equal(read('reviewerB').is_reviewer,true);
+  assert.equal(read('reviewerB').is_admin,false);
+  assert.equal(dbRows('SELECT slot_id FROM private.clinical_slots WHERE profile_id IN ('+
+    Object.values(fixture.actors).map(a=>uuid(a.id)).join(',')+')').length,0,
+    'Synthetic identities consumed reserved clinical slots');
+});
 test('admins, doctors, reviewers and unaffiliated users cannot cross tenants',async()=>{
   await deniedUnchanged('adminA',members.doctorB,'admin A -> B doctor');
   await deniedUnchanged('doctorA',members.doctorB,'doctor A -> B doctor');
