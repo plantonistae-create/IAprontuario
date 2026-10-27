@@ -27,9 +27,9 @@ const uuid=s=>{
 };
 const ids=Object.values(fixture.actors??{}).map(x=>x.id);
 const orgids=Object.values(fixture.organizations??{});
-if(ids.length<1)throw new Error('No synthetic accounts in manifest');
+if(ids.length<1){unlinkSync(manifestPath);console.log('No accounts were created; empty manifest cleaned');process.exit(0);}
 const actorIds=ids.map(uuid).join(',');
-const orgIds=orgids.map(uuid).join(',');
+const orgIds=(orgids.length ? orgids : ['00000000-0000-0000-0000-000000000000']).map(uuid).join(',');
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 for(const actor of Object.values(fixture.actors)){
  const {data,error}=await admin.auth.admin.getUserById(actor.id);
@@ -40,7 +40,7 @@ for(const actor of Object.values(fixture.actors)){
   throw new Error('Refusing to clean a non-synthetic account');
  }
 }
-if(orgids.length){
+{
  const sql="BEGIN;\n"+
  "DO $guard$ BEGIN IF EXISTS (SELECT 1 FROM public.organizations WHERE id IN ("+orgIds+
  ") AND slug NOT LIKE 'qa-tenant-"+fixture.runId+"-%') THEN RAISE EXCEPTION 'NON_SYNTHETIC_ORGANIZATION'; END IF; END $guard$;\n"+
