@@ -21,6 +21,14 @@ if(fixture.synthetic!==true||!/^[0-9a-f]{10}$/.test(fixture.runId))
 const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY;
 const db=process.env.NEXA_STAGING_DB_URL;
 if(!key||!db)throw new Error('Missing staging cleanup credentials');
+const dbTarget=new URL(db);
+if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
+   !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
+     (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
+      decodeURIComponent(dbTarget.username).endsWith('.phaitiijsjwrggdnoxiz')))){
+ throw new Error('Refusing PostgreSQL connection not uniquely tied to staging');
+}
+
 const uuid=s=>{
  if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s))throw new Error('Unexpected UUID');
  return "'"+s+"'::uuid";
