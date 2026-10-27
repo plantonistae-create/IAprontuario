@@ -178,6 +178,13 @@ jobs:
           npm ci --ignore-scripts
       - name: Verify staging PostgreSQL connection contract
         run: node --test tests/security/staging-libpq-connection.test.mjs
+      - name: Recover confirmed legacy synthetic staging run only
+        env:
+          NEXA_TENANT_ORPHAN_RUN_ID: 4b06af3b9b
+        run: |
+          set -euo pipefail
+          node --check scripts/recover-orphan-staging-tenant-fixtures.mjs
+          node scripts/recover-orphan-staging-tenant-fixtures.mjs
       - name: Provision synthetic users, orgs and cases
         run: node scripts/prepare-staging-tenant-fixtures.mjs
       - name: Execute non-skippable authenticated JWT suite
