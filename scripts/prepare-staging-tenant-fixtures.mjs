@@ -105,7 +105,7 @@ try{
   INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
   INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
   COMMIT;`;
- execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--command',sql],{env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','--quiet','--command',sql],{env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
  fixture.seeded=true;
  writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
  console.log('Synthetic staging fixture created; credentials stored only in '+out);
@@ -115,6 +115,7 @@ try{
  // Every created user was flushed to an owner-verified cleanup manifest.
  // The workflow's always() teardown handles partial Auth bootstrap as well.
  const raw=String(error?.stderr??'');
+ const sqlstate=raw.match(/(?:^|\\n)(?:psql:[^\\n]*?:\\s*)?(?:ERROR|FATAL):\\s+([0-9A-Z]{5}):/m)?.[1]??'unavailable';
  const safe=raw.match(/ERROR:\\s+([^\\n\\r]+)/)?.[1]??'unclassified database or Auth error';
  const category=/duplicate key|unique constraint/i.test(safe)?'duplicate fixture key':
    /foreign key constraint/i.test(safe)?'foreign key constraint':
@@ -124,6 +125,6 @@ try{
    /relation .* does not exist|column .* does not exist/i.test(safe)?'schema mismatch':
    /password authentication failed/i.test(safe)?'database authentication':
    /unclassified database or Auth error/.test(safe)?'Auth or unknown database error':'database constraint or trigger';
- console.error('Fixture bootstrap stage: '+(created.length===actorNames.length?'database seed':'Auth account provisioning')+'; failure class: '+category+'; cleanup required.');
+ console.error('Fixture bootstrap stage: '+(created.length===actorNames.length?'database seed':'Auth account provisioning')+'; failure class: '+category+'; SQLSTATE: '+sqlstate+'; cleanup required.');
  throw new Error('Fixture bootstrap failed ('+category+'); synthetic runner cleanup is mandatory.');
 }
