@@ -2,7 +2,7 @@
 export function buildTranscriptProvenance({enabled=false,text='',provider='',transcriberModel='',structuringModel='',pipelineVersion='',sourceEventId='',sourceKind='final'}={}){
  if(enabled!==true) return null;
  if(typeof text!=='string'||!text.trim()||text.length>400000) return null;
- if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(sourceEventId)) return null;
+ if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(sourceEventId)) return null;
  if(!['final','verified_diarization'].includes(sourceKind)) return null;
  return {
   schema_version:'nexa-transcript-v1',
