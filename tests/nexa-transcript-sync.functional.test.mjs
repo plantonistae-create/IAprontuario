@@ -61,7 +61,7 @@ test('persist original and structuring input with verified ack and idempotent co
  assert.equal(await x.fn(x.provenance,x.rec,4),true);
  assert.equal(x.captured.writes,1);
  assert.equal(x.captured.rows.length,2);
- assert.deepEqual(x.captured.rows.map(y=>y.transcript_kind),['final_original','structuring_input']);
+ assert.deepEqual(Array.from(x.captured.rows,y=>y.transcript_kind),['final_original','structuring_input']);
  assert.equal(x.captured.options.ignoreDuplicates,true);
  assert.ok(x.captured.rows.every(y=>y.owner_user_id===x.rec.owner_user_id));
 });
