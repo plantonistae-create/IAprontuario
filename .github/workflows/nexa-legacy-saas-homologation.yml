@@ -4,6 +4,7 @@ on:
     paths:
       - 'supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql'
       - 'supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql'
+      - 'supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql'
       - 'tests/security/legacy-saas-*.sql'
       - '.github/workflows/nexa-legacy-saas-homologation.yml'
   workflow_dispatch:
