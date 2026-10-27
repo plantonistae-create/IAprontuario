@@ -81,7 +81,7 @@ INSERT INTO public.organization_memberships(organization_id,user_id,roles,status
  ('40000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002',ARRAY['clinician'],'active','2026-10-27');
 INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
  ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000001','synthetic-postdated-membership','00000000-0000-4000-8000-000000000001');
-DO $
+DO $nexa_test$
 BEGIN
  BEGIN
  PERFORM private.nexa_apply_verified_legacy_mapping();
@@ -91,22 +91,22 @@ BEGIN
  END;
  IF (SELECT organization_id FROM public.consultation_history WHERE id='legacy-text-id-2') IS NOT NULL
  THEN RAISE EXCEPTION 'postdated membership mutated record'; END IF;
-END $;
+END $nexa_test$;
 DELETE FROM private.nexa_legacy_tenant_mapping WHERE entity_id='legacy-text-id-2';
 -- Negative: cannot remap an already assigned consultation.
 INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
  ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000002','synthetic-valid-owner-evidence','00000000-0000-4000-8000-000000000002');
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
-DO $
+DO $nexa_test$
 BEGIN
  IF (SELECT organization_id FROM public.consultation_history WHERE id='legacy-text-id-2')<>'40000000-0000-4000-8000-000000000002'
  THEN RAISE EXCEPTION 'second valid owner mapping failed'; END IF;
-END $;
+END $nexa_test$;
 -- Negative: conflicting audit/core mapping must not alter the established tenant.
 INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by)
 VALUES ('audit_cases','20000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','synthetic-conflicting-audit','00000000-0000-4000-8000-000000000002')
 ON CONFLICT (entity_type,entity_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,applied_at=NULL;
-DO $
+DO $nexa_test$
 BEGIN
  BEGIN
  PERFORM private.nexa_apply_verified_legacy_mapping();
@@ -116,5 +116,5 @@ BEGIN
  END;
  IF (SELECT organization_id FROM public.audit_cases WHERE id='20000000-0000-4000-8000-000000000001')<>'40000000-0000-4000-8000-000000000001'
  THEN RAISE EXCEPTION 'conflicting audit mutated tenant'; END IF;
-END $;
+END $nexa_test$;
 SELECT 'LEGACY_SAAS_SYNTHETIC_PASS' AS result;
