@@ -18,10 +18,12 @@ CREATE TEMP TABLE baseline AS SELECT
  (SELECT md5(string_agg(id||':'||clinical_text,'|' ORDER BY id)) FROM public.consultation_history) digest;
 \ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
 \ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
+\ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
 -- Repeat both migrations: idempotency must hold.
 \ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
 \ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
-DO $$
+\ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
+DO $
 BEGIN
  IF (SELECT count(*) FROM public.consultation_history)<>(SELECT consultations FROM baseline)
  OR (SELECT count(*) FROM public.audit_cases)<>(SELECT audits FROM baseline)
@@ -43,6 +45,39 @@ INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organizatio
  ('consultation_history','legacy-text-id-1','40000000-0000-4000-8000-000000000001','synthetic-attestation-1','00000000-0000-4000-8000-000000000001'),
  ('audit_cases','20000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','synthetic-attestation-2','00000000-0000-4000-8000-000000000001'),
  ('nexa_core_cases','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','synthetic-attestation-3','00000000-0000-4000-8000-000000000001');
+-- A mere evidence_reference and historical membership must fail closed.
+DO $nexa_gate$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'unverified historical ownership accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='unverified historical ownership accepted' THEN RAISE; END IF;
+ END;
+END $nexa_gate$;
+-- Separate authorized approver, distinct from proposer.
+INSERT INTO auth.users(id) VALUES ('00000000-0000-4000-8000-000000000003');
+INSERT INTO public.profiles(id) VALUES ('00000000-0000-4000-8000-000000000003');
+INSERT INTO public.organization_memberships(organization_id,user_id,roles,status,activated_at)
+VALUES ('40000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003',ARRAY['admin'],'active','2025-01-01'),
+ ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000003',ARRAY['admin'],'active','2025-01-01');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+SELECT m.organization_id,'00000000-0000-4000-8000-000000000001',m.entity_type,m.entity_id,
+ 'synthetic-institutional-record','synthetic-issuer','synthetic-external-reference',
+ 'synthetic://isolated-fixture',repeat('a',64),'synthetic-test-only',
+ '00000000-0000-4000-8000-000000000001','2025-01-01','2027-01-01',
+ 'synthetic-authenticated-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003',
+ 'verified',now(),'00000000-0000-4000-8000-000000000003','synthetic fixture verified'
+FROM private.nexa_legacy_tenant_mapping m;
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT e.id,e.organization_id,'00000000-0000-4000-8000-000000000001',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic independent approval'
+FROM private.nexa_historical_evidence e;
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
 DO $$
 BEGIN
@@ -96,6 +131,21 @@ DELETE FROM private.nexa_legacy_tenant_mapping WHERE entity_id='legacy-text-id-2
 -- Negative: cannot remap an already assigned consultation.
 INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
  ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000002','synthetic-valid-owner-evidence','00000000-0000-4000-8000-000000000002');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+VALUES ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000002',
+ 'consultation_history','legacy-text-id-2','synthetic','synthetic-issuer','synthetic-2',
+ 'synthetic://second',repeat('b',64),'synthetic','00000000-0000-4000-8000-000000000002',
+ '2025-01-01','2027-01-01','synthetic-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003','verified',now(),
+ '00000000-0000-4000-8000-000000000003','synthetic verified');
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT id,organization_id,'00000000-0000-4000-8000-000000000002',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic second approval'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
 DO $nexa_test$
 BEGIN
