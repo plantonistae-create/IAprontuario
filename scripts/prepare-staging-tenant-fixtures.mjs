@@ -23,7 +23,7 @@ function stagingPgEnv(target){
  const hostname=target.hostname;
  const port=target.port||'5432';
  const database=decodeURIComponent(target.pathname.slice(1));
- if(!username||!hostname||!database||!/^\\d{2,5}$/.test(port))
+ if(!username||!hostname||!database||!/^\d{2,5}$/.test(port))
    throw new Error('Invalid staging PostgreSQL connection parameters');
  return {...process.env,PGHOST:hostname,PGPORT:port,PGUSER:username,
    PGPASSWORD:decodeURIComponent(target.password),PGDATABASE:database,
