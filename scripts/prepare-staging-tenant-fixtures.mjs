@@ -18,6 +18,18 @@ if(process.env.NEXA_TENANT_STAGING_ACK !== 'phaitiijsjwrggdnoxiz') throw new Err
 if(new URL(url).origin !== 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
 if(!key||!db)throw new Error('Missing staging administrator key or database connection');
 const dbTarget=new URL(db);
+function stagingPgEnv(target){
+ const username=decodeURIComponent(target.username);
+ const hostname=target.hostname;
+ const port=target.port||'5432';
+ const database=decodeURIComponent(target.pathname.slice(1));
+ if(!username||!hostname||!database||!/^\\d{2,5}$/.test(port))
+   throw new Error('Invalid staging PostgreSQL connection parameters');
+ return {...process.env,PGHOST:hostname,PGPORT:port,PGUSER:username,
+   PGPASSWORD:decodeURIComponent(target.password),PGDATABASE:database,
+   PGSSLMODE:'require',PGCONNECT_TIMEOUT:'15'};
+}
+
 if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
    !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
      (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
@@ -86,7 +98,7 @@ try{
   INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
   INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
   COMMIT;`;
- execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--command',sql],{env:{...process.env,PGDATABASE:db},stdio:['ignore','pipe','pipe']});
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--command',sql],{env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
  fixture.seeded=true;
  writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
  console.log('Synthetic staging fixture created; credentials stored only in '+out);
