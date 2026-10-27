@@ -69,6 +69,9 @@ try{
     clinical_access=false WHERE id IN (${ids});
   INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
   INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
+  -- Remove default personal membership of the unlinked test actor only.
+  UPDATE public.organization_memberships SET status='revoked',revoked_at=now()
+    WHERE user_id=${id(actors.unaffiliated.id)} AND organization_id NOT IN (${Object.values(organizations).map(id).join(',')});
   INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
   INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
   COMMIT;`;
