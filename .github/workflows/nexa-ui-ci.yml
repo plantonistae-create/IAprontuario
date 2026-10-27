@@ -176,6 +176,8 @@ jobs:
           chmod 700 "${RUNNER_TEMP}"
           umask 077
           npm ci --ignore-scripts
+      - name: Verify staging PostgreSQL connection contract
+        run: node --test tests/security/staging-libpq-connection.test.mjs
       - name: Provision synthetic users, orgs and cases
         run: node scripts/prepare-staging-tenant-fixtures.mjs
       - name: Execute non-skippable authenticated JWT suite
