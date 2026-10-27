@@ -27,7 +27,7 @@ begin
   ) then
     raise sqlstate '42501' using message='ORG_ADMIN_REQUIRED';
   end if;
-  if v_target.user_id=v_actor then
+  -- Prevent removal of the last active owner; require separate ownership transfer.\n  if 'owner'=any(v_target.roles) and not exists (\n    select 1 from public.organization_memberships other\n    where other.organization_id=v_target.organization_id\n      and other.id<>v_target.id and other.status='active'\n      and 'owner'=any(other.roles)\n  ) then\n    raise sqlstate '42501' using message='LAST_OWNER_REVOCATION_FORBIDDEN';\n  end if;\n  if v_target.user_id=v_actor then
     raise sqlstate '42501' using message='SELF_REVOCATION_FORBIDDEN';
   end if;
   if v_target.status<>'active' then
