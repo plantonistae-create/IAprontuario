@@ -45,6 +45,16 @@ try {
 } catch {
  throw new Error('Staging PostgreSQL preflight failed: verify pooler username, database password and GitHub Environment DB URL; no synthetic accounts created');
 }
+// Refuse to provision any Auth account against a schema that rejects active
+// institution-only identities. This preflight prevents another orphan run.
+const activeTenantProfileMigration='20261027184850';
+const migrationReady=execFileSync('psql',[
+  '-X','-v','ON_ERROR_STOP=1','--quiet','--no-align','--tuples-only',
+  '--command',"SELECT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='"+
+    activeTenantProfileMigration+"')"
+],{env:stagingPgEnv(dbTarget),encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+if(migrationReady!=='t') throw new Error('Required institutional-only active profile migration missing in staging; no synthetic accounts created');
+
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
 const runId=randomBytes(5).toString('hex');
