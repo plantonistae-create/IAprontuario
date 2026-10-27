@@ -3950,6 +3950,53 @@ async function nexaInvokeAutomaticSpeakerSegments(segments){
     return data;
   }finally{clearTimeout(timeout)}
 }
+// Enabled only when the backend returns an explicit assistive-use provenance payload.
+// Do not copy raw transcript into audit processing_meta or NEXA Core datasets.
+async function nexaPersistAssistiveTranscript(provenance,rec,epoch){
+  if(!provenance)return true;
+  if(provenance.training_eligible!==false||!rec?.encounter_id||!currentProf?.id||
+     provenance.schema_version!=='nexa-transcript-v1')throw new Error('TRANSCRIPT_PROVENANCE_INVALID');
+  const autosave=window.nexaEncounterAutosave18101;
+  if(!autosave?.flush||!autosave?.get)throw new Error('TRANSCRIPT_REMOTE_SYNC_UNAVAILABLE');
+  await Promise.race([
+    autosave.flush('transcript_provenance'),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('TRANSCRIPT_SYNC_TIMEOUT')),15000))
+  ]);
+  if(epoch!==clinicalEpoch)throw new Error('TRANSCRIPT_ENCOUNTER_CHANGED');
+  const latest=await autosave.get(rec.encounter_id);
+  if(latest?.sync_state!=='synced'||latest.owner_user_id!==currentProf.id)
+    throw new Error('TRANSCRIPT_ENCOUNTER_NOT_SYNCHRONIZED');
+  const {data:consult,error:consultError}=await sb.from('consultation_history')
+    .select('id,encounter_id,user_id,organization_id,consent_recorded_at')
+    .eq('id',rec.encounter_id).eq('user_id',currentProf.id).maybeSingle();
+  if(consultError||!consult||!consult.consent_recorded_at||
+     consult.encounter_id!==rec.encounter_id)throw new Error('TRANSCRIPT_CONSENT_OR_ENCOUNTER_MISSING');
+  const shared={
+    consultation_id:consult.id,encounter_id:consult.encounter_id,
+    organization_id:consult.organization_id,owner_user_id:consult.user_id,
+    source_event_id:provenance.source_event_id,
+    source_provider:provenance.provider,source_model:provenance.transcriber_model,
+    structuring_model:provenance.structuring_model||null,
+    source_pipeline_version:provenance.pipeline_version||null,
+    consent_recorded_at:consult.consent_recorded_at,revision:1
+  };
+  const rows=[
+    {...shared,transcript_kind:'final_original',transcript_text:provenance.original_final_text},
+    {...shared,transcript_kind:'structuring_input',transcript_text:provenance.structuring_input_text}
+  ];
+  if(rows.some(row=>typeof row.transcript_text!=='string'||!row.transcript_text.trim()))
+    throw new Error('TRANSCRIPT_EMPTY');
+  const {error:writeError}=await sb.from('encounter_transcript_versions')
+    .upsert(rows,{onConflict:'consultation_id,transcript_kind,source_event_id',ignoreDuplicates:true});
+  if(writeError)throw new Error('TRANSCRIPT_REMOTE_WRITE_FAILED');
+  const {data:verified,error:verifyError}=await sb.from('encounter_transcript_versions')
+    .select('transcript_kind,transcript_text')
+    .eq('consultation_id',consult.id).eq('source_event_id',provenance.source_event_id);
+  if(verifyError||!rows.every(row=>(verified||[]).some(existing=>
+     existing.transcript_kind===row.transcript_kind&&existing.transcript_text===row.transcript_text)))
+    throw new Error('TRANSCRIPT_REMOTE_ACK_MISMATCH');
+  return true;
+}
 async function processAudio(){
   const processingEpoch=clinicalEpoch;stopRecordingTimer();
   if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}
@@ -3993,9 +4040,16 @@ async function processAudio(){
     initHypothesisReview(parsed.hipotese_diagnostica||'');
     // Programmatic fill(parsed) does not emit input events. Explicitly persist
     // and confirm this structured note BEFORE discarding the recorded audio.
-    let structuredSaved=false;
+    let structuredSaved=false,transcriptStoragePending=false;
     try{
-      await nexaPersistSession('structured');
+      const savedRec=await nexaPersistSession('structured');
+      // Opt-in transcript retention must reach the authorized server before
+      // this session discards audio; the default (flag off) flow is unchanged.
+      if(payload?.transcript_provenance){
+        transcriptStoragePending=true;
+        await nexaPersistAssistiveTranscript(payload.transcript_provenance,savedRec,epoch);
+        transcriptStoragePending=false;
+      }
       structuredSaved=true;
       void window.nexaEncounterAutosave18101?.flush?.('structured');
     }catch(saveError){
@@ -4006,8 +4060,8 @@ async function processAudio(){
       audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente · sincronização pode estar pendente';
       show(autoSpeakerFallback?'Transcrição salva neste computador. Diferenciação de vozes indisponível; revise os relatos.':'Transcrição salva neste computador. Revise antes de copiar.');
     }else{
-      $('status').textContent='Transcrição pronta, porém NÃO salva · não feche o navegador';
-      show('ATENÇÃO: falha ao preservar o prontuário local. Copie o texto e mantenha esta tela aberta. O áudio foi mantido nesta sessão.',true);
+      $('status').textContent=transcriptStoragePending?'Prontuário local salvo · transcrição integral pendente · áudio preservado':'Transcrição pronta, porém NÃO salva · não feche o navegador';
+      show(transcriptStoragePending?'O prontuário foi preservado neste dispositivo, mas a transcrição literal não foi confirmada no servidor. Mantenha esta tela aberta e o áudio disponível.':'ATENÇÃO: falha ao preservar o prontuário local. Copie o texto e mantenha esta tela aberta. O áudio foi mantido nesta sessão.',true);
     }
     window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
   }catch(e){
