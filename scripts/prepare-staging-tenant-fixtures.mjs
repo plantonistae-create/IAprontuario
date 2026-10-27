@@ -23,6 +23,8 @@ const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliate
 const runId=randomBytes(5).toString('hex');
 const actors={};
 const created=[];
+const manifest={runId,actors,organizations:{},memberships:{},synthetic:true,seeded:false};
+writeFileSync(out,JSON.stringify(manifest),{mode:0o600,flag:'wx'});
 const id=s=>{if(!/^[0-9a-f-]{36}$/i.test(s))throw new Error('Malformed UUID');return "'"+s+"'::uuid";};
 const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
 try{
@@ -32,6 +34,7 @@ try{
    const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{synthetic_fixture:true,run_id:runId}});
    if(error||!data?.user?.id)throw new Error('Supabase Auth Admin createUser failed for '+name+': '+(error?.message??'unknown'));
    actors[name]={id:data.user.id,email,password};created.push(data.user.id);
+   writeFileSync(out,JSON.stringify(manifest),{mode:0o600});
  }
  const organizations={A:randomUUID(),B:randomUUID(),C:randomUUID()};
  const memberships={};
@@ -58,8 +61,8 @@ try{
   '('+[id(coreCaseB),id(auditCaseB),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.B)].join(',')+')'
  ].join(',');
  const ids=Object.values(actors).map(x=>id(x.id)).join(',');
- const fixture={runId,organizations,memberships,actors,auditCaseA,auditCaseB,synthetic:true,seeded:false};
- writeFileSync(out,JSON.stringify(fixture),{mode:0o600,flag:'wx'});
+ const fixture={...manifest,organizations,memberships,auditCaseA,auditCaseB};
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
  const sql=`BEGIN;
   SELECT set_config('nexa.access_change_reason','synthetic authorization integration test setup',true);
   -- Reserved clinical_slots are already full: do not consume/reassign clinical slots.
@@ -82,7 +85,7 @@ try{
 }catch(error){
  // Failed bootstrap must not silently leave orphaned Auth users.
  // If Auth creation failed before the cleanup manifest, remove partial users.
- if(!existsSync(out))for(const id of created) await admin.auth.admin.deleteUser(id).catch(()=>{});
- // Once the manifest exists, the runner invokes the dedicated cleanup script.
+ // Every created user was flushed to an owner-verified cleanup manifest.
+ // The workflow's always() teardown handles partial Auth bootstrap as well.
  throw new Error('Fixture bootstrap failed; synthetic runner cleanup is mandatory.');
 }
