@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.encounter_transcript_versions (
   transcript_text text NOT NULL
     CHECK (char_length(transcript_text) BETWEEN 1 AND 400000),
   transcript_sha256 text GENERATED ALWAYS AS
-    (encode(extensions.digest(convert_to(transcript_text,'UTF8'),'sha256'),'hex')) STORED,
+    (encode(extensions.digest(transcript_text,'sha256'),'hex')) STORED,
   consent_recorded_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT encounter_transcript_correction_requires_reference
@@ -67,16 +67,29 @@ WITH CHECK (
       AND c.consent_recorded_at IS NOT NULL
       AND c.consent_recorded_at<=consent_recorded_at
   )
-  AND (
-    corrected_from_id IS NULL OR EXISTS (
-      SELECT 1 FROM public.encounter_transcript_versions parent
-      WHERE parent.id=corrected_from_id
-        AND parent.consultation_id=consultation_id
-        AND parent.owner_user_id=owner_user_id
-        AND parent.organization_id=organization_id
-    )
-  )
+
 );
 -- The absence of UPDATE / DELETE policies enforces append-only user behavior.
 -- Service-role use remains backend-only; model-training exports must not query
 -- this table without a separate approved privacy and rights gate.
+
+-- Cross-encounter correction references are validated without a recursive RLS subquery.
+CREATE FUNCTION private.nexa_check_transcript_correction_parent()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $fn$
+BEGIN
+  IF NEW.corrected_from_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.encounter_transcript_versions p
+     WHERE p.id=NEW.corrected_from_id
+       AND p.consultation_id=NEW.consultation_id
+       AND p.owner_user_id=NEW.owner_user_id
+       AND p.organization_id=NEW.organization_id
+  ) THEN
+    RAISE SQLSTATE '42501' USING MESSAGE='INVALID_TRANSCRIPT_CORRECTION_PARENT';
+  END IF;
+  RETURN NEW;
+END
+$fn$;
+CREATE TRIGGER nexa_transcript_correction_parent_guard
+BEFORE INSERT ON public.encounter_transcript_versions
+FOR EACH ROW EXECUTE FUNCTION private.nexa_check_transcript_correction_parent();
+REVOKE ALL ON FUNCTION private.nexa_check_transcript_correction_parent() FROM PUBLIC,anon,authenticated;
