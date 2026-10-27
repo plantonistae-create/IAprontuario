@@ -86,7 +86,7 @@ test('synthetic identities have least privilege and consume no clinical slots',(
   assert.equal(read('global').is_reviewer,false);
   assert.equal(read('reviewerB').is_reviewer,true);
   assert.equal(read('reviewerB').is_admin,false);
-  assert.equal(dbRows('SELECT slot_id FROM private.clinical_slots WHERE profile_id IN ('+
+  assert.equal(dbRows('SELECT slot_no FROM private.clinical_slots WHERE profile_id IN ('+
     Object.values(fixture.actors).map(a=>uuid(a.id)).join(',')+')').length,0,
     'Synthetic identities consumed reserved clinical slots');
 });
