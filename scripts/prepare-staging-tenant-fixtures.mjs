@@ -14,9 +14,10 @@ const url=process.env.NEXA_STAGING_URL??'';
 const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY??'';
 const db=process.env.NEXA_STAGING_DB_URL??'';
 const out=process.env.NEXA_TENANT_FIXTURE_OUTPUT??'/tmp/nexa-tenant-fixtures.json';
-if(!url.includes('phaitiijsjwrggdnoxiz.supabase.co'))throw new Error('Only nexa-phase1-staging is permitted');
+if(process.env.NEXA_TENANT_STAGING_ACK !== 'phaitiijsjwrggdnoxiz') throw new Error('Staging safety acknowledgement required');
+if(!new URL(url).origin === 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
 if(!key||!db)throw new Error('Missing staging administrator key or database connection');
-if(out.includes('/repo/')||out.includes('/workspace/'))throw new Error('Use an untracked output path for credentials');
+if(!out.startsWith('/tmp/') && !out.startsWith('/home/runner/work/_temp/'))throw new Error('Fixture credentials must stay in runner temp');
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
 const runId=randomBytes(5).toString('hex');
@@ -57,22 +58,26 @@ try{
   '('+[id(coreCaseB),id(auditCaseB),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.B)].join(',')+')'
  ].join(',');
  const ids=Object.values(actors).map(x=>id(x.id)).join(',');
+ const fixture={runId,organizations,memberships,actors,auditCaseA,auditCaseB,synthetic:true,seeded:false};
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600,flag:'wx'});
  const sql=`BEGIN;
   SELECT set_config('nexa.access_change_reason','synthetic authorization integration test setup',true);
+  -- Reserved clinical_slots are already full: do not consume/reassign clinical slots.
+  -- Only RPC permissions (membership + active profile) are under this test.
   UPDATE public.profiles SET access_status='active',
-    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id=${id(actors.reviewerB.id)}),
-    clinical_access=true WHERE id IN (${ids});
+    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id<>${id(actors.global.id)}),
+    clinical_access=false WHERE id IN (${ids});
   INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
   INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
   INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
   INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
   COMMIT;`;
- execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--dbname',db,'--command',sql],{stdio:['ignore','pipe','pipe']});
- const fixture={runId,organizations,memberships,actors,auditCaseA,auditCaseB,synthetic:true};
- writeFileSync(out,JSON.stringify(fixture),{mode:0o600,flag:'wx'});
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--command',sql],{env:{...process.env,PGDATABASE:db},stdio:['ignore','pipe','pipe']});
+ fixture.seeded=true;
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
  console.log('Synthetic staging fixture created; credentials stored only in '+out);
 }catch(error){
  // Failed bootstrap must not silently leave orphaned Auth users.
- for(const userId of created)await admin.auth.admin.deleteUser(userId).catch(()=>{});
- throw new Error('Fixture bootstrap failed; check synthetic database objects before retrying. '+error.message);
+ // Always use the dedicated cleanup script for synthetic profiles and Auth identities.
+ throw new Error('Fixture bootstrap failed; synthetic runner cleanup is mandatory.');
 }
