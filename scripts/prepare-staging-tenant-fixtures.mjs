@@ -64,6 +64,8 @@ try{
     clinical_access=true WHERE id IN (${ids});
   INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
   INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
+  INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
+  INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
   COMMIT;`;
  execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--dbname',db,'--command',sql],{stdio:['ignore','pipe','pipe']});
  const fixture={runId,organizations,memberships,actors,auditCaseA,auditCaseB,synthetic:true};
