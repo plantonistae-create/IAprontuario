@@ -44,14 +44,30 @@ ALTER TABLE public.consultation_history ADD COLUMN IF NOT EXISTS organization_id
 ALTER TABLE public.audit_cases ADD COLUMN IF NOT EXISTS organization_id uuid;
 ALTER TABLE public.nexa_core_cases ADD COLUMN IF NOT EXISTS organization_id uuid;
 -- Add foreign keys as NOT VALID to avoid a full legacy scan under migration lock.
-ALTER TABLE public.profiles ADD CONSTRAINT nexa_profiles_default_org_fk
- FOREIGN KEY (default_organization_id) REFERENCES public.organizations(id) NOT VALID;
-ALTER TABLE public.consultation_history ADD CONSTRAINT nexa_consultations_org_fk
- FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
-ALTER TABLE public.audit_cases ADD CONSTRAINT nexa_audit_cases_org_fk
- FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
-ALTER TABLE public.nexa_core_cases ADD CONSTRAINT nexa_core_cases_org_fk
- FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
+DO $guard$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.profiles'::regclass AND conname='nexa_profiles_default_org_fk') THEN
+  ALTER TABLE public.profiles ADD CONSTRAINT nexa_profiles_default_org_fk
+   FOREIGN KEY (default_organization_id) REFERENCES public.organizations(id) NOT VALID;
+ END IF;
+END $guard$;
+DO $guard$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.consultation_history'::regclass AND conname='nexa_consultations_org_fk') THEN
+  ALTER TABLE public.consultation_history ADD CONSTRAINT nexa_consultations_org_fk
+   FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
+ END IF;
+END $guard$;
+DO $guard$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.audit_cases'::regclass AND conname='nexa_audit_cases_org_fk') THEN
+  ALTER TABLE public.audit_cases ADD CONSTRAINT nexa_audit_cases_org_fk
+   FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
+ END IF;
+END $guard$;
+DO $guard$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.nexa_core_cases'::regclass AND conname='nexa_core_cases_org_fk') THEN
+  ALTER TABLE public.nexa_core_cases ADD CONSTRAINT nexa_core_cases_org_fk
+   FOREIGN KEY (organization_id) REFERENCES public.organizations(id) NOT VALID;
+ END IF;
+END $guard$;
 CREATE INDEX IF NOT EXISTS organization_memberships_user_active_idx ON public.organization_memberships (user_id,organization_id) WHERE status='active';
 CREATE INDEX IF NOT EXISTS organization_memberships_org_active_idx ON public.organization_memberships (organization_id,user_id) WHERE status='active';
 -- No NOT NULL for historical clinical rows; no reassignment, no elevation, no deletion.
