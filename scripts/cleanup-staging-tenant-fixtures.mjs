@@ -22,6 +22,18 @@ const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY;
 const db=process.env.NEXA_STAGING_DB_URL;
 if(!key||!db)throw new Error('Missing staging cleanup credentials');
 const dbTarget=new URL(db);
+function stagingPgEnv(target){
+ const username=decodeURIComponent(target.username);
+ const hostname=target.hostname;
+ const port=target.port||'5432';
+ const database=decodeURIComponent(target.pathname.slice(1));
+ if(!username||!hostname||!database||!/^\\d{2,5}$/.test(port))
+   throw new Error('Invalid staging PostgreSQL connection parameters');
+ return {...process.env,PGHOST:hostname,PGPORT:port,PGUSER:username,
+   PGPASSWORD:decodeURIComponent(target.password),PGDATABASE:database,
+   PGSSLMODE:'require',PGCONNECT_TIMEOUT:'15'};
+}
+
 if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
    !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
      (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
@@ -63,7 +75,7 @@ for(const actor of Object.values(fixture.actors)){
  "DELETE FROM public.organizations WHERE id IN ("+orgIds+") OR (created_by IN ("+actorIds+") AND slug LIKE 'personal-%');\n"+
  "DELETE FROM public.profiles WHERE id IN ("+actorIds+");\nCOMMIT;";
  execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--command',sql],
-  {env:{...process.env,PGDATABASE:db},stdio:['ignore','pipe','pipe']});
+  {env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
 }
 let failed=false;
 for(const userId of ids){
