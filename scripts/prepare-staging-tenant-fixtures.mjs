@@ -46,6 +46,16 @@ try{
    return '('+[id(memberships[name]),id(organizations[org]),id(actors[name].id),
      'ARRAY['+roles.map(literal).join(',')+']::text[]',"'active'","now()"].join(',')+')';
  }).join(',');
+ const auditCaseA=randomUUID(), auditCaseB=randomUUID();
+ const coreCaseA=randomUUID(), coreCaseB=randomUUID();
+ const caseSQL=[
+  '('+[id(auditCaseA),id(randomUUID()),id(actors.doctorA.id),"'{}'::jsonb","'approved'",id(organizations.A)].join(',')+')',
+  '('+[id(auditCaseB),id(randomUUID()),id(actors.doctorB.id),"'{}'::jsonb","'approved'",id(organizations.B)].join(',')+')'
+ ].join(',');
+ const coreSQL=[
+  '('+[id(coreCaseA),id(auditCaseA),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.A)].join(',')+')',
+  '('+[id(coreCaseB),id(auditCaseB),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.B)].join(',')+')'
+ ].join(',');
  const ids=Object.values(actors).map(x=>id(x.id)).join(',');
  const sql=`BEGIN;
   SELECT set_config('nexa.access_change_reason','synthetic authorization integration test setup',true);
@@ -56,7 +66,7 @@ try{
   INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
   COMMIT;`;
  execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--dbname',db,'--command',sql],{stdio:['ignore','pipe','pipe']});
- const fixture={runId,organizations,memberships,actors,synthetic:true};
+ const fixture={runId,organizations,memberships,actors,auditCaseA,auditCaseB,synthetic:true};
  writeFileSync(out,JSON.stringify(fixture),{mode:0o600,flag:'wx'});
  console.log('Synthetic staging fixture created; credentials stored only in '+out);
 }catch(error){
