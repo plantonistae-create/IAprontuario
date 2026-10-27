@@ -50,3 +50,9 @@ Use separate authenticated JWTs / equivalent role contexts, assert SQL/HTTP resp
 - Required GitHub environment secrets: `NEXA_STAGING_SERVICE_ROLE_KEY`, `NEXA_STAGING_DB_URL`, `NEXA_STAGING_PUBLISHABLE_KEY`. The fixture JSON is generated at runtime. Secrets availability and full JWT suite execution are **NOT VERIFIED**.
 - Production release remains gated on actual JWT concurrency/authorization results, recovery checks and review. PR #92 stays Draft.
 - Independent follow-on: draft PR #93 for versioned transcript storage; staging migration `20261027140151` deployed, clinical UI/server feature disabled by default.
+
+### 2026-10-27 — Least-privilege fixture correction
+- PR #92 fixture roles corrected: only `reviewerB` has global `is_reviewer`; doctors and institutional owners/admins remain non-reviewers, with `clinical_access=false` to preserve all five staging slots.
+- Added explicit real-JWT suite assertions for no unintended global admin/reviewer privileges and no synthetic slot occupancy. Fixed the global-admin positive no-op test to preserve `is_reviewer=false`.
+- Last implementation commit: `67ca26b6`. No privileged authenticated JWT test execution verified; PR #92 remains Draft, no merge or production RPC publication.
+- PR #93 remains Draft; previous CI failed one VM cross-realm array comparison (fixed in a later commit); recent CI is pending. Transcript schema is staging-only, retention feature flag off by default.
