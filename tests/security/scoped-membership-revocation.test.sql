@@ -10,11 +10,7 @@ select set_config('request.jwt.claim.sub', :'admin_a', true);
 -- Positive path rolls back with the enclosing transaction.
 select public.revoke_organization_membership(:'membership_a'::uuid);
 -- Assert target is revoked inside transaction (fixture should be active).
-do $$ begin
- if not exists(select 1 from public.organization_memberships where id=:'membership_a'::uuid and status='revoked') then
-  raise exception 'EXPECTED_REVOKED';
- end if;
-end $$;
+select case when exists (select 1 from public.organization_memberships where id=:'membership_a'::uuid and status='revoked') then true else (1/0=0) end as revoked_assertion;
 rollback;
 
 -- Negative test driver must invoke each RPC in an independent transaction and
