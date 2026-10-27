@@ -1,0 +1,66 @@
+/**
+ * Staging-only synthetic tenant fixtures. Requires authorized administrative
+ * Supabase Auth API and a staging PostgreSQL connection with migration rights.
+ * Writes credentials only to a local 0600 JSON file; never commits or logs them.
+ * Environment: NEXA_STAGING_URL, NEXA_STAGING_SERVICE_ROLE_KEY,
+ * NEXA_STAGING_DB_URL, NEXA_TENANT_FIXTURE_OUTPUT.
+ * Run with Node 22+, psql on PATH, and npm ci.
+ */
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const url=process.env.NEXA_STAGING_URL??'';
+const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY??'';
+const db=process.env.NEXA_STAGING_DB_URL??'';
+const out=process.env.NEXA_TENANT_FIXTURE_OUTPUT??'/tmp/nexa-tenant-fixtures.json';
+if(!url.includes('phaitiijsjwrggdnoxiz.supabase.co'))throw new Error('Only nexa-phase1-staging is permitted');
+if(!key||!db)throw new Error('Missing staging administrator key or database connection');
+if(out.includes('/repo/')||out.includes('/workspace/'))throw new Error('Use an untracked output path for credentials');
+const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
+const runId=randomBytes(5).toString('hex');
+const actors={};
+const created=[];
+const id=s=>{if(!/^[0-9a-f-]{36}$/i.test(s))throw new Error('Malformed UUID');return "'"+s+"'::uuid";};
+const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
+try{
+ for(const name of actorNames){
+   const email='qa-tenant-'+runId+'-'+name.toLowerCase()+'@example.invalid';
+   const password=randomBytes(30).toString('base64url');
+   const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{synthetic_fixture:true,run_id:runId}});
+   if(error||!data?.user?.id)throw new Error('Supabase Auth Admin createUser failed for '+name+': '+(error?.message??'unknown'));
+   actors[name]={id:data.user.id,email,password};created.push(data.user.id);
+ }
+ const organizations={A:randomUUID(),B:randomUUID(),C:randomUUID()};
+ const memberships={};
+ const rows=[
+  ['adminA','A',['admin']],['doctorA','A',['clinician']],['ownerA','A',['owner']],
+  ['doctorB','B',['clinician']],['reviewerB','B',['reviewer']],['ownerB','B',['owner']],
+  ['ownerC1','C',['owner']],['ownerC2','C',['owner']]
+ ];
+ const orgSql=Object.entries(organizations).map(([name,oid])=>
+  '('+id(oid)+','+literal('qa-tenant-'+runId+'-'+name.toLowerCase())+','+literal('QA Tenant '+name+' '+runId)+",'active')").join(',');
+ const memberSql=rows.map(([name,org,roles])=>{
+   memberships[name]=randomUUID();
+   return '('+[id(memberships[name]),id(organizations[org]),id(actors[name].id),
+     'ARRAY['+roles.map(literal).join(',')+']::text[]',"'active'","now()"].join(',')+')';
+ }).join(',');
+ const ids=Object.values(actors).map(x=>id(x.id)).join(',');
+ const sql=`BEGIN;
+  SELECT set_config('nexa.access_change_reason','synthetic authorization integration test setup',true);
+  UPDATE public.profiles SET access_status='active',
+    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id=${id(actors.reviewerB.id)}),
+    clinical_access=true WHERE id IN (${ids});
+  INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
+  INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
+  COMMIT;`;
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--dbname',db,'--command',sql],{stdio:['ignore','pipe','pipe']});
+ const fixture={runId,organizations,memberships,actors,synthetic:true};
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600,flag:'wx'});
+ console.log('Synthetic staging fixture created; credentials stored only in '+out);
+}catch(error){
+ // Failed bootstrap must not silently leave orphaned Auth users.
+ for(const userId of created)await admin.auth.admin.deleteUser(userId).catch(()=>{});
+ throw new Error('Fixture bootstrap failed; check synthetic database objects before retrying. '+error.message);
+}
