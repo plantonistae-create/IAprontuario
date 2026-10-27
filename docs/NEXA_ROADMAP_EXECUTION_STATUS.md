@@ -56,3 +56,9 @@ Use separate authenticated JWTs / equivalent role contexts, assert SQL/HTTP resp
 - Added explicit real-JWT suite assertions for no unintended global admin/reviewer privileges and no synthetic slot occupancy. Fixed the global-admin positive no-op test to preserve `is_reviewer=false`.
 - Last implementation commit: `67ca26b6`. No privileged authenticated JWT test execution verified; PR #92 remains Draft, no merge or production RPC publication.
 - PR #93 remains Draft; previous CI failed one VM cross-realm array comparison (fixed in a later commit); recent CI is pending. Transcript schema is staging-only, retention feature flag off by default.
+
+### 2026-10-27 — Workflow #784 libpq correction
+- Confirmed run 40531543669 failed because psql received a full URL as PGDATABASE and tried local socket. Replaced with PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE and SSL in both prepare and cleanup scripts; preserved project-ref checks.
+- Regression guard: tests/security/staging-libpq-connection.test.mjs, executed before provisioning in workflow. Latest workflow commit 1075d3fc.
+- Staging recovery: verified exactly ten synthetic Auth accounts created at 15:30 UTC by #784, ten personal orgs, ten memberships, zero consultations and zero clinical slots. Removed only those records in a guarded staging transaction. Read-back confirmed zero remaining synthetic Auth users from that run and zero qa-tenant organizations.
+- Real-JWT workflow must be manually dispatched on updated PR #92 branch (Actions write dispatch unavailable in connector); normal PR CI for HEAD is running. No JWT homologation, production merge, or deploy claimed.
