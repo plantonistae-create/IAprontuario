@@ -76,7 +76,7 @@ try{
   -- Reserved clinical_slots are already full: do not consume/reassign clinical slots.
   -- Only RPC permissions (membership + active profile) are under this test.
   UPDATE public.profiles SET access_status='active',
-    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id<>${id(actors.global.id)}),
+    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id=${id(actors.reviewerB.id)}),
     clinical_access=false WHERE id IN (${ids});
   INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
   INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
