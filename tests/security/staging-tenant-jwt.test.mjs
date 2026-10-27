@@ -99,13 +99,13 @@ test('institutional administration cannot grant global profile privileges',async
   const target=uuid(fixture.actors.doctorB.id);
   const snapshot=()=>dbRow('SELECT id,is_admin,is_reviewer,clinical_access,access_status FROM public.profiles WHERE id='+target);
   const original=snapshot();
-  const args={p_profile_id:fixture.actors.doctorB.id,p_is_admin:true,p_is_reviewer:false,
-    p_clinical_access:true,p_access_status:'active',p_reason:'Synthetic denied test'};
+  const args={p_profile_id:fixture.actors.doctorB.id,p_is_admin:true,p_is_reviewer:true,
+    p_clinical_access:false,p_access_status:'active',p_reason:'Synthetic denied test'};
   denied(await invoke('adminA','admin_set_profile_access',args),'institutional global elevation');
   assert.deepEqual(snapshot(),original);
   const positive=await invoke('global','admin_set_profile_access',{...args,p_is_admin:false,p_reason:'Synthetic global admin positive test'});
   assert.ifError(positive.error);
-  assert.deepEqual(snapshot(),original,'Legitimate global admin changed synthetic profile unexpectedly');
+  assert.deepEqual(snapshot(),original,'Global-admin no-op changed synthetic profile unexpectedly');
 });
 test('dataset rights are separate from clinical reviewer role',async()=>{
   const caseId=uuid(fixture.auditCaseB);
