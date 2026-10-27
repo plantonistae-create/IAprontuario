@@ -17,6 +17,14 @@ const out=process.env.NEXA_TENANT_FIXTURE_OUTPUT??'/tmp/nexa-tenant-fixtures.jso
 if(process.env.NEXA_TENANT_STAGING_ACK !== 'phaitiijsjwrggdnoxiz') throw new Error('Staging safety acknowledgement required');
 if(new URL(url).origin !== 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
 if(!key||!db)throw new Error('Missing staging administrator key or database connection');
+const dbTarget=new URL(db);
+if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
+   !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
+     (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
+      decodeURIComponent(dbTarget.username).endsWith('.phaitiijsjwrggdnoxiz')))){
+ throw new Error('Refusing PostgreSQL connection not uniquely tied to staging');
+}
+
 if(!out.startsWith('/tmp/') && !out.startsWith('/home/runner/work/_temp/'))throw new Error('Fixture credentials must stay in runner temp');
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
