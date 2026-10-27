@@ -9,13 +9,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync,existsSync } from 'node:fs';
 const url=process.env.NEXA_STAGING_URL??'';
 const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY??'';
 const db=process.env.NEXA_STAGING_DB_URL??'';
 const out=process.env.NEXA_TENANT_FIXTURE_OUTPUT??'/tmp/nexa-tenant-fixtures.json';
 if(process.env.NEXA_TENANT_STAGING_ACK !== 'phaitiijsjwrggdnoxiz') throw new Error('Staging safety acknowledgement required');
-if(!new URL(url).origin === 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
+if(new URL(url).origin !== 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
 if(!key||!db)throw new Error('Missing staging administrator key or database connection');
 if(!out.startsWith('/tmp/') && !out.startsWith('/home/runner/work/_temp/'))throw new Error('Fixture credentials must stay in runner temp');
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -78,6 +78,8 @@ try{
  console.log('Synthetic staging fixture created; credentials stored only in '+out);
 }catch(error){
  // Failed bootstrap must not silently leave orphaned Auth users.
- // Always use the dedicated cleanup script for synthetic profiles and Auth identities.
+ // If Auth creation failed before the cleanup manifest, remove partial users.
+ if(!existsSync(out))for(const id of created) await admin.auth.admin.deleteUser(id).catch(()=>{});
+ // Once the manifest exists, the runner invokes the dedicated cleanup script.
  throw new Error('Fixture bootstrap failed; synthetic runner cleanup is mandatory.');
 }
