@@ -28,3 +28,17 @@ test('existing audit_log constraint honored and a correlation identifier emitted
  assert.match(sql,/'operation','organization_membership_revoked'/);
  assert.match(sql,/'correlation_id',v_correlation/);
 });
+
+test('institution-only profile migration preserves pending safety without assigning global rights',()=>{
+ const source=readFileSync(new URL('../../supabase/migrations/20261027184850_nexa_active_institution_roles_without_global_capability.sql',import.meta.url),'utf8');
+ assert.match(source,/ADD CONSTRAINT profiles_capability_state_check/);
+ assert.match(source,/access_status <> 'pending'/);
+ assert.match(source,/is_admin IS FALSE[\s\S]*is_reviewer IS FALSE[\s\S]*clinical_access IS FALSE/);
+ assert.doesNotMatch(source,/access_status <> 'active'/);
+ const fixture=readFileSync(new URL('../../scripts/prepare-staging-tenant-fixtures.mjs',import.meta.url),'utf8');
+ assert.match(fixture,/activeTenantProfileMigration='20261027184850'/);
+ assert.ok(fixture.indexOf('const migrationReady=')<fixture.indexOf('const admin=createClient('),
+  'Fixture schema preflight must run before creating synthetic Auth users');
+ assert.match(fixture,/clinical_access=false/);
+ assert.match(fixture,/is_reviewer=\(id=\$\{id\(actors\.reviewerB\.id\)\}\)/);
+});
