@@ -39,6 +39,12 @@ if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
 }
 
 if(!out.startsWith('/tmp/') && !out.startsWith('/home/runner/work/_temp/'))throw new Error('Fixture credentials must stay in runner temp');
+try {
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--tuples-only','--command',"SELECT 1"],{
+   env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
+} catch {
+ throw new Error('Staging PostgreSQL preflight failed: verify pooler username, database password and GitHub Environment DB URL; no synthetic accounts created');
+}
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
 const runId=randomBytes(5).toString('hex');
