@@ -77,8 +77,8 @@ BEGIN
   -- Existing append-only audit_log, not a duplicate clinical-audit table.
   -- Failed operations roll back atomically; denied attempts need gateway logs.
   INSERT INTO public.audit_log(user_id,consultation_id,action,metadata)
-  VALUES(v_actor,NULL,'organization_membership_revoked',
-    jsonb_build_object('organization_id',v_org,'membership_id',v_target.id,
+  VALUES(v_actor,NULL,'update',
+    jsonb_build_object('operation','organization_membership_revoked','organization_id',v_org,'membership_id',v_target.id,
       'target_user_id',v_target.user_id,'correlation_id',v_correlation,
       'outcome','revoked'));
 END;
