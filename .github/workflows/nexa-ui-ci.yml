@@ -148,7 +148,7 @@ jobs:
       NEXA_STAGING_SERVICE_ROLE_KEY: ${{ secrets.NEXA_STAGING_SERVICE_ROLE_KEY }}
       NEXA_STAGING_DB_URL: ${{ secrets.NEXA_STAGING_DB_URL }}
       NEXA_STAGING_PUBLISHABLE_KEY: ${{ secrets.NEXA_STAGING_PUBLISHABLE_KEY }}
-      NEXA_TENANT_FIXTURE_OUTPUT: ${{ runner.temp }}/nexa-tenant-fixtures.json
+      NEXA_TENANT_FIXTURE_OUTPUT: /tmp/nexa-tenant-fixtures.json
     steps:
       - name: Checkout trusted staging branch
         uses: actions/checkout@v4
