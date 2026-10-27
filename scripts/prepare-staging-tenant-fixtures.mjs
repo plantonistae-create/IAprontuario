@@ -114,5 +114,16 @@ try{
  // If Auth creation failed before the cleanup manifest, remove partial users.
  // Every created user was flushed to an owner-verified cleanup manifest.
  // The workflow's always() teardown handles partial Auth bootstrap as well.
- throw new Error('Fixture bootstrap failed; synthetic runner cleanup is mandatory.');
+ const raw=String(error?.stderr??'');
+ const safe=raw.match(/ERROR:\\s+([^\\n\\r]+)/)?.[1]??'unclassified database or Auth error';
+ const category=/duplicate key|unique constraint/i.test(safe)?'duplicate fixture key':
+   /foreign key constraint/i.test(safe)?'foreign key constraint':
+   /null value|not-null constraint/i.test(safe)?'missing required schema field':
+   /permission denied|row-level security/i.test(safe)?'database permission':
+   /invalid input value for enum|check constraint/i.test(safe)?'schema value constraint':
+   /relation .* does not exist|column .* does not exist/i.test(safe)?'schema mismatch':
+   /password authentication failed/i.test(safe)?'database authentication':
+   /unclassified database or Auth error/.test(safe)?'Auth or unknown database error':'database constraint or trigger';
+ console.error('Fixture bootstrap stage: '+(created.length===actorNames.length?'database seed':'Auth account provisioning')+'; failure class: '+category+'; cleanup required.');
+ throw new Error('Fixture bootstrap failed ('+category+'); synthetic runner cleanup is mandatory.');
 }
