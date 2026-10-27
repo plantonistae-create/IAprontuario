@@ -39,3 +39,21 @@ test('non-append edits still cancel stale AI requests',async()=>{
   await pending;
   api.reset();
 });
+
+test('question timeline records appearance, removal and is isolated on reset',()=>{
+ const {api,set}=fixture();
+ const initial=api.snapshot().questionEvents;
+ assert.ok(initial.some(e=>e.type==='appeared'&&e.concept==='dyspnea'));
+ assert.ok(initial.every(e=>!('transcript' in e)&&!('patient_text' in e)));
+ const oldSeq=initial.at(-1).sequence;
+ set({fields:{hda:''}});
+ api.recalculate();
+ const timeline=api.snapshot().questionEvents;
+ assert.ok(timeline.some(e=>e.type==='removed'&&e.concept==='dyspnea'));
+ assert.ok(timeline.at(-1).sequence>oldSeq);
+ const saved=api.snapshot();
+ api.restore(saved,'a');
+ assert.ok(api.snapshot().questionEvents.length>=timeline.length);
+ api.reset('b');
+ assert.equal(api.snapshot().questionEvents.length,0);
+});
