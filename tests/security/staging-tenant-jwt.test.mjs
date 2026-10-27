@@ -16,6 +16,13 @@ const publishable=process.env.NEXA_STAGING_PUBLISHABLE_KEY??'';
 const dbURL=process.env.NEXA_STAGING_DB_URL??'';
 if(!url.includes('phaitiijsjwrggdnoxiz.supabase.co'))throw new Error('Only staging project permitted');
 if(!publishable||!dbURL||!process.env.NEXA_TENANT_FIXTURES_JSON)throw new Error('Missing required staging credentials / synthetic fixture manifest');
+const dbTarget=new URL(dbURL);
+if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
+   !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
+     (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
+      decodeURIComponent(dbTarget.username).endsWith('.phaitiijsjwrggdnoxiz')))){
+ throw new Error('Refusing PostgreSQL connection not uniquely tied to staging');
+}
 const fixture=JSON.parse(process.env.NEXA_TENANT_FIXTURES_JSON);
 const actors={};
 const members=fixture.memberships??{};
