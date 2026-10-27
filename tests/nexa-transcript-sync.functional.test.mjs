@@ -8,7 +8,7 @@ const start=page.indexOf('async function nexaPersistAssistiveTranscript(');
 const end=page.indexOf('async function processAudio(){',start);
 assert.ok(start>=0&&end>start,'Expected clinical transcript integration hook');
 
-function runner({synced=true,consent=true,writeError=null,verifiedData=null}={}){
+function runner({synced=true,consent=true,writeError=null,verifiedData=null,consultError=null}={}){
  const captured={rows:null,options:null,writes:0,flushes:0};
  const consult={id:'11111111-1111-4111-8111-111111111111',
    encounter_id:'11111111-1111-4111-8111-111111111111',
@@ -23,7 +23,7 @@ function runner({synced=true,consent=true,writeError=null,verifiedData=null}={})
  const rec={encounter_id:consult.encounter_id,owner_user_id:consult.user_id};
  const query=(value)=>({
    select(){return this},eq(){return this},
-   async maybeSingle(){return {data:value,error:null}},
+   async maybeSingle(){return {data:consultError?null:value,error:consultError}},
    then(ok,fail){return Promise.resolve({data:value,error:null}).then(ok,fail)}
  });
  const sb={from(name){
@@ -70,4 +70,10 @@ test('do not acknowledge remote persistence if database rejects or has differing
  await assert.rejects(x.fn(x.provenance,x.rec,4),/TRANSCRIPT_REMOTE_WRITE_FAILED/);
  const y=runner({verifiedData:[{transcript_kind:'final_original',transcript_text:'different'}]});
  await assert.rejects(y.fn(y.provenance,y.rec,4),/TRANSCRIPT_REMOTE_ACK_MISMATCH/);
+});
+
+test('expired clinical session must not upload raw transcript',async()=>{
+ const x=runner({consultError:{message:'JWT expired',code:'PGRST301'}});
+ await assert.rejects(x.fn(x.provenance,x.rec,4),/TRANSCRIPT_CONSENT_OR_ENCOUNTER_MISSING/);
+ assert.equal(x.captured.writes,0);
 });
