@@ -127,9 +127,20 @@ test('institutional administration cannot grant global profile privileges',async
     p_clinical_access:false,p_access_status:'active',p_reason:'Synthetic denied test'};
   denied(await invoke('adminA','admin_set_profile_access',args),'institutional global elevation');
   assert.deepEqual(snapshot(),original);
-  const positive=await invoke('global','admin_set_profile_access',{...args,p_is_admin:false,p_is_reviewer:false,p_reason:'Synthetic global admin positive test'});
-  assert.ifError(positive.error);
-  assert.deepEqual(snapshot(),original,'Global-admin no-op changed synthetic profile unexpectedly');
+  // Existing global admin RPC deliberately refuses active accounts with no
+  // platform/clinical capabilities. Test an authorized reversible disable,
+  // not a fake no-op that violates the RPC contract.
+  try{
+    const positive=await invoke('global','admin_set_profile_access',{
+      ...args,p_is_admin:false,p_is_reviewer:false,p_clinical_access:false,
+      p_access_status:'disabled',p_reason:'Synthetic global admin authorization test'
+    });
+    assert.ifError(positive.error);
+    assert.equal(snapshot()?.access_status,'disabled');
+  }finally{
+    updateFixture('UPDATE public.profiles SET access_status=\'active\' WHERE id='+target+';');
+  }
+  assert.deepEqual(snapshot(),original,'Temporary global admin test was not restored');
 });
 test('dataset rights are separate from clinical reviewer role',async()=>{
   const caseId=uuid(fixture.auditCaseB);
