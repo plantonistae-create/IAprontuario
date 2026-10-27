@@ -14,7 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 const url=process.env.NEXA_STAGING_URL??'';
 const publishable=process.env.NEXA_STAGING_PUBLISHABLE_KEY??'';
 const dbURL=process.env.NEXA_STAGING_DB_URL??'';
-if(!url.includes('phaitiijsjwrggdnoxiz.supabase.co'))throw new Error('Only staging project permitted');
+if(new URL(url).origin!=='https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only staging project permitted');
 if(!publishable||!dbURL||!process.env.NEXA_TENANT_FIXTURES_JSON)throw new Error('Missing required staging credentials / synthetic fixture manifest');
 const dbTarget=new URL(dbURL);
 if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
@@ -110,7 +110,7 @@ test('institutional administration cannot grant global profile privileges',async
     p_clinical_access:false,p_access_status:'active',p_reason:'Synthetic denied test'};
   denied(await invoke('adminA','admin_set_profile_access',args),'institutional global elevation');
   assert.deepEqual(snapshot(),original);
-  const positive=await invoke('global','admin_set_profile_access',{...args,p_is_admin:false,p_reason:'Synthetic global admin positive test'});
+  const positive=await invoke('global','admin_set_profile_access',{...args,p_is_admin:false,p_is_reviewer:false,p_reason:'Synthetic global admin positive test'});
   assert.ifError(positive.error);
   assert.deepEqual(snapshot(),original,'Global-admin no-op changed synthetic profile unexpectedly');
 });
