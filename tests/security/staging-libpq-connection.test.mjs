@@ -14,5 +14,12 @@ for(const path of scripts){
   assert.match(src,/env:stagingPgEnv\(dbTarget\)/);
   assert.doesNotMatch(src,/PGDATABASE:db(?:[,}])/);
   assert.match(src,/phaitiijsjwrggdnoxiz/);
+  assert.match(src,/pooler username must be postgres/);
  });
 }
+
+test('fixture provisioning verifies remote PostgreSQL before creating users',()=>{
+ const src=readFileSync(scripts[0],'utf8');
+ assert.ok(src.indexOf("'--command',\"SELECT 1\"")<src.indexOf('const admin=createClient('));
+ assert.match(src,/no synthetic accounts created/);
+});
