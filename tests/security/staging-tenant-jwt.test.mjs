@@ -19,7 +19,7 @@ const fixture=JSON.parse(process.env.NEXA_TENANT_FIXTURES_JSON);
 const client=(key)=>createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 const service=client(svc);
 const actors={};
-const required=['global','adminA','doctorA','reviewerB','unaffiliated'];
+const required=['global','adminA','doctorA','reviewerB','unaffiliated','ownerC1','ownerC2'];
 const ids=fixture.memberships??{};
 const db=async(table,columns='*')=>{
   const {data,error}=await service.from(table).select(columns);
@@ -61,7 +61,7 @@ before(async()=>{
     const org=orgs.find(row=>row.id===fixture.organizations[key]);
     assert.ok(org?.slug?.startsWith('qa-tenant-')&&org.status==='active','Refusing non-synthetic organization '+key);
   }
-  for(const key of ['adminA','doctorA','ownerA','ownerOtherA','ownerLastA','doctorB']){
+  for(const key of ['adminA','doctorA','ownerA','ownerC1','ownerC2','doctorB']){
     assert.ok(ids[key],'Missing synthetic membership '+key);
   }
   assert.ok(ids.doctorA!==ids.doctorB,'Fixtures not isolated');
@@ -76,7 +76,34 @@ test('cross-tenant admin, physician, reviewer and unaffiliated calls are denied'
 });
 test('self revocation and last-owner revocation fail without changing records',async()=>{
   await denyAndUnchanged('adminA',ids.adminA,'admin A self');
-  await denyAndUnchanged('adminA',ids.ownerLastA,'last owner');
+  await denyAndUnchanged('adminA',ids.ownerA,'only-owner target');
+});
+test('concurrent revocations preserve at least one active owner',async()=>{
+  const targets=[ids.ownerC1,ids.ownerC2];
+  const beforeRows=await Promise.all(targets.map(membership));
+  assert.ok(beforeRows.every(x=>x.status==='active'));
+  let results;
+  try{
+    results=await Promise.all([
+      invoke('ownerC1','revoke_organization_membership',{p_membership_id:ids.ownerC2}),
+      invoke('ownerC2','revoke_organization_membership',{p_membership_id:ids.ownerC1})
+    ]);
+    const success=results.filter(x=>!x.error).length;
+    assert.equal(success,1,'Expected exactly one winner of concurrent owner revocation');
+    for(const result of results.filter(x=>x.error)) assert.equal(result.error.code,'42501');
+    const remaining=await Promise.all(targets.map(membership));
+    assert.ok(remaining.some(x=>x.status==='active'),'Both owners were revoked');
+  } finally {
+    for(const previous of beforeRows) {
+      const state=await membership(previous.id);
+      if(state.status!==previous.status) {
+        const restored=await service.from('organization_memberships')
+          .update({status:previous.status,revoked_at:previous.revoked_at})
+          .eq('id',previous.id);
+        assert.ifError(restored.error);
+      }
+    }
+  }
 });
 test('institutional actors cannot elevate global privileges',async()=>{
   const original=await service.from('profiles').select('id,is_admin,is_reviewer,clinical_access,access_status').eq('id',fixture.actors.doctorB.id).single();
@@ -88,7 +115,7 @@ test('institutional actors cannot elevate global privileges',async()=>{
   assert.deepEqual(current.data,original.data);
 });
 test('dataset approval requires explicit governance rights, not clinical reviewer role',async()=>{
-  assert.ok(fixture.auditCaseB,'Synthetic eligible B-case required');
+  if(!fixture.auditCaseB) throw new Error('Synthetic auditCaseB fixture missing; dataset test must not be skipped');
   const previous=await service.from('nexa_core_dataset_approvals').select('*').eq('audit_case_id',fixture.auditCaseB);
   assert.ifError(previous.error);
   const args={p_audit_case_id:fixture.auditCaseB,p_approved:true,p_deidentified:true,p_rights_basis_reference:'SYNTHETIC-TEST-ONLY',p_policy_version:'qa-v1'};
