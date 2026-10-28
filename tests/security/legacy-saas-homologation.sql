@@ -79,7 +79,7 @@ SELECT e.id,e.organization_id,'00000000-0000-4000-8000-000000000001',
  '00000000-0000-4000-8000-000000000003','approved','synthetic independent approval'
 FROM private.nexa_historical_evidence e;
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
-DO $$
+DO $nexa_test$
 BEGIN
  IF (SELECT count(*) FROM public.consultation_history WHERE organization_id='40000000-0000-4000-8000-000000000001')<>1
  OR (SELECT count(*) FROM public.audit_cases WHERE organization_id='40000000-0000-4000-8000-000000000001')<>1
@@ -90,7 +90,7 @@ END $nexa_test$;
 -- Negative: submitter is not owner, cannot move audit to B.
 INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
  ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000001','synthetic-invalid-claim','00000000-0000-4000-8000-000000000001');
-DO $$
+DO $nexa_test$
 BEGIN
  BEGIN
  PERFORM private.nexa_apply_verified_legacy_mapping();
@@ -104,7 +104,7 @@ END $nexa_test$;
 DELETE FROM private.nexa_legacy_tenant_mapping WHERE entity_id='legacy-text-id-2';
 -- Idempotent replay.
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
-DO $$
+DO $nexa_test$
 BEGIN
  IF (SELECT count(*) FROM public.consultation_history)<>2
  OR (SELECT count(*) FROM public.audit_cases)<>1
