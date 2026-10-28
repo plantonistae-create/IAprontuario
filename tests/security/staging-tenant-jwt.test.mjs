@@ -62,7 +62,7 @@ async function deniedUnchanged(actor,id,label){
 }
 before(async()=>{
   assert.equal(fixture.synthetic,true);
-  const required=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerC1','ownerC2'];
+  const required=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2'];
   for(const name of required)assert.ok(fixture.actors?.[name]);
   for(const name of ['adminA','doctorA','doctorB','ownerA','ownerC1','ownerC2'])assert.ok(members[name]);
   for(const name of ['A','B','C']){
@@ -182,4 +182,46 @@ test('tenant filtered audit queue contains B case, not A case',async()=>{
   assert.ok(Array.isArray(data));
   assert.ok(data.some(row=>row.id===fixture.auditCaseB),'Authorized synthetic case B missing');
   assert.ok(!data.some(row=>row.id===fixture.auditCaseA),'Cross-tenant case A exposed');
+});
+
+test('anonymous requests cannot invoke privileged RPCs or read synthetic audit cases',async()=>{
+  const anonymous=createClient(url,publishable,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  const previous=membership(members.doctorA);
+  const result=await anonymous.rpc('revoke_organization_membership',{p_membership_id:members.doctorA});
+  assert.ok(result.error,'Anonymous revocation must fail');
+  assert.ok(['42501','PGRST301','PGRST302'].includes(result.error.code),'Unexpected anonymous denial');
+  assert.deepEqual(membership(members.doctorA),previous);
+  const audit=await anonymous.from('audit_cases').select('id').in('id',[fixture.auditCaseA,fixture.auditCaseB]);
+  if(audit.error)assert.equal(audit.error.code,'42501');
+  else assert.deepEqual(audit.data,[],'Anonymous synthetic audit exposure');
+});
+
+test('RLS hides foreign audit and Core cases from reviewer B and unaffiliated user',async()=>{
+  for(const actor of ['reviewerB','unaffiliated']){
+    const audit=await actors[actor].from('audit_cases').select('id').eq('id',fixture.auditCaseA);
+    assert.ifError(audit.error);
+    assert.deepEqual(audit.data,[],actor+' saw foreign audit case');
+    const core=await actors[actor].from('nexa_core_cases').select('id').eq('audit_case_id',fixture.auditCaseA);
+    assert.ifError(core.error);
+    assert.deepEqual(core.data,[],actor+' saw foreign Core case');
+  }
+});
+
+test('existing admin JWT loses tenant privileges immediately after membership revocation',async()=>{
+  const original=membership(members.adminA);
+  const {data:session}=await actors.adminA.auth.getSession();
+  assert.ok(session.session?.access_token);
+  const token=session.session.access_token;
+  try{
+    assert.ifError((await invoke('ownerA','revoke_organization_membership',{p_membership_id:members.adminA})).error);
+    assert.equal(membership(members.adminA).status,'revoked');
+    await deniedUnchanged('adminA',members.doctorA,'revoked admin using existing JWT');
+    const queue=await invoke('adminA','get_audit_queue_v2',{limit_count:200,offset_count:0});
+    if(queue.error)assert.equal(queue.error.code,'42501');
+    else assert.ok(!queue.data.some(row=>[fixture.auditCaseA,fixture.auditCaseB].includes(row.id)));
+    const {data:after}=await actors.adminA.auth.getSession();
+    assert.equal(after.session.access_token,token,'Test must retain the pre-revocation JWT');
+  }finally{
+    updateFixture("UPDATE public.organization_memberships SET status='active',revoked_at=NULL WHERE id="+uuid(original.id)+';');
+  }
 });
