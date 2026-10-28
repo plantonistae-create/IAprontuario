@@ -354,6 +354,14 @@ class ClinicalPolicy(unittest.TestCase):
         self.assertEqual(a.execute("DELETE FROM public.consultation_history WHERE id='synthetic-delete-A' RETURNING id").fetchall(), [('synthetic-delete-A',)])
         self.assertEqual(self.admin.execute("SELECT count(*) FROM public.consultation_history WHERE id='synthetic-delete-A'").fetchone()[0], 0)
 
+    def test_authorized_clinical_changes_are_audited(self):
+        a = self.doctor('1')
+        a.execute("INSERT INTO public.consultation_history(id,user_id,clinical_text) VALUES ('synthetic-audit-A','00000000-0000-4000-8000-000000000001','synthetic')")
+        a.execute("UPDATE public.consultation_history SET clinical_text='synthetic revised' WHERE id='synthetic-audit-A'")
+        a.execute("DELETE FROM public.consultation_history WHERE id='synthetic-audit-A'")
+        actions = self.admin.execute("SELECT action FROM public.audit_log WHERE consultation_id='synthetic-audit-A' ORDER BY id").fetchall()
+        self.assertEqual(actions, [('create',),('update',),('delete',)])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

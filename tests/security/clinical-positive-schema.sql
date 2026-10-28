@@ -41,6 +41,27 @@ BEGIN
 END $$;
 CREATE TRIGGER consultation_history_tenant_guard BEFORE INSERT OR UPDATE
   ON public.consultation_history FOR EACH ROW EXECUTE FUNCTION private.assign_and_guard_consultation_tenant();
+-- Observed staging audit function for consultation INSERT/UPDATE/DELETE.
+CREATE TABLE public.audit_log (
+ id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ user_id uuid NOT NULL REFERENCES public.profiles(id),
+ consultation_id text NOT NULL, action text NOT NULL, metadata jsonb NOT NULL
+);
+CREATE OR REPLACE FUNCTION public.audit_consultation_change()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE uid uuid; cid text;
+BEGIN
+ IF tg_op='DELETE' THEN uid:=old.user_id; cid:=old.id::text;
+ ELSE uid:=new.user_id; cid:=new.id::text; END IF;
+ IF uid IS NOT NULL THEN
+  INSERT INTO public.audit_log(user_id,consultation_id,action,metadata)
+  VALUES (uid,cid,CASE WHEN tg_op='INSERT' THEN 'create' ELSE lower(tg_op) END,
+    jsonb_build_object('table','consultation_history'));
+ END IF;
+ IF tg_op='DELETE' THEN RETURN old; ELSE RETURN new; END IF;
+END $$;
+CREATE TRIGGER audit_consultation_changes AFTER INSERT OR DELETE OR UPDATE
+ ON public.consultation_history FOR EACH ROW EXECUTE FUNCTION public.audit_consultation_change();
 -- The minimal legacy template includes a deliberately old owner-only policy;
 -- staging has exactly the four capability/tenant policies below.
 DROP POLICY legacy_owner_read ON public.consultation_history;
