@@ -22,6 +22,16 @@ BEGIN
  -- The privileged operator must hold a stable lock for the entire validation and update.
  LOCK TABLE private.nexa_legacy_tenant_mapping IN SHARE ROW EXCLUSIVE MODE;
  LOCK TABLE public.organization_memberships IN SHARE MODE;
+ -- Maintenance-only backfill: freeze authorization ledgers, including concurrent
+ -- INSERTs (a row lock cannot protect a not-yet-inserted revocation/decision).
+ -- Acquire these before reading evidence and keep them until transaction end.
+ LOCK TABLE public.organizations IN SHARE MODE;
+ LOCK TABLE private.nexa_historical_evidence IN SHARE MODE;
+ LOCK TABLE private.nexa_historical_evidence_decisions IN SHARE MODE;
+ LOCK TABLE private.nexa_evidence_source_verifications IN SHARE MODE;
+ -- Keep validation and ownership assignment atomic against ordinary writers.
+ LOCK TABLE public.consultation_history, public.audit_cases, public.nexa_core_cases
+   IN SHARE ROW EXCLUSIVE MODE;
  -- Independent evidence + authorized decision gate for every pending clinical mapping.
  -- A current membership or backdated activated_at is never sufficient.
  IF EXISTS (

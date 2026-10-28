@@ -15,7 +15,9 @@ ORG_A = '40000000-0000-4000-8000-000000000001'
 
 class Concurrency(unittest.TestCase):
     def setUp(self):
-        if os.environ.get('PGHOST') != '127.0.0.1' or os.environ.get('PGDATABASE') != 'nexa_legacy_synthetic':
+        host = os.environ.get('PGHOST', '')
+        local_socket = os.path.realpath(host) == '/private/tmp/nexa-pr92-pg'
+        if (host != '127.0.0.1' and not local_socket) or os.environ.get('PGDATABASE') != 'nexa_legacy_synthetic':
             raise RuntimeError('Only the local synthetic PostgreSQL CI service is permitted')
         self.control = psycopg.connect(autocommit=True)
         self.name = 'nexa_concurrency_' + uuid.uuid4().hex
