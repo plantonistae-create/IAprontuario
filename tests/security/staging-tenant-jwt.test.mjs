@@ -251,8 +251,9 @@ test('physician JWTs cannot export dataset through the deployed Edge Function',a
     const {data}=await actors[actor].auth.getSession();
     const response=await fetch(url+'/functions/v1/core-dataset-export',{
       method:'POST',headers:{apikey:publishable,Authorization:'Bearer '+data.session.access_token,
-        Origin:'https://plantonistae-create.github.io','Content-Type':'application/json'},
-      body:JSON.stringify({dataset_version:'synthetic-denied-test',limit:1,offset:0})
+        Origin:'http://127.0.0.1:4173','Content-Type':'application/json'},
+      body:JSON.stringify({dataset_version:'synthetic-denied-test',limit:1,offset:0}),
+      signal:AbortSignal.timeout(20000)
     });
     assert.equal(response.status,403,actor+' dataset export must be forbidden');
     const payload=await response.json();
