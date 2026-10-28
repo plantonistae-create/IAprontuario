@@ -229,3 +229,33 @@ test('existing admin JWT loses tenant privileges immediately after membership re
     updateFixture("UPDATE public.organization_memberships SET status='active',revoked_at=NULL WHERE id="+uuid(original.id)+';');
   }
 });
+
+test('ordinary JWTs cannot reassign institutional ownership through the Data API',async()=>{
+  const read=()=>dbRows('SELECT id,organization_id,deidentified_fields FROM public.audit_cases WHERE id IN ('+
+    [fixture.auditCaseA,fixture.auditCaseB].map(uuid).join(',')+') ORDER BY id');
+  const original=read();
+  for(const [actor,caseId,organization] of [
+    ['doctorA',fixture.auditCaseA,fixture.organizations.B],
+    ['doctorB',fixture.auditCaseB,fixture.organizations.A],
+    ['adminA',fixture.auditCaseB,fixture.organizations.A]
+  ]){
+    const result=await actors[actor].from('audit_cases').update({organization_id:organization}).eq('id',caseId).select('id');
+    if(result.error)assert.equal(result.error.code,'42501');
+    else assert.deepEqual(result.data,[],actor+' reassigned institutional ownership');
+    assert.deepEqual(read(),original,'Denied ownership write changed synthetic audit rows');
+  }
+});
+
+test('physician JWTs cannot export dataset through the deployed Edge Function',async()=>{
+  for(const actor of ['doctorA','doctorB']){
+    const {data}=await actors[actor].auth.getSession();
+    const response=await fetch(url+'/functions/v1/core-dataset-export',{
+      method:'POST',headers:{apikey:publishable,Authorization:'Bearer '+data.session.access_token,
+        Origin:'https://plantonistae-create.github.io','Content-Type':'application/json'},
+      body:JSON.stringify({dataset_version:'synthetic-denied-test',limit:1,offset:0})
+    });
+    assert.equal(response.status,403,actor+' dataset export must be forbidden');
+    const payload=await response.json();
+    assert.equal(payload.error,'DATASET_ADMIN_REQUIRED','Denial must be the user authorization gate');
+  }
+});
