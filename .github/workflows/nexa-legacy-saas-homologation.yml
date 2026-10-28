@@ -7,6 +7,7 @@ on:
       - 'supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql'
       - 'supabase/migrations/20261027221000_nexa_evidence_source_verification.sql'
       - 'tests/security/legacy-saas-*.sql'
+      - 'tests/security/legacy-saas-concurrency.py'
       - '.github/workflows/nexa-legacy-saas-homologation.yml'
   workflow_dispatch:
 permissions:
@@ -39,6 +40,13 @@ jobs:
         run: |
           psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-schema.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-homologation.sql
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independent PostgreSQL concurrency sessions
+        run: |
+          python -m pip install 'psycopg[binary]==3.2.6'
+          python tests/security/legacy-saas-concurrency.py
       - name: Verify no clinical data or staging credentials were used
         run: |
           test "$PGDATABASE" = "nexa_legacy_synthetic"
