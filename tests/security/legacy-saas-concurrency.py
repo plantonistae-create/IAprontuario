@@ -76,6 +76,20 @@ class Concurrency(unittest.TestCase):
         self.assertIsNone(self.owner())
         self.assertEqual(self.snapshot(), self.baseline)
 
+    def decision(self, db, choice, reason):
+        return db.execute("""INSERT INTO private.nexa_historical_evidence_decisions
+          (evidence_id,organization_id,proposer_id,approver_id,decision,rationale,decided_at)
+          SELECT id,organization_id,collected_by,verified_by,%s,%s,clock_timestamp()
+          FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-1'
+          RETURNING id,decided_at""", (choice, reason)).fetchone()
+
+    def latest_decision(self):
+        return self.db.execute("""SELECT decision FROM private.nexa_historical_evidence_decisions
+          WHERE evidence_id=(""" + EVIDENCE + ") ORDER BY decided_at DESC,id DESC LIMIT 1").fetchone()[0]
+
+    def decision_count(self):
+        return self.db.execute('SELECT count(*) FROM private.nexa_historical_evidence_decisions WHERE evidence_id=('+EVIDENCE+')').fetchone()[0]
+
     def test_evidence_revocation_before_backfill(self):
         self.denied_after("UPDATE private.nexa_historical_evidence SET status='revoked' WHERE entity_id='legacy-text-id-1'")
 
@@ -158,6 +172,81 @@ class Concurrency(unittest.TestCase):
         self.db.execute('DROP TRIGGER synthetic_final_step_failure ON private.nexa_legacy_tenant_mapping')
         self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 1)
         self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 0)
+
+    def test_two_simultaneous_approvals_are_durable_and_idempotent(self):
+        first, second = self.connect(), self.connect()
+        a = self.decision(first, 'approved', 'synthetic-concurrent-approval-A')
+        time.sleep(.03)
+        b = self.decision(second, 'approved', 'synthetic-concurrent-approval-B')
+        second.commit()
+        first.commit()  # Commit order deliberately differs from decision order.
+        self.assertLess(a[1], b[1])
+        self.assertEqual(self.decision_count(), 3)
+        self.assertEqual(self.latest_decision(), 'approved')
+        self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 1)
+        self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 0)
+        self.assertEqual(self.snapshot(), self.baseline)
+
+    def test_approval_and_rejection_race_rejects_mapping(self):
+        first, second = self.connect(), self.connect()
+        a = self.decision(first, 'approved', 'synthetic-competing-approval')
+        time.sleep(.03)
+        b = self.decision(second, 'rejected', 'synthetic-competing-rejection')
+        second.commit()
+        first.commit()
+        self.assertLess(a[1], b[1])
+        self.assertEqual(self.decision_count(), 3)
+        self.assertEqual(self.latest_decision(), 'rejected')
+        with self.assertRaises(psycopg.Error):
+            self.db.execute(APPLY).fetchall()
+        self.assertIsNone(self.owner())
+        self.assertEqual(self.snapshot(), self.baseline)
+
+    def test_approval_and_contestation_race_rejects_mapping(self):
+        first, second = self.connect(), self.connect()
+        self.decision(first, 'approved', 'synthetic-contested-approval')
+        second.execute("UPDATE private.nexa_historical_evidence SET status='contested' WHERE entity_id='legacy-text-id-1'")
+        first.commit()
+        second.commit()
+        self.assertEqual(self.decision_count(), 2)
+        with self.assertRaises(psycopg.Error):
+            self.db.execute(APPLY).fetchall()
+        self.assertIsNone(self.owner())
+
+    def test_approver_revocation_and_approval_race_rejects_mapping(self):
+        first, second = self.connect(), self.connect()
+        self.decision(first, 'approved', 'synthetic-revoked-approver')
+        second.execute("UPDATE public.organization_memberships SET status='revoked',revoked_at=clock_timestamp() WHERE user_id='00000000-0000-4000-8000-000000000003' AND organization_id=%s", (ORG_A,))
+        first.commit()
+        second.commit()
+        self.assertEqual(self.decision_count(), 2)
+        with self.assertRaises(psycopg.Error):
+            self.db.execute(APPLY).fetchall()
+        self.assertIsNone(self.owner())
+
+    def test_older_rejection_then_new_approval_uses_latest_decision(self):
+        self.decision(self.db, 'rejected', 'synthetic-rejection-superseded')
+        with self.assertRaises(psycopg.Error):
+            self.db.execute(APPLY).fetchall()
+        self.assertIsNone(self.owner())
+        self.decision(self.db, 'approved', 'synthetic-later-approval')
+        self.assertEqual(self.decision_count(), 3)
+        self.assertEqual(self.latest_decision(), 'approved')
+        self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 1)
+        self.assertEqual(self.snapshot(), self.baseline)
+
+    def test_backfill_waits_for_uncommitted_decision(self):
+        self.decision(self.db, 'rejected', 'synthetic-initial-rejection')
+        writer = self.connect()
+        self.decision(writer, 'approved', 'synthetic-pending-approval')
+        worker, future = self.start()
+        try:
+            self.blocked_by(worker, writer, future)
+        finally:
+            writer.commit()
+        self.assertEqual(sum(row[1] for row in future.result(timeout=12)), 1)
+        self.assertEqual(self.decision_count(), 3)
+        self.assertEqual(self.snapshot(), self.baseline)
 
 
 if __name__ == '__main__':
