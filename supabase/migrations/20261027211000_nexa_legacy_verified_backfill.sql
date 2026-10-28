@@ -33,11 +33,21 @@ BEGIN
    AND approver.organization_id=e.organization_id
    AND approver.status='active'
    AND approver.roles && ARRAY['owner','admin']::text[]
+   AND approver.activated_at IS NOT NULL
+   AND approver.activated_at <= d.decided_at
+   AND (approver.revoked_at IS NULL OR approver.revoked_at > d.decided_at)
  WHERE e.entity_type=m.entity_type AND e.entity_id=m.entity_id
    AND e.organization_id=m.organization_id
    AND e.status='verified'
    AND e.source_authenticated_at IS NOT NULL
    AND e.integrity_verified_at IS NOT NULL
+   AND e.source_authenticated_by IS NOT NULL
+   AND e.integrity_verified_by IS NOT NULL
+   AND e.verified_by IS NOT NULL
+   AND e.collected_by <> e.verified_by
+   AND e.collected_by <> e.source_authenticated_by
+   AND e.collected_by <> e.integrity_verified_by
+   AND e.organization_id = d.organization_id
    AND d.organization_id=e.organization_id AND d.decision='approved'
    AND d.proposer_id<>d.approver_id
    AND NOT EXISTS (SELECT 1 FROM private.nexa_historical_evidence_decisions newer
