@@ -179,4 +179,60 @@ BEGIN
  IF (SELECT organization_id FROM public.audit_cases WHERE id='20000000-0000-4000-8000-000000000001')<>'40000000-0000-4000-8000-000000000001'
  THEN RAISE EXCEPTION 'conflicting audit mutated tenant'; END IF;
 END $nexa_test$;
+-- Fail closed: a later source revocation invalidates any new mapping attempt.
+-- The already-applied mappings must remain unchanged.
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,
+ proof_reference,document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-revocation',
+ 'synthetic-revocation-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'revoked',now()+interval '1 minute'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
+-- Introduce a fresh, unapplied mapping for a revoked source, with a valid historical owner.
+INSERT INTO public.consultation_history(id,professional_id,user_id,encounter_id,created_at,clinical_text)
+VALUES ('legacy-text-id-3','professional-a','00000000-0000-4000-8000-000000000002',
+ '10000000-0000-4000-8000-000000000003','2026-01-01','synthetic-revoked-source');
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by)
+VALUES ('consultation_history','legacy-text-id-3','40000000-0000-4000-8000-000000000002',
+ 'synthetic-revoked-source','00000000-0000-4000-8000-000000000002');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+VALUES ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000002',
+ 'consultation_history','legacy-text-id-3','synthetic','synthetic-issuer','synthetic-3',
+ 'synthetic://third',repeat('c',64),'synthetic','00000000-0000-4000-8000-000000000002',
+ '2025-01-01','2027-01-01','synthetic-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003','verified',now(),
+ '00000000-0000-4000-8000-000000000003','synthetic verified');
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT id,organization_id,'00000000-0000-4000-8000-000000000002',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic third approval'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,
+ document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-third-source',
+ 'synthetic-third-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'valid',now()-interval '2 minutes'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,
+ document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-third-revocation',
+ 'synthetic-third-revocation-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'revoked',now()
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+DO $nexa_revoked$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'revoked source incorrectly accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='revoked source incorrectly accepted' THEN RAISE; END IF;
+ END;
+ IF EXISTS (SELECT 1 FROM public.consultation_history WHERE id='legacy-text-id-3' AND organization_id IS NOT NULL)
+ THEN RAISE EXCEPTION 'revoked source changed clinical ownership'; END IF;
+END $nexa_revoked$;
 SELECT 'LEGACY_SAAS_SYNTHETIC_PASS' AS result;
