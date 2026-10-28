@@ -1,5 +1,6 @@
 """Real independent PostgreSQL transactions; exclusively disposable synthetic CI DBs."""
 import os
+import subprocess
 import time
 import unittest
 import uuid
@@ -19,7 +20,7 @@ class Concurrency(unittest.TestCase):
         local_socket = os.path.realpath(host) == '/private/tmp/nexa-pr92-pg'
         if (host != '127.0.0.1' and not local_socket) or os.environ.get('PGDATABASE') != 'nexa_legacy_synthetic':
             raise RuntimeError('Only the local synthetic PostgreSQL CI service is permitted')
-        self.control = psycopg.connect(autocommit=True)
+        self.control = psycopg.connect(dbname='postgres',autocommit=True)
         self.name = 'nexa_concurrency_' + uuid.uuid4().hex
         self.control.execute(sql.SQL('CREATE DATABASE {} TEMPLATE nexa_legacy_synthetic').format(sql.Identifier(self.name)))
         self.connections = []
@@ -247,6 +248,111 @@ class Concurrency(unittest.TestCase):
         self.assertEqual(sum(row[1] for row in future.result(timeout=12)), 1)
         self.assertEqual(self.decision_count(), 3)
         self.assertEqual(self.snapshot(), self.baseline)
+
+
+class ClinicalPolicy(unittest.TestCase):
+    """Actual repo migrations + observed staging tenant policies; role contexts, not signed JWTs."""
+
+    def setUp(self):
+        host = os.environ.get('PGHOST', '')
+        if (host != '127.0.0.1' and os.path.realpath(host) != '/private/tmp/nexa-pr92-pg') or os.environ.get('PGDATABASE') != 'nexa_legacy_synthetic':
+            raise RuntimeError('Only the local synthetic PostgreSQL CI service is permitted')
+        self.control = psycopg.connect(dbname='postgres',autocommit=True)
+        self.name = 'nexa_clinical_' + uuid.uuid4().hex
+        self.control.execute(sql.SQL('CREATE DATABASE {} TEMPLATE nexa_legacy_synthetic').format(sql.Identifier(self.name)))
+        env = {**os.environ, 'PGDATABASE': self.name}
+        try:
+            subprocess.run(['psql','-X','-v','ON_ERROR_STOP=1','-f','tests/security/clinical-positive-schema.sql'],
+                           env=env, check=True, capture_output=True, text=True)
+        except Exception:
+            self.control.execute(sql.SQL('DROP DATABASE {} WITH (FORCE)').format(sql.Identifier(self.name)))
+            self.control.close()
+            raise
+        self.admin = psycopg.connect(dbname=self.name, autocommit=True)
+        self.clients = []
+
+    def tearDown(self):
+        for db in self.clients:
+            db.close()
+        self.admin.close()
+        self.control.execute(sql.SQL('DROP DATABASE {} WITH (FORCE)').format(sql.Identifier(self.name)))
+        self.control.close()
+
+    def actor(self, user_id=None):
+        db = psycopg.connect(dbname=self.name, autocommit=True)
+        self.clients.append(db)
+        db.execute('SET ROLE authenticated' if user_id else 'SET ROLE anon')
+        if user_id:
+            db.execute('SELECT set_config(%s,%s,false)', ('request.jwt.claim.sub',user_id))
+        return db
+
+    def doctor(self, suffix):
+        return self.actor('00000000-0000-4000-8000-00000000000'+suffix)
+
+    def test_positive_read_insert_update_and_tenant_assignment(self):
+        a = self.doctor('1')
+        self.assertEqual([row[0] for row in a.execute('SELECT id FROM public.consultation_history ORDER BY id')], ['legacy-text-id-1'])
+        self.assertTrue(a.execute('SELECT has_active_clinical_access()').fetchone()[0])
+        created = a.execute("""INSERT INTO public.consultation_history(id,professional_id,user_id,fields,clinical_text)
+          VALUES ('synthetic-new-A','professional-a','00000000-0000-4000-8000-000000000001','{"queixa_principal":"Synthetic"}','synthetic clinical draft')
+          RETURNING organization_id""").fetchone()[0]
+        self.assertEqual(str(created), ORG_A)
+        a.execute("UPDATE public.consultation_history SET clinical_text='synthetic revised' WHERE id='synthetic-new-A'")
+        self.assertEqual(a.execute("SELECT clinical_text FROM public.consultation_history WHERE id='synthetic-new-A'").fetchone()[0], 'synthetic revised')
+        self.assertEqual(self.admin.execute("SELECT count(*) FROM public.consultation_history WHERE id='synthetic-new-A' AND organization_id=%s AND user_id=%s", (ORG_A,'00000000-0000-4000-8000-000000000001')).fetchone()[0], 1)
+
+    def test_foreign_read_and_update_are_filtered_by_rls(self):
+        a = self.doctor('1')
+        b = self.doctor('2')
+        self.assertEqual(a.execute("SELECT count(*) FROM public.consultation_history WHERE id='legacy-text-id-2'").fetchone()[0], 0)
+        self.assertEqual(b.execute("SELECT count(*) FROM public.consultation_history WHERE id='legacy-text-id-1'").fetchone()[0], 0)
+        self.assertEqual(a.execute("UPDATE public.consultation_history SET clinical_text='bad' WHERE id='legacy-text-id-2' RETURNING id").fetchall(), [])
+        self.assertEqual(self.admin.execute("SELECT clinical_text FROM public.consultation_history WHERE id='legacy-text-id-2'").fetchone()[0], 'synthetic-ambiguous')
+
+    def test_unprivileged_admin_and_anonymous_have_no_assistential_access(self):
+        admin = self.doctor('3')
+        self.assertFalse(admin.execute('SELECT has_active_clinical_access()').fetchone()[0])
+        self.assertEqual(admin.execute('SELECT id FROM public.consultation_history').fetchall(), [])
+        with self.assertRaises(psycopg.Error):
+            admin.execute("INSERT INTO public.consultation_history(id,user_id,clinical_text) VALUES ('bad-admin','00000000-0000-4000-8000-000000000003','synthetic')")
+        anonymous = self.actor()
+        with self.assertRaises(psycopg.Error):
+            anonymous.execute('SELECT id FROM public.consultation_history')
+
+    def test_no_clinical_slot_denies_read_and_write(self):
+        self.admin.execute("UPDATE public.profiles SET clinical_access=false WHERE id='00000000-0000-4000-8000-000000000002'")
+        b = self.doctor('2')
+        self.assertFalse(b.execute('SELECT has_active_clinical_access()').fetchone()[0])
+        self.assertEqual(b.execute('SELECT id FROM public.consultation_history').fetchall(), [])
+        with self.assertRaises(psycopg.Error):
+            b.execute("INSERT INTO public.consultation_history(id,user_id,clinical_text) VALUES ('bad-no-slot','00000000-0000-4000-8000-000000000002','synthetic')")
+
+    def test_revocation_invalidates_existing_role_context(self):
+        a = self.doctor('1')
+        self.assertEqual(a.execute("SELECT count(*) FROM public.consultation_history WHERE id='legacy-text-id-1'").fetchone()[0], 1)
+        self.admin.execute("UPDATE public.organization_memberships SET status='revoked',revoked_at=now() WHERE user_id='00000000-0000-4000-8000-000000000001' AND organization_id=%s", (ORG_A,))
+        self.assertEqual(a.execute('SELECT id FROM public.consultation_history').fetchall(), [])
+        self.assertEqual(a.execute("UPDATE public.consultation_history SET clinical_text='bad' WHERE id='legacy-text-id-1' RETURNING id").fetchall(), [])
+        with self.assertRaises(psycopg.Error):
+            a.execute("INSERT INTO public.consultation_history(id,user_id,clinical_text) VALUES ('bad-revoked','00000000-0000-4000-8000-000000000001','synthetic')")
+
+    def test_identity_and_organization_cannot_be_reassigned(self):
+        self.admin.execute("INSERT INTO public.organization_memberships(organization_id,user_id,roles,status,activated_at) VALUES ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001',ARRAY['clinician'],'active',now())")
+        a = self.doctor('1')
+        with self.assertRaises(psycopg.Error):
+            a.execute("UPDATE public.consultation_history SET organization_id='40000000-0000-4000-8000-000000000002' WHERE id='legacy-text-id-1'")
+        self.assertEqual(str(self.admin.execute("SELECT organization_id FROM public.consultation_history WHERE id='legacy-text-id-1'").fetchone()[0]), ORG_A)
+
+    def test_owner_delete_and_identity_fields_follow_real_policy(self):
+        a = self.doctor('1')
+        a.execute("""INSERT INTO public.consultation_history(id,user_id,clinical_text)
+          VALUES ('synthetic-delete-A','00000000-0000-4000-8000-000000000001','synthetic')""")
+        for change in ["user_id='00000000-0000-4000-8000-000000000002'",
+                       "encounter_id='10000000-0000-4000-8000-000000000099'"]:
+            with self.assertRaises(psycopg.Error):
+                a.execute("UPDATE public.consultation_history SET " + change + " WHERE id='synthetic-delete-A'")
+        self.assertEqual(a.execute("DELETE FROM public.consultation_history WHERE id='synthetic-delete-A' RETURNING id").fetchall(), [('synthetic-delete-A',)])
+        self.assertEqual(self.admin.execute("SELECT count(*) FROM public.consultation_history WHERE id='synthetic-delete-A'").fetchone()[0], 0)
 
 
 if __name__ == '__main__':
