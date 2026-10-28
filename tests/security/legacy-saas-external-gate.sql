@@ -11,6 +11,10 @@ DECLARE
 BEGIN
  SELECT * INTO v_evidence FROM private.nexa_historical_evidence
    WHERE entity_id='legacy-text-id-1' LIMIT 1;
+ IF has_function_privilege('authenticated','private.nexa_apply_verified_legacy_mapping()','EXECUTE')
+    OR has_function_privilege('anon','private.nexa_apply_verified_legacy_mapping()','EXECUTE') THEN
+   RAISE EXCEPTION 'client role can invoke historical backfill';
+ END IF;
  SELECT jsonb_build_object('consultations',(SELECT count(*) FROM public.consultation_history),
    'audit',(SELECT count(*) FROM public.audit_cases),'core',(SELECT count(*) FROM public.nexa_core_cases),
    'clinical_digest',(SELECT md5(string_agg(id||':'||clinical_text,'|' ORDER BY id)) FROM public.consultation_history))
@@ -25,6 +29,13 @@ BEGIN
    VALUES (v_evidence.id,'submitted',v_evidence.issuer,repeat('0',64),'institutional_registry',
            'synthetic-source','synthetic-proof',v_evidence.verified_by);
    RAISE EXCEPTION 'mismatched document hash accepted';
+ EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
+ BEGIN
+   INSERT INTO private.nexa_external_issuer_proof_events(
+     evidence_id,event_kind,claimed_issuer_identity,document_sha256,method,source_reference,proof_reference,recorded_by)
+   VALUES (v_evidence.id,'submitted','wrong-issuer',v_evidence.document_sha256,
+           'institutional_registry','synthetic-source','synthetic-proof',v_evidence.verified_by);
+   RAISE EXCEPTION 'mismatched issuer identity accepted';
  EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
  INSERT INTO private.nexa_external_issuer_proof_events(
    evidence_id,event_kind,claimed_issuer_identity,document_sha256,method,source_reference,proof_reference,recorded_by)
