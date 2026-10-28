@@ -19,10 +19,12 @@ CREATE TEMP TABLE baseline AS SELECT
 \ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
 \ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
 \ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
+\ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
 -- Repeat both migrations: idempotency must hold.
 \ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
 \ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
 \ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
+\ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
 DO $nexa_test$
 BEGIN
  IF (SELECT count(*) FROM public.consultation_history)<>(SELECT consultations FROM baseline)
@@ -78,6 +80,13 @@ INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_
 SELECT e.id,e.organization_id,'00000000-0000-4000-8000-000000000001',
  '00000000-0000-4000-8000-000000000003','approved','synthetic independent approval'
 FROM private.nexa_historical_evidence e;
+-- Synthetic issuer verification records: only test data, never a claim of real provenance.
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,
+ proof_reference,document_sha256,verifier_id,outcome)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-fixture-source',
+ 'synthetic-fixture-proof',document_sha256,'00000000-0000-4000-8000-000000000003','valid'
+FROM private.nexa_historical_evidence;
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
 DO $nexa_test$
 BEGIN
