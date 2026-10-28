@@ -47,6 +47,18 @@ BEGIN
    AND e.collected_by <> e.verified_by
    AND e.collected_by <> e.source_authenticated_by
    AND e.collected_by <> e.integrity_verified_by
+   AND EXISTS (
+     SELECT 1 FROM private.nexa_evidence_source_verifications sv
+     WHERE sv.evidence_id=e.id AND sv.issuer_organization_id=e.organization_id
+       AND sv.issuer_identity=e.issuer AND sv.document_sha256=e.document_sha256
+       AND sv.outcome='valid'
+       AND sv.verifier_id<>e.collected_by
+       AND NOT EXISTS (
+         SELECT 1 FROM private.nexa_evidence_source_verifications later
+         WHERE later.evidence_id=sv.evidence_id
+           AND (later.verified_at,later.id)>(sv.verified_at,sv.id)
+       )
+   )
    AND e.organization_id = d.organization_id
    AND d.organization_id=e.organization_id AND d.decision='approved'
    AND d.proposer_id<>d.approver_id
