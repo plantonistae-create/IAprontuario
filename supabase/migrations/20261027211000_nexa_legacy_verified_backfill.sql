@@ -19,6 +19,12 @@ AS $$
 DECLARE
  v_count bigint;
 BEGIN
+ -- Waiting for a writer cannot refresh a REPEATABLE READ transaction snapshot.
+ -- Require fresh statement snapshots after acquiring the authorization locks.
+ IF current_setting('transaction_isolation') <> 'read committed' THEN
+   RAISE EXCEPTION 'legacy backfill requires READ COMMITTED isolation'
+     USING ERRCODE='25001';
+ END IF;
  -- The privileged operator must hold a stable lock for the entire validation and update.
  LOCK TABLE private.nexa_legacy_tenant_mapping IN SHARE ROW EXCLUSIVE MODE;
  LOCK TABLE public.organization_memberships IN SHARE MODE;

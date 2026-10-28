@@ -136,6 +136,29 @@ class Concurrency(unittest.TestCase):
         self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 0)
         self.assertEqual(self.snapshot(), self.baseline)
 
+    def test_repeatable_read_snapshot_cannot_bypass_revocation(self):
+        stale = self.connect()
+        stale.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+        stale.execute(EVIDENCE).fetchall()  # Establish snapshot before the competing commit.
+        self.db.execute("UPDATE private.nexa_historical_evidence SET status='revoked' WHERE entity_id='legacy-text-id-1'")
+        with self.assertRaises(psycopg.Error):
+            stale.execute(APPLY).fetchall()
+        stale.rollback()
+        self.assertIsNone(self.owner())
+
+    def test_failure_after_clinical_update_rolls_back_and_retries(self):
+        self.db.execute("""CREATE FUNCTION private.synthetic_fail_final_step() RETURNS trigger
+          LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic final-step interruption'; END $$""")
+        self.db.execute("""CREATE TRIGGER synthetic_final_step_failure BEFORE UPDATE
+          ON private.nexa_legacy_tenant_mapping FOR EACH ROW EXECUTE FUNCTION private.synthetic_fail_final_step()""")
+        with self.assertRaisesRegex(psycopg.Error, 'synthetic final-step interruption'):
+            self.db.execute(APPLY).fetchall()
+        self.assertIsNone(self.owner(), 'Partial update survived statement rollback')
+        self.assertEqual(self.snapshot(), self.baseline)
+        self.db.execute('DROP TRIGGER synthetic_final_step_failure ON private.nexa_legacy_tenant_mapping')
+        self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 1)
+        self.assertEqual(sum(row[1] for row in self.db.execute(APPLY)), 0)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
