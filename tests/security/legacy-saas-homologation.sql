@@ -155,6 +155,9 @@ INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_
 SELECT id,organization_id,'00000000-0000-4000-8000-000000000002',
  '00000000-0000-4000-8000-000000000003','approved','synthetic second approval'
 FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
+INSERT INTO private.nexa_evidence_source_verifications(evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,document_sha256,verifier_id,outcome)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-second-source','synthetic-second-proof',document_sha256,'00000000-0000-4000-8000-000000000003','valid'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
 SELECT * FROM private.nexa_apply_verified_legacy_mapping();
 DO $nexa_test$
 BEGIN
