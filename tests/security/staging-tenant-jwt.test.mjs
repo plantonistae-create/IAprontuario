@@ -196,14 +196,18 @@ test('anonymous requests cannot invoke privileged RPCs or read synthetic audit c
   else assert.deepEqual(audit.data,[],'Anonymous synthetic audit exposure');
 });
 
-test('RLS hides foreign audit and Core cases from reviewer B and unaffiliated user',async()=>{
+test('Data API denies foreign audit and Core reads for reviewer B and unaffiliated user',async()=>{
+  // Staging deliberately exposes audit review through RPCs, not direct table grants.
+  // Both an explicit privilege denial and RLS-filtered empty rows preserve isolation.
+  const hidden=(result,label)=>{
+    if(result.error)assert.equal(result.error.code,'42501',label+': unexpected transport/schema error');
+    else assert.deepEqual(result.data,[],label+': foreign record exposed');
+  };
   for(const actor of ['reviewerB','unaffiliated']){
     const audit=await actors[actor].from('audit_cases').select('id').eq('id',fixture.auditCaseA);
-    assert.ifError(audit.error);
-    assert.deepEqual(audit.data,[],actor+' saw foreign audit case');
+    hidden(audit,actor+' audit');
     const core=await actors[actor].from('nexa_core_cases').select('id').eq('audit_case_id',fixture.auditCaseA);
-    assert.ifError(core.error);
-    assert.deepEqual(core.data,[],actor+' saw foreign Core case');
+    hidden(core,actor+' Core');
   }
 });
 
