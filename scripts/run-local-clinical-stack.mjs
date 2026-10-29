@@ -1,5 +1,5 @@
 /** One command, one disposable native Supabase stack. No hosted connection. */
-import {cpSync,existsSync,mkdtempSync,mkdirSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
+import {chmodSync,cpSync,existsSync,mkdtempSync,mkdirSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
@@ -11,6 +11,9 @@ for(const key of ['SUPABASE_ACCESS_TOKEN','NEXA_STAGING_DB_URL','NEXA_STAGING_SE
  if(process.env[key])throw new Error('Hosted credential is forbidden in local stack runner');
 const id=randomBytes(4).toString('hex');
 const workdir=mkdtempSync(`/tmp/nexa-pr92-stack-${id}-`);
+// The native Linux Edge process may run under a separate unprivileged user.
+// Only source files are world-readable; status and fixture files remain 0600.
+chmodSync(workdir,0o755);
 const home=process.env.NEXA_LOCAL_STACK_HOME||mkdtempSync(`/tmp/nexa-pr92-home-${id}-`);
 if(!home.startsWith('/tmp/'))throw new Error('Native stack home must be under /tmp');
 const stack=`nexa-pr92-${id}`;
@@ -36,8 +39,10 @@ function nativePsql(){
 }
 let started=false,destroyed=false;
 try{
- mkdirSync(join(workdir,'supabase','functions'),{recursive:true});
+ mkdirSync(join(workdir,'supabase'),{recursive:true});
  cpSync(join(root,'supabase','functions'),join(workdir,'supabase','functions'),{recursive:true});
+ if(!existsSync(join(workdir,'supabase/functions/core-dataset-export/index.ts')))
+  throw new Error('Local Edge entrypoint was not copied');
  cliCall(['start','--stack',stack,'--runtime','native','--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;
@@ -51,9 +56,20 @@ try{
  command(psql,['-X','-v','ON_ERROR_STOP=1','-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv);
  console.log('Disposable local Auth, REST, Edge and SQL contracts ready');
  command(process.execPath,['--test','tests/security/isolated-clinical-target.test.mjs'],cliEnv,true);
- command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{
+ try{command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{
   ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql,
-  NEXA_LOCAL_FIXTURE_FILE:`/tmp/nexa-isolated-clinical-${id}.json`},true);
+  NEXA_LOCAL_FIXTURE_FILE:`/tmp/nexa-isolated-clinical-${id}.json`},true);}
+ catch(error){
+  try{
+   const entries=JSON.parse(cliCall(['logs','--stack',stack,'--service','functions','--tail','40']));
+   for(const event of entries.slice(-15)){
+    const line=String(event.line||'');
+    if(/worker boot error|module not found|serving functions|function not found|permission denied/i.test(line))
+     console.error('Local Edge diagnostic:',line.slice(0,300));
+   }
+  }catch{}
+  throw error;
+ }
  console.log('Local clinical integration and independent cleanup passed');
 }finally{
  try{cliCall(['destroy','--stack',stack,'--yes']);destroyed=true;}
