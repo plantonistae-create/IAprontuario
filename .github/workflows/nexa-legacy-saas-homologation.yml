@@ -1,0 +1,57 @@
+name: NEXA Legacy SaaS PostgreSQL Homologation
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql'
+      - 'supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql'
+      - 'supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql'
+      - 'supabase/migrations/20261027221000_nexa_evidence_source_verification.sql'
+      - 'supabase/migrations/20261028191521_nexa_external_issuer_activation_gate.sql'
+      - 'tests/security/legacy-saas-*.sql'
+      - 'tests/security/legacy-saas-concurrency.py'
+      - 'tests/security/clinical-positive-schema.sql'
+      - '.github/workflows/nexa-legacy-saas-homologation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  legacy-saas-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: synthetic-only-password
+          POSTGRES_DB: nexa_legacy_synthetic
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexa_legacy_synthetic"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only-password
+      PGDATABASE: nexa_legacy_synthetic
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Run real isolated PostgreSQL legacy migration twice and verify backfill
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-schema.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-homologation.sql
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independent PostgreSQL concurrency sessions
+        run: |
+          python -m pip install 'psycopg[binary]==3.2.6'
+          python tests/security/legacy-saas-concurrency.py
+      - name: Keep historical association disabled without authenticated issuer proof
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-external-gate.sql
+      - name: Verify no clinical data or staging credentials were used
+        run: |
+          test "$PGDATABASE" = "nexa_legacy_synthetic"
+          test "$PGHOST" = "127.0.0.1"

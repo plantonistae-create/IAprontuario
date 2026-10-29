@@ -126,3 +126,82 @@ jobs:
           NEXA_STAGING_EMAIL: ${{ secrets.NEXA_STAGING_EMAIL }}
           NEXA_STAGING_PASSWORD: ${{ secrets.NEXA_STAGING_PASSWORD }}
         run: npm run test:staging-auth
+
+  tenant-staging-real-jwt:
+    # Never expose administrative secrets to pull_request or untrusted actors.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'plantonistae-create/IAprontuario' &&
+      github.ref == 'refs/heads/security/tenant-auth-contract-tests-20261027' &&
+      github.actor == 'plantonistae-create'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: nexa-phase1-staging-tenant-tests
+    permissions:
+      contents: read
+    concurrency:
+      group: nexa-tenant-staging-fixtures
+      cancel-in-progress: false
+    env:
+      NEXA_STAGING_URL: https://phaitiijsjwrggdnoxiz.supabase.co
+      NEXA_TENANT_STAGING_ACK: phaitiijsjwrggdnoxiz
+      NEXA_STAGING_SERVICE_ROLE_KEY: ${{ secrets.NEXA_STAGING_SERVICE_ROLE_KEY }}
+      NEXA_STAGING_DB_URL: ${{ secrets.NEXA_STAGING_DB_URL }}
+      NEXA_STAGING_PUBLISHABLE_KEY: ${{ secrets.NEXA_STAGING_PUBLISHABLE_KEY }}
+      NEXA_TENANT_FIXTURE_OUTPUT: /tmp/nexa-tenant-fixtures.json
+    steps:
+      - name: Checkout trusted staging branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client >/dev/null
+          fi
+      - name: Verify environment, install deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEXA_STAGING_SERVICE_ROLE_KEY" || { echo 'Missing staging Auth Admin environment secret'; exit 1; }
+          test -n "$NEXA_STAGING_DB_URL" || { echo 'Missing staging PostgreSQL environment secret'; exit 1; }
+          test -n "$NEXA_STAGING_PUBLISHABLE_KEY" || { echo 'Missing staging publishable key'; exit 1; }
+          chmod 700 "${RUNNER_TEMP}"
+          umask 077
+          npm ci --ignore-scripts
+      - name: Verify staging PostgreSQL connection contract
+        run: node --test tests/security/staging-libpq-connection.test.mjs
+      - name: Recover confirmed legacy synthetic staging run only
+        env:
+          NEXA_TENANT_ORPHAN_RUN_ID: 4b06af3b9b
+        run: |
+          set -euo pipefail
+          node --check scripts/recover-orphan-staging-tenant-fixtures.mjs
+          node scripts/recover-orphan-staging-tenant-fixtures.mjs
+      - name: Provision synthetic users, orgs and cases
+        run: node scripts/prepare-staging-tenant-fixtures.mjs
+      - name: Execute non-skippable authenticated JWT suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$NEXA_TENANT_FIXTURE_OUTPUT"
+          export NEXA_TENANT_FIXTURES_JSON="$(cat "$NEXA_TENANT_FIXTURE_OUTPUT")"
+          npm run test:tenant-staging
+          unset NEXA_TENANT_FIXTURES_JSON
+      - name: Clean all synthetic Auth and database fixtures even on failure
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f "$NEXA_TENANT_FIXTURE_OUTPUT"; then
+            node scripts/cleanup-staging-tenant-fixtures.mjs
+          else
+            echo 'No synthetic fixture manifest created'
+          fi

@@ -1,0 +1,143 @@
+/**
+ * Staging-only synthetic tenant fixtures. Requires authorized administrative
+ * Supabase Auth API and a staging PostgreSQL connection with migration rights.
+ * Writes credentials only to a local 0600 JSON file; never commits or logs them.
+ * Environment: NEXA_STAGING_URL, NEXA_STAGING_SERVICE_ROLE_KEY,
+ * NEXA_STAGING_DB_URL, NEXA_TENANT_FIXTURE_OUTPUT.
+ * Run with Node 22+, psql on PATH, and npm ci.
+ */
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync,existsSync } from 'node:fs';
+const url=process.env.NEXA_STAGING_URL??'';
+const key=process.env.NEXA_STAGING_SERVICE_ROLE_KEY??'';
+const db=process.env.NEXA_STAGING_DB_URL??'';
+const out=process.env.NEXA_TENANT_FIXTURE_OUTPUT??'/tmp/nexa-tenant-fixtures.json';
+if(process.env.NEXA_TENANT_STAGING_ACK !== 'phaitiijsjwrggdnoxiz') throw new Error('Staging safety acknowledgement required');
+if(new URL(url).origin !== 'https://phaitiijsjwrggdnoxiz.supabase.co')throw new Error('Only nexa-phase1-staging is permitted');
+if(!key||!db)throw new Error('Missing staging administrator key or database connection');
+const dbTarget=new URL(db);
+function stagingPgEnv(target){
+ const username=decodeURIComponent(target.username);
+ const hostname=target.hostname;
+ const port=target.port||'5432';
+ const database=decodeURIComponent(target.pathname.slice(1));
+ if(!username||!hostname||!database||!/^\d{2,5}$/.test(port))
+   throw new Error('Invalid staging PostgreSQL connection parameters');
+ return {...process.env,PGHOST:hostname,PGPORT:port,PGUSER:username,
+   PGPASSWORD:decodeURIComponent(target.password),PGDATABASE:database,
+   PGSSLMODE:'require',PGCONNECT_TIMEOUT:'15'};
+}
+
+if(dbTarget.hostname.endsWith('.pooler.supabase.com') && decodeURIComponent(dbTarget.username)!=='postgres.phaitiijsjwrggdnoxiz') throw new Error('Staging pooler username must be postgres.<staging-project-ref>; update the GitHub Environment database URL');
+if(!['postgres:','postgresql:'].includes(dbTarget.protocol) ||
+   !(dbTarget.hostname==='db.phaitiijsjwrggdnoxiz.supabase.co' ||
+     (dbTarget.hostname.endsWith('.pooler.supabase.com') &&
+      decodeURIComponent(dbTarget.username).endsWith('.phaitiijsjwrggdnoxiz')))){
+ throw new Error('Refusing PostgreSQL connection not uniquely tied to staging');
+}
+
+if(!out.startsWith('/tmp/') && !out.startsWith('/home/runner/work/_temp/'))throw new Error('Fixture credentials must stay in runner temp');
+try {
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--tuples-only','--command',"SELECT 1"],{
+   env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
+} catch {
+ throw new Error('Staging PostgreSQL preflight failed: verify pooler username, database password and GitHub Environment DB URL; no synthetic accounts created');
+}
+// Refuse to provision any Auth account against a schema that rejects active
+// institution-only identities. This preflight prevents another orphan run.
+const activeTenantProfileMigration='20261027184850';
+const migrationReady=execFileSync('psql',[
+  '-X','-v','ON_ERROR_STOP=1','--quiet','--no-align','--tuples-only',
+  '--command',"SELECT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='"+
+    activeTenantProfileMigration+"')"
+],{env:stagingPgEnv(dbTarget),encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+if(migrationReady!=='t') throw new Error('Required institutional-only active profile migration missing in staging; no synthetic accounts created');
+
+const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+const actorNames=['global','adminA','doctorA','doctorB','reviewerB','unaffiliated','ownerA','ownerC1','ownerC2','ownerB'];
+const runId=randomBytes(5).toString('hex');
+const actors={};
+const created=[];
+const manifest={runId,actors,organizations:{},memberships:{},synthetic:true,seeded:false};
+writeFileSync(out,JSON.stringify(manifest),{mode:0o600,flag:'wx'});
+const id=s=>{if(!/^[0-9a-f-]{36}$/i.test(s))throw new Error('Malformed UUID');return "'"+s+"'::uuid";};
+const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
+try{
+ for(const name of actorNames){
+   const email='qa-tenant-'+runId+'-'+name.toLowerCase()+'@example.invalid';
+   const password=randomBytes(30).toString('base64url');
+   const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{synthetic_fixture:true,run_id:runId}});
+   if(error||!data?.user?.id)throw new Error('Supabase Auth Admin createUser failed for '+name+': '+(error?.message??'unknown'));
+   actors[name]={id:data.user.id,email,password};created.push(data.user.id);
+   writeFileSync(out,JSON.stringify(manifest),{mode:0o600});
+ }
+ const organizations={A:randomUUID(),B:randomUUID(),C:randomUUID()};
+ const memberships={};
+ const rows=[
+  // Global platform administration and institutional audit authorization are distinct.
+  // This positive-path dataset reviewer belongs to B; no other cross-org grants.
+  ['global','B',['reviewer']],
+  ['adminA','A',['admin']],['doctorA','A',['clinician']],['ownerA','A',['owner']],
+  ['doctorB','B',['clinician']],['reviewerB','B',['reviewer']],['ownerB','B',['owner']],
+  ['ownerC1','C',['owner']],['ownerC2','C',['owner']]
+ ];
+ const orgSql=Object.entries(organizations).map(([name,oid])=>
+  '('+id(oid)+','+literal('qa-tenant-'+runId+'-'+name.toLowerCase())+','+literal('QA Tenant '+name+' '+runId)+",'active')").join(',');
+ const memberSql=rows.map(([name,org,roles])=>{
+   memberships[name]=randomUUID();
+   return '('+[id(memberships[name]),id(organizations[org]),id(actors[name].id),
+     'ARRAY['+roles.map(literal).join(',')+']::text[]',"'active'","now()"].join(',')+')';
+ }).join(',');
+ const auditCaseA=randomUUID(), auditCaseB=randomUUID();
+ const coreCaseA=randomUUID(), coreCaseB=randomUUID();
+ const caseSQL=[
+  '('+[id(auditCaseA),id(randomUUID()),id(actors.doctorA.id),"'{}'::jsonb","'approved'",id(organizations.A)].join(',')+')',
+  '('+[id(auditCaseB),id(randomUUID()),id(actors.doctorB.id),"'{}'::jsonb","'approved'",id(organizations.B)].join(',')+')'
+ ].join(',');
+ const coreSQL=[
+  '('+[id(coreCaseA),id(auditCaseA),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.A)].join(',')+')',
+  '('+[id(coreCaseB),id(auditCaseB),"'approved'","'{\"synthetic\":true}'::jsonb","now()",id(organizations.B)].join(',')+')'
+ ].join(',');
+ const ids=Object.values(actors).map(x=>id(x.id)).join(',');
+ const fixture={...manifest,organizations,memberships,auditCaseA,auditCaseB};
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
+ const sql=`BEGIN;
+  SELECT set_config('nexa.access_change_reason','synthetic authorization integration test setup',true);
+  -- Reserved clinical_slots are already full: do not consume/reassign clinical slots.
+  -- Only RPC permissions (membership + active profile) are under this test.
+  UPDATE public.profiles SET access_status='active',
+    is_admin=(id=${id(actors.global.id)}), is_reviewer=(id=${id(actors.reviewerB.id)}),
+    clinical_access=false WHERE id IN (${ids});
+  INSERT INTO public.organizations(id,slug,display_name,status) VALUES ${orgSql};
+  INSERT INTO public.organization_memberships(id,organization_id,user_id,roles,status,activated_at) VALUES ${memberSql};
+  -- Remove default personal membership of the unlinked test actor only.
+  UPDATE public.organization_memberships SET status='revoked',revoked_at=now()
+    WHERE user_id=${id(actors.unaffiliated.id)} AND organization_id NOT IN (${Object.values(organizations).map(id).join(',')});
+  INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by,deidentified_fields,status,organization_id) VALUES ${caseSQL};
+  INSERT INTO public.nexa_core_cases(id,audit_case_id,quality_status,case_data,audit_reviewed_at,organization_id) VALUES ${coreSQL};
+  COMMIT;`;
+ execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','--quiet','--command',sql],{env:stagingPgEnv(dbTarget),stdio:['ignore','pipe','pipe']});
+ fixture.seeded=true;
+ writeFileSync(out,JSON.stringify(fixture),{mode:0o600});
+ console.log('Synthetic staging fixture created; credentials stored only in '+out);
+}catch(error){
+ // Failed bootstrap must not silently leave orphaned Auth users.
+ // If Auth creation failed before the cleanup manifest, remove partial users.
+ // Every created user was flushed to an owner-verified cleanup manifest.
+ // The workflow's always() teardown handles partial Auth bootstrap as well.
+ const raw=String(error?.stderr??'');
+ const sqlstate=raw.match(/(?:^|\\n)(?:psql:[^\\n]*?:\\s*)?(?:ERROR|FATAL):\\s+([0-9A-Z]{5}):/m)?.[1]??'unavailable';
+ const safe=raw.match(/ERROR:\\s+([^\\n\\r]+)/)?.[1]??'unclassified database or Auth error';
+ const category=/duplicate key|unique constraint/i.test(safe)?'duplicate fixture key':
+   /foreign key constraint/i.test(safe)?'foreign key constraint':
+   /null value|not-null constraint/i.test(safe)?'missing required schema field':
+   /permission denied|row-level security/i.test(safe)?'database permission':
+   /invalid input value for enum|check constraint/i.test(safe)?'schema value constraint':
+   /relation .* does not exist|column .* does not exist/i.test(safe)?'schema mismatch':
+   /password authentication failed/i.test(safe)?'database authentication':
+   /unclassified database or Auth error/.test(safe)?'Auth or unknown database error':'database constraint or trigger';
+ console.error('Fixture bootstrap stage: '+(created.length===actorNames.length?'database seed':'Auth account provisioning')+'; failure class: '+category+'; SQLSTATE: '+sqlstate+'; cleanup required.');
+ throw new Error('Fixture bootstrap failed ('+category+'); synthetic runner cleanup is mandatory.');
+}
