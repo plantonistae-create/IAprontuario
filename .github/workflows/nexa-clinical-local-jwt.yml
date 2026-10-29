@@ -1,0 +1,24 @@
+name: NEXA Isolated Clinical JWT
+on:
+  pull_request:
+    paths:
+      - 'scripts/isolated-clinical-*.mjs'
+      - 'scripts/run-local-clinical-*.mjs'
+      - 'tests/security/isolated-clinical-*'
+      - 'supabase/functions/core-dataset-export/**'
+      - '.github/workflows/nexa-clinical-local-jwt.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-auth-edge-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Run disposable native Supabase Auth, REST, RLS and Edge integration
+        run: node scripts/run-local-clinical-stack.mjs
