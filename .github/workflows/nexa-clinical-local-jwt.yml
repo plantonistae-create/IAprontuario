@@ -20,5 +20,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
-      - name: Run disposable native Supabase Auth, REST, RLS and Edge integration
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Run disposable Supabase Auth, REST, RLS and Edge integration
         run: node scripts/run-local-clinical-stack.mjs
