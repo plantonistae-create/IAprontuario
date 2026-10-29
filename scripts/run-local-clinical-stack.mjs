@@ -17,6 +17,9 @@ chmodSync(workdir,0o755);
 const home=process.env.NEXA_LOCAL_STACK_HOME||mkdtempSync(`/tmp/nexa-pr92-home-${id}-`);
 if(!home.startsWith('/tmp/'))throw new Error('Native stack home must be under /tmp');
 const stack=`nexa-pr92-${id}`;
+const runtime=process.env.NEXA_LOCAL_STACK_RUNTIME||
+ (process.env.GITHUB_ACTIONS==='true'?'docker':'native');
+if(!['native','docker'].includes(runtime))throw new Error('Local stack runtime must be native or docker');
 const cliEnv={...process.env,SUPABASE_EXPERIMENTAL_STACK:'1',SUPABASE_HOME:home};
 const cli=['--yes','supabase@2.122.0','--workdir',workdir,'--experimental','stack'];
 function command(bin,args,env=cliEnv,inherit=false,timeout=600000){
@@ -45,7 +48,7 @@ try{
   throw new Error('Local Edge entrypoint was not copied');
  writeFileSync(join(workdir,'supabase/config.toml'),
   '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n');
- cliCall(['start','--stack',stack,'--runtime','native','--preparation','on-demand',
+ cliCall(['start','--stack',stack,'--runtime',runtime,'--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;
  const status=JSON.parse(cliCall(['status','--stack',stack,'--env','--output-format','json']));
@@ -56,7 +59,7 @@ try{
   PGPASSWORD:decodeURIComponent(db.password),PGDATABASE:db.pathname.slice(1),PGSSLMODE:'disable'};
  const psql=nativePsql();
  command(psql,['-X','-v','ON_ERROR_STOP=1','-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv);
- console.log('Disposable local Auth, REST, Edge and SQL contracts ready');
+ console.log(`Disposable ${runtime} Auth, REST, Edge and SQL contracts ready`);
  command(process.execPath,['--test','tests/security/isolated-clinical-target.test.mjs'],cliEnv,true);
  try{command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{
   ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql,

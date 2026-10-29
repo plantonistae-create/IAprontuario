@@ -6,15 +6,15 @@ Run from the repository root with Node 22 and `npm ci --ignore-scripts`:
 node scripts/run-local-clinical-stack.mjs
 ```
 
-The runner pins Supabase CLI 2.122.0 and starts its experimental **native** stack
-in a new `/tmp/nexa-pr92-stack-*` project. It copies the repository Edge Function
+The runner pins Supabase CLI 2.122.0 and starts an experimental local stack in
+a new `/tmp/nexa-pr92-stack-*` project. It copies the repository Edge Function
 sources into that temporary project, applies
 `tests/security/isolated-clinical-local-schema.sql`, runs the target guard and
 real-JWT integration suites, checks the database for zero synthetic residues,
-then destroys the stack. The native runtime supports macOS Apple Silicon and
-Linux; no Docker or hosted Supabase account is used. The temporary status JSON
-and fixture manifest have mode 0600. `NEXA_LOCAL_STACK_HOME` may point to a
-dedicated `/tmp` directory to reuse downloaded runtime artifacts.
+then destroys the stack. Local macOS uses the native runtime without Docker;
+Actions uses Docker. Neither mode uses a hosted Supabase account. The temporary
+status JSON and fixture manifest have mode 0600. `NEXA_LOCAL_STACK_HOME` may
+point to a dedicated `/tmp` directory to reuse downloaded runtime artifacts.
 
 The runner refuses `SUPABASE_ACCESS_TOKEN` and the staging DB/service-role
 variables. The target validator rejects the staging and production project
@@ -81,5 +81,8 @@ with the same `NEXA_LOCAL_STATUS_JSON`, `NEXA_LOCAL_PSQL_BIN` and
 cleanup verifies Auth metadata and exact synthetic IDs before deletion.
 
 The optional GitHub Actions workflow `nexa-clinical-local-jwt.yml` runs this
-same local command with no staging or production secrets. A green local run is
+same local command with no staging or production secrets. GitHub-hosted runners
+use the Docker runtime, which Supabase recommends where an engine is available;
+the local macOS command keeps the native runtime. `NEXA_LOCAL_STACK_RUNTIME`
+accepts only `native` or `docker` for an explicit override. A green local run is
 not permission to merge, migrate or deploy.
