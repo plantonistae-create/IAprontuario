@@ -22,10 +22,19 @@ const runtime=process.env.NEXA_LOCAL_STACK_RUNTIME||
 if(!['native','docker'].includes(runtime))throw new Error('Local stack runtime must be native or docker');
 const cliEnv={...process.env,SUPABASE_EXPERIMENTAL_STACK:'1',SUPABASE_HOME:home};
 const cli=['--yes','supabase@2.122.0','--workdir',workdir,'--experimental','stack'];
-function command(bin,args,env=cliEnv,inherit=false,timeout=600000){
+function command(bin,args,env=cliEnv,inherit=false,timeout=600000,diagnostic=false){
  const r=spawnSync(bin,args,{cwd:root,env,encoding:'utf8',stdio:inherit?'inherit':['ignore','pipe','pipe'],
   timeout,maxBuffer:8*1024*1024});
- if(r.error||r.status!==0)throw new Error(`Local stack command failed (${r.status??r.error?.code})`);
+ if(r.error||r.status!==0){
+  if(diagnostic){
+   const safe=String(r.stderr||'').replace(/postgres(?:ql)?:\/\/\S+/gi,'[redacted-db-url]')
+    .replace(/eyJ[A-Za-z0-9._-]{40,}/g,'[redacted-jwt]')
+    .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g,'[redacted-key]')
+    .trim().split('\n').slice(-24).join('\n');
+   if(safe)console.error('Local schema diagnostic:\n'+safe);
+  }
+  throw new Error(`Local stack command failed (${r.status??r.error?.code})`);
+ }
  return r.stdout||'';
 }
 function cliCall(args){return command('npx',[...cli,...args]);}
@@ -59,7 +68,7 @@ try{
  const pgEnv={...cliEnv,PGHOST:db.hostname,PGPORT:db.port,PGUSER:decodeURIComponent(db.username),
   PGPASSWORD:decodeURIComponent(db.password),PGDATABASE:db.pathname.slice(1),PGSSLMODE:'disable'};
  const psql=nativePsql();
- command(psql,['-X','-v','ON_ERROR_STOP=1','-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv);
+ command(psql,['-X','-v','ON_ERROR_STOP=1','-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv,false,600000,true);
  console.log(`Disposable ${runtime} Auth, REST, Edge and SQL contracts ready`);
  command(process.execPath,['--test','tests/security/isolated-clinical-target.test.mjs'],cliEnv,true);
  try{command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{
