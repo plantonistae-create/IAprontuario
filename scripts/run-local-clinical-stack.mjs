@@ -31,6 +31,7 @@ function command(bin,args,env=cliEnv,inherit=false,timeout=600000){
 function cliCall(args){return command('npx',[...cli,...args]);}
 function nativePsql(){
  if(process.env.NEXA_LOCAL_PSQL_BIN)return process.env.NEXA_LOCAL_PSQL_BIN;
+ if(runtime==='docker')return 'psql';
  const base=join(home,'cache','stack','slim-services','postgres');
  for(const version of readdirSync(base).reverse())
   for(const platform of readdirSync(join(base,version)))
