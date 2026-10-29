@@ -68,7 +68,16 @@ try{
  const pgEnv={...cliEnv,PGHOST:db.hostname,PGPORT:db.port,PGUSER:decodeURIComponent(db.username),
   PGPASSWORD:decodeURIComponent(db.password),PGDATABASE:db.pathname.slice(1),PGSSLMODE:'disable'};
  const psql=nativePsql();
- command(psql,['-X','-v','ON_ERROR_STOP=1','-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv,false,600000,true);
+ command(psql,['-X','-v','ON_ERROR_STOP=1',
+  '--command',`CREATE TEMP TABLE nexa_local_stack_guard(runtime text PRIMARY KEY); INSERT INTO nexa_local_stack_guard VALUES ('${runtime}')`,
+  '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv,false,600000,true);
+ const unguarded=spawnSync(psql,['-X','-v','ON_ERROR_STOP=1',
+  '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],{
+  cwd:root,env:pgEnv,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:600000,maxBuffer:1024*1024});
+ if(unguarded.error||unguarded.status===0||
+    !String(unguarded.stderr).includes('Disposable local stack marker required'))
+  throw new Error('Standalone schema application did not fail closed on its missing session marker');
+ console.log('Standalone schema application without the session marker was rejected');
  console.log(`Disposable ${runtime} Auth, REST, Edge and SQL contracts ready`);
  command(process.execPath,['--test','tests/security/isolated-clinical-target.test.mjs'],cliEnv,true);
  try{command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{

@@ -1,11 +1,17 @@
 \set ON_ERROR_STOP on
--- Disposable Supabase native stack only. Real Auth and auth.uid() already exist.
+-- Disposable Supabase native or Docker stack only. Real Auth and auth.uid() already exist.
 DO $$ BEGIN
- -- The native stack proxies loopback TCP to PostgreSQL over a Unix socket;
- -- inet_server_addr() is NULL inside that backend.
- IF inet_server_addr() IS NOT NULL AND inet_server_addr()<>'127.0.0.1'::inet THEN
-  RAISE EXCEPTION 'Loopback PostgreSQL required';
- END IF;
+ -- The runner validates the external DB URL as literal 127.0.0.1. Native
+ -- Postgres reports NULL/loopback here; Docker reports its private bridge IP.
+ -- Require an explicit same-session temporary marker instead of trusting the
+ -- backend network address. A standalone psql -f invocation fails closed.
+ IF to_regclass('pg_temp.nexa_local_stack_guard') IS NULL THEN
+  RAISE EXCEPTION 'Disposable local stack marker required'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_temp.nexa_local_stack_guard
+   WHERE runtime IN ('native','docker')) THEN
+  RAISE EXCEPTION 'Invalid local stack runtime marker'; END IF;
+ IF current_user<>'postgres' OR current_database()<>'postgres' THEN
+  RAISE EXCEPTION 'Disposable postgres database required'; END IF;
  IF (SELECT count(*) FROM auth.users)<>0 THEN RAISE EXCEPTION 'Nonempty Auth project'; END IF;
 END $$;
 CREATE SCHEMA IF NOT EXISTS private;
