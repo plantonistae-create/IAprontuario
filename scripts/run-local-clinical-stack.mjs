@@ -43,6 +43,8 @@ try{
  cpSync(join(root,'supabase','functions'),join(workdir,'supabase','functions'),{recursive:true});
  if(!existsSync(join(workdir,'supabase/functions/core-dataset-export/index.ts')))
   throw new Error('Local Edge entrypoint was not copied');
+ writeFileSync(join(workdir,'supabase/config.toml'),
+  '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n');
  cliCall(['start','--stack',stack,'--runtime','native','--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;
@@ -61,9 +63,9 @@ try{
   NEXA_LOCAL_FIXTURE_FILE:`/tmp/nexa-isolated-clinical-${id}.json`},true);}
  catch(error){
   try{
-   const entries=JSON.parse(cliCall(['logs','--stack',stack,'--service','functions','--tail','40']));
-   for(const event of entries.slice(-15)){
-    const line=String(event.line||'');
+   const raw=cliCall(['logs','--stack',stack,'--service','functions','--tail','40','--output-format','stream-json']);
+   for(const row of raw.trim().split('\n').slice(-20)){
+    const event=JSON.parse(row),line=String(event.line||'');
     if(/worker boot error|module not found|serving functions|function not found|permission denied/i.test(line))
      console.error('Local Edge diagnostic:',line.slice(0,300));
    }
