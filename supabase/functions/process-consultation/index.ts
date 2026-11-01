@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
+import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1130,6 +1131,8 @@ async function openAIResponse(
   const response =
     await resp.json();
 
+  emitUsage(name === "clinical_documentation" ? "clinical.documentation" : "clinical.assistance", model, response.usage);
+
 
   const text =
     extractResponseText(
@@ -1267,6 +1270,8 @@ async function processOpenAI(
 
   const transcriptionData =
     await tr.json();
+
+  emitUsage("final.transcription", transcribeModel, transcriptionData.usage);
 
 
   transcript =

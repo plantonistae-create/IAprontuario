@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from '../_shared/nexa-ai-capability.mjs';
 import { createCoreRadarRequest, requestCoreRadar } from '../_shared/nexa-core-radar-adapter.mjs';
 import { buildRadarEvidencePlan } from '../_shared/nexa-radar-evidence-library.mjs';
+import { emitUsage } from '../_shared/nexa-ai-usage.mjs';
 import catalog from './concepts.json' with { type: 'json' };
 import { schema, validate, validateObservations, outputText, authorized } from './contract.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
@@ -61,7 +62,9 @@ Deno.serve(async(req:Request)=>{
     }
     const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(18000),body:JSON.stringify({model,store:false,reasoning:{effort:'low'},input:[{role:'system',content:instructions},{role:'user',content:input}],text:{format:{type:'json_schema',name:'nexa_contextual_radar',strict:true,schema:schema(catalog.map(c=>c.id))}}})});
     if(!upstream.ok)return json({error:'RADAR_AI_FAILED'},502);
-    const result=JSON.parse(outputText(await upstream.json()));
+    const providerResponse=await upstream.json();
+    emitUsage('realtime.radar',model,providerResponse.usage);
+    const result=JSON.parse(outputText(providerResponse));
     const items=validate(result,catalog.map(c=>c.id),JSON.stringify(fields)+' '+String(body.transcript||''));
     const observations=validateObservations(result,catalog.map(c=>c.id),fields,String(body.transcript||''));
     return json({items,observations,model,provider:'openai',evidence_library_version:evidencePlan.library_version,transient:true,official_record:false});
