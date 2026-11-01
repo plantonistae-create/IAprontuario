@@ -113,6 +113,12 @@ try{
  assert.equal(versions.length,3);
  assert.equal(versions.find(x=>x.id===parent.id)?.transcript_text,original);
  assert.equal(versions.find(x=>x.transcript_kind==='corrected')?.transcript_sha256,sha(corrected));
+ const sessionFile=join(workdir,'session.json');
+ writeFileSync(sessionFile,JSON.stringify({api:status.API_URL,anon:status.ANON_KEY,
+  email:emailA,password,consultation,encounter,organization:oa,owner:a.data.user.id,
+  original,corrected}),{mode:0o600});
+ const separate=call(process.execPath,['scripts/verify-transcript-new-process.mjs',sessionFile]);
+ assert.ok(separate.includes('FRESH_PROCESS_TRANSCRIPT_RECOVERY_PASS'));
  sql(`UPDATE public.profiles SET status='revoked' WHERE id=${q(a.data.user.id)}`);
  assert.equal((await read(session3)).length,0);
  sql(`DELETE FROM public.encounter_transcript_versions; DELETE FROM public.consultation_history;

@@ -4,6 +4,7 @@ on:
     paths:
       - 'index.html'
       - 'scripts/run-local-transcript-recovery.mjs'
+      - 'scripts/verify-transcript-new-process.mjs'
       - 'tests/transcript/local-transcript-schema.sql'
       - 'supabase/migrations/20261027140151_nexa_encounter_transcript_versions.sql'
       - '.github/workflows/nexa-transcript-local-recovery.yml'
