@@ -36,12 +36,21 @@ The suite checks consultation SELECT/INSERT/UPDATE/DELETE, tenant assignment,
 cross-tenant RLS, immutable `organization_id`, denials for nonclinical actors,
 anonymous denial, membership revocation with the original JWT, audit-log
 persistence, institution-scoped audit queue, and HTTP calls to the actual local
-`core-dataset-export` Edge Function. The Edge gateway rejects missing and
+`core-dataset-export` and `submit-audit-case` Edge Functions. The Edge gateway rejects missing and
 invalid JWTs; the function rejects non-admin export and rechecks an admin's
 changed `access_status` against the same token. An authorized admin reaches
 `DATASET_EXPORT_NOT_CONFIGURED` because the disposable stack intentionally has
 no export secret or approved dataset. This proves the permission gate, not a
 positive training export.
+
+For `submit-audit-case`, missing and forged JWTs fail at the gateway, actors
+without clinical capability fail with 403, malformed identifiers fail with 400,
+and a signed clinical JWT targeting a draft encounter fails with
+`SOURCE_NOT_READY` before deidentification. The database readback confirms that
+these denied calls create no audit case. The fixture reproduces the read-only
+staging definition and ACL of `get_my_capabilities`. No external model key is
+provided, so successful deidentification and positive audit insertion remain a
+separate gate.
 
 The queue fixture uses the `get_audit_queue_v2`, `private.can_audit_org` and
 `private.org_has_any_role` definitions observed read-only on staging on
@@ -64,13 +73,14 @@ definitions. The suite confirms the private evidence table exists and that
 | Revoked membership with unchanged JWT | Live membership lookup in RLS |
 | Audit queue membership | `private.can_audit_org` in privileged RPC |
 | Dataset export denial | Edge profile check, then absent export configuration |
+| Audit submission preconditions | Edge JWT, live capability RPC, payload and encounter-state checks |
 
 The private historical-evidence query is denied because `private` is not a
 Data API schema; the test does not prove authenticity of an external issuer or
 positive evidence access. The UI's “Baixar .txt” action exports the current
 client-side note text; it is not a server-side assistential export contract, so
 the JWT suite does not claim a positive assistential export. No training data
-is generated. The `submit-audit-case` function, full legacy schema,
+is generated. Positive `submit-audit-case` deidentification/insertion, the full legacy schema,
 production backup/restoration and hosted Auth/Edge behavior remain separate
 homologation gates. The PR must remain Draft.
 

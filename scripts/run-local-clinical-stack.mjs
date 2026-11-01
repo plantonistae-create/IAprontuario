@@ -56,8 +56,10 @@ try{
  cpSync(join(root,'supabase','functions'),join(workdir,'supabase','functions'),{recursive:true});
  if(!existsSync(join(workdir,'supabase/functions/core-dataset-export/index.ts')))
   throw new Error('Local Edge entrypoint was not copied');
+ if(!existsSync(join(workdir,'supabase/functions/submit-audit-case/index.ts')))
+  throw new Error('Local audit Edge entrypoint was not copied');
  writeFileSync(join(workdir,'supabase/config.toml'),
-  '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n');
+  '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n\n[functions.submit-audit-case]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/submit-audit-case/index.ts"\n');
  cliCall(['start','--stack',stack,'--runtime',runtime,'--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;

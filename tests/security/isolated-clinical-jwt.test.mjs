@@ -107,6 +107,31 @@ test('real JWTs without a clinical slot or active organization cannot read or wr
  }
  assert.equal(sql('SELECT count(*) FROM public.consultation_history'), '1');
 });
+test('submit-audit-case enforces gateway, clinical capability and source readiness before deidentification',async()=>{
+ const endpoint=target.api+'/functions/v1/submit-audit-case';
+ const origin=process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io';
+ const missing=await fetch(endpoint,{method:'POST',headers:{Origin:origin},signal:AbortSignal.timeout(20000)});
+ assert.equal(missing.status,401,'submit-audit-case gateway accepted missing JWT');
+ const forged=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer invalid.jwt.signature',Origin:origin},signal:AbortSignal.timeout(20000)});
+ assert.equal(forged.status,401,'submit-audit-case gateway accepted invalid JWT');
+ for(const name of ['doctorNoAccess','adminA','reviewerB','revokedUser','noOrg']){
+  const response=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+   Authorization:'Bearer '+tokens[name],Origin:origin,'Content-Type':'application/json'},
+   body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+  assert.equal(response.status,403,name+' reached audit submission without clinical capability');
+  assert.equal((await response.json()).error,'CLINICAL_ACCESS_REQUIRED');
+ }
+ const invalid=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:'not-a-uuid'}),signal:AbortSignal.timeout(20000)});
+ assert.equal(invalid.status,400);assert.equal((await invalid.json()).error,'INVALID_PAYLOAD');
+ const draft=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+ assert.equal(draft.status,409);assert.equal((await draft.json()).error,'SOURCE_NOT_READY');
+ assert.equal(sql('SELECT count(*) FROM public.audit_cases'),'2','Denied submissions created audit rows');
+});
 test('revoked membership blocks the same previously issued JWT',async()=>{
  const actor=fixture.actors.doctorB.id,org=fixture.organizations.B;
  const before=await clients.doctorB.from('consultation_history').select('id').eq('id',ids.B);

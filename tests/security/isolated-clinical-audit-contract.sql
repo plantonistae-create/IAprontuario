@@ -13,6 +13,19 @@ ALTER TABLE public.audit_cases
  ADD COLUMN IF NOT EXISTS reviewer_id uuid,
  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
 
+-- Read-only definition and ACL observed on staging on 2026-10-31. This RPC
+-- returns only the caller's own profile row and is required by submit-audit-case.
+CREATE OR REPLACE FUNCTION public.get_my_capabilities()
+RETURNS TABLE(id uuid,display_name text,access_status text,is_admin boolean,
+ is_reviewer boolean,clinical_access boolean)
+LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+ SELECT p.id,p.display_name,p.access_status,coalesce(p.is_admin,false),
+  coalesce(p.is_reviewer,false),coalesce(p.clinical_access,false)
+ FROM public.profiles p WHERE p.id=auth.uid()
+$$;
+REVOKE ALL ON FUNCTION public.get_my_capabilities() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.get_my_capabilities() TO authenticated;
+
 CREATE OR REPLACE FUNCTION private.org_has_any_role(p_organization_id uuid,p_user_id uuid,p_roles text[])
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
  SELECT p_user_id IS NOT NULL AND EXISTS(
