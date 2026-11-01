@@ -4,7 +4,13 @@ on:
     paths:
       - 'scripts/isolated-clinical-*.mjs'
       - 'scripts/run-local-clinical-*.mjs'
+      - 'scripts/verify-local-legacy-replay.mjs'
+      - 'scripts/verify-synthetic-recovery.mjs'
       - 'tests/security/isolated-clinical-*'
+      - 'tests/security/legacy-saas-*.sql'
+      - 'supabase/migrations/20261027*.sql'
+      - 'supabase/migrations/20261028*.sql'
+      - 'supabase/migrations/20261101*.sql'
       - 'supabase/functions/core-dataset-export/**'
       - '.github/workflows/nexa-clinical-local-jwt.yml'
   workflow_dispatch:

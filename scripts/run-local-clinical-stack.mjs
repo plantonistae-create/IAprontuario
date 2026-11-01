@@ -21,7 +21,9 @@ const runtime=process.env.NEXA_LOCAL_STACK_RUNTIME||
  (process.env.GITHUB_ACTIONS==='true'?'docker':'native');
 if(!['native','docker'].includes(runtime))throw new Error('Local stack runtime must be native or docker');
 const cliEnv={...process.env,SUPABASE_EXPERIMENTAL_STACK:'1',SUPABASE_HOME:home};
-const cli=['--yes','supabase@2.122.0','--workdir',workdir,'--experimental','stack'];
+const cliBinary=process.env.NEXA_SUPABASE_CLI||'npx';
+const cliLaunchArgs=process.env.NEXA_SUPABASE_CLI?[]:['--yes','supabase@2.122.0'];
+const cli=[...cliLaunchArgs,'--workdir',workdir,'--experimental','stack'];
 function command(bin,args,env=cliEnv,inherit=false,timeout=600000,diagnostic=false){
  const r=spawnSync(bin,args,{cwd:root,env,encoding:'utf8',stdio:inherit?'inherit':['ignore','pipe','pipe'],
   timeout,maxBuffer:8*1024*1024});
@@ -37,7 +39,7 @@ function command(bin,args,env=cliEnv,inherit=false,timeout=600000,diagnostic=fal
  }
  return r.stdout||'';
 }
-function cliCall(args){return command('npx',[...cli,...args]);}
+function cliCall(args){return command(cliBinary,[...cli,...args],cliEnv,false,600000,args[0]==='start');}
 function nativePsql(){
  if(process.env.NEXA_LOCAL_PSQL_BIN)return process.env.NEXA_LOCAL_PSQL_BIN;
  if(runtime==='docker')return 'psql';
@@ -93,7 +95,9 @@ try{
   '-f',join(root,'tests/security/isolated-legacy-compatibility.sql')],pgEnv,true);
  command(process.execPath,['scripts/verify-synthetic-recovery.mjs'],{
   ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql},true);
- command('npx',['--yes','supabase@2.122.0','db','advisors','--db-url',advisorDB.href,
+ command(process.execPath,['scripts/verify-local-legacy-replay.mjs'],{
+  ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql},true);
+ command(cliBinary,[...cliLaunchArgs,'db','advisors','--db-url',advisorDB.href,
   '--type','security','--level','warn','--fail-on','error'],cliEnv,true,600000);
  const unguarded=spawnSync(psql,['-X','-v','ON_ERROR_STOP=1',
   '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],{

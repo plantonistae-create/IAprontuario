@@ -8,6 +8,8 @@ on:
       - 'supabase/migrations/20261027221000_nexa_evidence_source_verification.sql'
       - 'supabase/migrations/20261028191521_nexa_external_issuer_activation_gate.sql'
       - 'supabase/migrations/20261101010336_nexa_external_issuer_verified_receipts.sql'
+      - 'supabase/migrations/20261101020541_external_issuer_receipt_ingestion.sql'
+      - 'supabase/migrations/20261101023937_audit_case_submission_event.sql'
       - 'supabase/functions/_shared/nexa-external-issuer-receipt.mjs'
       - 'tests/security/legacy-saas-*.sql'
       - 'tests/security/legacy-saas-concurrency.py'
@@ -22,7 +24,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: synthetic-only-password
           POSTGRES_DB: nexa_legacy_synthetic
@@ -55,6 +57,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-external-gate.sql
       - name: Verify signed-receipt persistence contract without activating backfill
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-verified-receipts.sql
+      - name: Replay final candidate migrations on production-shaped synthetic keys
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-final-replay.sql
       - name: Verify no clinical data or staging credentials were used
         run: |
           test "$PGDATABASE" = "nexa_legacy_synthetic"
