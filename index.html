@@ -2759,7 +2759,7 @@ function renderHistory(){
   $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
   if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};nexaShowMedicationReview(lastProcessedMeta?.medication_review);restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -3950,6 +3950,25 @@ async function nexaInvokeAutomaticSpeakerSegments(segments){
     return data;
   }finally{clearTimeout(timeout)}
 }
+function nexaShowMedicationReview(review){
+  $('nexaMedicationReview')?.remove();
+  if(!review?.requires_review||!Array.isArray(review.alerts))return;
+  const host=document.querySelector('.field[data-key="medicacoes"]');if(!host)return;
+  const box=document.createElement('div');box.id='nexaMedicationReview';box.className='banner error';box.setAttribute('role','alert');
+  const heading=document.createElement('strong');heading.textContent='Conferir medicações antes de usar o prontuário';box.append(heading);
+  const list=document.createElement('ul');
+  for(const flag of review.alerts.slice(0,8)){
+    const name=String(flag?.reported_name||'medicamento').slice(0,40),amount=String(flag?.amount||'').slice(0,12);
+    const item=document.createElement('li');
+    if(flag?.code==='medication_missing')item.textContent=`A transcrição menciona ${name}; confira se é uso do paciente e se deve constar no campo.`;
+    else if(flag?.code==='volume_missing')item.textContent=`A transcrição menciona ${amount} mL junto de ${name}; confira a quantidade no campo. A concentração pode continuar não informada.`;
+    else if(flag?.code==='reported_name_changed')item.textContent=`O nome referido ${name} foi alterado no campo; confira a correspondência antes de usar.`;
+    else continue;
+    list.append(item);
+  }
+  if(!list.children.length)return;box.append(list);host.append(box);
+}
+window.nexaShowMedicationReview=nexaShowMedicationReview;
 async function processAudio(){
   const processingEpoch=clinicalEpoch;stopRecordingTimer();
   if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}
@@ -3988,8 +4007,8 @@ async function processAudio(){
     if(epoch!==clinicalEpoch)return;
     const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
     activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
-    fill(parsed);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
-    lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),speaker_attribution:payload.speaker_attribution||null,speaker_diarization_fallback:autoSpeakerFallback,processing_duration_ms:Math.round(performance.now()-startedProcessingAt),speaker_identification_duration_ms:speakerIdentificationMs};
+    fill(parsed);nexaShowMedicationReview(payload.medication_review);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
+    lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),medication_review:payload.medication_review||null,speaker_attribution:payload.speaker_attribution||null,speaker_diarization_fallback:autoSpeakerFallback,processing_duration_ms:Math.round(performance.now()-startedProcessingAt),speaker_identification_duration_ms:speakerIdentificationMs};
     initHypothesisReview(parsed.hipotese_diagnostica||'');
     // Programmatic fill(parsed) does not emit input events. Explicitly persist
     // and confirm this structured note BEFORE discarding the recorded audio.
@@ -4061,6 +4080,7 @@ function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;clearTim
 
   clearFields();
   $('bannerArea').replaceChildren();
+  $('nexaMedicationReview')?.remove();
   activeHistoryId=null;
   lastProcessedMeta=null;
   clinicalPlanCache={exams:null,prescription:null,both:null};
@@ -4549,7 +4569,7 @@ function pauseSession(){
     const host=q('nexaRecentCases');if(!host)return;
     let rows=[];try{rows=(history||[]).slice(0,5)}catch{}
     if(!rows.length){host.innerHTML='<div style="color:var(--nexa-muted)">Nenhum atendimento recente.</div>';return}
-    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
+    host.innerHTML='';rows.forEach(r=>{const it=document.createElement('div');it.className='nexa-recent-item';const title=(r.fields?.queixa_principal||'Consulta').slice(0,70);const dt=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});it.innerHTML=`<div><strong>${radarEsc(title)}</strong><div style="font-size:12px;color:var(--nexa-muted);margin-top:3px">${dt}</div></div><span class="nexa-mini-status">Revisar</span>`;it.onclick=()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};nexaShowMedicationReview(lastProcessedMeta?.medication_review);restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo');openSession();setStage('summary')};host.append(it)})
   }
 
   const more=q('nexaMoreSheet');q('nexaMoreBtn')?.addEventListener('click',()=>more?.classList.add('open'));q('nexaCloseMore')?.addEventListener('click',()=>more?.classList.remove('open'));more?.addEventListener('click',e=>{if(e.target===more)more.classList.remove('open')});
@@ -4619,7 +4639,7 @@ function pauseSession(){
     if(snap.encounter_id)window.nexaEncounterAutosave18101?.setActiveId?.(snap.encounter_id);
     Object.entries(snap.fields||{}).forEach(([k,v])=>{const el=ta(k);if(el)el.value=v||''});
     try{
-      if(snap.processing_meta)lastProcessedMeta=snap.processing_meta;
+      if(snap.processing_meta){lastProcessedMeta=snap.processing_meta;nexaShowMedicationReview(lastProcessedMeta?.medication_review);}
       hypothesisReview={...hypothesisReview,...(snap.hypothesisReview||{})};
       nexaAlternativeHypotheses=[...(snap.alternatives||[])];nexaDiscardedHypotheses=[...(snap.discarded||[])];
       updateHypothesisReviewUI();renderAlternativeHypotheses();

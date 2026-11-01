@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
+import { reviewMedicationVolume } from "../_shared/nexa-medication-review.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -708,6 +709,7 @@ Este é registro do USO RELATADO, não prescrição. Preserve a concentração e
 Se disser apenas "duas vezes ao dia", "12/12 horas" ou "8/8 horas" SEM explicitar os períodos, mantenha a frequência relatada; não invente "1-0-1".
 Se houver conflito, dúvida, regime variável ou horários desconhecidos, preserve o texto do relato, sem converter para n-n-n, e sinalize "posologia a confirmar".
 Se citar o nome sem concentração, mantenha a regra "(dose não informada)". Não deduza dose, horário, via, frequência nem adesão.
+Uma quantidade administrada em mL é diferente da concentração do produto. Se o paciente informou 5 mL, registre 5 mL mesmo quando a concentração em mg/mL não foi informada; indique apenas que a concentração não foi informada. Nunca converta mL em mg sem concentração confirmada. Não omita quantidade ou unidade explicitamente confirmada pelo paciente ou pelo médico.
 
 Evite expressões como:
 
@@ -1112,13 +1114,9 @@ async function openAIResponse(
     !resp.ok
   ) {
 
-    const errorText =
-      await resp.text();
-
     console.error(
       "OpenAI structured error:",
-      resp.status,
-      errorText
+      resp.status
     );
 
     throw new Error(
@@ -1227,6 +1225,12 @@ async function processOpenAI(
     "pt"
   );
 
+  // Short vocabulary hint; these names are possibilities, never evidence of use.
+  if (transcribeModel !== "gpt-4o-transcribe-diarize") fd.append(
+    "prompt",
+    "Consulta médica em português brasileiro. Transcreva apenas o que for audível, sem normalizar silenciosamente nomes ou doses. Termos possíveis: omeprazol, Novalgina, dipirona, Celestrat. Preserve números, mL, mg, mg/mL e frequência como falados."
+  );
+
 
   const tr =
     await fetch(
@@ -1250,13 +1254,9 @@ async function processOpenAI(
     !tr.ok
   ) {
 
-    const errorText =
-      await tr.text();
-
     console.error(
       "OpenAI transcription error:",
-      tr.status,
-      errorText
+      tr.status
     );
 
     throw new Error(
@@ -1336,6 +1336,7 @@ async function processOpenAI(
       ...docs,
       ...assist
     },
+    medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
 
     provider:
       "openai",
@@ -1434,13 +1435,9 @@ async function geminiGenerate(
     !resp.ok
   ) {
 
-    const errorText =
-      await resp.text();
-
     console.error(
       "Gemini error:",
-      resp.status,
-      errorText
+      resp.status
     );
 
     throw new Error(
@@ -1695,6 +1692,7 @@ async function processGemini(
       ...docs,
       ...assist
     },
+    medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
 
     provider:
       "gemini",
