@@ -144,7 +144,8 @@ test('a signed clinical JWT submits a synthetic finalized encounter for tenant-s
  assert.ifError(created.error);assert.equal(created.data.organization_id,fixture.organizations.B);
  const endpoint=target.api+'/functions/v1/submit-audit-case';
  const submit=async(simulation)=>fetch(endpoint,{method:'POST',headers:{apikey:publishable,
-  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json',
+  'x-nexa-audit-test-token':process.env.NEXA_AUDIT_DEID_TEST_TOKEN},
   body:JSON.stringify({source_consultation_id:encounterId,...(simulation?{synthetic_test_simulation:simulation}:{})}),
   signal:AbortSignal.timeout(20000)});
  for(const simulation of ['provider_failure','invalid_response','residual_identifier']){

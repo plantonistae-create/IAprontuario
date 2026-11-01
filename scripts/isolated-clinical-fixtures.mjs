@@ -141,6 +141,7 @@ if(mode==='prepare'){
  if(ids.length){
   const aid=ids.join(','),oid=(orgIds.length?orgIds:[uuid('00000000-0000-0000-0000-000000000000')]).join(',');
   sql(`BEGIN;
+   SET LOCAL nexa.synthetic_cleanup='on';
    DO $guard$ BEGIN IF EXISTS(SELECT 1 FROM public.organizations WHERE id IN (${oid})
        AND slug NOT LIKE ${quote(`qa-clinical-${manifest.runId}-%`)})
        THEN RAISE EXCEPTION 'NON_SYNTHETIC_ORGANIZATION'; END IF; END $guard$;
@@ -148,6 +149,9 @@ if(mode==='prepare'){
      OR (submitted_by IN (${aid}) AND organization_id IN (${oid})
        AND source_consultation_id IN (SELECT encounter_id FROM public.consultation_history WHERE user_id IN (${aid})));
    DELETE FROM public.consultation_history WHERE user_id IN (${aid});
+   DELETE FROM private.nexa_external_issuer_verified_receipts WHERE evidence_id IN
+     (SELECT id FROM private.nexa_historical_evidence WHERE collected_by IN (${aid}) AND organization_id IN (${oid}));
+   DELETE FROM private.nexa_historical_evidence WHERE collected_by IN (${aid}) AND organization_id IN (${oid});
    DELETE FROM public.audit_log WHERE user_id IN (${aid});
    DELETE FROM public.organization_memberships WHERE user_id IN (${aid}) OR organization_id IN (${oid});
    DELETE FROM private.profile_access_events WHERE target_profile_id IN (${aid}) OR actor_user_id IN (${aid});

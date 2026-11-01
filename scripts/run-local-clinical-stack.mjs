@@ -54,14 +54,27 @@ let started=false,destroyed=false;
 try{
  mkdirSync(join(workdir,'supabase'),{recursive:true});
  cpSync(join(root,'supabase','functions'),join(workdir,'supabase','functions'),{recursive:true});
+ const issuerEntries=[];
+ const issuerPrivate={};
+ for(const kid of ['synthetic-key-1','synthetic-key-2','synthetic-key-3']){
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  issuerPrivate[kid]=await crypto.subtle.exportKey('jwk',pair.privateKey);
+  issuerEntries.push({issuer:'https://synthetic-verifier.invalid',
+   audience:'nexa-synthetic-receipt-test',verifier_identity:'synthetic-independent-verifier',
+   kid,alg:'ES256',jwk:await crypto.subtle.exportKey('jwk',pair.publicKey)});
+ }
+ const issuerPrivateFile=join(workdir,'synthetic-issuer-private.json');
+ writeFileSync(issuerPrivateFile,JSON.stringify(issuerPrivate),{mode:0o600});
+ const issuerTrust=JSON.stringify(issuerEntries);
+ const auditTestToken=randomBytes(32).toString('hex');
  writeFileSync(join(workdir,'supabase/functions/.env'),
-  'NEXA_AUDIT_DEID_TEST_MODE=fixed-synthetic-v1\n',{mode:0o600});
+  `NEXA_AUDIT_DEID_TEST_MODE=fixed-synthetic-v1\nNEXA_AUDIT_DEID_TEST_TOKEN=${auditTestToken}\nNEXA_TRUSTED_EXTERNAL_ISSUER_KEYS='${issuerTrust}'\nNEXA_BLOCKED_EXTERNAL_ISSUER_KIDS=synthetic-key-3\n`,{mode:0o600});
  if(!existsSync(join(workdir,'supabase/functions/core-dataset-export/index.ts')))
   throw new Error('Local Edge entrypoint was not copied');
  if(!existsSync(join(workdir,'supabase/functions/submit-audit-case/index.ts')))
   throw new Error('Local audit Edge entrypoint was not copied');
  writeFileSync(join(workdir,'supabase/config.toml'),
-  '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n\n[functions.submit-audit-case]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/submit-audit-case/index.ts"\n');
+  '[experimental]\nstack = true\n\n[functions.core-dataset-export]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/core-dataset-export/index.ts"\n\n[functions.submit-audit-case]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/submit-audit-case/index.ts"\n\n[functions.nexa-issuer-receipt-ingest]\nenabled = true\nverify_jwt = false\nentrypoint = "./functions/nexa-issuer-receipt-ingest/index.ts"\n');
  cliCall(['start','--stack',stack,'--runtime',runtime,'--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;
@@ -89,13 +102,15 @@ try{
  command(process.execPath,['--test','tests/security/isolated-clinical-target.test.mjs'],cliEnv,true);
  try{command(process.execPath,['scripts/run-local-clinical-jwt.mjs'],{
   ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql,
-  NEXA_LOCAL_FIXTURE_FILE:`/tmp/nexa-isolated-clinical-${id}.json`},true);}
+  NEXA_LOCAL_FIXTURE_FILE:`/tmp/nexa-isolated-clinical-${id}.json`,
+  NEXA_AUDIT_DEID_TEST_TOKEN:auditTestToken,
+  NEXA_SYNTHETIC_ISSUER_PRIVATE_FILE:issuerPrivateFile},true);}
  catch(error){
   try{
    const raw=cliCall(['logs','--stack',stack,'--service','functions','--tail','40','--output-format','stream-json']);
    for(const row of raw.trim().split('\n').slice(-20)){
     const event=JSON.parse(row),line=String(event.line||'');
-    if(/worker boot error|module not found|serving functions|function not found|permission denied/i.test(line))
+   if(/worker boot error|module not found|serving functions|function not found|permission denied|NEXA_ISSUER_PERSISTENCE/i.test(line))
      console.error('Local Edge diagnostic:',line.slice(0,300));
    }
   }catch{}

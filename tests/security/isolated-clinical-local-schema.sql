@@ -59,6 +59,15 @@ ALTER TABLE public.nexa_core_cases ENABLE ROW LEVEL SECURITY;
 \ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
 \ir ../../supabase/migrations/20261028191521_nexa_external_issuer_activation_gate.sql
 \ir ../../supabase/migrations/20261101010336_nexa_external_issuer_verified_receipts.sql
+\ir ../../supabase/migrations/20261101020541_external_issuer_receipt_ingestion.sql
+-- Disposable cleanup exception; never part of a hosted migration.
+CREATE OR REPLACE FUNCTION private.nexa_reject_evidence_decision_mutation()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
+BEGIN
+ IF current_user='postgres' AND current_setting('nexa.synthetic_cleanup',true)='on'
+ THEN RETURN OLD; END IF;
+ RAISE EXCEPTION 'historical evidence decisions are append-only';
+END $$;
 \ir isolated-clinical-audit-contract.sql
 -- The next functions, guard and policies are the observed staging definitions
 -- already exercised by tests/security/clinical-positive-schema.sql. Keep

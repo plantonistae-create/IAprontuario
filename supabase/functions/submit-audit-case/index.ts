@@ -14,7 +14,11 @@ const MODEL=env('AUDIT_DEID_MODEL')||'gpt-5.6-luna';
 const AUDIT_PROVIDER=capabilityProviderFromEnv('audit.submit',(name)=>Deno.env.get(name));
 const ORIGIN=env('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
 const LOCAL_SYNTHETIC_DEID=env('NEXA_AUDIT_DEID_TEST_MODE')==='fixed-synthetic-v1'&&
-  (()=>{try{return ['127.0.0.1','kong','api-gw'].includes(new URL(SUPABASE_URL).hostname)}catch{return false}})();
+  (()=>{try{const gateway=new URL(SUPABASE_URL);return gateway.protocol==='http:'&&
+    !gateway.hostname.endsWith('.supabase.co')&&
+    !gateway.hostname.includes('phaitiijsjwrggdnoxiz')&&
+    !gateway.hostname.includes('fmkrcieubrlltiggyauc')}
+   catch{return false}})();
 const cors={'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 function outputText(payload:any){if(typeof payload?.output_text==='string')return payload.output_text;for(const item of payload?.output||[])for(const content of item?.content||[])if(content?.type==='output_text'&&typeof content?.text==='string')return content.text;return''}
@@ -102,11 +106,13 @@ serve(async(req)=>{
     provider:AUDIT_PROVIDER,
     model:MODEL,
     execute:async()=>{
-      if(LOCAL_SYNTHETIC_DEID&&fields.synthetic_test_marker==='NEXA_TEST_ONLY'){
+      if(LOCAL_SYNTHETIC_DEID&&fields.synthetic_test_marker==='NEXA_TEST_ONLY'&&
+         env('NEXA_AUDIT_DEID_TEST_TOKEN').length>=32&&
+         req.headers.get('x-nexa-audit-test-token')===env('NEXA_AUDIT_DEID_TEST_TOKEN')){
         const simulation=String(body?.synthetic_test_simulation||'');
         if(simulation==='provider_failure')return json({error:'DEIDENTIFICATION_FAILED'},502);
         if(simulation==='invalid_response')return json({error:'INVALID_DEIDENTIFICATION_JSON'},502);
-        const deid={fields:{queixa_principal:'Dor abdominal sintética sem identificadores'},
+        const deid:any={fields:{queixa_principal:'Dor abdominal sintética sem identificadores'},
           core_context:{schema_version:'3',audit_submission_snapshot:coreContext.audit_submission_snapshot}};
         if(simulation==='residual_identifier')deid.fields.patient_name='Pessoa Sintética';
         const validation=validateDeidentifiedEnvelope(deid,{requireLearningLayers});

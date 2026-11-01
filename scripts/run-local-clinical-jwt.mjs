@@ -34,6 +34,7 @@ try{
   run(['scripts/isolated-clinical-fixtures.mjs','cleanup']);
  run(['scripts/isolated-clinical-fixtures.mjs','prepare']);prepared=true;
  run(['--test','tests/security/isolated-clinical-jwt.test.mjs']);
+ run(['--test','tests/security/isolated-issuer-receipt.test.mjs']);
  }
 }catch(error){failed=true;console.error(error.message);
 }finally{
