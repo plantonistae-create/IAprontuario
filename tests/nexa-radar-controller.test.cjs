@@ -1,7 +1,7 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 global.NexaRadarEngine=require('../nexa-radar-engine');require('../nexa-radar-controller');
 function fixture(){let context={fields:{hda:'Dor torácica.'}};const calls=[];const adapter={context:()=>context,publish(){},apply:fields=>context={fields},analyze:(c,signal)=>new Promise((resolve,reject)=>calls.push({c,signal,resolve,reject}))};const api=NexaRadarController.create(adapter);api.setOwner('a');api.recalculate();return {api,calls,set:c=>context=c};}
-test('obsolete AI result cannot replace newest context',async()=>{const {api,calls,set}=fixture();const old=api.analyzeRemote();set({fields:{hda:'Entorse do tornozelo.'}});api.recalculate();calls[0].resolve({items:[{concept:'saddle',contextEvidence:'Dor torácica.',priority:'critical'}]});await old;assert.ok(!api.state.items.some(i=>i.id==='saddle'));assert.ok(api.state.items.some(i=>i.id==='fourSteps'));});
+test('obsolete AI result cannot replace newest context or question chronology',async()=>{const {api,calls,set}=fixture();const old=api.analyzeRemote();set({fields:{hda:'Entorse do tornozelo.'}});api.recalculate();const before=api.snapshot().questionEvents;calls[0].resolve({items:[{concept:'saddle',contextEvidence:'Dor torácica.',priority:'critical'}]});await old;assert.ok(!api.state.items.some(i=>i.id==='saddle'));assert.ok(api.state.items.some(i=>i.id==='fourSteps'));assert.deepEqual(api.snapshot().questionEvents,before);});
 test('network failure leaves deterministic engine and retry usable',async()=>{const {api,calls}=fixture();const pending=api.analyzeRemote();calls[0].reject(new Error('Network'));await pending;assert.ok(api.state.error);assert.ok(api.state.items.some(i=>i.id==='dyspnea'));assert.equal(api.state.busy,false);const retry=api.analyzeRemote();calls[1].resolve({items:[]});await retry;assert.equal(api.state.error,'');});
 test('owner change cancels requests and removes ledger',async()=>{const {api,calls,set}=fixture();api.respond('dyspnea','Não');const pending=api.analyzeRemote();set({fields:{hda:''}});api.setOwner('b');calls[0].resolve({items:[]});await pending;assert.deepEqual(api.snapshot().ledger,{});assert.equal(api.snapshot().owner,'b');assert.equal(api.state.hasContext,false);});
 test('foreign persisted state cannot restore answers',()=>{const {api}=fixture();api.restore({version:1,owner:'other',ledger:{dyspnea:{value:'Não'}}},'a');assert.deepEqual(api.snapshot().ledger,{});api.reset();});
@@ -56,4 +56,16 @@ test('question timeline records appearance, removal and is isolated on reset',()
  assert.ok(api.snapshot().questionEvents.length>=timeline.length);
  api.reset('b');
  assert.equal(api.snapshot().questionEvents.length,0);
+});
+test('second controller restores chronological removals but rejects duplicate or reversed sequence',()=>{
+ const {api,set}=fixture();set({fields:{hda:''}});api.recalculate();
+ const saved=api.snapshot(),other=fixture().api;
+ other.restore(saved,'a');
+ const recovered=other.snapshot().questionEvents;
+ assert.ok(recovered.some(e=>e.type==='removed'&&e.concept==='dyspnea'));
+ assert.ok(recovered.every((e,i)=>i===0||e.sequence>recovered[i-1].sequence));
+ const corrupt={...saved,questionEvents:[...saved.questionEvents].reverse()};
+ other.restore(corrupt,'a');
+ assert.equal(other.snapshot().questionTraceTruncated,true);
+ assert.ok(other.snapshot().questionEvents.every((e,i,rows)=>i===0||e.sequence>rows[i-1].sequence));
 });

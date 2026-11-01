@@ -103,7 +103,11 @@
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const ev of Array.isArray(saved.questionEvents)?saved.questionEvents.slice(0,300):[]){
-        if(!ev||!['appeared','changed','removed'].includes(ev.type)||!E.concepts[ev.concept]||!Number.isSafeInteger(ev.sequence))continue;
+        if(!ev||!['appeared','changed','removed'].includes(ev.type)||!E.concepts[ev.concept]||
+           !Number.isSafeInteger(ev.sequence)||ev.sequence<=traceSequence||
+           !/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(String(ev.id||''))){
+          questionTraceTruncated=true;continue;
+        }
         questionEvents.push({sequence:ev.sequence,at:String(ev.at||''),type:ev.type,id:String(ev.id||''),concept:ev.concept,priority:String(ev.priority||'moderate'),status:String(ev.status||'to_ask'),reason:String(ev.reason||''),engine:'nexa-radar-controller',version:'temporal-v1',provider:String(ev.provider||'unknown'),model_version:String(ev.model_version||'unknown')});
         traceSequence=Math.max(traceSequence,ev.sequence);
       }
