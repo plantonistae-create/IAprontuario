@@ -144,7 +144,9 @@ if(mode==='prepare'){
    DO $guard$ BEGIN IF EXISTS(SELECT 1 FROM public.organizations WHERE id IN (${oid})
        AND slug NOT LIKE ${quote(`qa-clinical-${manifest.runId}-%`)})
        THEN RAISE EXCEPTION 'NON_SYNTHETIC_ORGANIZATION'; END IF; END $guard$;
-   DELETE FROM public.audit_cases WHERE id IN (${Object.values(manifest.auditCases||{}).length?Object.values(manifest.auditCases).map(uuid).join(','):uuid('00000000-0000-0000-0000-000000000000')});
+   DELETE FROM public.audit_cases WHERE id IN (${Object.values(manifest.auditCases||{}).length?Object.values(manifest.auditCases).map(uuid).join(','):uuid('00000000-0000-0000-0000-000000000000')})
+     OR (submitted_by IN (${aid}) AND organization_id IN (${oid})
+       AND source_consultation_id IN (SELECT encounter_id FROM public.consultation_history WHERE user_id IN (${aid})));
    DELETE FROM public.consultation_history WHERE user_id IN (${aid});
    DELETE FROM public.audit_log WHERE user_id IN (${aid});
    DELETE FROM public.organization_memberships WHERE user_id IN (${aid}) OR organization_id IN (${oid});

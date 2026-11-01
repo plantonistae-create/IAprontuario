@@ -41,6 +41,7 @@ export function safeCoreContext(input={}){
 
 export function findDirectPii(value,path='$',issues=[]){
   if(typeof value==='string'){
+    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))return issues;
     if(EMAIL.test(value))issues.push(`${path}:email`);
     if(CPF.test(value))issues.push(`${path}:cpf`);
     if(PHONE.test(value))issues.push(`${path}:phone`);

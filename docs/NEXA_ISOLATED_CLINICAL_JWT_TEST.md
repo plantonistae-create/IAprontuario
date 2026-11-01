@@ -49,8 +49,20 @@ and a signed clinical JWT targeting a draft encounter fails with
 `SOURCE_NOT_READY` before deidentification. The database readback confirms that
 these denied calls create no audit case. The fixture reproduces the read-only
 staging definition and ACL of `get_my_capabilities`. No external model key is
-provided, so successful deidentification and positive audit insertion remain a
-separate gate.
+provided.
+
+The disposable stack sets `NEXA_AUDIT_DEID_TEST_MODE=fixed-synthetic-v1` in
+its temporary Edge environment. The function accepts this mode only with a
+loopback Supabase URL and the `NEXA_TEST_ONLY` source marker. A finalized
+synthetic encounter with recognizable fictional identifiers is submitted by a
+signed clinical JWT. The deterministic provider returns a fixed clinical
+summary, and the normal PII validator checks the final envelope. The inserted
+case is read back with its source and tenant. Reviewer B retrieves it through
+the tenant-scoped queue; admin A cannot. Repetition returns
+`ALREADY_SUBMITTED`. Provider failure, invalid output and residual identifiers
+leave no case. Cleanup scopes the new case to this run's actor, organization
+and encounter, then independently reads zero residues. This proves the local
+pipeline, not an external model's deidentification quality.
 
 The queue fixture uses the `get_audit_queue_v2`, `private.can_audit_org` and
 `private.org_has_any_role` definitions observed read-only on staging on
@@ -73,14 +85,15 @@ definitions. The suite confirms the private evidence table exists and that
 | Revoked membership with unchanged JWT | Live membership lookup in RLS |
 | Audit queue membership | `private.can_audit_org` in privileged RPC |
 | Dataset export denial | Edge profile check, then absent export configuration |
-| Audit submission preconditions | Edge JWT, live capability RPC, payload and encounter-state checks |
+| Audit submission preconditions | Edge JWT, live capability RPC, payload, consent and encounter-state checks |
+| Synthetic audit submission | Fixed local provider, PII validation, insert, tenant queue, duplicate denial and cleanup |
 
 The private historical-evidence query is denied because `private` is not a
 Data API schema; the test does not prove authenticity of an external issuer or
 positive evidence access. The UI's “Baixar .txt” action exports the current
 client-side note text; it is not a server-side assistential export contract, so
 the JWT suite does not claim a positive assistential export. No training data
-is generated. Positive `submit-audit-case` deidentification/insertion, the full legacy schema,
+is generated. External-model deidentification, the full legacy schema,
 production backup/restoration and hosted Auth/Edge behavior remain separate
 homologation gates. The PR must remain Draft.
 

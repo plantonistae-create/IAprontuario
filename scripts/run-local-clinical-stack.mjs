@@ -54,6 +54,8 @@ let started=false,destroyed=false;
 try{
  mkdirSync(join(workdir,'supabase'),{recursive:true});
  cpSync(join(root,'supabase','functions'),join(workdir,'supabase','functions'),{recursive:true});
+ writeFileSync(join(workdir,'supabase/functions/.env'),
+  'NEXA_AUDIT_DEID_TEST_MODE=fixed-synthetic-v1\n',{mode:0o600});
  if(!existsSync(join(workdir,'supabase/functions/core-dataset-export/index.ts')))
   throw new Error('Local Edge entrypoint was not copied');
  if(!existsSync(join(workdir,'supabase/functions/submit-audit-case/index.ts')))

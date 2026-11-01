@@ -132,6 +132,46 @@ test('submit-audit-case enforces gateway, clinical capability and source readine
  assert.equal(draft.status,409);assert.equal((await draft.json()).error,'SOURCE_NOT_READY');
  assert.equal(sql('SELECT count(*) FROM public.audit_cases'),'2','Denied submissions created audit rows');
 });
+test('a signed clinical JWT submits a synthetic finalized encounter for tenant-scoped audit review',async()=>{
+ const encounterId=randomUUID(),origin=process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io';
+ const created=await clients.doctorB.from('consultation_history').insert({
+  id:encounterId,encounter_id:encounterId,user_id:fixture.actors.doctorB.id,
+  fields:{synthetic_test_marker:'NEXA_TEST_ONLY',patient_name:'Pessoa Sintética',
+   email:'synthetic@example.invalid',cpf:'123.456.789-00',queixa_principal:'Dor abdominal sintética'},
+  encounter_state:'ready_for_audit',status:'final',consent_recorded_at:new Date().toISOString(),
+  processing_meta:{},protocol_usage:[]
+ }).select('id,organization_id').single();
+ assert.ifError(created.error);assert.equal(created.data.organization_id,fixture.organizations.B);
+ const endpoint=target.api+'/functions/v1/submit-audit-case';
+ const submit=async(simulation)=>fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:encounterId,...(simulation?{synthetic_test_simulation:simulation}:{})}),
+  signal:AbortSignal.timeout(20000)});
+ for(const simulation of ['provider_failure','invalid_response','residual_identifier']){
+  const denied=await submit(simulation);assert.equal(denied.status,502,simulation);
+  assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'0');
+ }
+ const response=await submit();assert.equal(response.status,200,await response.clone().text().then(x=>x.slice(0,200)));
+ const body=await response.json();assert.equal(body.ok,true);assert.equal(body.updated,false);
+ const caseId=body.case.id;assert.match(caseId,/^[0-9a-f-]{36}$/i);
+ const row=JSON.parse(sql(`SELECT row_to_json(t) FROM (SELECT id,organization_id,source_consultation_id,
+  submitted_by,deidentified_fields,deidentified_core_context,status FROM public.audit_cases
+  WHERE id=${uuid(caseId)}) t`));
+ assert.equal(row.organization_id,fixture.organizations.B);
+ assert.equal(row.source_consultation_id,encounterId);
+ assert.equal(row.submitted_by,fixture.actors.doctorB.id);
+ assert.equal(row.status,'pending');
+ assert.equal(row.deidentified_fields.queixa_principal,'Dor abdominal sintética sem identificadores');
+ assert.doesNotMatch(JSON.stringify(row),/synthetic@example.invalid|123.456.789-00|Pessoa Sintética/);
+ const queue=await clients.reviewerB.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(queue.error);assert.ok(queue.data.some(x=>x.id===caseId));
+ const foreign=await clients.adminA.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(foreign.error);assert.ok(!foreign.data.some(x=>x.id===caseId));
+ const repeat=await submit();assert.equal(repeat.status,409);
+ assert.equal((await repeat.json()).error,'ALREADY_SUBMITTED');
+ assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'1');
+ assert.ok(Number(sql(`SELECT count(*) FROM public.audit_log WHERE consultation_id='${encounterId}' AND action='create'`))>=1);
+});
 test('revoked membership blocks the same previously issued JWT',async()=>{
  const actor=fixture.actors.doctorB.id,org=fixture.organizations.B;
  const before=await clients.doctorB.from('consultation_history').select('id').eq('id',ids.B);

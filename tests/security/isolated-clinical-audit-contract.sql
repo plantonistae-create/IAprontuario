@@ -2,6 +2,9 @@
 -- 2026-10-28; no staging write was performed. The repository's older queue
 -- migration lacks the institutional predicate. Keep this fixture explicit.
 ALTER TABLE public.audit_cases
+ ADD COLUMN IF NOT EXISTS snapshot_version text NOT NULL DEFAULT 'final-v1',
+ ADD COLUMN IF NOT EXISTS audit_schema_version text NOT NULL DEFAULT '3',
+ ADD COLUMN IF NOT EXISTS last_synced_at timestamptz,
  ADD COLUMN IF NOT EXISTS priority smallint NOT NULL DEFAULT 0,
  ADD COLUMN IF NOT EXISTS submitted_at timestamptz NOT NULL DEFAULT now(),
  ADD COLUMN IF NOT EXISTS source_updated_at timestamptz,
@@ -12,6 +15,8 @@ ALTER TABLE public.audit_cases
  ADD COLUMN IF NOT EXISTS review_note text,
  ADD COLUMN IF NOT EXISTS reviewer_id uuid,
  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
+ALTER TABLE public.audit_cases ADD CONSTRAINT audit_cases_source_snapshot_key
+ UNIQUE(source_consultation_id,snapshot_version);
 
 -- Read-only definition and ACL observed on staging on 2026-10-31. This RPC
 -- returns only the caller's own profile row and is required by submit-audit-case.

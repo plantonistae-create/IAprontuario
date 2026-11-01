@@ -13,6 +13,8 @@ const AI_KEY=env('OPENAI_API_KEY');
 const MODEL=env('AUDIT_DEID_MODEL')||'gpt-5.6-luna';
 const AUDIT_PROVIDER=capabilityProviderFromEnv('audit.submit',(name)=>Deno.env.get(name));
 const ORIGIN=env('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
+const LOCAL_SYNTHETIC_DEID=env('NEXA_AUDIT_DEID_TEST_MODE')==='fixed-synthetic-v1'&&
+  (()=>{try{return new URL(SUPABASE_URL).hostname==='127.0.0.1'}catch{return false}})();
 const cors={'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 function outputText(payload:any){if(typeof payload?.output_text==='string')return payload.output_text;for(const item of payload?.output||[])for(const content of item?.content||[])if(content?.type==='output_text'&&typeof content?.text==='string')return content.text;return''}
@@ -60,14 +62,16 @@ serve(async(req)=>{
 
   const {data:source,error:sourceError}=await userClient
     .from('consultation_history')
-    .select('id,encounter_id,user_id,fields,encounter_state,audit_priority,updated_at,sync_version,processing_meta,protocol_usage')
+    .select('id,encounter_id,user_id,organization_id,fields,encounter_state,audit_priority,updated_at,sync_version,processing_meta,protocol_usage,consent_recorded_at')
     .eq('encounter_id',sourceId)
     .maybeSingle();
   if(sourceError)return json({error:'SOURCE_LOOKUP_FAILED'},500);
+  if(!source)return json({error:'SOURCE_NOT_FOUND'},404);
 
-  if(source&&source.encounter_state!=='ready_for_audit'){
+  if(source.encounter_state!=='ready_for_audit'){
     return json({error:'SOURCE_NOT_READY'},409);
   }
+  if(!source.consent_recorded_at)return json({error:'CONSENT_REQUIRED'},409);
 
   const fields=source?.fields??body?.fields;
   if(!isPlainObject(fields))return json({error:'INVALID_PAYLOAD'},400);
@@ -98,6 +102,17 @@ serve(async(req)=>{
     provider:AUDIT_PROVIDER,
     model:MODEL,
     execute:async()=>{
+      if(LOCAL_SYNTHETIC_DEID&&fields.synthetic_test_marker==='NEXA_TEST_ONLY'){
+        const simulation=String(body?.synthetic_test_simulation||'');
+        if(simulation==='provider_failure')return json({error:'DEIDENTIFICATION_FAILED'},502);
+        if(simulation==='invalid_response')return json({error:'INVALID_DEIDENTIFICATION_JSON'},502);
+        const deid={fields:{queixa_principal:'Dor abdominal sintética sem identificadores'},
+          core_context:{schema_version:'3',audit_submission_snapshot:coreContext.audit_submission_snapshot}};
+        if(simulation==='residual_identifier')deid.fields.patient_name='Pessoa Sintética';
+        const validation=validateDeidentifiedEnvelope(deid,{requireLearningLayers});
+        if(!validation.ok)return json({error:validation.error},502);
+        return {fields:deid.fields,core:safeCoreContext(deid.core_context)};
+      }
       const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
       const raw=await upstream.text();if(!upstream.ok)return json({error:'DEIDENTIFICATION_FAILED'},502);
       const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)return json({error:'EMPTY_DEIDENTIFICATION'},502);
@@ -117,6 +132,8 @@ serve(async(req)=>{
     // Preserve categorical evidence independent of model deidentification, never raw text.
     radar_capture:sanitizeRadarCapture(coreContext.radar_capture)
   };
+  if(!validateDeidentifiedEnvelope({fields:deidentifiedFields,core_context:deidentifiedCore}).ok)
+    return json({error:'DEIDENTIFICATION_PII_REMAINS'},502);
   const withAuditExecution=(response:Response)=>withTechnicalExecutionHeaders(response,auditExecutionMetadata);
 
   if(existing){
@@ -136,14 +153,15 @@ serve(async(req)=>{
 
   const {data,error}=await admin.from('audit_cases').insert({
     source_consultation_id:sourceId,snapshot_version:snapshotVersion,submitted_by:user.id,
+    organization_id:source.organization_id,
     deidentified_fields:deidentifiedFields,deidentified_core_context:deidentifiedCore,
     audit_schema_version:'3',status:'pending',priority:sourcePriority,
     source_sync_version:sourceSyncVersion,source_updated_at:sourceUpdatedAt,last_synced_at:new Date().toISOString(),
   }).select('id,status,submitted_at,snapshot_version,priority,source_sync_version,last_synced_at').single();
   if(error){if(String(error.code)==='23505')return withAuditExecution(json({error:'ALREADY_SUBMITTED'},409));return withAuditExecution(json({error:'AUDIT_INSERT_FAILED'},500))}
   return withAuditExecution(json({ok:true,updated:false,case:data,audit_schema_version:'3',core_ready_after_review:true,radar_raw_transcript_saved:false}));
- }catch(error){
-  console.error('submit-audit-case',error);
+ }catch(_error){
+  console.error('submit-audit-case INTERNAL_ERROR');
   return json({error:'INTERNAL_ERROR'},500);
  }
 });

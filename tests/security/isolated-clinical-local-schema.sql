@@ -37,7 +37,7 @@ CREATE TABLE public.consultation_history(
  processing_meta jsonb NOT NULL DEFAULT '{}'::jsonb,consent_recorded_at timestamptz
 );
 CREATE TABLE public.audit_cases(
- id uuid PRIMARY KEY,source_consultation_id uuid,
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),source_consultation_id uuid,
  submitted_by uuid REFERENCES auth.users(id),deidentified_fields jsonb NOT NULL DEFAULT '{}'::jsonb,
  status text NOT NULL DEFAULT 'pending'
 );
