@@ -1,0 +1,290 @@
+/** Real Supabase Auth, Data API and Edge integration in an empty separate project.
+ * Prepare first with scripts/isolated-clinical-fixtures.mjs prepare; always cleanup.
+ * No fake auth.uid(), service-role acting client, skipped tests, or real NEXA refs.
+ */
+import {before,test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+import {createClient} from '@supabase/supabase-js';
+import {isolatedTarget} from '../../scripts/isolated-clinical-target.mjs';
+
+const target=isolatedTarget({ref:process.env.NEXA_ISOLATED_REF,url:process.env.NEXA_ISOLATED_URL,
+ dbURL:process.env.NEXA_ISOLATED_DB_URL,ack:process.env.NEXA_ISOLATED_ACK,
+ authURL:process.env.NEXA_ISOLATED_AUTH_URL,restURL:process.env.NEXA_ISOLATED_REST_URL,
+ functionsURL:process.env.NEXA_ISOLATED_FUNCTIONS_URL,localOnly:process.env.NEXA_LOCAL_ONLY==='1'});
+if(target.local&&['NEXA_STAGING_SERVICE_ROLE_KEY','NEXA_STAGING_DB_URL','SUPABASE_ACCESS_TOKEN'].some(x=>process.env[x]))
+ throw new Error('Hosted credentials are forbidden in local test process');
+const publishable=process.env.NEXA_ISOLATED_PUBLISHABLE_KEY;
+const file=process.env.NEXA_ISOLATED_FIXTURE_FILE||'';
+if(!publishable||!/^\/tmp\/nexa-isolated-clinical-[a-z0-9-]+\.json$/.test(file))throw new Error('Missing isolated test configuration');
+const fixture=JSON.parse(readFileSync(file,'utf8'));
+if(fixture.synthetic!==true||fixture.projectRef!==target.ref||fixture.seeded!==true)throw new Error('Unverified synthetic fixture');
+const db=new URL(target.dbURL);
+const pgEnv={...process.env,PGHOST:db.hostname,PGPORT:db.port||'5432',PGUSER:decodeURIComponent(db.username),
+ PGPASSWORD:decodeURIComponent(db.password),PGDATABASE:decodeURIComponent(db.pathname.slice(1)),
+ PGSSLMODE:target.local?'disable':'require',PGCONNECT_TIMEOUT:'15'};
+function sql(query){return execFileSync(process.env.NEXA_LOCAL_PSQL_BIN||'psql',['-X','-v','ON_ERROR_STOP=1','--quiet','--no-align','--tuples-only','--command',query],
+ {env:pgEnv,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();}
+const uuid=x=>{assert.match(x,/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);return `'${x}'::uuid`};
+const clients={},tokens={};
+const ids={A:randomUUID(),B:randomUUID()};
+before(async()=>{
+ assert.equal(sql('SELECT count(*) FROM public.profiles'), '7');
+ assert.equal(sql("SELECT to_regclass('private.nexa_historical_evidence') IS NOT NULL"),'t');
+ assert.equal(sql("SELECT has_table_privilege('authenticated','private.nexa_historical_evidence','SELECT')"),'f');
+ assert.equal(sql(`SELECT count(*) FROM private.clinical_slots WHERE profile_id IN (${Object.values(fixture.actors).map(x=>uuid(x.id)).join(',')})`),'2');
+ for(const name of ['doctorA','doctorB','doctorNoAccess','adminA','reviewerB','revokedUser','noOrg']){
+  const actor=fixture.actors[name];
+  assert.equal(actor.email,`qa-clinical-${fixture.runId}-${name}@example.invalid`);
+  const client=createClient(target.api,publishable,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  const {data,error}=await client.auth.signInWithPassword({email:actor.email,password:actor.password});
+  assert.ifError(error);assert.equal(data.user.id,actor.id);
+  assert.equal(data.session.access_token.split('.').length,3);
+  const verified=await client.auth.getUser(data.session.access_token);
+  assert.ifError(verified.error);assert.equal(verified.data.user.id,actor.id);
+  clients[name]=client;tokens[name]=data.session.access_token;
+ }
+});
+test('signed physician JWTs create, read, update and delete only their own consultations',async()=>{
+ for(const [name,org,id] of [['doctorA','A',ids.A],['doctorB','B',ids.B]]){
+  const actor=fixture.actors[name],client=clients[name];
+  const now=new Date().toISOString();
+  const payload={id,encounter_id:id,user_id:actor.id,fields:{queixa_principal:'Synthetic-only clinical test'},
+   status:'draft',encounter_state:'draft',consent_recorded_at:now,created_at:now,last_client_saved_at:now,
+   protocol_usage:[],audit_priority:0,processing_meta:{}};
+  const created=await client.from('consultation_history').insert(payload).select('id,organization_id,user_id').single();
+  assert.ifError(created.error);assert.equal(created.data.organization_id,fixture.organizations[org]);
+  assert.equal(created.data.user_id,actor.id);
+  const read=await client.from('consultation_history').select('id').eq('id',id);
+  assert.ifError(read.error);assert.deepEqual(read.data.map(x=>x.id),[id]);
+  const updated=await client.from('consultation_history').update({fields:{queixa_principal:'Synthetic revised'}}).eq('id',id).select('id,fields');
+  assert.ifError(updated.error);assert.equal(updated.data[0]?.fields?.queixa_principal,'Synthetic revised');
+ }
+ for(const [name,other] of [['doctorA',ids.B],['doctorB',ids.A]]){
+  const read=await clients[name].from('consultation_history').select('id').eq('id',other);
+  assert.ifError(read.error);assert.deepEqual(read.data,[],'Cross-organization RLS leak');
+  const write=await clients[name].from('consultation_history').update({fields:{queixa_principal:'Forbidden'}}).eq('id',other).select('id');
+  assert.ifError(write.error);assert.deepEqual(write.data,[],'Cross-organization write reached row');
+ }
+ const prior=await clients.doctorA.from('consultation_history').select('organization_id,fields').eq('id',ids.A).single();
+ assert.ifError(prior.error);
+ const reassigned=await clients.doctorA.from('consultation_history').update({organization_id:fixture.organizations.B}).eq('id',ids.A).select('id');
+ assert.ok(reassigned.error,'Encounter tenant reassignment was accepted');
+ const afterReassignment=await clients.doctorA.from('consultation_history').select('organization_id,fields').eq('id',ids.A).single();
+ assert.ifError(afterReassignment.error);assert.deepEqual(afterReassignment.data,prior.data,'Rejected write changed the consultation');
+ const wrongTenant=await clients.doctorA.from('consultation_history').insert({
+  id:randomUUID(),encounter_id:randomUUID(),user_id:fixture.actors.doctorA.id,
+  organization_id:fixture.organizations.B,fields:{queixa_principal:'Synthetic forbidden'},
+  status:'draft',encounter_state:'draft',consent_recorded_at:new Date().toISOString()}).select('id');
+ assert.ok(wrongTenant.error,'Cross-organization insert was accepted');
+ const reviewer=await clients.reviewerB.from('consultation_history').select('id').eq('id',ids.B);
+ assert.ifError(reviewer.error);assert.deepEqual(reviewer.data,[],'Reviewer gained clinical access');
+ const anonymous=createClient(target.api,publishable,{auth:{persistSession:false,autoRefreshToken:false}});
+ const anon=await anonymous.from('consultation_history').select('id').eq('id',ids.A);
+ if(anon.error)assert.equal(anon.error.code,'42501');else assert.deepEqual(anon.data,[]);
+ const audit=sql(`SELECT count(*) FROM public.audit_log WHERE consultation_id IN ('${ids.A}','${ids.B}') AND action IN ('create','update')`);
+ assert.ok(Number(audit)>=4,'Authorized changes were not audited');
+ const ownAudit=await clients.doctorA.from('audit_log').select('consultation_id').eq('consultation_id',ids.A);
+ assert.ifError(ownAudit.error);assert.ok(ownAudit.data.length>=2);
+ const foreignAudit=await clients.doctorB.from('audit_log').select('consultation_id').eq('consultation_id',ids.A);
+ assert.ifError(foreignAudit.error);assert.deepEqual(foreignAudit.data,[]);
+ const foreignProfile=await clients.doctorA.from('profiles').select('id').eq('id',fixture.actors.doctorB.id);
+ assert.ifError(foreignProfile.error);assert.deepEqual(foreignProfile.data,[]);
+ const deleted=await clients.doctorA.from('consultation_history').delete().eq('id',ids.A).select('id');
+ assert.ifError(deleted.error);assert.deepEqual(deleted.data.map(x=>x.id),[ids.A]);
+});
+test('real JWTs without a clinical slot or active organization cannot read or write encounters',async()=>{
+ for(const name of ['doctorNoAccess','adminA','reviewerB','revokedUser','noOrg']){
+  const read=await clients[name].from('consultation_history').select('id').eq('id',ids.B);
+  assert.ifError(read.error);assert.deepEqual(read.data,[],name+' read a clinical row');
+  const created=await clients[name].from('consultation_history').insert({
+   id:randomUUID(),encounter_id:randomUUID(),user_id:fixture.actors[name].id,
+   fields:{queixa_principal:'Synthetic forbidden'},status:'draft',encounter_state:'draft',
+   consent_recorded_at:new Date().toISOString()}).select('id');
+  assert.ok(created.error,name+' inserted a clinical row');
+ }
+ assert.equal(sql('SELECT count(*) FROM public.consultation_history'), '1');
+});
+test('submit-audit-case enforces gateway, clinical capability and source readiness before deidentification',async()=>{
+ const endpoint=target.api+'/functions/v1/submit-audit-case';
+ const origin=process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io';
+ const missing=await fetch(endpoint,{method:'POST',headers:{Origin:origin},signal:AbortSignal.timeout(20000)});
+ assert.equal(missing.status,401,'submit-audit-case gateway accepted missing JWT');
+ const forged=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer invalid.jwt.signature',Origin:origin},signal:AbortSignal.timeout(20000)});
+ assert.equal(forged.status,401,'submit-audit-case gateway accepted invalid JWT');
+ for(const name of ['doctorNoAccess','adminA','reviewerB','revokedUser','noOrg']){
+  const response=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+   Authorization:'Bearer '+tokens[name],Origin:origin,'Content-Type':'application/json'},
+   body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+  assert.equal(response.status,403,name+' reached audit submission without clinical capability');
+  assert.equal((await response.json()).error,'CLINICAL_ACCESS_REQUIRED');
+ }
+ const invalid=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:'not-a-uuid'}),signal:AbortSignal.timeout(20000)});
+ assert.equal(invalid.status,400);assert.equal((await invalid.json()).error,'INVALID_PAYLOAD');
+ const draft=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+ assert.equal(draft.status,409);assert.equal((await draft.json()).error,'SOURCE_NOT_READY');
+ assert.equal(sql('SELECT count(*) FROM public.audit_cases'),'2','Denied submissions created audit rows');
+});
+test('a signed clinical JWT submits a synthetic finalized encounter for tenant-scoped audit review',async()=>{
+ const encounterId=randomUUID(),origin=process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io';
+ const created=await clients.doctorB.from('consultation_history').insert({
+  id:encounterId,encounter_id:encounterId,user_id:fixture.actors.doctorB.id,
+  fields:{synthetic_test_marker:'NEXA_TEST_ONLY',patient_name:'Pessoa Sintética',
+   email:'synthetic@example.invalid',cpf:'123.456.789-00',queixa_principal:'Dor abdominal sintética'},
+  encounter_state:'ready_for_audit',status:'final',consent_recorded_at:new Date().toISOString(),
+  processing_meta:{},protocol_usage:[]
+ }).select('id,organization_id').single();
+ assert.ifError(created.error);assert.equal(created.data.organization_id,fixture.organizations.B);
+ const endpoint=target.api+'/functions/v1/submit-audit-case';
+ const submit=async(simulation)=>fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json',
+  'x-nexa-audit-test-token':process.env.NEXA_AUDIT_DEID_TEST_TOKEN},
+  body:JSON.stringify({source_consultation_id:encounterId,...(simulation?{synthetic_test_simulation:simulation}:{})}),
+  signal:AbortSignal.timeout(20000)});
+ const foreignSource=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorA,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:encounterId}),signal:AbortSignal.timeout(20000)});
+ assert.equal(foreignSource.status,404,'A physician reached another organization\'s audit source');
+ assert.equal((await foreignSource.json()).error,'SOURCE_NOT_FOUND');
+ const noConsentId=randomUUID();
+ const noConsent=await clients.doctorB.from('consultation_history').insert({
+  id:noConsentId,encounter_id:noConsentId,user_id:fixture.actors.doctorB.id,
+  fields:{synthetic_test_marker:'NEXA_TEST_ONLY',queixa_principal:'Teste sintético sem consentimento'},
+  encounter_state:'ready_for_audit',status:'final',consent_recorded_at:null,
+  processing_meta:{},protocol_usage:[]
+ }).select('id').single();
+ assert.ifError(noConsent.error);
+ const deniedConsent=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json',
+  'x-nexa-audit-test-token':process.env.NEXA_AUDIT_DEID_TEST_TOKEN},
+  body:JSON.stringify({source_consultation_id:noConsentId}),signal:AbortSignal.timeout(20000)});
+ assert.equal(deniedConsent.status,409);
+ assert.equal((await deniedConsent.json()).error,'CONSENT_REQUIRED');
+ assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(noConsentId)}`),'0');
+ for(const simulation of ['provider_failure','provider_timeout','invalid_response','residual_identifier']){
+  const denied=await submit(simulation);assert.equal(denied.status,simulation==='provider_timeout'?504:502,simulation);
+  assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'0');
+ }
+ sql(`CREATE TABLE public.nexa_audit_rollback_probe(source_id uuid NOT NULL);
+  CREATE FUNCTION public.nexa_audit_rollback_probe_trigger() RETURNS trigger LANGUAGE plpgsql AS $$
+  BEGIN
+   IF NEW.source_consultation_id=${uuid(encounterId)} THEN
+    INSERT INTO public.nexa_audit_rollback_probe(source_id) VALUES (NEW.source_consultation_id);
+    RAISE EXCEPTION 'synthetic audit rollback probe';
+   END IF;
+   RETURN NEW;
+  END $$;
+  CREATE TRIGGER nexa_audit_rollback_probe BEFORE INSERT ON public.audit_cases
+   FOR EACH ROW EXECUTE FUNCTION public.nexa_audit_rollback_probe_trigger()`);
+ try{
+  const rejected=await submit();assert.equal(rejected.status,500);
+  assert.equal((await rejected.json()).error,'AUDIT_INSERT_FAILED');
+  assert.equal(sql('SELECT count(*) FROM public.nexa_audit_rollback_probe'),'0','Failed insert left a partial side effect');
+  assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'0');
+ }finally{
+  sql(`DROP TRIGGER IF EXISTS nexa_audit_rollback_probe ON public.audit_cases;
+   DROP FUNCTION IF EXISTS public.nexa_audit_rollback_probe_trigger();
+   DROP TABLE IF EXISTS public.nexa_audit_rollback_probe`);
+ }
+ const response=await submit();assert.equal(response.status,200,await response.clone().text().then(x=>x.slice(0,200)));
+ const body=await response.json();assert.equal(body.ok,true);assert.equal(body.updated,false);
+ const caseId=body.case.id;assert.match(caseId,/^[0-9a-f-]{36}$/i);
+ const row=JSON.parse(sql(`SELECT row_to_json(t) FROM (SELECT id,organization_id,source_consultation_id,
+  submitted_by,deidentified_fields,deidentified_core_context,status FROM public.audit_cases
+  WHERE id=${uuid(caseId)}) t`));
+ assert.equal(row.organization_id,fixture.organizations.B);
+ assert.equal(row.source_consultation_id,encounterId);
+ assert.equal(row.submitted_by,fixture.actors.doctorB.id);
+ assert.equal(row.status,'pending');
+ assert.equal(row.deidentified_fields.queixa_principal,'Dor abdominal sintética sem identificadores');
+ assert.doesNotMatch(JSON.stringify(row),/synthetic@example.invalid|123.456.789-00|Pessoa Sintética/);
+ const event=JSON.parse(sql(`SELECT row_to_json(t) FROM (SELECT user_id,consultation_id,action,metadata
+  FROM public.audit_log WHERE metadata->>'audit_case_id'='${caseId}') t`));
+ assert.equal(event.user_id,fixture.actors.doctorB.id);
+ assert.equal(event.consultation_id,encounterId);
+ assert.equal(event.action,'create');
+ assert.equal(event.metadata.table,'audit_cases');
+ assert.equal(event.metadata.operation,'submit_audit_case');
+ assert.equal(event.metadata.organization_id,fixture.organizations.B);
+ assert.doesNotMatch(JSON.stringify(event),/synthetic@example.invalid|123.456.789-00|Pessoa Sintética/);
+ const queue=await clients.reviewerB.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(queue.error);assert.ok(queue.data.some(x=>x.id===caseId));
+ const foreign=await clients.adminA.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(foreign.error);assert.ok(!foreign.data.some(x=>x.id===caseId));
+ const repeat=await submit();assert.equal(repeat.status,409);
+ assert.equal((await repeat.json()).error,'ALREADY_SUBMITTED');
+ assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'1');
+ assert.ok(Number(sql(`SELECT count(*) FROM public.audit_log WHERE consultation_id='${encounterId}' AND action='create'`))>=1);
+});
+test('revoked membership blocks the same previously issued JWT',async()=>{
+ const actor=fixture.actors.doctorB.id,org=fixture.organizations.B;
+ const before=await clients.doctorB.from('consultation_history').select('id').eq('id',ids.B);
+ assert.ifError(before.error);assert.deepEqual(before.data.map(x=>x.id),[ids.B]);
+ try{
+  sql(`UPDATE public.organization_memberships SET status='revoked',revoked_at=now() WHERE user_id=${uuid(actor)} AND organization_id=${uuid(org)}`);
+  const after=await clients.doctorB.from('consultation_history').select('id').eq('id',ids.B);
+  assert.ifError(after.error);assert.deepEqual(after.data,[]);
+  const write=await clients.doctorB.from('consultation_history').update({fields:{queixa_principal:'Forbidden after revocation'}}).eq('id',ids.B).select('id');
+  assert.ifError(write.error);assert.deepEqual(write.data,[]);
+  const denied=await fetch(target.api+'/functions/v1/submit-audit-case',{method:'POST',
+   headers:{apikey:publishable,Authorization:'Bearer '+tokens.doctorB,
+    Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io','Content-Type':'application/json'},
+   body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+  assert.equal(denied.status,404,'Revoked membership reached its former audit source');
+  assert.equal((await denied.json()).error,'SOURCE_NOT_FOUND');
+  const current=await clients.doctorB.auth.getSession();
+  assert.equal(current.data.session.access_token,tokens.doctorB,'Token was refreshed during revocation test');
+ }finally{
+  sql(`UPDATE public.organization_memberships SET status='active',revoked_at=NULL,activated_at=now() WHERE user_id=${uuid(actor)} AND organization_id=${uuid(org)}`);
+ }
+});
+test('audit queue is tenant scoped and clinical JWT never grants training export',async()=>{
+ const queue=await clients.reviewerB.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(queue.error);assert.ok(queue.data.some(x=>x.id===fixture.auditCases.B));
+ assert.ok(!queue.data.some(x=>x.id===fixture.auditCases.A));
+ const adminQueue=await clients.adminA.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
+ assert.ifError(adminQueue.error);assert.ok(adminQueue.data.some(x=>x.id===fixture.auditCases.A));
+ assert.ok(!adminQueue.data.some(x=>x.id===fixture.auditCases.B));
+ for(const name of ['doctorA','doctorB','doctorNoAccess','reviewerB','revokedUser','noOrg']){
+  const response=await fetch(target.api+'/functions/v1/core-dataset-export',{method:'POST',
+   headers:{apikey:publishable,Authorization:'Bearer '+tokens[name],
+    Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io','Content-Type':'application/json'},
+   body:JSON.stringify({dataset_version:'synthetic-denied-test',limit:1,offset:0}),signal:AbortSignal.timeout(20000)});
+  assert.equal(response.status,403,name+' must not export training data');
+  assert.equal((await response.json()).error,'DATASET_ADMIN_REQUIRED');
+ }
+ const endpoint=target.api+'/functions/v1/core-dataset-export';
+ const missing=await fetch(endpoint,{method:'POST',headers:{Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io'},signal:AbortSignal.timeout(20000)});
+ assert.equal(missing.status,401,'Edge gateway accepted missing JWT');
+ const forged=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,Authorization:'Bearer invalid.jwt.signature',
+  Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io'},signal:AbortSignal.timeout(20000)});
+ assert.equal(forged.status,401,'Edge gateway accepted invalid JWT');
+});
+test('Edge rechecks profile status against an already issued JWT',async()=>{
+ const actor=fixture.actors.adminA.id;
+ const headers={apikey:publishable,Authorization:'Bearer '+tokens.adminA,
+  Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io','Content-Type':'application/json'};
+ const invoke=()=>fetch(target.api+'/functions/v1/core-dataset-export',{method:'POST',headers,
+  body:JSON.stringify({dataset_version:'synthetic-denied-test',limit:1,offset:0}),signal:AbortSignal.timeout(20000)});
+ const before=await invoke();
+ assert.equal(before.status,503);assert.equal((await before.json()).error,'DATASET_EXPORT_NOT_CONFIGURED');
+ try{
+  sql(`UPDATE public.profiles SET access_status='revoked' WHERE id=${uuid(actor)}`);
+  const after=await invoke();assert.equal(after.status,403);assert.equal((await after.json()).error,'DATASET_ADMIN_REQUIRED');
+  const current=await clients.adminA.auth.getSession();
+  assert.equal(current.data.session.access_token,tokens.adminA);
+ }finally{sql(`UPDATE public.profiles SET access_status='active' WHERE id=${uuid(actor)}`);}
+});
+test('historical issuer evidence is not exposed through a physician JWT',async()=>{
+ for(const name of ['doctorA','doctorB']){
+  const evidence=await clients[name].schema('private').from('nexa_historical_evidence').select('id').limit(1);
+  assert.ok(evidence.error,name+' unexpectedly reached the private evidence ledger');
+ }
+});

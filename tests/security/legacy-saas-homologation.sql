@@ -1,0 +1,238 @@
+\set ON_ERROR_STOP on
+-- Synthetic test IDs are fixed to make failures reproducible.
+INSERT INTO auth.users(id) VALUES
+ ('00000000-0000-4000-8000-000000000001'),('00000000-0000-4000-8000-000000000002');
+INSERT INTO public.profiles(id) SELECT id FROM auth.users;
+INSERT INTO public.professionals(id) VALUES('professional-a');
+INSERT INTO public.consultation_history(id,professional_id,user_id,encounter_id,created_at,clinical_text) VALUES
+ ('legacy-text-id-1','professional-a','00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','2026-01-01','synthetic-preserve-me'),
+ ('legacy-text-id-2','professional-a','00000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002','2026-01-01','synthetic-ambiguous');
+INSERT INTO public.audit_cases(id,source_consultation_id,submitted_by) VALUES
+ ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002');
+INSERT INTO public.nexa_core_cases(id,audit_case_id) VALUES
+ ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001');
+CREATE TEMP TABLE baseline AS SELECT
+ (SELECT count(*) FROM public.consultation_history) consultations,
+ (SELECT count(*) FROM public.audit_cases) audits,
+ (SELECT count(*) FROM public.nexa_core_cases) core,
+ (SELECT md5(string_agg(id||':'||clinical_text,'|' ORDER BY id)) FROM public.consultation_history) digest;
+\ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
+\ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
+\ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
+\ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
+-- Repeat both migrations: idempotency must hold.
+\ir ../../supabase/migrations/20261027210000_nexa_legacy_saas_expand.sql
+\ir ../../supabase/migrations/20261027211000_nexa_legacy_verified_backfill.sql
+\ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
+\ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
+DO $nexa_test$
+BEGIN
+ IF (SELECT count(*) FROM public.consultation_history)<>(SELECT consultations FROM baseline)
+ OR (SELECT count(*) FROM public.audit_cases)<>(SELECT audits FROM baseline)
+ OR (SELECT count(*) FROM public.nexa_core_cases)<>(SELECT core FROM baseline)
+ OR (SELECT md5(string_agg(id||':'||clinical_text,'|' ORDER BY id)) FROM public.consultation_history)<>(SELECT digest FROM baseline)
+ THEN RAISE EXCEPTION 'clinical integrity changed'; END IF;
+ IF EXISTS(SELECT 1 FROM public.consultation_history WHERE organization_id IS NOT NULL)
+ THEN RAISE EXCEPTION 'legacy records auto-assigned'; END IF;
+END $nexa_test$;
+-- Verified historical synthetic membership. Audit submitter belongs to the other user.
+INSERT INTO public.organizations(id,slug,display_name) VALUES
+ ('40000000-0000-4000-8000-000000000001','synthetic-org-a','Synthetic A'),
+ ('40000000-0000-4000-8000-000000000002','synthetic-org-b','Synthetic B');
+INSERT INTO public.organization_memberships(organization_id,user_id,roles,status,activated_at) VALUES
+ ('40000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001',ARRAY['clinician'],'active','2025-01-01'),
+ ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000002',ARRAY['clinician'],'active','2025-01-01');
+-- Positive consultation -> audit -> core chain.
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
+ ('consultation_history','legacy-text-id-1','40000000-0000-4000-8000-000000000001','synthetic-attestation-1','00000000-0000-4000-8000-000000000001'),
+ ('audit_cases','20000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','synthetic-attestation-2','00000000-0000-4000-8000-000000000001'),
+ ('nexa_core_cases','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','synthetic-attestation-3','00000000-0000-4000-8000-000000000001');
+-- A mere evidence_reference and historical membership must fail closed.
+DO $nexa_gate$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'unverified historical ownership accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='unverified historical ownership accepted' THEN RAISE; END IF;
+ END;
+END $nexa_gate$;
+-- Separate authorized approver, distinct from proposer.
+INSERT INTO auth.users(id) VALUES ('00000000-0000-4000-8000-000000000003');
+INSERT INTO public.profiles(id) VALUES ('00000000-0000-4000-8000-000000000003');
+INSERT INTO public.organization_memberships(organization_id,user_id,roles,status,activated_at)
+VALUES ('40000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003',ARRAY['admin'],'active','2025-01-01'),
+ ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000003',ARRAY['admin'],'active','2025-01-01');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+SELECT m.organization_id,'00000000-0000-4000-8000-000000000001',m.entity_type,m.entity_id,
+ 'synthetic-institutional-record','synthetic-issuer','synthetic-external-reference',
+ 'synthetic://isolated-fixture',repeat('a',64),'synthetic-test-only',
+ '00000000-0000-4000-8000-000000000001','2025-01-01','2027-01-01',
+ 'synthetic-authenticated-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003',
+ 'verified',now(),'00000000-0000-4000-8000-000000000003','synthetic fixture verified'
+FROM private.nexa_legacy_tenant_mapping m;
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT e.id,e.organization_id,'00000000-0000-4000-8000-000000000001',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic independent approval'
+FROM private.nexa_historical_evidence e;
+-- Synthetic issuer verification records: only test data, never a claim of real provenance.
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,
+ proof_reference,document_sha256,verifier_id,outcome)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-fixture-source',
+ 'synthetic-fixture-proof',document_sha256,'00000000-0000-4000-8000-000000000003','valid'
+FROM private.nexa_historical_evidence;
+SELECT * FROM private.nexa_apply_verified_legacy_mapping();
+DO $nexa_test$
+BEGIN
+ IF (SELECT count(*) FROM public.consultation_history WHERE organization_id='40000000-0000-4000-8000-000000000001')<>1
+ OR (SELECT count(*) FROM public.audit_cases WHERE organization_id='40000000-0000-4000-8000-000000000001')<>1
+ OR (SELECT count(*) FROM public.nexa_core_cases WHERE organization_id='40000000-0000-4000-8000-000000000001')<>1
+ OR (SELECT count(*) FROM public.consultation_history WHERE organization_id IS NULL)<>1
+ THEN RAISE EXCEPTION 'valid mapping or ambiguous record preservation failed'; END IF;
+END $nexa_test$;
+-- Negative: submitter is not owner, cannot move audit to B.
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
+ ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000001','synthetic-invalid-claim','00000000-0000-4000-8000-000000000001');
+DO $nexa_test$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'invalid ownership mapping was accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='invalid ownership mapping was accepted' THEN RAISE; END IF;
+ END;
+ IF EXISTS(SELECT 1 FROM public.consultation_history WHERE id='legacy-text-id-2' AND organization_id IS NOT NULL)
+ THEN RAISE EXCEPTION 'failed operation changed clinical tenant'; END IF;
+END $nexa_test$;
+DELETE FROM private.nexa_legacy_tenant_mapping WHERE entity_id='legacy-text-id-2';
+-- Idempotent replay.
+SELECT * FROM private.nexa_apply_verified_legacy_mapping();
+DO $nexa_test$
+BEGIN
+ IF (SELECT count(*) FROM public.consultation_history)<>2
+ OR (SELECT count(*) FROM public.audit_cases)<>1
+ OR (SELECT count(*) FROM public.nexa_core_cases)<>1
+ THEN RAISE EXCEPTION 'replay changed row counts'; END IF;
+END $nexa_test$;
+-- Negative: a newly activated membership cannot prove ownership of a January record.
+INSERT INTO public.organization_memberships(organization_id,user_id,roles,status,activated_at) VALUES
+ ('40000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002',ARRAY['clinician'],'active','2026-10-27');
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
+ ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000001','synthetic-postdated-membership','00000000-0000-4000-8000-000000000001');
+DO $nexa_test$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'postdated membership incorrectly accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='postdated membership incorrectly accepted' THEN RAISE; END IF;
+ END;
+ IF (SELECT organization_id FROM public.consultation_history WHERE id='legacy-text-id-2') IS NOT NULL
+ THEN RAISE EXCEPTION 'postdated membership mutated record'; END IF;
+END $nexa_test$;
+DELETE FROM private.nexa_legacy_tenant_mapping WHERE entity_id='legacy-text-id-2';
+-- Negative: cannot remap an already assigned consultation.
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by) VALUES
+ ('consultation_history','legacy-text-id-2','40000000-0000-4000-8000-000000000002','synthetic-valid-owner-evidence','00000000-0000-4000-8000-000000000002');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+VALUES ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000002',
+ 'consultation_history','legacy-text-id-2','synthetic','synthetic-issuer','synthetic-2',
+ 'synthetic://second',repeat('b',64),'synthetic','00000000-0000-4000-8000-000000000002',
+ '2025-01-01','2027-01-01','synthetic-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003','verified',now(),
+ '00000000-0000-4000-8000-000000000003','synthetic verified');
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT id,organization_id,'00000000-0000-4000-8000-000000000002',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic second approval'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
+INSERT INTO private.nexa_evidence_source_verifications(evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,document_sha256,verifier_id,outcome)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-second-source','synthetic-second-proof',document_sha256,'00000000-0000-4000-8000-000000000003','valid'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
+SELECT * FROM private.nexa_apply_verified_legacy_mapping();
+DO $nexa_test$
+BEGIN
+ IF (SELECT organization_id FROM public.consultation_history WHERE id='legacy-text-id-2')<>'40000000-0000-4000-8000-000000000002'
+ THEN RAISE EXCEPTION 'second valid owner mapping failed'; END IF;
+END $nexa_test$;
+-- Negative: conflicting audit/core mapping must not alter the established tenant.
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by)
+VALUES ('audit_cases','20000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','synthetic-conflicting-audit','00000000-0000-4000-8000-000000000002')
+ON CONFLICT (entity_type,entity_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,applied_at=NULL;
+DO $nexa_test$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'conflicting audit mapping accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='conflicting audit mapping accepted' THEN RAISE; END IF;
+ END;
+ IF (SELECT organization_id FROM public.audit_cases WHERE id='20000000-0000-4000-8000-000000000001')<>'40000000-0000-4000-8000-000000000001'
+ THEN RAISE EXCEPTION 'conflicting audit mutated tenant'; END IF;
+END $nexa_test$;
+-- Fail closed: a later source revocation invalidates any new mapping attempt.
+-- The already-applied mappings must remain unchanged.
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,
+ proof_reference,document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-revocation',
+ 'synthetic-revocation-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'revoked',now()+interval '1 minute'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-2';
+-- Introduce a fresh, unapplied mapping for a revoked source, with a valid historical owner.
+INSERT INTO public.consultation_history(id,professional_id,user_id,encounter_id,created_at,clinical_text)
+VALUES ('legacy-text-id-3','professional-a','00000000-0000-4000-8000-000000000002',
+ '10000000-0000-4000-8000-000000000003','2026-01-01','synthetic-revoked-source');
+INSERT INTO private.nexa_legacy_tenant_mapping(entity_type,entity_id,organization_id,evidence_reference,verified_by)
+VALUES ('consultation_history','legacy-text-id-3','40000000-0000-4000-8000-000000000002',
+ 'synthetic-revoked-source','00000000-0000-4000-8000-000000000002');
+INSERT INTO private.nexa_historical_evidence(
+ organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,external_reference,
+ secure_document_reference,document_sha256,acquisition_method,collected_by,valid_from,valid_until,
+ source_authentication_method,source_authenticated_at,source_authenticated_by,
+ integrity_verified_at,integrity_verified_by,status,verified_at,verified_by,verification_reason)
+VALUES ('40000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000002',
+ 'consultation_history','legacy-text-id-3','synthetic','synthetic-issuer','synthetic-3',
+ 'synthetic://third',repeat('c',64),'synthetic','00000000-0000-4000-8000-000000000002',
+ '2025-01-01','2027-01-01','synthetic-source',now(),'00000000-0000-4000-8000-000000000003',
+ now(),'00000000-0000-4000-8000-000000000003','verified',now(),
+ '00000000-0000-4000-8000-000000000003','synthetic verified');
+INSERT INTO private.nexa_historical_evidence_decisions(evidence_id,organization_id,proposer_id,approver_id,decision,rationale)
+SELECT id,organization_id,'00000000-0000-4000-8000-000000000002',
+ '00000000-0000-4000-8000-000000000003','approved','synthetic third approval'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,
+ document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-third-source',
+ 'synthetic-third-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'valid',now()-interval '2 minutes'
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+INSERT INTO private.nexa_evidence_source_verifications(
+ evidence_id,issuer_identity,issuer_organization_id,method,source_reference,proof_reference,
+ document_sha256,verifier_id,outcome,verified_at)
+SELECT id,issuer,organization_id,'institutional_registry','synthetic-third-revocation',
+ 'synthetic-third-revocation-proof',document_sha256,'00000000-0000-4000-8000-000000000003',
+ 'revoked',now()
+FROM private.nexa_historical_evidence WHERE entity_id='legacy-text-id-3';
+DO $nexa_revoked$
+BEGIN
+ BEGIN
+ PERFORM private.nexa_apply_verified_legacy_mapping();
+ RAISE EXCEPTION 'revoked source incorrectly accepted';
+ EXCEPTION WHEN OTHERS THEN
+ IF SQLERRM='revoked source incorrectly accepted' THEN RAISE; END IF;
+ END;
+ IF EXISTS (SELECT 1 FROM public.consultation_history WHERE id='legacy-text-id-3' AND organization_id IS NOT NULL)
+ THEN RAISE EXCEPTION 'revoked source changed clinical ownership'; END IF;
+END $nexa_revoked$;
+SELECT 'LEGACY_SAAS_SYNTHETIC_PASS' AS result;
