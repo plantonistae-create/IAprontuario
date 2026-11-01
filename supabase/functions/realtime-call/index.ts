@@ -1,7 +1,6 @@
 // Existing production transport v4, versioned for staging parity; no changes deployed to production.
 import { createClient } from "@supabase/supabase-js";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
-import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -442,7 +441,7 @@ async function transcribeFallback(
     );
   }
 
-  let parsed: {text?: unknown; usage?: unknown} = {};
+  let parsed: {text?: unknown} = {};
 
   try {
     parsed =
@@ -456,8 +455,6 @@ async function transcribeFallback(
       502,
     );
   }
-
-  emitUsage("realtime.transcription", TRANSCRIBE_MODEL, parsed.usage);
 
   return json({
     mode:
