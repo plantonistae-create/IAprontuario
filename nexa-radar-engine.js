@@ -136,19 +136,26 @@
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
   const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea','throatPain','earPain','sinusSymptoms','jointPain','constipation','upperGI','giBleed','palpitations','dizziness','seizure','colic','testicularPain','pelvicPain','vaginalBleeding','rash','eyePain']);
+  const directlyAskedSymptoms=new Set(['fever','chest','abdomen','headache','back','limb','urinary','neuro']);
   // Interpret questions separately from patient evidence. No conversational inference is written to the record.
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
     const parts=String(text).match(/[^!?;\n]+[!?;\n]?/g)||[];
     const sentences=parts.flatMap(p=>p.split(/\.(?!\d)/).filter(x=>x.trim()));
     for(const raw of sentences){
-      const quote=raw.trim(),t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
-      const question=/\?\s*$/.test(quote)||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
+      const quote=raw.trim(),speaker=norm(quote).match(/^(medic[oa]|profissional|paciente|acompanhante):\s*/)?.[1]||'';
+      const clinician=['medico','medica','profissional'].includes(speaker),companion=speaker==='acompanhante';
+      const t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
+      // ASR often drops question marks. A clinician's question must not become a patient fact.
+      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmaio|sangue nas fezes)[.!]?$/i.test(t);
+      const question=/\?\s*$/.test(quote)||clinicianPrompt||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
       const third=/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|sente|apresenta)/.test(t);
       const proposed=/^(?:investigar|considerar|avaliar|perguntar|se (?:tiver|apresentar)|caso (?:tenha|apresente))\b/.test(t);
       if(third||proposed){pending=[];continue;}
-      if(question){pending=ids.filter(id=>!symptomIds.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript',alternatives:/\bou\b/.test(t)});continue;}
+      if(companion){ids.forEach(id=>uncertain[id]={quote,section:'transcript',state:'unknown',temporal:'current'});continue;}
+      if(question){pending=ids.filter(id=>!symptomIds.has(id)||directlyAskedSymptoms.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript',alternatives:/\bou\b/.test(t)});continue;}
       const short=/^(?:sim|nao|nunca|nenhum[a]?|nao sei|nao lembro|talvez|acho que|nao entendi)(?:[,.!\s]|$)/.test(t);
+      if(clinician&&short)continue;
       if(pending.length&&short){
         const ambiguous=pending.length!==1||pending.some(id=>asked[id].alternatives)||/nao sei|nao lembro|talvez|acho que|nao entendi/.test(t);
         for(const id of pending){
