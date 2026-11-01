@@ -69,6 +69,7 @@ BEGIN
  RAISE EXCEPTION 'historical evidence decisions are append-only';
 END $$;
 \ir isolated-clinical-audit-contract.sql
+\ir ../../supabase/migrations/20261101023937_audit_case_submission_event.sql
 -- The next functions, guard and policies are the observed staging definitions
 -- already exercised by tests/security/clinical-positive-schema.sql. Keep
 -- Supabase's real auth.uid() unchanged for signed JWT / PostgREST testing.

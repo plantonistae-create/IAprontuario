@@ -80,3 +80,31 @@ test('service-only ES256 intake persists a linear synthetic receipt lifecycle',a
  assert.equal(sql(`SELECT string_agg(event_kind,',' ORDER BY sequence_no) FROM private.nexa_external_issuer_verified_receipts WHERE evidence_id='${evidenceId}'`),'verified,revoked,contested');
  assert.equal(sql(`SELECT has_function_privilege('authenticated','public.nexa_ingest_verified_external_receipt(jsonb)','EXECUTE')`),'f');
 });
+
+test('concurrent revocation and contestation cannot fork one receipt version',async()=>{
+ const evidenceId=randomUUID(),actor=fixture.actors.doctorB.id,org=fixture.organizations.B;
+ sql(`INSERT INTO private.nexa_historical_evidence(
+  id,organization_id,professional_user_id,entity_type,entity_id,document_type,issuer,
+  external_reference,secure_document_reference,document_sha256,acquisition_method,
+  collected_by,valid_from,valid_until)
+ VALUES('${evidenceId}'::uuid,'${org}'::uuid,'${actor}'::uuid,'consultation_history',
+  'synthetic-race-${fixture.runId}','synthetic-document','synthetic-document-issuer',
+  'synthetic-reference','synthetic-protected-reference','${'1'.repeat(64)}',
+  'synthetic-test','${actor}'::uuid,now()-interval '1 day',now()+interval '1 day')`);
+ const now=Math.floor(Date.now()/1000);
+ const base={iss:'https://synthetic-verifier.invalid',aud:'nexa-synthetic-receipt-test',
+  iat:now-5,nbf:now-5,exp:now+120,evidence_id:evidenceId,
+  issuer_identity:'synthetic-document-issuer',document_sha256:'1'.repeat(64),
+  verification_method:'digital_signature',source_reference_sha256:'2'.repeat(64),
+  proof_reference_sha256:'3'.repeat(64),externally_verified_at:now-10};
+ const root=await signed({...base,jti:'synthetic-'+randomUUID(),event_kind:'verified',
+  sequence_no:1,previous_receipt_sha256:null});
+ assert.equal((await post(root)).status,200);
+ const next={...base,sequence_no:2,previous_receipt_sha256:sha(root)};
+ const revoke=await signed({...next,jti:'synthetic-'+randomUUID(),event_kind:'revoked'},'synthetic-key-2');
+ const contest=await signed({...next,jti:'synthetic-'+randomUUID(),event_kind:'contested'},'synthetic-key-2');
+ const results=await Promise.all([post(revoke),post(contest)]);
+ assert.deepEqual(results.map(x=>x.status).sort((a,b)=>a-b),[200,409]);
+ assert.equal(sql(`SELECT count(*) FROM private.nexa_external_issuer_verified_receipts WHERE evidence_id='${evidenceId}'`),'2');
+ assert.equal(sql(`SELECT count(*) FROM private.nexa_external_issuer_verified_receipts WHERE evidence_id='${evidenceId}' AND sequence_no=2`),'1');
+});

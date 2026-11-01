@@ -148,9 +148,50 @@ test('a signed clinical JWT submits a synthetic finalized encounter for tenant-s
   'x-nexa-audit-test-token':process.env.NEXA_AUDIT_DEID_TEST_TOKEN},
   body:JSON.stringify({source_consultation_id:encounterId,...(simulation?{synthetic_test_simulation:simulation}:{})}),
   signal:AbortSignal.timeout(20000)});
- for(const simulation of ['provider_failure','invalid_response','residual_identifier']){
-  const denied=await submit(simulation);assert.equal(denied.status,502,simulation);
+ const foreignSource=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorA,Origin:origin,'Content-Type':'application/json'},
+  body:JSON.stringify({source_consultation_id:encounterId}),signal:AbortSignal.timeout(20000)});
+ assert.equal(foreignSource.status,404,'A physician reached another organization\'s audit source');
+ assert.equal((await foreignSource.json()).error,'SOURCE_NOT_FOUND');
+ const noConsentId=randomUUID();
+ const noConsent=await clients.doctorB.from('consultation_history').insert({
+  id:noConsentId,encounter_id:noConsentId,user_id:fixture.actors.doctorB.id,
+  fields:{synthetic_test_marker:'NEXA_TEST_ONLY',queixa_principal:'Teste sintético sem consentimento'},
+  encounter_state:'ready_for_audit',status:'final',consent_recorded_at:null,
+  processing_meta:{},protocol_usage:[]
+ }).select('id').single();
+ assert.ifError(noConsent.error);
+ const deniedConsent=await fetch(endpoint,{method:'POST',headers:{apikey:publishable,
+  Authorization:'Bearer '+tokens.doctorB,Origin:origin,'Content-Type':'application/json',
+  'x-nexa-audit-test-token':process.env.NEXA_AUDIT_DEID_TEST_TOKEN},
+  body:JSON.stringify({source_consultation_id:noConsentId}),signal:AbortSignal.timeout(20000)});
+ assert.equal(deniedConsent.status,409);
+ assert.equal((await deniedConsent.json()).error,'CONSENT_REQUIRED');
+ assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(noConsentId)}`),'0');
+ for(const simulation of ['provider_failure','provider_timeout','invalid_response','residual_identifier']){
+  const denied=await submit(simulation);assert.equal(denied.status,simulation==='provider_timeout'?504:502,simulation);
   assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'0');
+ }
+ sql(`CREATE TABLE public.nexa_audit_rollback_probe(source_id uuid NOT NULL);
+  CREATE FUNCTION public.nexa_audit_rollback_probe_trigger() RETURNS trigger LANGUAGE plpgsql AS $$
+  BEGIN
+   IF NEW.source_consultation_id=${uuid(encounterId)} THEN
+    INSERT INTO public.nexa_audit_rollback_probe(source_id) VALUES (NEW.source_consultation_id);
+    RAISE EXCEPTION 'synthetic audit rollback probe';
+   END IF;
+   RETURN NEW;
+  END $$;
+  CREATE TRIGGER nexa_audit_rollback_probe BEFORE INSERT ON public.audit_cases
+   FOR EACH ROW EXECUTE FUNCTION public.nexa_audit_rollback_probe_trigger()`);
+ try{
+  const rejected=await submit();assert.equal(rejected.status,500);
+  assert.equal((await rejected.json()).error,'AUDIT_INSERT_FAILED');
+  assert.equal(sql('SELECT count(*) FROM public.nexa_audit_rollback_probe'),'0','Failed insert left a partial side effect');
+  assert.equal(sql(`SELECT count(*) FROM public.audit_cases WHERE source_consultation_id=${uuid(encounterId)}`),'0');
+ }finally{
+  sql(`DROP TRIGGER IF EXISTS nexa_audit_rollback_probe ON public.audit_cases;
+   DROP FUNCTION IF EXISTS public.nexa_audit_rollback_probe_trigger();
+   DROP TABLE IF EXISTS public.nexa_audit_rollback_probe`);
  }
  const response=await submit();assert.equal(response.status,200,await response.clone().text().then(x=>x.slice(0,200)));
  const body=await response.json();assert.equal(body.ok,true);assert.equal(body.updated,false);
@@ -164,6 +205,15 @@ test('a signed clinical JWT submits a synthetic finalized encounter for tenant-s
  assert.equal(row.status,'pending');
  assert.equal(row.deidentified_fields.queixa_principal,'Dor abdominal sintética sem identificadores');
  assert.doesNotMatch(JSON.stringify(row),/synthetic@example.invalid|123.456.789-00|Pessoa Sintética/);
+ const event=JSON.parse(sql(`SELECT row_to_json(t) FROM (SELECT user_id,consultation_id,action,metadata
+  FROM public.audit_log WHERE metadata->>'audit_case_id'='${caseId}') t`));
+ assert.equal(event.user_id,fixture.actors.doctorB.id);
+ assert.equal(event.consultation_id,encounterId);
+ assert.equal(event.action,'create');
+ assert.equal(event.metadata.table,'audit_cases');
+ assert.equal(event.metadata.operation,'submit_audit_case');
+ assert.equal(event.metadata.organization_id,fixture.organizations.B);
+ assert.doesNotMatch(JSON.stringify(event),/synthetic@example.invalid|123.456.789-00|Pessoa Sintética/);
  const queue=await clients.reviewerB.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
  assert.ifError(queue.error);assert.ok(queue.data.some(x=>x.id===caseId));
  const foreign=await clients.adminA.rpc('get_audit_queue_v2',{limit_count:200,offset_count:0});
@@ -183,6 +233,12 @@ test('revoked membership blocks the same previously issued JWT',async()=>{
   assert.ifError(after.error);assert.deepEqual(after.data,[]);
   const write=await clients.doctorB.from('consultation_history').update({fields:{queixa_principal:'Forbidden after revocation'}}).eq('id',ids.B).select('id');
   assert.ifError(write.error);assert.deepEqual(write.data,[]);
+  const denied=await fetch(target.api+'/functions/v1/submit-audit-case',{method:'POST',
+   headers:{apikey:publishable,Authorization:'Bearer '+tokens.doctorB,
+    Origin:process.env.NEXA_ISOLATED_ORIGIN||'https://plantonistae-create.github.io','Content-Type':'application/json'},
+   body:JSON.stringify({source_consultation_id:ids.B}),signal:AbortSignal.timeout(20000)});
+  assert.equal(denied.status,404,'Revoked membership reached its former audit source');
+  assert.equal((await denied.json()).error,'SOURCE_NOT_FOUND');
   const current=await clients.doctorB.auth.getSession();
   assert.equal(current.data.session.access_token,tokens.doctorB,'Token was refreshed during revocation test');
  }finally{

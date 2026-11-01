@@ -64,6 +64,18 @@ leave no case. Cleanup scopes the new case to this run's actor, organization
 and encounter, then independently reads zero residues. This proves the local
 pipeline, not an external model's deidentification quality.
 
+The same disposable run also denies a foreign-organization source, a finalized
+source without consent, and an unchanged physician JWT after membership
+revocation. A local trigger writes a probe row and raises during audit-case
+insertion; PostgreSQL rolls back both writes, and the Edge response contains
+only `AUDIT_INSERT_FAILED`. A synthetic provider-timeout response leaves no
+case. The live provider call now has a 30-second abort limit; the local test
+exercises the response contract, not a real external network timeout.
+Candidate migration `20261101023937_audit_case_submission_event.sql` adds a
+transactional audit-log event for each inserted case. The integration checks
+its actor, source, organization and case ID, and confirms that its metadata
+contains no clinical fields or fictional patient identifiers.
+
 The queue fixture uses the `get_audit_queue_v2`, `private.can_audit_org` and
 `private.org_has_any_role` definitions observed read-only on staging on
 2026-10-28. The repository's older audit migration lacks this tenant predicate.

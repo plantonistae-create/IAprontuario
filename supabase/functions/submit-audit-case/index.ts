@@ -111,6 +111,7 @@ serve(async(req)=>{
          req.headers.get('x-nexa-audit-test-token')===env('NEXA_AUDIT_DEID_TEST_TOKEN')){
         const simulation=String(body?.synthetic_test_simulation||'');
         if(simulation==='provider_failure')return json({error:'DEIDENTIFICATION_FAILED'},502);
+        if(simulation==='provider_timeout')return json({error:'DEIDENTIFICATION_TIMEOUT'},504);
         if(simulation==='invalid_response')return json({error:'INVALID_DEIDENTIFICATION_JSON'},502);
         const deid:any={fields:{queixa_principal:'Dor abdominal sintética sem identificadores'},
           core_context:{schema_version:'3',audit_submission_snapshot:coreContext.audit_submission_snapshot}};
@@ -119,7 +120,13 @@ serve(async(req)=>{
         if(!validation.ok)return json({error:validation.error},502);
         return {fields:deid.fields,core:safeCoreContext(deid.core_context)};
       }
-      const upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}})});
+      let upstream:Response;
+      try{
+        upstream=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${AI_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,store:false,reasoning:{effort:'low'},input:prompt,text:{format:{type:'json_object'}}}),signal:AbortSignal.timeout(30000)});
+      }catch(error){
+        const timedOut=error instanceof DOMException&&(error.name==='TimeoutError'||error.name==='AbortError');
+        return json({error:timedOut?'DEIDENTIFICATION_TIMEOUT':'DEIDENTIFICATION_FAILED'},timedOut?504:502);
+      }
       const raw=await upstream.text();if(!upstream.ok)return json({error:'DEIDENTIFICATION_FAILED'},502);
       const parsed=JSON.parse(raw),text=outputText(parsed);if(!text)return json({error:'EMPTY_DEIDENTIFICATION'},502);
       let deid:any;try{deid=JSON.parse(text)}catch{return json({error:'INVALID_DEIDENTIFICATION_JSON'},502)}
