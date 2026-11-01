@@ -89,6 +89,10 @@ try{
  command(psql,['-X','-v','ON_ERROR_STOP=1',
   '--command',`CREATE TEMP TABLE nexa_local_stack_guard(runtime text PRIMARY KEY); INSERT INTO nexa_local_stack_guard VALUES ('${runtime}')`,
   '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv,false,600000,true);
+ command(psql,['-X','-v','ON_ERROR_STOP=1',
+  '-f',join(root,'tests/security/isolated-legacy-compatibility.sql')],pgEnv,true);
+ command(process.execPath,['scripts/verify-synthetic-recovery.mjs'],{
+  ...cliEnv,NEXA_LOCAL_STATUS_JSON:statusFile,NEXA_LOCAL_PSQL_BIN:psql},true);
  command('npx',['--yes','supabase@2.122.0','db','advisors','--db-url',advisorDB.href,
   '--type','security','--level','warn','--fail-on','error'],cliEnv,true,600000);
  const unguarded=spawnSync(psql,['-X','-v','ON_ERROR_STOP=1',
