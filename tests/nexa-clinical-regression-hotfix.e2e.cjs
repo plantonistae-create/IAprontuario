@@ -272,7 +272,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    assert.equal(historyVisible,true,'Persistent History must be visible from the History navigation');
 
    const legacyItem=page.locator('#n197List .n197-item').filter({hasText:'Atendimento legado QA'}).first();
-   await legacyItem.locator('button').click();
+   await legacyItem.getByRole('button',{name:'Reabrir'}).click();
    try{
      await page.waitForFunction(()=>/registro antigo compatível/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
    }catch(error){
@@ -297,7 +297,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
    }
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
    const structuredItem=page.locator('#n197List .n197-item').filter({hasText:/Cefaleia/i}).first();
-   await structuredItem.locator('button').click();
+   await structuredItem.getByRole('button',{name:'Reabrir'}).click();
    await page.waitForFunction(()=>/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
 
    await page.screenshot({path:path.join(root,'test-results',`clinical-regression-hotfix-${viewport.width}.png`),fullPage:true});
