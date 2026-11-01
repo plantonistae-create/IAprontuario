@@ -119,6 +119,19 @@ try{
   original,corrected}),{mode:0o600});
  const separate=call(process.execPath,['scripts/verify-transcript-new-process.mjs',sessionFile]);
  assert.ok(separate.includes('FRESH_PROCESS_TRANSCRIPT_RECOVERY_PASS'));
+ const browserEncounter=randomUUID(),browserEvent=randomUUID();
+ sql(`INSERT INTO public.consultation_history(id,encounter_id,user_id,organization_id,consent_recorded_at,fields,created_at)
+   VALUES (${q(browserEncounter)},${q(browserEncounter)},${q(a.data.user.id)},${q(oa)},now(),
+    '{"queixa_principal":"Consulta sintética antiga"}'::jsonb,now()-interval '10 days');
+   INSERT INTO public.consultation_history(id,encounter_id,user_id,organization_id,consent_recorded_at,fields,created_at)
+   SELECT 'synthetic-recent-${id}-'||n,gen_random_uuid(),${q(a.data.user.id)},${q(oa)},now(),
+    jsonb_build_object('queixa_principal','Consulta sintética recente '||n),now()-n*interval '1 hour'
+   FROM generate_series(1,20) n;`);
+ const browserFile=join(workdir,'browser.json');
+ writeFileSync(browserFile,JSON.stringify({api:status.API_URL,anon:status.ANON_KEY,
+  email:emailA,password,owner:a.data.user.id,organization:oa,encounter:browserEncounter,event:browserEvent}),{mode:0o600});
+ const browserResult=call(process.execPath,['tests/transcript/browser-two-contexts.cjs',browserFile]);
+ assert.ok(browserResult.includes('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS'));
  sql(`UPDATE public.profiles SET status='revoked' WHERE id=${q(a.data.user.id)}`);
  assert.equal((await read(session3)).length,0);
  sql(`DELETE FROM public.encounter_transcript_versions; DELETE FROM public.consultation_history;
