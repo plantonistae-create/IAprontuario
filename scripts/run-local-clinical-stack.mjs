@@ -65,12 +65,15 @@ try{
  const statusFile=join(workdir,'stack-status.json');
  writeFileSync(statusFile,JSON.stringify(status),{mode:0o600});
  const db=new URL(status.DB_URL);
+ const advisorDB=new URL(status.DB_URL);advisorDB.searchParams.set('sslmode','disable');
  const pgEnv={...cliEnv,PGHOST:db.hostname,PGPORT:db.port,PGUSER:decodeURIComponent(db.username),
   PGPASSWORD:decodeURIComponent(db.password),PGDATABASE:db.pathname.slice(1),PGSSLMODE:'disable'};
  const psql=nativePsql();
  command(psql,['-X','-v','ON_ERROR_STOP=1',
   '--command',`CREATE TEMP TABLE nexa_local_stack_guard(runtime text PRIMARY KEY); INSERT INTO nexa_local_stack_guard VALUES ('${runtime}')`,
   '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],pgEnv,false,600000,true);
+ command('npx',['--yes','supabase@2.122.0','db','advisors','--db-url',advisorDB.href,
+  '--type','security','--level','warn','--fail-on','error'],cliEnv,true,600000);
  const unguarded=spawnSync(psql,['-X','-v','ON_ERROR_STOP=1',
   '-f',join(root,'tests/security/isolated-clinical-local-schema.sql')],{
   cwd:root,env:pgEnv,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:600000,maxBuffer:1024*1024});

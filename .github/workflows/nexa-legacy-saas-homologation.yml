@@ -7,6 +7,8 @@ on:
       - 'supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql'
       - 'supabase/migrations/20261027221000_nexa_evidence_source_verification.sql'
       - 'supabase/migrations/20261028191521_nexa_external_issuer_activation_gate.sql'
+      - 'supabase/migrations/20261101010336_nexa_external_issuer_verified_receipts.sql'
+      - 'supabase/functions/_shared/nexa-external-issuer-receipt.mjs'
       - 'tests/security/legacy-saas-*.sql'
       - 'tests/security/legacy-saas-concurrency.py'
       - 'tests/security/clinical-positive-schema.sql'
@@ -51,6 +53,8 @@ jobs:
           python tests/security/legacy-saas-concurrency.py
       - name: Keep historical association disabled without authenticated issuer proof
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-external-gate.sql
+      - name: Verify signed-receipt persistence contract without activating backfill
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/legacy-saas-verified-receipts.sql
       - name: Verify no clinical data or staging credentials were used
         run: |
           test "$PGDATABASE" = "nexa_legacy_synthetic"

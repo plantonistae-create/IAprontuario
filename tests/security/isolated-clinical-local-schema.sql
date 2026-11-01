@@ -58,6 +58,7 @@ ALTER TABLE public.nexa_core_cases ENABLE ROW LEVEL SECURITY;
 \ir ../../supabase/migrations/20261027220000_nexa_historical_evidence_contract.sql
 \ir ../../supabase/migrations/20261027221000_nexa_evidence_source_verification.sql
 \ir ../../supabase/migrations/20261028191521_nexa_external_issuer_activation_gate.sql
+\ir ../../supabase/migrations/20261101010336_nexa_external_issuer_verified_receipts.sql
 \ir isolated-clinical-audit-contract.sql
 -- The next functions, guard and policies are the observed staging definitions
 -- already exercised by tests/security/clinical-positive-schema.sql. Keep

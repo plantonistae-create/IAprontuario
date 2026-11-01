@@ -49,6 +49,7 @@ const residual=execFileSync(psql,['-X','-v','ON_ERROR_STOP=1','--quiet','--no-al
   "(SELECT count(*) FROM private.nexa_historical_evidence_decisions)+"+
   "(SELECT count(*) FROM private.nexa_evidence_source_verifications)+"+
   "(SELECT count(*) FROM private.nexa_external_issuer_proof_events)+"+
+  "(SELECT count(*) FROM private.nexa_external_issuer_verified_receipts)+"+
   "(SELECT count(*) FROM public.organizations)+(SELECT count(*) FROM public.organization_memberships)+"+
   "(SELECT count(*) FROM private.clinical_slots WHERE profile_id IS NOT NULL)"],
  {env:pgEnv,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
