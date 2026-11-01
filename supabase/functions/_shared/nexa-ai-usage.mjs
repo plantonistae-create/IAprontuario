@@ -16,6 +16,7 @@ export function usageMetric(capability,model,usage){
 
 export function emitUsage(capability,model,usage,log=console.info){
   const metric=usageMetric(capability,model,usage);
-  if(metric)log(JSON.stringify(metric));
+  // Telemetry failure must never interrupt a clinical response.
+  if(metric)try{log(JSON.stringify(metric))}catch{}
   return metric;
 }

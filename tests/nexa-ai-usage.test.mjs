@@ -26,3 +26,7 @@ test('rejects unbounded, malformed or unapproved telemetry',()=>{
  assert.equal(emitUsage('realtime.radar','model',{input_tokens:-1,seconds:Infinity},line=>lines.push(line)),null);
  assert.deepEqual(lines,[]);
 });
+
+test('logging failure never interrupts the clinical response path',()=>{
+ assert.doesNotThrow(()=>emitUsage('realtime.radar','gpt-5.6-luna',{input_tokens:1},()=>{throw new Error('logger unavailable')}));
+});
