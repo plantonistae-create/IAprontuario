@@ -42,7 +42,9 @@ END $$;
 CREATE TRIGGER consultation_history_tenant_guard BEFORE INSERT OR UPDATE
   ON public.consultation_history FOR EACH ROW EXECUTE FUNCTION private.assign_and_guard_consultation_tenant();
 -- Observed staging audit function for consultation INSERT/UPDATE/DELETE.
-CREATE TABLE public.audit_log (
+-- The production-shaped legacy fixture already defines this table; keep this
+-- positive-policy fixture usable on both its own and after that fixture.
+CREATE TABLE IF NOT EXISTS public.audit_log (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  user_id uuid NOT NULL REFERENCES public.profiles(id),
  consultation_id text NOT NULL, action text NOT NULL, metadata jsonb NOT NULL

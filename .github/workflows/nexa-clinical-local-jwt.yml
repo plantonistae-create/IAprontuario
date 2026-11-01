@@ -27,6 +27,8 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Install PostgreSQL client
-        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client-17
       - name: Run disposable Supabase Auth, REST, RLS and Edge integration
+        env:
+          NEXA_LOCAL_PSQL_BIN: /usr/lib/postgresql/17/bin/psql
         run: node scripts/run-local-clinical-stack.mjs
