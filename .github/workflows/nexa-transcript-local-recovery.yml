@@ -1,0 +1,26 @@
+name: NEXA Local Transcript Recovery
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'scripts/run-local-transcript-recovery.mjs'
+      - 'tests/transcript/local-transcript-schema.sql'
+      - 'supabase/migrations/20261027140151_nexa_encounter_transcript_versions.sql'
+      - '.github/workflows/nexa-transcript-local-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-transcript-auth-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Recover synthetic transcript in separate local Auth sessions
+        run: node scripts/run-local-transcript-recovery.mjs

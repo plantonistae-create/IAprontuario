@@ -756,6 +756,7 @@ body.device-desktop .modal{padding-left:230px!important}
 .nexa-session-state[data-state="complete"] .nexa-session-state-dot{background:var(--nexa-brand)}
 .nexa-restore-banner{position:relative;z-index:10020;pointer-events:auto;width:min(920px,calc(100% - 24px));margin:10px auto;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid color-mix(in srgb,var(--nexa-brand) 35%,var(--nexa-line));border-radius:14px;padding:12px 14px;background:color-mix(in srgb,var(--nexa-brand) 7%,var(--nexa-surface))}
 .nexa-restore-banner[hidden]{display:none!important}.nexa-restore-banner strong{display:block;font-size:13px}.nexa-restore-banner span{display:block;font-size:11px;color:var(--nexa-muted);margin-top:3px}.nexa-restore-actions{display:flex;gap:7px}
+.nexa-transcript-dialog{width:min(820px,94vw);max-height:85vh;overflow:auto;border:1px solid var(--nexa-line);border-radius:12px;background:var(--nexa-surface);color:var(--nexa-text);padding:20px}.nexa-transcript-dialog::backdrop{background:#0009}.nexa-transcript-dialog section{margin:14px 0;padding:12px;border:1px solid var(--nexa-line);border-radius:8px}.nexa-transcript-dialog small{display:block;margin-top:5px;overflow-wrap:anywhere}.nexa-transcript-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.nexa-transcript-dialog textarea{display:block;width:100%;min-height:110px;margin:12px 0}
 .nexa-restore-actions button{min-height:36px;padding:0 11px;border-radius:9px;border:1px solid var(--nexa-line);background:var(--nexa-surface);color:var(--nexa-text);font-weight:800}#nexaRestoreSessionBtn{background:var(--nexa-brand)!important;color:#fff!important;border-color:var(--nexa-brand)!important}
 .nexa-radar-questions-head h4 small{font-size:9px;color:var(--nexa-muted);font-weight:700;margin-left:4px}
 .nexa-alt-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.nexa-alt-actions .discard{color:#b33;border-color:#e1b1b1!important}
@@ -2750,16 +2751,70 @@ async function loadHistory(){
   if(!currentProf)return;
   try{
     const cutoff=new Date(Date.now()-7*24*60*60*1000).toISOString();
-    const {data,error}=await sb.from('consultation_history').select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').eq('user_id',currentProf.id).gte('created_at',cutoff).order('created_at',{ascending:false});
+    const {data,error}=await sb.from('consultation_history').select('id,encounter_id,organization_id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').eq('user_id',currentProf.id).gte('created_at',cutoff).order('created_at',{ascending:false});
     if(error)throw error;history=data||[];
   }catch(e){console.warn('Falha ao carregar histórico recente:',e);history=[]}
   renderHistory();
+}
+async function nexaOpenTranscriptVersions(consult){
+  const owner=currentProf?.id,epoch=clinicalEpoch;
+  if(!owner||!consult?.id||!consult?.encounter_id||!consult?.organization_id)return show('Consulta sem vínculo remoto verificável.',true);
+  const {data,error}=await sb.from('encounter_transcript_versions')
+    .select('id,consultation_id,encounter_id,organization_id,owner_user_id,transcript_kind,revision,source_event_id,source_provider,source_model,source_pipeline_version,transcript_text,transcript_sha256,consent_recorded_at,created_at')
+    .eq('consultation_id',consult.id).order('created_at',{ascending:true});
+  if(error||epoch!==clinicalEpoch||currentProf?.id!==owner)return show('Não foi possível recuperar a transcrição nesta sessão.',true);
+  const versions=data||[];
+  if(!versions.length)return show('Não há transcrição integral persistida para esta consulta.',true);
+  for(const row of versions){
+    if(row.consultation_id!==consult.id||row.encounter_id!==consult.encounter_id||
+       row.organization_id!==consult.organization_id||row.owner_user_id!==owner||
+       typeof row.transcript_text!=='string')return show('Vínculo da transcrição inválido.',true);
+    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(row.transcript_text));
+    const digest=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
+    if(digest!==row.transcript_sha256)return show('Integridade da transcrição não confirmada.',true);
+  }
+  if(epoch!==clinicalEpoch||currentProf?.id!==owner)return;
+  const dialog=document.createElement('dialog');dialog.className='nexa-transcript-dialog';
+  const heading=document.createElement('h3');heading.textContent='Transcrição integral recuperada';dialog.append(heading);
+  for(const row of versions){
+    const section=document.createElement('section');
+    const title=document.createElement('strong');title.textContent=`${row.transcript_kind} · revisão ${row.revision} · ${new Date(row.created_at).toLocaleString('pt-BR')}`;
+    const provenance=document.createElement('small');provenance.textContent=`Fonte: ${row.source_provider} / ${row.source_model} · pipeline ${row.source_pipeline_version||'não informado'} · SHA-256 ${row.transcript_sha256}`;
+    const body=document.createElement('pre');body.textContent=row.transcript_text;
+    section.append(title,provenance,body);dialog.append(section);
+  }
+  const original=versions.find(row=>row.transcript_kind==='final_original');
+  if(original){
+    const edit=document.createElement('textarea');edit.placeholder='Nova versão corrigida (a original será preservada)';
+    edit.setAttribute('aria-label','Nova versão corrigida');dialog.append(edit);
+    const save=document.createElement('button');save.type='button';save.textContent='Registrar correção';
+    save.onclick=async()=>{
+      const text=edit.value.trim();if(!text)return show('Informe a correção antes de salvar.',true);
+      if(epoch!==clinicalEpoch||currentProf?.id!==owner)return show('Sessão clínica alterada.',true);
+      const corrected=versions.filter(row=>row.transcript_kind==='corrected');
+      const parent=corrected.at(-1)||original;
+      const {error:writeError}=await sb.from('encounter_transcript_versions').insert({
+        consultation_id:consult.id,encounter_id:consult.encounter_id,organization_id:consult.organization_id,
+        owner_user_id:owner,transcript_kind:'corrected',revision:corrected.length+1,
+        source_event_id:crypto.randomUUID(),corrected_from_id:parent.id,
+        source_provider:'human-review',source_model:'manual-correction',
+        source_pipeline_version:'nexa-transcript-v1',transcript_text:text,
+        consent_recorded_at:consult.consent_recorded_at
+      });
+      if(writeError)return show('Correção não confirmada pelo servidor. Recarregue as versões.',true);
+      dialog.close();dialog.remove();await nexaOpenTranscriptVersions(consult);
+    };dialog.append(save);
+  }
+  const close=document.createElement('button');close.type='button';close.textContent='Fechar';close.onclick=()=>dialog.close();dialog.append(close);
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
 function renderHistory(){
   $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
   if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  history.forEach(r=>{item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()});
+    const row=$('historyList').lastElementChild,button=document.createElement('button');button.type='button';button.textContent='Transcrição integral';button.onclick=()=>nexaOpenTranscriptVersions(r);row.append(button);
+  });
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -4089,6 +4144,7 @@ async function processAudio(){
   });
 })();
 function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;clearTimeout(nexaPersistTimer);clearLastQuickAction();
+  document.querySelectorAll('.nexa-transcript-dialog').forEach(dialog=>dialog.remove());
   stopRecordingTimer({reset:true});
 
   if(recording||(mediaRecorder&&mediaRecorder.state!=='inactive')){
