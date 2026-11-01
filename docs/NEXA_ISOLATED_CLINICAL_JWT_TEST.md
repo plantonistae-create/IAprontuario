@@ -53,7 +53,7 @@ provided.
 
 The disposable stack sets `NEXA_AUDIT_DEID_TEST_MODE=fixed-synthetic-v1` in
 its temporary Edge environment. The function accepts this mode only with a
-loopback Supabase URL and the `NEXA_TEST_ONLY` source marker. A finalized
+loopback or disposable Docker gateway URL and the `NEXA_TEST_ONLY` source marker. A finalized
 synthetic encounter with recognizable fictional identifiers is submitted by a
 signed clinical JWT. The deterministic provider returns a fixed clinical
 summary, and the normal PII validator checks the final envelope. The inserted

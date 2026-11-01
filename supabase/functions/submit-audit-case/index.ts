@@ -14,7 +14,7 @@ const MODEL=env('AUDIT_DEID_MODEL')||'gpt-5.6-luna';
 const AUDIT_PROVIDER=capabilityProviderFromEnv('audit.submit',(name)=>Deno.env.get(name));
 const ORIGIN=env('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
 const LOCAL_SYNTHETIC_DEID=env('NEXA_AUDIT_DEID_TEST_MODE')==='fixed-synthetic-v1'&&
-  (()=>{try{return new URL(SUPABASE_URL).hostname==='127.0.0.1'}catch{return false}})();
+  (()=>{try{return ['127.0.0.1','kong','api-gw'].includes(new URL(SUPABASE_URL).hostname)}catch{return false}})();
 const cors={'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 function outputText(payload:any){if(typeof payload?.output_text==='string')return payload.output_text;for(const item of payload?.output||[])for(const content of item?.content||[])if(content?.type==='output_text'&&typeof content?.text==='string')return content.text;return''}
