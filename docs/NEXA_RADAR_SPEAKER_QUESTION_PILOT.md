@@ -18,4 +18,6 @@ Comparação de estados em casos sintéticos: pergunta sobre febre seguida de `n
 
 ## Verificações e limite
 
-108 testes focados de contexto, decisão, cobertura de síndromes e atribuição de fala passaram. O contrato completo, sintaxe, lint, typecheck e build passaram localmente. O E2E da gravação do Radar parou ao esperar o canal de áudio ao vivo neste Mac, exatamente na mesma linha em `main` limpo; essa execução local não verifica o fluxo de gravação. O CI da PR e avaliação clínica posterior são gates separados. Não há mudança de banco ou de função hospedada nesta correção.
+Na retomada 4.1, a matriz sintética incluiu diarreia, cefaleia, trauma de joelho, impacto craniano, dispneia, broncoespasmo, dor torácica, dor abdominal e febre. Ela revelou duas lacunas corrigidas: “bati a cabeça” não ativava as perguntas neurológicas de TCE e “chiando” não ativava a verificação de gravidade do broncoespasmo. A atribuição do falante agora persiste entre frases até um novo rótulo explícito.
+
+Passaram 96 testes focados de contexto, decisão, controller e atribuição de fala, além da suíte geral, lint, typecheck, build e E2E completo em Chromium e WebKit. A falha anterior de captura local foi reproduzida como restrição de loopback do sandbox; o mesmo E2E de gravação passou em 1440 px e 390 px com o servidor local autorizado. A avaliação de pertinência clínica por médico revisor continua pendente. Não há mudança de banco ou de função hospedada nesta correção.
