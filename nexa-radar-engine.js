@@ -8,14 +8,14 @@
   // Each concept has evidence aliases and an explicit documentation destination.
   const concepts={};
   function c(id,label,pattern,section='hda',type='boolean'){concepts[id]={id,label,pattern,section,type};}
-  c('trauma','Trauma recente',/\b(?:trauma\w*|entorse|torc[ei]\w*|torceu|queda|caiu|impacto|acidente)\b/);
+  c('trauma','Trauma recente',/\b(?:trauma\w*|entorse|torc[ei]\w*|torceu|queda|caiu|impacto|acidente|bat(?:i|eu|eram|emos) (?:a|na) cabeca|pancada na cabeca)\b/);
   c('chest','Dor torácica',/dor (?:toracica|no peito|precordial)/);
   c('abdomen','Dor abdominal',/dor (?:abdominal|na barriga|em (?:fossa|hipocondrio|epigastrio))|abdominalgia/);
   c('headache','Cefaleia',/cefaleia|dor de cabeca/);
   c('back','Lombalgia',/lombalgia|dor (?:lombar|nas costas)/);
   c('limb','Queixa em membro',/(?:dor|edema|inchac\w*|inchad\w*).{0,50}(?:perna|membro|tornozelo|braco|panturrilha)|(?:tornozelo|perna|membro).{0,45}(?:dor|inchad\w*|edema)/);
   c('urinary','Sintomas urinários',/disuria|ardencia ao urinar|polaciuria|urgencia (?:miccional|urinaria)/);
-  c('respiratory','Sintomas respiratórios',/tosse|dispneia|falta de ar|chiado/);
+  c('respiratory','Sintomas respiratórios',/tosse|dispneia|falta de ar|chiad\w*|chiand\w*/);
   c('neuro','Queixa neurológica',/tontura|vertigem|parestesia|fraqueza|dormencia|convulsao/);
   c('fever','Febre',/febre|febril|afebril/);
   c('dyspnea','Dispneia',/dispneia|falta de ar|dificuldade (?:para )?respirar|eupneic\w*/);
@@ -45,7 +45,7 @@
   c('headacheNausea','Náuseas ou vômitos com cefaleia',/\bnause\w*|\bvomit\w*|\bemese\b/,'hda');
   c('headachePattern','Mudança de padrão / progressão da cefaleia',/\b(?:mudanc\w*|alterac\w*) (?:do |de )?padrao\b|\b(?:dor|cefaleia)\b.{0,40}\b(?:diferente|progressiv\w*|pior\w*|nova|primeira)\b/,'hda','text');
   c('respFocal','Achados focais à ausculta pulmonar',/\bcrepit\w*|\bestertor\w*|\bconsolidac\w*|\bsopro tubari\w*|\b(?:murmurio vesicular)\b.{0,30}\b(?:reduzid\w*|diminu\w*)/,'exame_fisico','text');
-  c('wheeze','Sibilos / broncoespasmo',/\bsibil\w*|\bchiad\w*|\bbroncoespasmo\b/,'exame_fisico');
+  c('wheeze','Sibilos / broncoespasmo',/\bsibil\w*|\bchiad\w*|\bchiand\w*|\bbroncoespasmo\b/,'exame_fisico');
   c('speechLimit','Limitação para falar frases',/\b(?:fala|consegue falar|falar)\b.{0,35}\b(?:frases?|palavras?|entrecortad\w*|dificuldade)\b|\bnao consegue (?:completar|falar) frases\b/,'exame_fisico','text');
   c('pleuriticPain','Dor torácica pleurítica',/\bdor\b.{0,30}\b(?:respirar|inspirar|pleurit\w*)\b|\bdor pleurit\w*/,'hda');
 
@@ -136,19 +136,29 @@
   c('glucose','Glicemia',/(?:glicemia|hgt|dextro)\s*[:=]?\s*\d{2,3}/,'sinais_vitais','text');
   c('dvt','TVP no diagnóstico diferencial',/tvp|trombose venosa profunda/,'sugestoes_perguntas','text');
   const symptomIds=new Set(['chest','abdomen','headache','back','limb','urinary','respiratory','neuro','fever','trauma','diarrhea','throatPain','earPain','sinusSymptoms','jointPain','constipation','upperGI','giBleed','palpitations','dizziness','seizure','colic','testicularPain','pelvicPain','vaginalBleeding','rash','eyePain']);
+  const directlyAskedSymptoms=new Set(['fever','chest','abdomen','headache','back','limb','urinary','neuro']);
   // Interpret questions separately from patient evidence. No conversational inference is written to the record.
   function conversation(text=''){
     const evidence=[],asked={},uncertain={};let pending=[];
     const parts=String(text).match(/[^!?;\n]+[!?;\n]?/g)||[];
     const sentences=parts.flatMap(p=>p.split(/\.(?!\d)/).filter(x=>x.trim()));
+    let activeSpeaker='';
     for(const raw of sentences){
-      const quote=raw.trim(),t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
-      const question=/\?\s*$/.test(quote)||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
+      const quote=raw.trim(),explicitSpeaker=norm(quote).match(/^(medic[oa]|profissional|paciente|acompanhante):\s*/)?.[1]||'';
+      if(explicitSpeaker)activeSpeaker=explicitSpeaker;
+      const speaker=activeSpeaker;
+      const clinician=['medico','medica','profissional'].includes(speaker),companion=speaker==='acompanhante';
+      const t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
+      // ASR often drops question marks. A clinician's question must not become a patient fact.
+      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmaio|sangue nas fezes)[.!]?$/i.test(t);
+      const question=/\?\s*$/.test(quote)||clinicianPrompt||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
       const third=/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|sente|apresenta)/.test(t);
       const proposed=/^(?:investigar|considerar|avaliar|perguntar|se (?:tiver|apresentar)|caso (?:tenha|apresente))\b/.test(t);
       if(third||proposed){pending=[];continue;}
-      if(question){pending=ids.filter(id=>!symptomIds.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript',alternatives:/\bou\b/.test(t)});continue;}
+      if(companion){ids.forEach(id=>uncertain[id]={quote,section:'transcript',state:'unknown',temporal:'current'});continue;}
+      if(question){pending=ids.filter(id=>!symptomIds.has(id)||directlyAskedSymptoms.has(id));if(!pending.length)pending=ids;const booleanIds=pending.filter(id=>concepts[id].type==='boolean');if(booleanIds.length)pending=booleanIds;pending.forEach(id=>asked[id]={quote,section:'transcript',alternatives:/\bou\b/.test(t)});continue;}
       const short=/^(?:sim|nao|nunca|nenhum[a]?|nao sei|nao lembro|talvez|acho que|nao entendi)(?:[,.!\s]|$)/.test(t);
+      if(clinician&&short)continue;
       if(pending.length&&short){
         const ambiguous=pending.length!==1||pending.some(id=>asked[id].alternatives)||/nao sei|nao lembro|talvez|acho que|nao entendi/.test(t);
         for(const id of pending){
@@ -465,7 +475,7 @@
     }
     // A broncho-obstructive presentation needs severity checks and differential.
     // Mental-status change is an alert only if documented, never a routine question.
-    const bronchospasm=respiratoryContext&&(/\b(?:chiad\w*|sibil\w*|broncoespasmo|crise asmatica)\b/.test(preliminary)||/\b(?:j45|j46|asma|broncoespasmo)\b/.test(hypothesis));
+    const bronchospasm=respiratoryContext&&(/\b(?:chiad\w*|chiand\w*|sibil\w*|broncoespasmo|crise asmatica)\b/.test(preliminary)||/\b(?:j45|j46|asma|broncoespasmo)\b/.test(hypothesis));
     if(bronchospasm)for(const id of ['wheeze','speechLimit','effort','rr','spo2'])
       add(id,id==='spo2'||id==='speechLimit'?'high':'moderate','Avaliar gravidade do broncoespasmo e limitação funcional.');
     if(respiratoryContext&&/\b(?:pneumonia|j18)\b/.test(hypothesis))
