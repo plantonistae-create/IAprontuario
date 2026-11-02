@@ -1,14 +1,14 @@
 [
-  {"id":"omeprazol-volume","voice":"Luciana","text":"Eu tomo omeprazol, cinco mililitros. Não sei a concentração.","expect":["omeprazol","5 mL"],"avoid":["5 mg"]},
-  {"id":"novalgina-brand","voice":"Luciana","text":"Tomei Novalgina ontem para dor de cabeça.","expect":["Novalgina"],"avoid":["dipirona como fala literal"]},
-  {"id":"dipirona-generic","voice":"Luciana","text":"Uso dipirona quando tenho febre.","expect":["dipirona"],"avoid":["Novalgina como fala literal"]},
-  {"id":"celestrat-literal","voice":"Luciana","text":"O nome que eu lembro é Celestrat.","expect":["Celestrat"],"avoid":["princípio ativo inferido"]},
-  {"id":"concentration","voice":"Luciana","text":"O frasco diz cinco miligramas por mililitro, mas não lembro quanto tomei.","expect":["5 mg/mL","dose não relatada"],"avoid":["5 mL administrados"]},
-  {"id":"tablets","voice":"Luciana","text":"Tomo dois comprimidos de metformina de manhã.","expect":["metformina","2 comprimidos","manhã"],"avoid":["concentração inferida"]},
-  {"id":"drops","voice":"Luciana","text":"Tomei vinte gotas de dipirona à noite.","expect":["dipirona","20 gotas","noite"],"avoid":["20 mL"]},
-  {"id":"interval","voice":"Luciana","text":"Uso losartana de oito em oito horas, conforme me orientaram.","expect":["losartana","8/8 horas"],"avoid":["horário inventado"]},
-  {"id":"denial","voice":"Luciana","text":"Não uso omeprazol nem Novalgina.","expect":["negação"],"avoid":["uso afirmado"]},
-  {"id":"relative","voice":"Luciana","text":"Minha filha toma Novalgina. Eu não tomo.","expect":["medicamento da familiar"],"avoid":["uso do paciente"]},
-  {"id":"similar-sounding","voice":"Luciana","text":"Não tenho certeza se o nome é Celestrat ou outro parecido.","expect":["correspondência incerta"],"avoid":["correção automática"]},
-  {"id":"doctor-confirmation","voice":"Eddy (Portuguese (Brazil))","text":"Confirmando: o senhor tomou cinco mililitros de omeprazol?","expect":["pergunta do médico","5 mL"],"avoid":["uso confirmado sem resposta"]}
+  {"id":"omeprazol-volume","voice":"Luciana","text":"Eu tomo omeprazol, cinco mililitros. Não sei a concentração.","expect":["omeprazol","5 mL"],"avoid":["5 mg"],"asr":{"name":["omeprazol"],"number_unit":["5 ml"],"negation":["nao sei"]}},
+  {"id":"novalgina-brand","voice":"Luciana","text":"Tomei Novalgina ontem para dor de cabeça.","expect":["Novalgina"],"avoid":["dipirona como fala literal"],"asr":{"name":["novalgina"],"forbidden":["dipirona"]}},
+  {"id":"dipirona-generic","voice":"Luciana","text":"Uso dipirona quando tenho febre.","expect":["dipirona"],"avoid":["Novalgina como fala literal"],"asr":{"name":["dipirona"],"forbidden":["novalgina"]}},
+  {"id":"celestrat-literal","voice":"Luciana","text":"O nome que eu lembro é Celestrat.","expect":["Celestrat"],"avoid":["princípio ativo inferido"],"asr":{"name":["celestrat"]}},
+  {"id":"concentration","voice":"Luciana","text":"O frasco diz cinco miligramas por mililitro, mas não lembro quanto tomei.","expect":["5 mg/mL","dose não relatada"],"avoid":["5 mL administrados"],"asr":{"number_unit":["5 mg por ml"],"negation":["nao lembro"]}},
+  {"id":"tablets","voice":"Luciana","text":"Tomo dois comprimidos de metformina de manhã.","expect":["metformina","2 comprimidos","manhã"],"avoid":["concentração inferida"],"asr":{"name":["metformina"],"number_unit":["2 comprimido"],"timing":["manha"]}},
+  {"id":"drops","voice":"Luciana","text":"Tomei vinte gotas de dipirona à noite.","expect":["dipirona","20 gotas","noite"],"avoid":["20 mL"],"asr":{"name":["dipirona"],"number_unit":["20 gota"],"timing":["noite"],"forbidden":["20 ml"]}},
+  {"id":"interval","voice":"Luciana","text":"Uso losartana de oito em oito horas, conforme me orientaram.","expect":["losartana","8/8 horas"],"avoid":["horário inventado"],"asr":{"name":["losartana"],"timing":["8/8 horas"]}},
+  {"id":"denial","voice":"Luciana","text":"Não uso omeprazol nem Novalgina.","expect":["negação"],"avoid":["uso afirmado"],"asr":{"name":["omeprazol","novalgina"],"negation":["nao uso"]}},
+  {"id":"relative","voice":"Luciana","text":"Minha filha toma Novalgina. Eu não tomo.","expect":["medicamento da familiar"],"avoid":["uso do paciente"],"asr":{"name":["novalgina"],"attribution":["minha filha"],"negation":["nao tomo"]}},
+  {"id":"similar-sounding","voice":"Luciana","text":"Não tenho certeza se o nome é Celestrat ou outro parecido.","expect":["correspondência incerta"],"avoid":["correção automática"],"asr":{"name":["celestrat"],"negation":["nao tenho certeza"]}},
+  {"id":"doctor-confirmation","voice":"Eddy (Portuguese (Brazil))","text":"Confirmando: o senhor tomou cinco mililitros de omeprazol?","expect":["pergunta do médico","5 mL"],"avoid":["uso confirmado sem resposta"],"asr":{"name":["omeprazol"],"number_unit":["5 ml"]}}
 ]

@@ -75,3 +75,14 @@ test('flags explicit mass, drops, tablets and frequency separately from concentr
  const concentration=reviewMedicationVolume('Paciente: uso dipirona 5 mg/mL.','Dipirona.');
  assert.equal(concentration.alerts.some(a=>a.code==='quantity_missing'||a.code==='volume_missing'),false);
 });
+
+test('compares spoken quantities with numeric notation without inventing concentration',()=>{
+ const source='Paciente: tomo omeprazol, cinco mililitros. Não sei a concentração.';
+ assert.deepEqual(reviewMedicationVolume(source,'Omeprazol 5 mL; concentração não informada.').alerts,[]);
+ const omitted=reviewMedicationVolume(source,'Omeprazol; concentração não informada.');
+ assert.deepEqual(omitted.alerts,[{code:'volume_missing',medicine:'omeprazol',reported_name:'omeprazol',amount:'5',unit:'mL'}]);
+ assert.equal(reviewMedicationVolume('Paciente: a dipirona tem cinco miligramas por mililitro.','Dipirona.').requires_review,false);
+ const drops=reviewMedicationVolume('Paciente: tomei vinte gotas de dipirona.','Dipirona.');
+ assert.equal(drops.alerts[0].amount,'20');
+ assert.equal(drops.alerts[0].unit,'gotas');
+});

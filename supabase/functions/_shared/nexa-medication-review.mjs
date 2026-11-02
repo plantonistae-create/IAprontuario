@@ -2,8 +2,11 @@
 import {catalogVersion,medicines} from './nexa-medication-catalog.mjs';
 const fold = value => String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const hasName = (text,name) => new RegExp(`(^|[^a-z])${name}([^a-z]|$)`).test(fold(text));
-const quantities = text => [...fold(text).matchAll(/\b(\d{1,4}(?:[,.]\d{1,3})?)\s*(m\s?l|mg|gotas?|comprimidos?|unidades?)\b(?!\s*\/\s*(?:m\s?l|mg))/g)]
-  .map(match=>({amount:match[1].replace(',','.'),unit:/^m\s?l$/.test(match[2])?'mL':/^got/.test(match[2])?'gotas':/^comprimido/.test(match[2])?'comprimidos':/^unidade/.test(match[2])?'unidades':'mg'}));
+const spokenNumbers=Object.freeze({um:'1',uma:'1',dois:'2',duas:'2',tres:'3',quatro:'4',cinco:'5',seis:'6',sete:'7',oito:'8',nove:'9',dez:'10',vinte:'20'});
+const unitPattern='m\\s?l|mililitros?|mg|miligramas?|gotas?|comprimidos?|unidades?';
+const quantityPattern=new RegExp(`\\b(\\d{1,4}(?:[,.]\\d{1,3})?|${Object.keys(spokenNumbers).join('|')})\\s*(${unitPattern})\\b(?!\\s*(?:\\/|por)\\s*(?:m\\s?l|mililitros?|mg|miligramas?))`,'g');
+const quantities = text => [...fold(text).matchAll(quantityPattern)]
+  .map(match=>({amount:spokenNumbers[match[1]]||match[1].replace(',','.'),unit:/^(?:m\s?l|mililitro)/.test(match[2])?'mL':/^got/.test(match[2])?'gotas':/^comprimido/.test(match[2])?'comprimidos':/^unidade/.test(match[2])?'unidades':'mg'}));
 const frequency=text=>/\b(?:a cada\s+\d+\s+horas?|de\s+\d+\s+em\s+\d+\s+horas?|\d+\s*\/\s*\d+\s*h|(?:uma|duas|tres|\d+)\s+vezes?\s+ao\s+dia|diariamente|todo(?:s)?\s+(?:os\s+)?dias|pela manha|a noite)\b/.test(fold(text));
 const negative=text=>/^(?:nega|negou|nunca|sem|nao)\b/.test(text)||/\bnao\s+(?:uso|usa|tomo|toma|tomei|utilizo|utiliza|faz uso)\b/.test(text);
 
