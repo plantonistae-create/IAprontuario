@@ -709,7 +709,6 @@ Este é registro do USO RELATADO, não prescrição. Preserve a concentração e
 Se disser apenas "duas vezes ao dia", "12/12 horas" ou "8/8 horas" SEM explicitar os períodos, mantenha a frequência relatada; não invente "1-0-1".
 Se houver conflito, dúvida, regime variável ou horários desconhecidos, preserve o texto do relato, sem converter para n-n-n, e sinalize "posologia a confirmar".
 Se citar o nome sem concentração, mantenha a regra "(dose não informada)". Não deduza dose, horário, via, frequência nem adesão.
-Uma quantidade administrada em mL é diferente da concentração do produto. Se o paciente informou 5 mL, registre 5 mL mesmo quando a concentração em mg/mL não foi informada; indique apenas que a concentração não foi informada. Nunca converta mL em mg sem concentração confirmada. Não omita quantidade ou unidade explicitamente confirmada pelo paciente ou pelo médico.
 
 Evite expressões como:
 
@@ -1223,12 +1222,6 @@ async function processOpenAI(
   fd.append(
     "language",
     "pt"
-  );
-
-  // Short vocabulary hint; these names are possibilities, never evidence of use.
-  if (transcribeModel !== "gpt-4o-transcribe-diarize") fd.append(
-    "prompt",
-    "Consulta médica em português brasileiro. Transcreva apenas o que for audível, sem normalizar silenciosamente nomes ou doses. Termos possíveis: omeprazol, Novalgina, dipirona, Celestrat. Preserve números, mL, mg, mg/mL e frequência como falados."
   );
 
 

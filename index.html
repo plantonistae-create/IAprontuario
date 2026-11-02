@@ -2591,7 +2591,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 </div>
 <link rel="stylesheet" href="./nexa-radar.css?v=20260915">
 <link rel="stylesheet" href="./nexa-radar-dynamic-focus-v18.16.css?v=20261025-ui1">
-<script src="./nexa-radar-engine.js?v=20261026-decision-triage"></script>
+<script src="./nexa-radar-engine.js?v=20261101-speaker-question"></script>
 <script src="./nexa-radar-controller.js?v=20261026-syndromic-audit"></script>
 <script src="./nexa-core-audit-learning-v2.js?v=20261017"></script>
 <script src="./nexa-core-radar-review-v3.js?v=20261026-syndromic-audit"></script>
@@ -3962,6 +3962,8 @@ function nexaShowMedicationReview(review){
     const item=document.createElement('li');
     if(flag?.code==='medication_missing')item.textContent=`A transcrição menciona ${name}; confira se é uso do paciente e se deve constar no campo.`;
     else if(flag?.code==='volume_missing')item.textContent=`A transcrição menciona ${amount} mL junto de ${name}; confira a quantidade no campo. A concentração pode continuar não informada.`;
+    else if(flag?.code==='quantity_missing')item.textContent=`A transcrição menciona ${amount} ${String(flag?.unit||'').slice(0,16)} junto de ${name}; confira a quantidade e a unidade no campo.`;
+    else if(flag?.code==='frequency_missing')item.textContent=`A transcrição menciona frequência de uso junto de ${name}; confira se ela foi preservada no campo.`;
     else if(flag?.code==='reported_name_changed')item.textContent=`O nome referido ${name} foi alterado no campo; confira a correspondência antes de usar.`;
     else continue;
     list.append(item);

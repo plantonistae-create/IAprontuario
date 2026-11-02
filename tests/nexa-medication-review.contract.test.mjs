@@ -44,3 +44,34 @@ test('keeps decimal volumes and does not invent a smaller integer dose',()=>{
  assert.equal(report.requires_review,false);
  assert.equal(reviewMedicationVolume('Paciente: uso omeprazol 2.5 mL.','Omeprazol 5 mL.').alerts[0].amount,'2.5');
 });
+
+test('negated and third-party mentions do not generate omission warnings',()=>{
+ for(const transcript of [
+  'Paciente: Não uso Novalgina.',
+  'Paciente: Nega uso de omeprazol.',
+  'Acompanhante: Eu tomo dipirona 5 mL.',
+  'Médico: Usa omeprazol. Novalgina também.'
+ ])assert.equal(reviewMedicationVolume(transcript,'NÃO RELATADO NA CONSULTA').requires_review,false,transcript);
+});
+
+test('recognizes conservative lexical catalog without inferring an administered presentation',()=>{
+ const review=reviewMedicationVolume('Paciente: tomo losartana e metformina.','NÃO RELATADO NA CONSULTA');
+ assert.deepEqual(review.alerts.map(a=>a.medicine),['losartana','metformina']);
+ assert.ok(review.catalog_version);
+ assert.equal(review.alerts.some(a=>a.amount||a.unit),false);
+});
+
+test('flags explicit mass, drops, tablets and frequency separately from concentration',()=>{
+ const scenarios=[
+  ['Paciente: tomo paracetamol 500 mg.','Paracetamol.','quantity_missing','mg'],
+  ['Paciente: tomo dipirona 20 gotas.','Dipirona.','quantity_missing','gotas'],
+  ['Paciente: tomo metformina 2 comprimidos.','Metformina.','quantity_missing','comprimidos'],
+  ['Paciente: tomo losartana diariamente.','Losartana.','frequency_missing',undefined]
+ ];
+ for(const [transcript,documented,code,unit] of scenarios){
+  const flag=reviewMedicationVolume(transcript,documented).alerts.find(a=>a.code===code);
+  assert.ok(flag,transcript);if(unit)assert.equal(flag.unit,unit);
+ }
+ const concentration=reviewMedicationVolume('Paciente: uso dipirona 5 mg/mL.','Dipirona.');
+ assert.equal(concentration.alerts.some(a=>a.code==='quantity_missing'||a.code==='volume_missing'),false);
+});

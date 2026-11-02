@@ -26,6 +26,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   await page.waitForFunction(()=>typeof window.nexaShowMedicationReview==='function');
   await page.evaluate(()=>window.nexaShowMedicationReview({requires_review:true,alerts:[
    {code:'volume_missing',medicine:'omeprazol',reported_name:'omeprazol',amount:'5',unit:'mL'},
+   {code:'quantity_missing',medicine:'dipirona',reported_name:'Novalgina',amount:'20',unit:'gotas'},
+   {code:'frequency_missing',medicine:'losartana',reported_name:'losartana'},
    {code:'medication_missing',medicine:'celestrat',reported_name:'celestrat'}
   ]}));
   const warning=page.locator('#nexaMedicationReview');
@@ -33,6 +35,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
   assert.match(await warning.textContent(),/5 mL/);
   assert.match(await warning.textContent(),/concentração pode continuar não informada/);
   assert.match(await warning.textContent(),/Celestrat/i);
+  assert.match(await warning.textContent(),/20 gotas/);
+  assert.match(await warning.textContent(),/frequência de uso/i);
   assert.equal(await page.locator('.field[data-key="medicacoes"] textarea').inputValue(),'');
   await page.evaluate(()=>window.nexaShowMedicationReview({requires_review:false,alerts:[]}));
   assert.equal(await warning.count(),0);
