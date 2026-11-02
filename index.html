@@ -4015,6 +4015,14 @@ async function nexaInvokeAutomaticSpeakerSegments(segments){
 }
 // Enabled only when the backend returns an explicit assistive-use provenance payload.
 // Do not copy raw transcript into audit processing_meta or NEXA Core datasets.
+async function nexaTranscriptTimedQuery(builder,timeoutCode,deadlineMs=15000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),deadlineMs);
+  try{
+    const result=await builder.abortSignal(controller.signal);
+    if(controller.signal.aborted)throw new Error(timeoutCode);
+    return result;
+  }finally{clearTimeout(timer)}
+}
 async function nexaPersistAssistiveTranscript(provenance,rec,epoch){
   if(!provenance)return true;
   if(provenance.training_eligible!==false||!rec?.encounter_id||!currentProf?.id||
@@ -4029,9 +4037,9 @@ async function nexaPersistAssistiveTranscript(provenance,rec,epoch){
   const latest=await autosave.get(rec.encounter_id);
   if(latest?.sync_state!=='synced'||latest.owner_user_id!==currentProf.id)
     throw new Error('TRANSCRIPT_ENCOUNTER_NOT_SYNCHRONIZED');
-  const {data:consult,error:consultError}=await sb.from('consultation_history')
+  const {data:consult,error:consultError}=await nexaTranscriptTimedQuery(sb.from('consultation_history')
     .select('id,encounter_id,user_id,organization_id,consent_recorded_at')
-    .eq('id',rec.encounter_id).eq('user_id',currentProf.id).maybeSingle();
+    .eq('id',rec.encounter_id).eq('user_id',currentProf.id).maybeSingle(),'TRANSCRIPT_ENCOUNTER_LOOKUP_TIMEOUT');
   if(consultError||!consult||!consult.consent_recorded_at||
      consult.encounter_id!==rec.encounter_id)throw new Error('TRANSCRIPT_CONSENT_OR_ENCOUNTER_MISSING');
   const shared={
@@ -4049,12 +4057,14 @@ async function nexaPersistAssistiveTranscript(provenance,rec,epoch){
   ];
   if(rows.some(row=>typeof row.transcript_text!=='string'||!row.transcript_text.trim()))
     throw new Error('TRANSCRIPT_EMPTY');
-  const {error:writeError}=await sb.from('encounter_transcript_versions')
-    .upsert(rows,{onConflict:'consultation_id,transcript_kind,source_event_id',ignoreDuplicates:true});
+  const {error:writeError}=await nexaTranscriptTimedQuery(sb.from('encounter_transcript_versions')
+    .upsert(rows,{onConflict:'consultation_id,transcript_kind,source_event_id',ignoreDuplicates:true}),
+    'TRANSCRIPT_REMOTE_ACK_MISMATCH');
   if(writeError)throw new Error('TRANSCRIPT_REMOTE_WRITE_FAILED');
-  const {data:verified,error:verifyError}=await sb.from('encounter_transcript_versions')
+  const {data:verified,error:verifyError}=await nexaTranscriptTimedQuery(sb.from('encounter_transcript_versions')
     .select('transcript_kind,transcript_text')
-    .eq('consultation_id',consult.id).eq('source_event_id',provenance.source_event_id);
+    .eq('consultation_id',consult.id).eq('source_event_id',provenance.source_event_id),
+    'TRANSCRIPT_REMOTE_ACK_MISMATCH');
   if(verifyError||!rows.every(row=>(verified||[]).some(existing=>
      existing.transcript_kind===row.transcript_kind&&existing.transcript_text===row.transcript_text)))
     throw new Error('TRANSCRIPT_REMOTE_ACK_MISMATCH');

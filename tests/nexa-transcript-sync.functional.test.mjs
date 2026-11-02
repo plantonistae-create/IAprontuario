@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const start=page.indexOf('async function nexaPersistAssistiveTranscript(');
+const start=page.indexOf('async function nexaTranscriptTimedQuery(');
 const end=page.indexOf('async function processAudio(){',start);
 assert.ok(start>=0&&end>start,'Expected clinical transcript integration hook');
 
@@ -21,25 +21,27 @@ function runner({synced=true,consent=true,writeError=null,verifiedData=null,cons
    provider:'openai',transcriber_model:'synthetic-test-model',structuring_model:'synthetic-test-structurer',
    pipeline_version:'synthetic-v1',training_eligible:false};
  const rec={encounter_id:consult.encounter_id,owner_user_id:consult.user_id};
- const query=(value)=>({
-   select(){return this},eq(){return this},
-   async maybeSingle(){return {data:consultError?null:value,error:consultError}},
-   then(ok,fail){return Promise.resolve({data:value,error:null}).then(ok,fail)}
+ const query=(name)=>({
+   select(){return this},eq(){return this},maybeSingle(){return this},abortSignal(){return this},
+   upsert(rows,options){captured.rows=rows;captured.options=options;captured.writes++;this.writing=true;return this},
+   then(ok,fail){const result=this.writing?{error:writeError}:name==='consultation_history'
+     ?{data:consultError?null:consult,error:consultError}
+     :{data:verifiedData??captured.rows?.map(x=>({transcript_kind:x.transcript_kind,transcript_text:x.transcript_text}))??[],error:null};
+    return Promise.resolve(result).then(ok,fail)}
  });
  const sb={from(name){
-   if(name==='consultation_history')return query(consult);
-   assert.equal(name,'encounter_transcript_versions');
-   return {...query(verifiedData??captured.rows?.map(x=>({transcript_kind:x.transcript_kind,transcript_text:x.transcript_text}))??[]),
-     async upsert(rows,options){captured.rows=rows;captured.options=options;captured.writes++;return {error:writeError};}};
+   assert.ok(['consultation_history','encounter_transcript_versions'].includes(name));
+   return query(name);
  }};
- const context={sb,Promise,Error,console,
+ const context={sb,Promise,Error,console,AbortController,
   setTimeout(){return 1;}, // no retained timeout in synthetic test
+  clearTimeout(){},
   clinicalEpoch:4,currentProf:{id:consult.user_id},
   window:{nexaEncounterAutosave18101:{async flush(){captured.flushes++;return {sent:1}},
     async get(){return {sync_state:synced?'synced':'pending',owner_user_id:consult.user_id}}}}};
  vm.createContext(context);
- vm.runInContext(page.slice(start,end)+'\nthis.fn=nexaPersistAssistiveTranscript;',context);
- return {fn:context.fn,provenance,rec,captured};
+ vm.runInContext(page.slice(start,end)+'\nthis.fn=nexaPersistAssistiveTranscript;this.timedQuery=nexaTranscriptTimedQuery;',context);
+ return {fn:context.fn,timedQuery:context.timedQuery,provenance,rec,captured};
 }
 test('gate disabled causes no upload',async()=>{
  const x=runner();
@@ -76,4 +78,17 @@ test('expired clinical session must not upload raw transcript',async()=>{
  const x=runner({consultError:{message:'JWT expired',code:'PGRST301'}});
  await assert.rejects(x.fn(x.provenance,x.rec,4),/TRANSCRIPT_CONSENT_OR_ENCOUNTER_MISSING/);
  assert.equal(x.captured.writes,0);
+});
+
+test('unacknowledged database request is aborted at its deadline',async()=>{
+ const builder={abortSignal(signal){return new Promise(resolve=>{
+   signal.addEventListener('abort',()=>resolve({error:{message:'aborted'}}),{once:true});
+ })}};
+ const started=Date.now();
+ // The helper uses the real timer here; this unit test does not model Auth or storage.
+ const context={AbortController,Error,Promise,setTimeout,clearTimeout};
+ vm.createContext(context);
+ vm.runInContext(page.slice(start,page.indexOf('async function nexaPersistAssistiveTranscript(',start))+'\nthis.timedQuery=nexaTranscriptTimedQuery;',context);
+ await assert.rejects(context.timedQuery(builder,'TRANSCRIPT_REMOTE_ACK_MISMATCH',20),/TRANSCRIPT_REMOTE_ACK_MISMATCH/);
+ assert.ok(Date.now()-started<1000);
 });
