@@ -115,6 +115,18 @@ async function login(page){
   await dialog.waitFor();
   assert.ok((await dialog.textContent()).includes(original));
   assert.ok((await dialog.textContent()).includes(structuring));
+  const c=await browser.newContext(),pageC=await c.newPage();
+  phase='browser C concurrent correction';
+  await login(pageC);
+  await pageC.evaluate(async id=>{
+    const {data,error}=await window.nexaClinicalSupabase18101.from('consultation_history')
+      .select('id,encounter_id,organization_id,consent_recorded_at').eq('id',id).maybeSingle();
+    if(error||!data)throw new Error('Synthetic consultation unavailable to browser C');
+    await window.nexaOpenTranscriptVersions(data);
+  },m.encounter);
+  const dialogC=pageC.locator('.nexa-transcript-dialog');
+  await dialogC.waitFor();
+  assert.equal(await dialogC.locator('pre').count(),2);
   await dialog.getByRole('textbox',{name:'Nova versão corrigida'}).fill(corrected);
   await dialog.getByRole('button',{name:'Registrar correção'}).click();
   dialog=pageB.locator('.nexa-transcript-dialog');
@@ -122,6 +134,21 @@ async function login(page){
   assert.equal(await dialog.locator('pre').count(),3);
   assert.ok((await dialog.textContent()).includes(original));
   assert.ok((await dialog.textContent()).includes(corrected));
+  await dialogC.getByRole('textbox',{name:'Nova versão corrigida'}).fill('Correção concorrente sintética, não publicada.');
+  await dialogC.getByRole('button',{name:'Registrar correção'}).click();
+  await dialogC.getByRole('alert').waitFor();
+  assert.match(await dialogC.getByRole('alert').textContent(),/Correção não confirmada pelo servidor/);
+  assert.equal(await dialogC.locator('pre').count(),2,'A stale editor must not claim the conflicting correction was saved');
+  await dialogC.getByRole('button',{name:'Fechar'}).click();
+  await pageC.evaluate(async id=>{
+    const {data,error}=await window.nexaClinicalSupabase18101.from('consultation_history')
+      .select('id,encounter_id,organization_id,consent_recorded_at').eq('id',id).maybeSingle();
+    if(error||!data)throw new Error('Synthetic consultation unavailable on reload');
+    await window.nexaOpenTranscriptVersions(data);
+  },m.encounter);
+  await pageC.waitForFunction(()=>document.querySelectorAll('.nexa-transcript-dialog pre').length===3);
+  assert.ok((await pageC.locator('.nexa-transcript-dialog').textContent()).includes(corrected));
+  await c.close();
   await pageB.reload({waitUntil:'domcontentloaded'});
   phase='browser B reload';
   await pageB.waitForFunction(()=>window.nexaClinicalRuntime18121?.getProfile()?.clinical_access===true);

@@ -2790,6 +2790,8 @@ async function nexaOpenTranscriptVersions(consult){
   if(original){
     const edit=document.createElement('textarea');edit.placeholder='Nova versão corrigida (a original será preservada)';
     edit.setAttribute('aria-label','Nova versão corrigida');dialog.append(edit);
+    const feedback=document.createElement('p');feedback.className='banner error';feedback.setAttribute('role','alert');
+    feedback.hidden=true;dialog.append(feedback);
     const save=document.createElement('button');save.type='button';save.textContent='Registrar correção';
     save.onclick=async()=>{
       const text=edit.value.trim();if(!text)return show('Informe a correção antes de salvar.',true);
@@ -2804,7 +2806,7 @@ async function nexaOpenTranscriptVersions(consult){
         source_pipeline_version:'nexa-transcript-v1',transcript_text:text,
         consent_recorded_at:consult.consent_recorded_at
       });
-      if(writeError)return show('Correção não confirmada pelo servidor. Recarregue as versões.',true);
+      if(writeError){feedback.textContent='Correção não confirmada pelo servidor. Recarregue as versões.';feedback.hidden=false;return;}
       dialog.close();dialog.remove();await nexaOpenTranscriptVersions(consult);
     };dialog.append(save);
   }
