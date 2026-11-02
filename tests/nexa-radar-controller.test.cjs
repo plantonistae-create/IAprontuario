@@ -1,5 +1,32 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 global.NexaRadarEngine=require('../nexa-radar-engine');require('../nexa-radar-controller');
+test('remote context omits generated text while retaining patient evidence and safety gaps',()=>{
+  const fields={queixa_principal:'Dispneia',hda:'Falta de ar desde hoje.',alergias:'Não informado.',
+    comorbidades:'Asma.',medicacoes:'Salbutamol em uso.',hipotese_diagnostica:'Broncoespasmo',
+    sugestoes_perguntas:'Perguntas geradas pelo Radar. '.repeat(30),
+    orientacoes_alta:'Texto de alta gerado. '.repeat(20),_include_hipotese:true};
+  const input={fields,transcript:'Paciente: Estou chiando.',cid:'J45'};
+  const compact=NexaRadarController.clinicalContext(fields,input.transcript,input.cid);
+  assert.equal(compact.fields.hda,fields.hda);
+  assert.equal(compact.fields.medicacoes,fields.medicacoes);
+  assert.equal(compact.transcript,input.transcript);
+  assert.equal(compact.cid,input.cid);
+  assert.equal(compact.fields.sugestoes_perguntas,undefined);
+  assert.equal(compact.fields.orientacoes_alta,undefined);
+  assert.equal(compact.fields._include_hipotese,undefined);
+  assert.ok(JSON.stringify(compact).length<JSON.stringify(input).length/2);
+  const old=NexaRadarEngine.analyze(input),next=NexaRadarEngine.analyze(compact);
+  assert.deepEqual(next.unresolvedSafety,old.unresolvedSafety);
+  assert.deepEqual(next.alerts,old.alerts);
+  assert.deepEqual(next.items.map(x=>x.concept),old.items.map(x=>x.concept));
+});
+test('remote state keeps manual answers without account or encounter identifiers',()=>{
+  const snapshot={version:1,owner:'doctor-id',encounter:'encounter-id',ledger:{dyspnea:{action:'answer',value:'Não',section:'hda'}},questionTrace:[{id:'dyspnea'}]};
+  const state=NexaRadarController.remoteState(snapshot);
+  assert.deepEqual(state,{version:1,ledger:snapshot.ledger});
+  assert.ok(!JSON.stringify(state).includes('doctor-id'));
+  assert.ok(!JSON.stringify(state).includes('encounter-id'));
+});
 function fixture(){let context={fields:{hda:'Dor torácica.'}};const calls=[];const adapter={context:()=>context,publish(){},apply:fields=>context={fields},analyze:(c,signal)=>new Promise((resolve,reject)=>calls.push({c,signal,resolve,reject}))};const api=NexaRadarController.create(adapter);api.setOwner('a');api.recalculate();return {api,calls,set:c=>context=c};}
 test('obsolete AI result cannot replace newest context',async()=>{const {api,calls,set}=fixture();const old=api.analyzeRemote();set({fields:{hda:'Entorse do tornozelo.'}});api.recalculate();calls[0].resolve({items:[{concept:'saddle',contextEvidence:'Dor torácica.',priority:'critical'}]});await old;assert.ok(!api.state.items.some(i=>i.id==='saddle'));assert.ok(api.state.items.some(i=>i.id==='fourSteps'));});
 test('network failure leaves deterministic engine and retry usable',async()=>{const {api,calls}=fixture();const pending=api.analyzeRemote();calls[0].reject(new Error('Network'));await pending;assert.ok(api.state.error);assert.ok(api.state.items.some(i=>i.id==='dyspnea'));assert.equal(api.state.busy,false);const retry=api.analyzeRemote();calls[1].resolve({items:[]});await retry;assert.equal(api.state.error,'');});
