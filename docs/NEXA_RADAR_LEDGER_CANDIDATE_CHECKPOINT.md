@@ -1,0 +1,20 @@
+# Radar temporal: checkpoint da migration candidata
+
+Esta branch contém uma migration **candidata**, sem aplicação em staging ou produção. Ela depende da expansão institucional da PR #92 e preserva a distinção entre o ID textual de `consultation_history` e o UUID de `encounter_id`.
+
+## Contrato ensaiado localmente
+
+- Eventos categóricos append-only, sem áudio, transcrição, fala literal ou prontuário.
+- Sequência monotônica atribuída em transação pelo banco, com bloqueio por consulta.
+- Mesmo `event_id` e mesmo conteúdo retornam a sequência anterior; reutilização com conteúdo alterado falha.
+- Leitura limitada ao médico responsável com acesso clínico ativo ou ao revisor ativo da organização. Escrita exige médico responsável, membership ativo e consulta em andamento.
+- Paginação por `(consultation_id, sequence)`; 500 eventos sintéticos, eventos manuais e dois envios concorrentes.
+- RLS forçada e negação de INSERT, UPDATE e DELETE diretos ao cliente.
+
+Executar `node scripts/run-local-radar-ledger.mjs` para repetir o ensaio em stack local descartável. O script não usa projetos hospedados. O teste adicional de revogação e as verificações de grants estão em `tests/radar-ledger/ledger-final.sql`.
+
+## Gate ainda bloqueado
+
+A migration não deve ser aplicada antes da reconciliação do esquema e da recuperação protegida da PR #92. O cliente ainda não envia eventos para esse contrato: o histórico local limitado a 300 eventos permanece incompleto e sinaliza truncamento. Recuperação entre dispositivos, auditoria clínica por pergunta e avaliação médica permanecem pendentes. A origem declarada pelo cliente é metadado de proveniência, não assinatura institucional.
+
+O vínculo `ON DELETE RESTRICT` evita apagar a cronologia junto com a consulta, mas pode impedir o fluxo atual de exclusão de consultas. Revisar retenção e descarte antes de qualquer aplicação hospedada; este ensaio não homologa esse comportamento da interface.

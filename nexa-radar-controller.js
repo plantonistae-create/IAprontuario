@@ -6,6 +6,16 @@
   const labels={critical:'Essencial agora',high:'Importante',moderate:'Complementar',low:'Complementar'};
   const states={to_ask:'A perguntar',asked:'Perguntada · aguardando resposta',confirm:'A confirmar'};
   const cats={history:'História',red_flags:'Sinais de alarme',exam:'Exame físico',vitals:'Sinais vitais',risk:'Antecedentes / riscos',medications:'Medicações',contradiction:'Contradição',differential:'Diferencial'};
+  // Generated suggestions and discharge text are not patient evidence for Radar.
+  function clinicalContext(fields,transcript,cid){
+    const clinicalFields={...fields};
+    delete clinicalFields.sugestoes_perguntas;
+    delete clinicalFields.orientacoes_alta;
+    delete clinicalFields._include_hipotese;
+    return {fields:clinicalFields,transcript,cid};
+  }
+  // The model needs prior answers, not account or encounter identifiers.
+  function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
     let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
@@ -211,5 +221,5 @@
       clear(){turns.clear();sequence=0;}
     };
   }
-  root.NexaRadarController={create,mount,createTranscriptBuffer};
+  root.NexaRadarController={create,mount,createTranscriptBuffer,clinicalContext,remoteState};
 })(globalThis);

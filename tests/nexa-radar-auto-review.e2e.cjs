@@ -43,6 +43,13 @@ fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
 
    await page.evaluate(()=>window.__qa.speak('auto-1','Cefaleia desde hoje. Médico: Teve febre?'));
    await page.waitForFunction(()=>window.radarState.items.some(i=>i.concept==='fever'&&i.status==='asked')&&/Forma sugerida/i.test(document.getElementById('nexaNextBest')?.innerText||''));
+   await page.waitForFunction(()=>window.__qa.requests.some(r=>r.url.includes('realtime-radar')));
+   const radarRequest=await page.evaluate(()=>JSON.parse(window.__qa.requests.find(r=>r.url.includes('realtime-radar')).body));
+   assert.match(radarRequest.transcript,/Cefaleia desde hoje/);
+   assert.equal(radarRequest.clinical_context.sugestoes_perguntas,undefined);
+   assert.equal(radarRequest.clinical_context.orientacoes_alta,undefined);
+   assert.equal(radarRequest.previous_state.owner,undefined);
+   assert.equal(radarRequest.previous_state.encounter,undefined);
    assert.doesNotMatch(await page.locator('#nexaNextBest h3').innerText(),/Nenhuma pergunta prioritária/i,'Radar must expose a next-best question while relevant gaps remain');
    assert.match(await page.locator('#nexaNextBest').innerText(),/Forma sugerida/i,'Next question must include practical phrasing');
 

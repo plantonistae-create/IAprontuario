@@ -1,0 +1,23 @@
+name: NEXA Local Radar Ledger
+on:
+  pull_request:
+    paths:
+      - 'scripts/run-local-radar-ledger.mjs'
+      - 'tests/radar-ledger/**'
+      - 'supabase/migrations/20261102092515_nexa_radar_question_event_ledger_candidate.sql'
+      - '.github/workflows/nexa-radar-ledger-local.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Exercise 500 synthetic events with local Auth roles and RLS
+        run: node scripts/run-local-radar-ledger.mjs
