@@ -70,3 +70,55 @@ test('rejects invalid event metadata and withholds ACK on remote failure',async(
   await assert.rejects(()=>ledger.append({rpc:async()=>{throw new Error('Synthetic network failure')}},bound,event),
     /RADAR_LEDGER_REMOTE_ACK_MISSING/);
 });
+
+test('recovers a fixed 502-event prefix across pages without dropping events',async()=>{
+  const rows=Array.from({length:502},(_,i)=>({
+    event_id:`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,
+    consultation_id:row.id,encounter_id:encounter,organization_id:organization,
+    owner_user_id:owner,sequence:i+1
+  }));
+  const calls=[];
+  const client={from(name){
+    assert.equal(name,'nexa_radar_question_events');
+    const filters={};
+    const query={
+      select(){return this},eq(key,value){filters[key]=value;return this},
+      gt(key,value){filters.gt=[key,value];return this},
+      lte(key,value){filters.lte=[key,value];return this},
+      order(key,option){filters.order=[key,option.ascending];return this},
+      limit(n){
+        calls.push({...filters,limit:n});
+        const data=filters.order[1]===false?[rows.at(-1)]:
+          rows.filter(x=>x.sequence>filters.gt[1]&&x.sequence<=filters.lte[1]).slice(0,n);
+        return Promise.resolve({data,error:null});
+      }
+    };
+    return query;
+  }};
+  const result=await ledger.loadAll(client,binding());
+  assert.equal(result.complete,true);
+  assert.equal(result.highWater,502);
+  assert.equal(result.events.length,502);
+  assert.deepEqual(result.events.map(x=>x.sequence),Array.from({length:502},(_,i)=>i+1));
+  assert.equal(calls.length,4);
+  assert.ok(calls.every(x=>x.consultation_id===row.id&&x.encounter_id===encounter&&
+    x.organization_id===organization&&x.owner_user_id===owner));
+});
+
+test('marks empty history unverified and rejects gaps or failed pages',async()=>{
+  const empty={from:()=>({select(){return this},eq(){return this},order(){return this},
+    limit:async()=>({data:[],error:null})})};
+  assert.deepEqual(await ledger.loadAll(empty,binding()),{events:[],highWater:0,complete:false});
+  const bad={from:()=>({select(){return this},eq(){return this},gt(){return this},
+    lte(){return this},order(_key,{ascending}){this.desc=!ascending;return this},
+    limit:async function(){return this.desc?{data:[{sequence:2}],error:null}:
+      {data:[{sequence:2,event_id:eventId}],error:null}}})};
+  await assert.rejects(()=>ledger.loadAll(bad,binding()),/RADAR_LEDGER_HISTORY_INCOMPLETE/);
+  const overrun={from:()=>({select(){return this},eq(){return this},gt(){return this},
+    lte(){return this},order(_key,{ascending}){this.desc=!ascending;return this},
+    limit:async function(){return this.desc?{data:[{sequence:1}],error:null}:
+      {data:[{...row,event_id:eventId,sequence:1},{...row,event_id:eventId,sequence:2}],error:null}}})};
+  await assert.rejects(()=>ledger.loadAll(overrun,binding()),/RADAR_LEDGER_HISTORY_INCOMPLETE/);
+  await assert.rejects(()=>ledger.loadAll(empty,binding(),{pageSize:0}),
+    /RADAR_LEDGER_PAGE_SIZE_INVALID/);
+});

@@ -63,7 +63,40 @@
     if(error||!Number.isSafeInteger(data)||data<1)throw new Error('RADAR_LEDGER_REMOTE_ACK_MISSING');
     return data;
   }
-  const api={bind,args,append};
+  async function loadAll(client,binding,{pageSize=200}={}){
+    if(!binding||!verified.has(binding))fail();
+    if(typeof client?.from!=='function')throw new Error('RADAR_LEDGER_AUTH_CLIENT_REQUIRED');
+    if(!Number.isInteger(pageSize)||pageSize<1||pageSize>500)
+      throw new Error('RADAR_LEDGER_PAGE_SIZE_INVALID');
+    const base=()=>client.from('nexa_radar_question_events').select('*')
+      .eq('consultation_id',binding.consultation_id).eq('encounter_id',binding.encounter_id)
+      .eq('organization_id',binding.organization_id).eq('owner_user_id',binding.owner_user_id);
+    const missing=()=>{throw new Error('RADAR_LEDGER_HISTORY_INCOMPLETE')};
+    let head;
+    try{head=await base().order('sequence',{ascending:false}).limit(1)}catch{missing()}
+    if(head?.error||!Array.isArray(head?.data))missing();
+    if(head.data.length===0)return {events:[],highWater:0,complete:false};
+    const highWater=head.data[0]?.sequence;
+    if(!Number.isSafeInteger(highWater)||highWater<1)missing();
+    const events=[];
+    let last=0;
+    while(last<highWater){
+      let page;
+      try{page=await base().gt('sequence',last).lte('sequence',highWater)
+        .order('sequence',{ascending:true}).limit(pageSize)}catch{missing()}
+      if(page?.error||!Array.isArray(page?.data)||page.data.length===0)missing();
+      for(const row of page.data){
+        if(row.sequence!==last+1||row.sequence>highWater||!validUuid(row.event_id)||
+           row.consultation_id!==binding.consultation_id||row.encounter_id!==binding.encounter_id||
+           row.organization_id!==binding.organization_id||row.owner_user_id!==binding.owner_user_id)
+          missing();
+        events.push(row);
+        last=row.sequence;
+      }
+    }
+    return {events,highWater,complete:true};
+  }
+  const api={bind,args,append,loadAll};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.NexaRadarLedgerClient=api;
 })(globalThis);
