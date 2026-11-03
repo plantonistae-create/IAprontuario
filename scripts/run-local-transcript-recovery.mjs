@@ -131,7 +131,7 @@ try{
  writeFileSync(browserFile,JSON.stringify({api:status.API_URL,anon:status.ANON_KEY,
   email:emailA,password,owner:a.data.user.id,organization:oa,encounter:browserEncounter,event:browserEvent}),{mode:0o600});
  const browserResult=call(process.execPath,['tests/transcript/browser-two-contexts.cjs',browserFile]);
- assert.ok(browserResult.includes('delayed POST timeout'));
+ assert.ok(browserResult.includes('session refresh')&&browserResult.includes('delayed POST timeout'));
  sql(`UPDATE public.profiles SET status='revoked' WHERE id=${q(a.data.user.id)}`);
  assert.equal((await read(session3)).length,0);
  sql(`DELETE FROM public.encounter_transcript_versions; DELETE FROM public.consultation_history;

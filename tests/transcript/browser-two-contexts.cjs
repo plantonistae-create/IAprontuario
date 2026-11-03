@@ -74,6 +74,26 @@ async function login(page){
   assert.equal(interrupted,true,'Transcript POST was not intercepted');
   assert.equal(failed,'TRANSCRIPT_REMOTE_WRITE_FAILED');
   await pageA.unrouteAll();
+  phase='browser A expired-token response during write';
+  let rejectedPost=0;
+  await pageA.route('**/rest/v1/encounter_transcript_versions*',async route=>{
+   if(route.request().method()==='POST'){
+    rejectedPost++;
+    await route.fulfill({status:401,contentType:'application/json',
+     body:JSON.stringify({code:'PGRST301',message:'JWT expired'})});
+   }else await route.continue();
+  });
+  const authRejected=await pageA.evaluate(async ({provenance,rec})=>{
+   try{await window.__localTranscriptPersist(provenance,rec);return null}catch(e){return e.message}
+  },{provenance,rec});
+  assert.equal(rejectedPost,1,'Transcript write did not receive the injected 401');
+  assert.equal(authRejected,'TRANSCRIPT_REMOTE_WRITE_FAILED');
+  await pageA.unrouteAll();
+  const renewed=await pageA.evaluate(async()=>{
+   const {data,error}=await window.nexaClinicalSupabase18101.auth.refreshSession();
+   return !error&&!!data?.session?.access_token;
+  });
+  assert.equal(renewed,true,'Real local Auth did not renew the synthetic session');
   phase='browser A interrupted ACK';
   let ackLost=0;
   await pageA.route('**/rest/v1/encounter_transcript_versions*',async route=>{
@@ -87,6 +107,7 @@ async function login(page){
   assert.equal(uncertain,'TRANSCRIPT_REMOTE_ACK_MISMATCH');
   await pageA.unrouteAll();
   phase='browser A verified retry';
+  assert.equal(await pageA.evaluate(async ({provenance,rec})=>window.__localTranscriptPersist(provenance,rec),{provenance,rec}),true);
   assert.equal(await pageA.evaluate(async ({provenance,rec})=>window.__localTranscriptPersist(provenance,rec),{provenance,rec}),true);
   const readback=await pageA.evaluate(async id=>{const {data,error}=await window.nexaClinicalSupabase18101.from('encounter_transcript_versions').select('transcript_kind,transcript_sha256,transcript_text').eq('consultation_id',id);if(error)throw error;return data},m.encounter);
   assert.equal(readback.length,2);
@@ -186,6 +207,6 @@ async function login(page){
   },delayedEvent);
   assert.equal(delayedRows.length,0,'Timed-out write unexpectedly reached the database');
   await d.close();
-  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, versioned recovery, interrupted ACK retry, delayed POST timeout');
+  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, injected write 401, session refresh, idempotent retry, delayed POST timeout');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve))}
 })().catch(error=>{console.error('Phase',phase,error.name||'BrowserError',String(error.message||'').slice(0,1800));process.exitCode=1});
