@@ -114,14 +114,30 @@ try{
   const recovered=await ledger.loadAll(client,bound);
   if(!recovered.complete||recovered.events.length!==1||recovered.events[0].event_id!==first.event_id)
     throw new Error('Authenticated Radar recovery mismatch');
+  const expiredEvent={...first,event_id:randomUUID(),sequence:2};
+  await bridge.captureEvent(expiredEvent,encounterId,userId);
+  if(Number(signup.data.session.expires_in)>60)throw new Error('Local JWT expiry not configured');
+  await new Promise(resolve=>setTimeout(resolve,93000)); // Auth 60 s + PostgREST 30 s leeway.
+  const expiredResponse=await fetch(`${apiUrl}/rest/v1/rpc/append_nexa_radar_question_event`,{
+    method:'POST',headers:{apikey:anonKey,Authorization:`Bearer ${signup.data.session.access_token}`,
+      'Content-Type':'application/json'},body:JSON.stringify(ledger.args(bound,expiredEvent))});
+  if(expiredResponse.status!==401||items.size!==1||
+     sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='1')
+    throw new Error('Naturally expired JWT was not rejected before ACK');
+  const refreshed=await client.auth.refreshSession();
+  if(refreshed.error||!refreshed.data?.session?.access_token)
+    throw new Error('Local JWT refresh failed');
+  const retry=await bridge.onAutosaveSynced({encounter_id:encounterId});
+  if(!retry.complete||retry.acknowledged!==1||items.size!==0)
+    throw new Error('Expired JWT retry did not receive idempotent ACK');
   sql(`UPDATE public.organization_memberships SET status='revoked' WHERE user_id='${userId}'`);
-  const second={...first,event_id:randomUUID(),sequence:2};
-  await bridge.captureEvent(second,encounterId,userId);
+  const revokedEvent={...first,event_id:randomUUID(),sequence:3};
+  await bridge.captureEvent(revokedEvent,encounterId,userId);
   const revoked=await bridge.onAutosaveSynced({encounter_id:encounterId});
   if(revoked.complete||items.size!==1||
-     sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='1')
+     sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='2')
     throw new Error('Revoked Radar access was not blocked');
-  console.log('LOCAL_RADAR_LEDGER_PASS: 502 ordered SQL events; Auth/JWT bridge ACK, recovery and revocation');
+  console.log('LOCAL_RADAR_LEDGER_PASS: 502 SQL events; Auth/JWT ACK, natural expiry, refresh, recovery and revocation');
 }finally{
   if(started){try{cli(['destroy','--stack',stack,'--yes']);destroyed=true;}catch{console.error('Inspect disposable stack',stack);}}
   if(destroyed||!started){rmSync(workdir,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}

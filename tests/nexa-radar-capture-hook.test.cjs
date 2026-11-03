@@ -52,3 +52,15 @@ test('candidate synchronization state stays explicit and resets with the encount
   controller.recalculate();
   assert.equal(controller.state.ledgerSyncStatus.state,'inactive');
 });
+
+test('canonical autosave UUID can bind before capture but never reassigns recorded events',()=>{
+  const controller=candidate().create({context:()=>({}),publish(){}});
+  controller.setOwner('synthetic-owner');
+  const id='11111111-1111-4111-8111-111111111111';
+  assert.equal(controller.bindEncounter(id),true);
+  assert.equal(controller.snapshot().encounter,id);
+  controller.recalculate();
+  assert.equal(controller.bindEncounter('22222222-2222-4222-8222-222222222222'),false);
+  assert.equal(controller.snapshot().encounter,id);
+  assert.equal(controller.snapshot().questionEvents[0].sequence,1);
+});

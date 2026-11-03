@@ -151,8 +151,14 @@
           status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});
       }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
+    function bindEncounter(id){
+      if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+      if(id===encounter)return true;
+      if(traceSequence>0)return false; // Never reassign a recorded event to another encounter.
+      invalidate();encounter=id;lastKey='';state.encounter=id;publish();return true;
+    }
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,
+    return {get state(){return state;},snapshot,restore,reset,setOwner,bindEncounter,recalculate,respond,schedule,analyzeRemote,
       setLedgerSyncStatus(value){const next=value?.state,pending=value?.pending;
         if(!['inactive','pending','confirmed','blocked','unbound'].includes(next))return;
         ledgerSyncStatus={state:next,pending:Number.isSafeInteger(pending)&&pending>=0?pending:null};
