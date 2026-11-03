@@ -161,6 +161,11 @@ async function login(page){
   await dialogC.getByRole('alert').waitFor();
   assert.match(await dialogC.getByRole('alert').textContent(),/Correção não confirmada pelo servidor/);
   assert.equal(await dialogC.locator('pre').count(),2,'A stale editor must not claim the conflicting correction was saved');
+  pageC.once('dialog',prompt=>prompt.dismiss());
+  await dialogC.getByRole('button',{name:'Fechar'}).click();
+  assert.equal(await dialogC.getByRole('textbox',{name:'Nova versão corrigida'}).inputValue(),
+   'Correção concorrente sintética, não publicada.','Dismissed close must retain the unsaved correction');
+  pageC.once('dialog',prompt=>prompt.accept());
   await dialogC.getByRole('button',{name:'Fechar'}).click();
   await pageC.evaluate(async id=>{
     const {data,error}=await window.nexaClinicalSupabase18101.from('consultation_history')
