@@ -4,6 +4,13 @@ on:
     paths:
       - 'scripts/run-local-radar-ledger.mjs'
       - 'tests/radar-ledger/**'
+      - 'nexa-radar-ledger-client.js'
+      - 'nexa-radar-ledger-bridge.js'
+      - 'nexa-radar-encrypted-outbox.js'
+      - 'tests/nexa-radar-ledger-client.test.cjs'
+      - 'tests/nexa-radar-ledger-bridge.test.cjs'
+      - 'tests/nexa-radar-encrypted-outbox.test.cjs'
+      - 'tests/nexa-radar-capture-hook.test.cjs'
       - 'supabase/migrations/20261102092515_nexa_radar_question_event_ledger_candidate.sql'
       - '.github/workflows/nexa-radar-ledger-local.yml'
   workflow_dispatch:
@@ -21,3 +28,5 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Exercise 500 synthetic events with local Auth roles and RLS
         run: node scripts/run-local-radar-ledger.mjs
+      - name: Verify candidate bridge, encrypted queue and visual-cap capture
+        run: node --test tests/nexa-radar-ledger-client.test.cjs tests/nexa-radar-ledger-bridge.test.cjs tests/nexa-radar-encrypted-outbox.test.cjs tests/nexa-radar-capture-hook.test.cjs

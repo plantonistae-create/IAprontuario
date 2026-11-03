@@ -1,5 +1,7 @@
 /** Disposable PostgreSQL rehearsal for the candidate Radar event ledger. */
-import {randomBytes} from 'node:crypto';
+import {randomBytes,randomUUID,webcrypto} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {createClient} from '@supabase/supabase-js';
 import {existsSync,mkdtempSync,mkdirSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
 import {spawnSync,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -7,6 +9,11 @@ import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
+const require=createRequire(import.meta.url);
+const ledger=require('../nexa-radar-ledger-client.js');
+const {create:encryptedOutbox}=require('../nexa-radar-encrypted-outbox.js');
+const {create:ledgerBridge}=require('../nexa-radar-ledger-bridge.js');
+globalThis.crypto??=webcrypto;
 if(process.cwd()!==root)throw new Error('Run from repository root');
 for(const key of ['SUPABASE_ACCESS_TOKEN','NEXA_STAGING_DB_URL','NEXA_STAGING_SERVICE_ROLE_KEY'])
   if(process.env[key])throw new Error('Hosted credentials forbidden in local Radar rehearsal');
@@ -37,7 +44,8 @@ function nativePsql(){
 let started=false,destroyed=false;
 try{
   mkdirSync(join(workdir,'supabase'),{recursive:true});
-  writeFileSync(join(workdir,'supabase/config.toml'),'[experimental]\nstack = true\n');
+  writeFileSync(join(workdir,'supabase/config.toml'),
+    '[experimental]\nstack = true\n[auth]\njwt_expiry = 60\n[auth.email]\nenable_confirmations = false\n');
   cli(['start','--stack',stack,'--runtime','native','--preparation','on-demand',
     '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
   started=true;
@@ -71,7 +79,49 @@ try{
     {cwd:root,env:pgEnv,timeout:30000})));
   call(psql,['-X','-v','ON_ERROR_STOP=1','--file','tests/radar-ledger/ledger-final.sql'],pgEnv);
   if(sql('SELECT count(*) FROM public.nexa_radar_question_events')!=='502')throw new Error('Radar event count mismatch');
-  console.log('LOCAL_RADAR_LEDGER_PASS: 502 ordered events, idempotency, tenant denial, concurrent sequence');
+  const apiUrl=String(status.API_URL||''),anonKey=String(status.ANON_KEY||'');
+  if(!['127.0.0.1','localhost','::1'].includes(new URL(apiUrl).hostname)||!anonKey)
+    throw new Error('Disposable Auth or API unavailable');
+  const client=createClient(apiUrl,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const signup=await client.auth.signUp({email:`synthetic-radar-${id}@example.invalid`,
+    password:randomBytes(24).toString('hex')});
+  const userId=signup.data?.user?.id;
+  if(signup.error||!signup.data?.session?.access_token||
+     !/^[0-9a-f-]{36}$/.test(userId||''))throw new Error('Disposable Auth signup failed');
+  const encounterId=randomUUID(),organizationId='22222222-2222-4222-8222-222222222222';
+  const consultationId=`synthetic-auth-${id}`;
+  sql(`INSERT INTO public.profiles VALUES ('${userId}','active',true,false);
+    INSERT INTO public.organization_memberships VALUES ('${organizationId}','${userId}',
+      'active',ARRAY['clinician']);
+    INSERT INTO public.consultation_history VALUES ('${consultationId}','${encounterId}',
+      '${userId}','${organizationId}','draft');`);
+  const items=new Map(),store={get:async key=>items.get(key),all:async()=>[...items.values()],
+    add:async item=>{if(items.has(item.id))throw new Error('RADAR_OUTBOX_DUPLICATE');items.set(item.id,item)},
+    remove:async key=>{items.delete(key)}};
+  const key=await webcrypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const outbox=encryptedOutbox({key,store,ledger});
+  const bridge=ledgerBridge({ledger,outbox,client,userId,organizationId,
+    currentEncounterId:()=>encounterId});
+  const first={event_id:randomUUID(),sequence:1,id:'dyspnea',concept:'dyspnea',type:'appeared',
+    current_status:'to_ask',current_priority:'high',reason_code:'engine_recalculation',
+    origin:'engine',engine_version:'radar-temporal-v1',snapshot_version:1};
+  await bridge.captureEvent(first,encounterId,userId);
+  if(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='0')
+    throw new Error('Radar sent before autosave confirmation');
+  const ack=await bridge.onAutosaveSynced({encounter_id:encounterId});
+  if(!ack.complete||ack.acknowledged!==1)throw new Error('Authenticated Radar ACK absent');
+  const bound=await ledger.bindConfirmed(client,{activeEncounterId:encounterId,userId,organizationId});
+  const recovered=await ledger.loadAll(client,bound);
+  if(!recovered.complete||recovered.events.length!==1||recovered.events[0].event_id!==first.event_id)
+    throw new Error('Authenticated Radar recovery mismatch');
+  sql(`UPDATE public.organization_memberships SET status='revoked' WHERE user_id='${userId}'`);
+  const second={...first,event_id:randomUUID(),sequence:2};
+  await bridge.captureEvent(second,encounterId,userId);
+  const revoked=await bridge.onAutosaveSynced({encounter_id:encounterId});
+  if(revoked.complete||items.size!==1||
+     sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='1')
+    throw new Error('Revoked Radar access was not blocked');
+  console.log('LOCAL_RADAR_LEDGER_PASS: 502 ordered SQL events; Auth/JWT bridge ACK, recovery and revocation');
 }finally{
   if(started){try{cli(['destroy','--stack',stack,'--yes']);destroyed=true;}catch{console.error('Inspect disposable stack',stack);}}
   if(destroyed||!started){rmSync(workdir,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}

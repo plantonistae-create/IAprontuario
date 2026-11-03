@@ -18,18 +18,26 @@
   function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
-    let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
+    let questionTraceTruncated=false,questionEventCaptureError=false;const listeners=new Set(),questionTrace=new Map();
     // Bounded categorical chronology; never store transcript, note or patient quotes.
     const questionEvents=[];let traceSequence=0;const previousQuestions=new Map();
     function event(type,item,reason='engine_recalculation',prior=null){
-      if(questionEvents.length>=300){questionTraceTruncated=true;return;}
-      questionEvents.push({event_id:crypto.randomUUID(),sequence:++traceSequence,at:new Date().toISOString(),type,
+      const entry={event_id:crypto.randomUUID(),sequence:++traceSequence,at:new Date().toISOString(),type,
         id:item.id,concept:item.concept,priority:item.priority,status:item.status,
         previous_status:prior?.status??null,current_status:type==='removed'?null:item.status,
         previous_priority:prior?.priority??null,current_priority:type==='removed'?null:item.priority,
         reason,reason_code:reason,origin:'engine',engine_version:'radar-temporal-v1',snapshot_version:1,
         engine:'nexa-radar-controller',version:'temporal-v1',
-        provider:remoteMeta.provider,model_version:remoteMeta.model_version});
+        provider:remoteMeta.provider,model_version:remoteMeta.model_version};
+      if(questionEvents.length<300)questionEvents.push(entry);
+      else questionTraceTruncated=true;
+      if(adapter.captureEvent){
+        const capturedEncounter=encounter,capturedOwner=owner;
+        try{Promise.resolve(adapter.captureEvent({...entry},encounter,owner)).catch(()=>{
+          if(encounter===capturedEncounter&&owner===capturedOwner){
+            questionEventCaptureError=true;state.questionEventCaptureError=true;publish()}})}
+        catch{questionEventCaptureError=true}
+      }
     }
     function traceQuestions(items){
       const active=new Set();
@@ -53,7 +61,7 @@
         event('removed',prior,'no_longer_suggested',prior);previousQuestions.delete(id);
       }}
     }
-    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionEvents:questionEvents.map(x=>({...x})),questionTraceTruncated};}
+    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionEvents:questionEvents.map(x=>({...x})),questionEventSequence:traceSequence,questionTraceTruncated,questionEventCaptureError};}
     // A streaming transcript usually grows monotonically. Retain one in-flight
     // analysis when new completed utterances only append text, then refresh it.
     // Changing clinical fields, owner, or encounter still invalidates immediately.
@@ -73,7 +81,7 @@
         lastKey=key;lastContext=JSON.parse(key);aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
-      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionEvents=questionEvents.map(x=>({...x}));state.questionTraceTruncated=questionTraceTruncated;
+      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionEvents=questionEvents.map(x=>({...x}));state.questionTraceTruncated=questionTraceTruncated;state.questionEventCaptureError=questionEventCaptureError;
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
@@ -112,7 +120,7 @@
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionEvents.length=0;previousQuestions.clear();traceSequence=0;questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionEvents.length=0;previousQuestions.clear();traceSequence=0;questionTraceTruncated=false;questionEventCaptureError=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const ev of Array.isArray(saved.questionEvents)?saved.questionEvents.slice(0,300):[]){
@@ -132,6 +140,9 @@
           engine:'nexa-radar-controller',version:'temporal-v1',provider:String(ev.provider||'unknown'),model_version:String(ev.model_version||'unknown')});
         traceSequence=Math.max(traceSequence,ev.sequence);
       }
+      if(Number.isSafeInteger(saved.questionEventSequence)&&saved.questionEventSequence>traceSequence)
+        traceSequence=saved.questionEventSequence;
+      questionEventCaptureError=saved.questionEventCaptureError===true;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
         const id=String(x?.id||''),concept=String(x?.concept||'');
         if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;

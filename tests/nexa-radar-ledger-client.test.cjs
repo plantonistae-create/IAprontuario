@@ -54,6 +54,23 @@ test('rejects an unconfirmed, foreign or mismatched consultation binding',()=>{
   assert.throws(()=>ledger.args({...binding()},event),/RADAR_LEDGER_BINDING_UNVERIFIED/);
 });
 
+test('binds only after authenticated user and server row agree',async()=>{
+  const client={auth:{getUser:async()=>({data:{user:{id:owner}},error:null})},
+    from(name){assert.equal(name,'consultation_history');return{
+      select(columns){assert.ok(columns.includes('organization_id'));return this},
+      eq(){return this},maybeSingle:async()=>({data:row,error:null})
+    }}};
+  const input={consultationId:row.id,activeEncounterId:encounter,userId:owner,organizationId:organization};
+  assert.equal(ledger.args(await ledger.bindConfirmed(client,input),event).p_consultation_id,row.id);
+  assert.equal(ledger.args(await ledger.bindConfirmed(client,{...input,consultationId:undefined}),event)
+    .p_consultation_id,row.id);
+  await assert.rejects(()=>ledger.bindConfirmed({...client,auth:{getUser:async()=>({data:{user:{id:encounter}}})}},input),
+    /RADAR_LEDGER_BINDING_UNVERIFIED/);
+  await assert.rejects(()=>ledger.bindConfirmed({...client,from:()=>({select(){return this},eq(){return this},
+    maybeSingle:async()=>({data:{...row,organization_id:encounter},error:null})})},input),
+    /RADAR_LEDGER_BINDING_UNVERIFIED/);
+});
+
 test('rejects invalid event metadata and withholds ACK on remote failure',async()=>{
   const bound=binding();
   assert.throws(()=>ledger.args(bound,{...event,event_id:'legacy-text-id'}),/RADAR_LEDGER_EVENT_INVALID/);

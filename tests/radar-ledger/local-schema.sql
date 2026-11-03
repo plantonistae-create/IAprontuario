@@ -11,6 +11,16 @@ CREATE TABLE public.consultation_history (
   id text PRIMARY KEY,encounter_id uuid NOT NULL,user_id uuid NOT NULL,
   organization_id uuid NOT NULL,encounter_state text NOT NULL
 );
+ALTER TABLE public.consultation_history ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.consultation_history TO authenticated;
+CREATE POLICY synthetic_consultation_owner_read ON public.consultation_history
+  FOR SELECT TO authenticated USING (
+    user_id = (SELECT auth.uid()) AND EXISTS (
+      SELECT 1 FROM public.organization_memberships m
+      WHERE m.organization_id = consultation_history.organization_id
+        AND m.user_id = (SELECT auth.uid()) AND m.status = 'active'
+    )
+  );
 INSERT INTO public.organizations VALUES
  ('22222222-2222-4222-8222-222222222222'),('33333333-3333-4333-8333-333333333333');
 INSERT INTO public.profiles VALUES

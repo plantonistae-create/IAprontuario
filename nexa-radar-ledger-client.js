@@ -29,6 +29,26 @@
     return result;
   }
 
+  async function bindConfirmed(client,{consultationId,activeEncounterId,userId,organizationId}={}){
+    if(typeof client?.auth?.getUser!=='function'||typeof client?.from!=='function'||
+       (consultationId!==undefined&&(typeof consultationId!=='string'||!consultationId.trim()))||
+       !validUuid(activeEncounterId)||!validUuid(userId)||!validUuid(organizationId))fail();
+    let auth;
+    try{auth=await client.auth.getUser()}catch{fail()}
+    if(auth?.error||auth?.data?.user?.id!==userId)fail();
+    let response;
+    try{
+      let query=client.from('consultation_history')
+        .select('id,encounter_id,organization_id,user_id,encounter_state');
+      if(consultationId!==undefined)query=query.eq('id',consultationId);
+      response=await query.eq('encounter_id',activeEncounterId)
+        .eq('organization_id',organizationId).eq('user_id',userId).maybeSingle();
+    }
+    catch{fail()}
+    if(response?.error||!response?.data)fail();
+    return bind({consultation:response.data,activeEncounterId,userId,organizationId});
+  }
+
   function args(binding,event){
     if(!binding||!verified.has(binding))fail();
     const p={
@@ -96,7 +116,7 @@
     }
     return {events,highWater,complete:true};
   }
-  const api={bind,args,append,loadAll};
+  const api={bind,bindConfirmed,args,append,loadAll};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.NexaRadarLedgerClient=api;
 })(globalThis);

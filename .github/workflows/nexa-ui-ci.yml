@@ -96,6 +96,8 @@ jobs:
           deno check supabase/functions/core-dataset-export/index.ts
       - name: Install Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
+      - name: Synthetic encrypted Radar outbox browser recovery
+        run: node --test tests/nexa-radar-encrypted-outbox.browser.cjs
       - name: Desktop and mobile browser regression
         run: npm run test:e2e
       - name: Safari WebKit auditor regression
