@@ -1,5 +1,6 @@
 const {chromium}=require('playwright');
 const {readFileSync}=require('node:fs');
+const {randomUUID}=require('node:crypto');
 const http=require('node:http');
 const path=require('node:path');
 const assert=require('node:assert/strict');
@@ -159,6 +160,32 @@ async function login(page){
   await pageB.locator('.nexa-transcript-dialog pre').first().waitFor();
   assert.equal(await pageB.locator('.nexa-transcript-dialog pre').count(),3);
   await b.close();
-  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, versioned recovery, interrupted ACK retry');
+  phase='browser D delayed write timeout';
+  const d=await browser.newContext(),pageD=await d.newPage();
+  await login(pageD);
+  await pageD.evaluate(owner=>{const autosave=window.nexaEncounterAutosave18101;
+   autosave.flush=async()=>({sent:1});autosave.get=async()=>({sync_state:'synced',owner_user_id:owner});},m.owner);
+  const delayedEvent=randomUUID(),delayed={...provenance,source_event_id:delayedEvent};
+  let delayedPost=0;
+  await pageD.route('**/rest/v1/encounter_transcript_versions*',async route=>{
+   if(route.request().method()!=='POST')return route.continue();
+   delayedPost++;
+   await new Promise(resolve=>setTimeout(resolve,16500));
+   await route.continue().catch(()=>{}); // Client abort may close the route first.
+  });
+  const timeoutError=await pageD.evaluate(async ({provenance,rec})=>{
+   try{await window.__localTranscriptPersist(provenance,rec);return null}catch(e){return e.message}
+  },{provenance:delayed,rec});
+  assert.equal(delayedPost,1,'Delayed transcript POST was not intercepted');
+  assert.equal(timeoutError,'TRANSCRIPT_REMOTE_ACK_MISMATCH');
+  await pageD.unrouteAll({behavior:'wait'});
+  const delayedRows=await pageD.evaluate(async event=>{
+   const {data,error}=await window.nexaClinicalSupabase18101.from('encounter_transcript_versions')
+    .select('id').eq('source_event_id',event);
+   if(error)throw error;return data;
+  },delayedEvent);
+  assert.equal(delayedRows.length,0,'Timed-out write unexpectedly reached the database');
+  await d.close();
+  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, versioned recovery, interrupted ACK retry, delayed POST timeout');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve))}
 })().catch(error=>{console.error('Phase',phase,error.name||'BrowserError',String(error.message||'').slice(0,1800));process.exitCode=1});
