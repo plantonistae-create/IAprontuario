@@ -9,6 +9,8 @@ const manifestPath=process.argv[2];
 if(!/^\/tmp\/nexa-pr93-transcript-[a-f0-9]+-[^/]+\/browser.json$/.test(manifestPath||''))throw Error('Disposable browser manifest required');
 const m=JSON.parse(readFileSync(manifestPath,'utf8'));
 if(!['localhost','127.0.0.1'].includes(new URL(m.api).hostname))throw Error('Loopback Supabase required');
+const expiredClaims=JSON.parse(Buffer.from(m.expiredJwt.split('.')[1],'base64url').toString());
+assert.ok(expiredClaims.exp+30<Math.floor(Date.now()/1000),'A naturally expired local Auth JWT is required');
 const root=path.resolve(__dirname,'../..');
 const original='Consulta sintética original: dor abdominal há três dias.';
 const structuring='Entrada sintética usada na estruturação: dor abdominal há três dias.';
@@ -74,19 +76,21 @@ async function login(page){
   assert.equal(interrupted,true,'Transcript POST was not intercepted');
   assert.equal(failed,'TRANSCRIPT_REMOTE_WRITE_FAILED');
   await pageA.unrouteAll();
-  phase='browser A expired-token response during write';
+  phase='browser A naturally expired JWT during write';
   let rejectedPost=0;
   await pageA.route('**/rest/v1/encounter_transcript_versions*',async route=>{
    if(route.request().method()==='POST'){
     rejectedPost++;
-    await route.fulfill({status:401,contentType:'application/json',
-     body:JSON.stringify({code:'PGRST301',message:'JWT expired'})});
+    await route.continue({headers:{...route.request().headers(),authorization:`Bearer ${m.expiredJwt}`}});
    }else await route.continue();
   });
+  const expiredWrite=pageA.waitForResponse(response=>response.url().includes('/rest/v1/encounter_transcript_versions')&&
+   response.request().method()==='POST');
   const authRejected=await pageA.evaluate(async ({provenance,rec})=>{
    try{await window.__localTranscriptPersist(provenance,rec);return null}catch(e){return e.message}
   },{provenance,rec});
-  assert.equal(rejectedPost,1,'Transcript write did not receive the injected 401');
+  assert.equal(rejectedPost,1,'Transcript write did not use the expired Auth token');
+  assert.equal((await expiredWrite).status(),401,'PostgREST must reject the naturally expired JWT');
   assert.equal(authRejected,'TRANSCRIPT_REMOTE_WRITE_FAILED');
   await pageA.unrouteAll();
   const renewed=await pageA.evaluate(async()=>{
@@ -212,6 +216,6 @@ async function login(page){
   },delayedEvent);
   assert.equal(delayedRows.length,0,'Timed-out write unexpectedly reached the database');
   await d.close();
-  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, injected write 401, session refresh, idempotent retry, delayed POST timeout');
+  console.log('TWO_BROWSER_CONTEXTS_TRANSCRIPT_PASS: local Auth, old History page, naturally expired JWT write, session refresh, idempotent retry, delayed POST timeout');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve))}
 })().catch(error=>{console.error('Phase',phase,error.name||'BrowserError',String(error.message||'').slice(0,1800));process.exitCode=1});

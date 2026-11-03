@@ -46,7 +46,7 @@ const q=s=>`'${String(s).replaceAll("'","''")}'`;
 let started=false,destroyed=false;
 try{
  mkdirSync(join(workdir,'supabase'),{recursive:true});
- writeFileSync(join(workdir,'supabase/config.toml'),'[experimental]\nstack = true\n');
+ writeFileSync(join(workdir,'supabase/config.toml'),'[experimental]\nstack = true\n[auth]\njwt_expiry = 60\n');
  cli(['start','--stack',stack,'--runtime',runtime,'--preparation','on-demand',
   '--exclude','storage,realtime,studio,analytics,pooler,mail','--eager']);
  started=true;
@@ -113,6 +113,26 @@ try{
  assert.equal(versions.length,3);
  assert.equal(versions.find(x=>x.id===parent.id)?.transcript_text,original);
  assert.equal(versions.find(x=>x.transcript_kind==='corrected')?.transcript_sha256,sha(corrected));
+ const {data:{session:expiringSession}}=await session3.auth.getSession();
+ assert.ok(expiringSession?.access_token&&expiringSession?.refresh_token,'Local Auth session required');
+ const claims=JSON.parse(Buffer.from(expiringSession.access_token.split('.')[1],'base64url').toString());
+ assert.ok(claims.exp>Math.floor(Date.now()/1000)&&claims.exp-Math.floor(Date.now()/1000)<=60,
+  'Disposable Auth must issue a short-lived real JWT');
+ // PostgREST accepts a 30-second clock skew after exp. Wait beyond that grace period.
+ await new Promise(resolve=>setTimeout(resolve,Math.max(0,(claims.exp+35)*1000-Date.now())));
+ const staleResponse=await fetch(`${status.API_URL}/rest/v1/encounter_transcript_versions`,{
+  method:'POST',headers:{apikey:status.ANON_KEY,Authorization:`Bearer ${expiringSession.access_token}`,
+   'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(correction)});
+ assert.equal(staleResponse.status,401,'A naturally expired signed JWT must not write a transcript');
+ assert.equal((await read(session2)).length,3,'Expired-token attempt must not add a version');
+ const {data:{session:renewedSession},error:renewError}=await session3.auth.refreshSession();
+ assert.equal(renewError,null,renewError?.message);
+ assert.ok(renewedSession?.access_token&&renewedSession.access_token!==expiringSession.access_token,
+  'Local Auth must issue a distinct renewed JWT');
+ const retry=await session3.from('encounter_transcript_versions').upsert(correction,
+  {onConflict:'consultation_id,transcript_kind,source_event_id',ignoreDuplicates:true});
+ assert.equal(retry.error,null,retry.error?.message);
+ assert.equal((await read(session3)).length,3,'Retry of the same event must remain idempotent');
  const sessionFile=join(workdir,'session.json');
  writeFileSync(sessionFile,JSON.stringify({api:status.API_URL,anon:status.ANON_KEY,
   email:emailA,password,consultation,encounter,organization:oa,owner:a.data.user.id,
@@ -129,18 +149,24 @@ try{
    FROM generate_series(1,20) n;`);
  const browserFile=join(workdir,'browser.json');
  writeFileSync(browserFile,JSON.stringify({api:status.API_URL,anon:status.ANON_KEY,
-  email:emailA,password,owner:a.data.user.id,organization:oa,encounter:browserEncounter,event:browserEvent}),{mode:0o600});
+  email:emailA,password,owner:a.data.user.id,organization:oa,encounter:browserEncounter,event:browserEvent,
+  expiredJwt:expiringSession.access_token}),{mode:0o600});
  const browserResult=call(process.execPath,['tests/transcript/browser-two-contexts.cjs',browserFile]);
  assert.ok(browserResult.includes('session refresh')&&browserResult.includes('delayed POST timeout'));
+ const revokedRefresh=await session3.auth.refreshSession();
+ assert.equal(revokedRefresh.error?.code,'refresh_token_not_found',
+  'Browser logout must revoke the earlier refresh token');
+ const revokeClient=client();
+ assert.equal((await revokeClient.auth.signInWithPassword({email:emailA,password})).error,null);
  sql(`UPDATE public.profiles SET status='revoked' WHERE id=${q(a.data.user.id)}`);
- assert.equal((await read(session3)).length,0);
+ assert.equal((await read(revokeClient)).length,0);
  sql(`DELETE FROM public.encounter_transcript_versions; DELETE FROM public.consultation_history;
   DELETE FROM public.organization_memberships; DELETE FROM public.profiles; DELETE FROM public.organizations;`);
  assert.equal((await admin.auth.admin.deleteUser(a.data.user.id)).error,null);
  assert.equal((await admin.auth.admin.deleteUser(b.data.user.id)).error,null);
  assert.equal(sql(`SELECT (SELECT count(*) FROM auth.users)+(SELECT count(*) FROM public.encounter_transcript_versions)+
   (SELECT count(*) FROM public.consultation_history)+(SELECT count(*) FROM public.organizations)`),'0');
- console.log('LOCAL_TRANSCRIPT_AUTH_RECOVERY_PASS: separate Auth sessions, original/correction SHA-256, tenant denial, revocation, no duplicate');
+ console.log('LOCAL_TRANSCRIPT_AUTH_RECOVERY_PASS: separate Auth sessions, natural JWT expiry and renewal, original/correction SHA-256, tenant denial, revocation, no duplicate');
 }finally{
  if(started){try{cli(['destroy','--stack',stack,'--yes']);destroyed=true;}catch{console.error('Inspect disposable stack',stack);}}
  if(destroyed||!started){rmSync(workdir,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}
