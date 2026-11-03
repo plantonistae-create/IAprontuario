@@ -2,6 +2,15 @@ name: NEXA UI CI
 
 on:
   workflow_dispatch:
+    inputs:
+      medication_asr_benchmark:
+        description: 'Run synthetic medication ASR benchmark with test-only API key'
+        type: boolean
+        default: false
+      medication_staging_gate:
+        description: 'Run authenticated synthetic medication gate on protected staging'
+        type: boolean
+        default: false
   pull_request:
     branches:
       - main
