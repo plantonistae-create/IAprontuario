@@ -42,3 +42,13 @@ test('capture rejection is visible and cannot mark a later encounter failed',asy
   controller.reset('synthetic-owner');
   assert.equal(controller.snapshot().questionEventCaptureError,false);
 });
+
+test('candidate synchronization state stays explicit and resets with the encounter',()=>{
+  const controller=candidate().create({context:()=>({}),publish(){}});
+  controller.setLedgerSyncStatus({state:'pending',pending:7});
+  assert.equal(controller.state.ledgerSyncStatus.state,'pending');
+  assert.equal(controller.state.ledgerSyncStatus.pending,7);
+  controller.reset('synthetic-owner');
+  controller.recalculate();
+  assert.equal(controller.state.ledgerSyncStatus.state,'inactive');
+});

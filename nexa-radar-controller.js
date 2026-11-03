@@ -18,7 +18,7 @@
   function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
-    let questionTraceTruncated=false,questionEventCaptureError=false;const listeners=new Set(),questionTrace=new Map();
+    let questionTraceTruncated=false,questionEventCaptureError=false,ledgerSyncStatus={state:'inactive',pending:null};const listeners=new Set(),questionTrace=new Map();
     // Bounded categorical chronology; never store transcript, note or patient quotes.
     const questionEvents=[];let traceSequence=0;const previousQuestions=new Map();
     function event(type,item,reason='engine_recalculation',prior=null){
@@ -81,7 +81,7 @@
         lastKey=key;lastContext=JSON.parse(key);aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
-      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionEvents=questionEvents.map(x=>({...x}));state.questionTraceTruncated=questionTraceTruncated;state.questionEventCaptureError=questionEventCaptureError;
+      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionEvents=questionEvents.map(x=>({...x}));state.questionTraceTruncated=questionTraceTruncated;state.questionEventCaptureError=questionEventCaptureError;state.ledgerSyncStatus={...ledgerSyncStatus};
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
@@ -120,7 +120,7 @@
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionEvents.length=0;previousQuestions.clear();traceSequence=0;questionTraceTruncated=false;questionEventCaptureError=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionEvents.length=0;previousQuestions.clear();traceSequence=0;questionTraceTruncated=false;questionEventCaptureError=false;ledgerSyncStatus={state:'inactive',pending:null};remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const ev of Array.isArray(saved.questionEvents)?saved.questionEvents.slice(0,300):[]){
@@ -152,7 +152,12 @@
       }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
+    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,
+      setLedgerSyncStatus(value){const next=value?.state,pending=value?.pending;
+        if(!['inactive','pending','confirmed','blocked','unbound'].includes(next))return;
+        ledgerSyncStatus={state:next,pending:Number.isSafeInteger(pending)&&pending>=0?pending:null};
+        state.ledgerSyncStatus={...ledgerSyncStatus};publish();},
+      setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
     const api=create(adapter),q=id=>document.getElementById(id);
@@ -161,7 +166,7 @@
     const card=q('realtimeRadarCard');
     if(!card)return api;
     card.innerHTML=`<div id="nfRadarHead"><div><strong>RADAR CLÍNICO</strong><small>Perguntas e alertas que acompanham a consulta.</small></div><span id="radarLiveText" role="status">Aguardando informações</span></div>
-      <div id="nexaContextualStatus" aria-live="polite"></div><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
+      <div id="nexaContextualStatus" aria-live="polite"></div><p id="ngLedgerSyncStatus" class="ng-muted" role="status">Cronologia temporal local; sincronização ainda não habilitada.</p><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
       <div class="ng-layout"><div class="ng-main"><nav id="nfRadarTabs" role="tablist" aria-label="Radar clínico">
       <button type="button" id="ngQuestionsTab" role="tab" aria-controls="ngQuestionsPanel" aria-selected="true" tabindex="0">Perguntas da consulta</button><button type="button" id="ngRisksTab" role="tab" aria-controls="ngRisksPanel" aria-selected="false" tabindex="-1">Riscos e alertas</button></nav>
       <section id="ngQuestionsPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngQuestionsTab"><h4>Próximas perguntas</h4><p class="ng-muted">Ordenadas por prioridade</p><div id="radarQuestions"></div><button type="button" id="nexaRadarMore" hidden></button><p class="ng-conversation">As respostas são reconhecidas na conversa.</p></section>
@@ -198,6 +203,13 @@
     function render(state){
       const pending=state.items.filter(i=>i.status!=='confirm').length,confirm=state.confirm||[],clarified=state.clarified||[];
       setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
+      const sync=state.ledgerSyncStatus||{};
+      setText('ngLedgerSyncStatus',state.questionEventCaptureError?'Falha ao proteger eventos temporais; cronologia incompleta.':
+        state.questionTraceTruncated?'Histórico temporal local parcial; há eventos além do limite visual.':
+        sync.state==='pending'?`Eventos temporais aguardando confirmação do servidor${sync.pending===null?'':`: ${sync.pending}`}.`:
+        sync.state==='blocked'?'Sincronização temporal bloqueada; eventos locais ainda pendentes.':
+        sync.state==='confirmed'?'Fila temporal confirmada; cronologia remota completa ainda não verificada.':
+        'Cronologia temporal local; sincronização ainda não habilitada.');
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
       setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} achado(s) de alerta identificado(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:'');
       const stale=state.transcriptIncomplete||['unavailable','stale'].includes(state.transcriptStatus);
