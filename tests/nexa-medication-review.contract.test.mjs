@@ -27,6 +27,13 @@ test('keeps unverified brand literal and does not infer ingredient',()=>{
  assert.equal(report.alerts[0].reported_name,'celestrat');
  assert.equal(report.alerts[0].medicine,'celestrat');
  assert.equal(report.alerts[0].code,'medication_missing');
+ assert.deepEqual(report.alerts[1],{code:'volume_missing',medicine:'celestrat',reported_name:'celestrat',amount:'5',unit:'mL'});
+});
+
+test('retains each explicit omission when the whole medication field is absent',()=>{
+ const report=reviewMedicationVolume('Paciente: tomo omeprazol, cinco mililitros todos os dias.','NÃO RELATADO NA CONSULTA');
+ assert.deepEqual(report.alerts.map(alert=>alert.code),['medication_missing','volume_missing','frequency_missing']);
+ assert.deepEqual(report.alerts[1],{code:'volume_missing',medicine:'omeprazol',reported_name:'omeprazol',amount:'5',unit:'mL'});
 });
 
 test('does not treat physician question or relative use as patient use',()=>{

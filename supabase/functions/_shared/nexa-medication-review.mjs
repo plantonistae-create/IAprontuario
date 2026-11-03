@@ -29,7 +29,15 @@ export function reviewMedicationVolume(transcript, documentedMedication) {
     const uniqueIds=new Set(mentioned.map(x=>x.medicine.id));
     for(const {medicine,name} of mentioned){
       const segments=documented.split(/[;\n]+/).filter(segment=>medicine.names.some(n=>hasName(segment,n)));
-      if(!segments.length){add({code:'medication_missing',medicine:medicine.id,reported_name:name});continue;}
+      if(!segments.length){
+        add({code:'medication_missing',medicine:medicine.id,reported_name:name});
+        if(uniqueIds.size===1){
+          for(const quantity of quantities(fragment))
+            add({code:quantity.unit==='mL'?'volume_missing':'quantity_missing',medicine:medicine.id,reported_name:name,...quantity});
+          if(frequency(fragment))add({code:'frequency_missing',medicine:medicine.id,reported_name:name});
+        }
+        continue;
+      }
       if(!hasName(segments.join(';'),name))add({code:'reported_name_changed',medicine:medicine.id,reported_name:name});
       // Do not assign one quantity to multiple medicines in the same utterance.
       if(uniqueIds.size!==1)continue;
