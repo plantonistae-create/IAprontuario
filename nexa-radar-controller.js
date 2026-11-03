@@ -21,11 +21,14 @@
     let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
     // Bounded categorical chronology; never store transcript, note or patient quotes.
     const questionEvents=[];let traceSequence=0;const previousQuestions=new Map();
-    function event(type,item,reason='engine_recalculation'){
+    function event(type,item,reason='engine_recalculation',prior=null){
       if(questionEvents.length>=300){questionTraceTruncated=true;return;}
-      questionEvents.push({sequence:++traceSequence,at:new Date().toISOString(),type,
+      questionEvents.push({event_id:crypto.randomUUID(),sequence:++traceSequence,at:new Date().toISOString(),type,
         id:item.id,concept:item.concept,priority:item.priority,status:item.status,
-        reason,engine:'nexa-radar-controller',version:'temporal-v1',
+        previous_status:prior?.status??null,current_status:type==='removed'?null:item.status,
+        previous_priority:prior?.priority??null,current_priority:type==='removed'?null:item.priority,
+        reason,reason_code:reason,origin:'engine',engine_version:'radar-temporal-v1',snapshot_version:1,
+        engine:'nexa-radar-controller',version:'temporal-v1',
         provider:remoteMeta.provider,model_version:remoteMeta.model_version});
     }
     function traceQuestions(items){
@@ -36,7 +39,7 @@
         if(item?.id&&item?.concept){
           const next={id:String(item.id),concept:String(item.concept),priority:String(item.priority||'moderate'),status:String(item.status||'to_ask')};
           if(!prior)event('appeared',next);
-          else if(prior.status!==next.status||prior.priority!==next.priority)event('changed',next);
+          else if(prior.status!==next.status||prior.priority!==next.priority)event('changed',next,'engine_recalculation',prior);
           previousQuestions.set(next.id,next);
         }
         const id=String(item?.id||''),concept=String(item?.concept||'');
@@ -47,7 +50,7 @@
           status:String(item.status||'to_ask'),redFlag:item.redFlag===true,category:String(item.category||'')});
       }
       for(const [id,prior] of previousQuestions){if(!active.has(id)){
-        event('removed',prior,'no_longer_suggested');previousQuestions.delete(id);
+        event('removed',prior,'no_longer_suggested',prior);previousQuestions.delete(id);
       }}
     }
     function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionEvents:questionEvents.map(x=>({...x})),questionTraceTruncated};}
@@ -118,7 +121,15 @@
            !/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(String(ev.id||''))){
           questionTraceTruncated=true;continue;
         }
-        questionEvents.push({sequence:ev.sequence,at:String(ev.at||''),type:ev.type,id:String(ev.id||''),concept:ev.concept,priority:String(ev.priority||'moderate'),status:String(ev.status||'to_ask'),reason:String(ev.reason||''),engine:'nexa-radar-controller',version:'temporal-v1',provider:String(ev.provider||'unknown'),model_version:String(ev.model_version||'unknown')});
+        const eventId=typeof ev.event_id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ev.event_id)?ev.event_id:null;
+        if(!eventId)questionTraceTruncated=true; // Historical local events cannot be replayed as authenticated backend events.
+        questionEvents.push({event_id:eventId,sequence:ev.sequence,at:String(ev.at||''),type:ev.type,id:String(ev.id||''),concept:ev.concept,
+          priority:String(ev.priority||'moderate'),status:String(ev.status||'to_ask'),
+          previous_status:ev.previous_status??null,current_status:ev.current_status??null,
+          previous_priority:ev.previous_priority??null,current_priority:ev.current_priority??null,
+          reason:String(ev.reason||''),reason_code:String(ev.reason_code||''),origin:String(ev.origin||'engine'),
+          engine_version:String(ev.engine_version||'radar-temporal-v1'),snapshot_version:1,
+          engine:'nexa-radar-controller',version:'temporal-v1',provider:String(ev.provider||'unknown'),model_version:String(ev.model_version||'unknown')});
         traceSequence=Math.max(traceSequence,ev.sequence);
       }
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){

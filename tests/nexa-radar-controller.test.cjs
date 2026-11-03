@@ -72,11 +72,15 @@ test('question timeline records appearance, removal and is isolated on reset',()
  const initial=api.snapshot().questionEvents;
  assert.ok(initial.some(e=>e.type==='appeared'&&e.concept==='dyspnea'));
  assert.ok(initial.every(e=>!('transcript' in e)&&!('patient_text' in e)));
+ assert.ok(initial.every(e=>/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(e.event_id)));
+ assert.ok(initial.every(e=>e.previous_status===null&&e.current_status===e.status));
  const oldSeq=initial.at(-1).sequence;
  set({fields:{hda:''}});
  api.recalculate();
  const timeline=api.snapshot().questionEvents;
  assert.ok(timeline.some(e=>e.type==='removed'&&e.concept==='dyspnea'));
+ assert.ok(timeline.some(e=>e.type==='removed'&&e.concept==='dyspnea'&&
+   e.previous_status==='to_ask'&&e.current_status===null));
  assert.ok(timeline.at(-1).sequence>oldSeq);
  const saved=api.snapshot();
  api.restore(saved,'a');
@@ -90,6 +94,8 @@ test('second controller restores chronological removals but rejects duplicate or
  other.restore(saved,'a');
  const recovered=other.snapshot().questionEvents;
  assert.ok(recovered.some(e=>e.type==='removed'&&e.concept==='dyspnea'));
+ assert.deepEqual(recovered.slice(0,saved.questionEvents.length).map(e=>e.event_id),
+   saved.questionEvents.map(e=>e.event_id));
  assert.ok(recovered.every((e,i)=>i===0||e.sequence>recovered[i-1].sequence));
  const corrupt={...saved,questionEvents:[...saved.questionEvents].reverse()};
  other.restore(corrupt,'a');
