@@ -62,6 +62,9 @@
       lastRequestAt=Date.now();
       invalidate();
       const epoch=revision,encounterAtStart=encounter,context=adapter.context(),key=JSON.stringify(context);
+      // A direct request may precede the first scheduled recalculation. Bind its
+      // context before publishing busy state so that recalculate cannot clear it.
+      lastKey=key;lastContext=JSON.parse(key);aiKey='';
       controller=new AbortController();const requestController=controller,signal=requestController.signal;
       const timeout=setTimeout(()=>requestController.abort(),20000);busy=true;error='';recalculate();
       try{
