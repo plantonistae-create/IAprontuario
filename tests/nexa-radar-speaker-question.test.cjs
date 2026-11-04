@@ -78,3 +78,18 @@ test('compound questions with an elliptical response remain unresolved',()=>{
  assert.equal(result.facts.fever.state,'unknown');
  assert.equal(result.facts.dyspnea.state,'unknown');
 });
+
+test('physician gender or professional label does not lose a short core-history answer',()=>{
+ for(const speaker of ['Médico','Médica','Profissional']){
+  for(const [question,concept] of [
+   ['Você usa algum medicamento','medicines'],
+   ['Você tem alergias','allergies'],
+   ['Você tem comorbidades','comorbidities']
+  ]){
+   const prompt=scan(`${speaker}: ${question}.`);
+   assert.equal(prompt.facts[concept].state,'not_asked',`${speaker}: question alone is no patient answer`);
+   const answered=scan(`${speaker}: ${question}. Paciente: Não.`);
+   assert.equal(answered.facts[concept].state,'known_absent',`${speaker}: ${concept}`);
+  }
+ }
+});
