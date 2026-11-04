@@ -98,7 +98,17 @@ try{
       'active',ARRAY['clinician']);
     INSERT INTO public.consultation_history (id,encounter_id,user_id,organization_id,encounter_state) VALUES ('${consultationId}','${encounterId}',
       '${userId}','${organizationId}','draft');`);
-  await runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sql});
+  const foreignEmail=`synthetic-radar-foreign-${id}@example.invalid`;
+  const foreignPassword=randomBytes(24).toString('hex');
+  const foreignClient=createClient(apiUrl,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const foreign=await foreignClient.auth.signUp({email:foreignEmail,password:foreignPassword});
+  const foreignUserId=foreign.data?.user?.id;
+  if(foreign.error||!foreign.data?.session?.access_token||
+     !/^[0-9a-f-]{36}$/.test(foreignUserId||''))throw new Error('Disposable foreign Auth signup failed');
+  sql(`INSERT INTO public.profiles VALUES ('${foreignUserId}','active',true,false);
+    INSERT INTO public.organization_memberships VALUES
+      ('33333333-3333-4333-8333-333333333333','${foreignUserId}','active',ARRAY['clinician']);`);
+  await runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,foreignEmail,foreignPassword,userId,sql});
   const items=new Map(),store={get:async key=>items.get(key),all:async()=>[...items.values()],
     add:async item=>{if(items.has(item.id))throw new Error('RADAR_OUTBOX_DUPLICATE');items.set(item.id,item)},
     remove:async key=>{items.delete(key)}};

@@ -13,8 +13,10 @@
     async function captureEvent(event,encounterId,ownerId){
       if(ownerId!==userId||blockedEncounter===encounterId||!uuid.test(encounterId||'')||
          currentEncounterId()!==encounterId)throw new Error('RADAR_LEDGER_ENCOUNTER_UNBOUND');
-      const result=await outbox.enqueue({owner_user_id:userId,organization_id:organizationId,
-        encounter_id:encounterId,event});
+      let result;
+      try{result=await outbox.enqueue({owner_user_id:userId,organization_id:organizationId,
+        encounter_id:encounterId,event})}
+      catch(error){status('blocked');throw error}
       status('pending');
       return result;
     }

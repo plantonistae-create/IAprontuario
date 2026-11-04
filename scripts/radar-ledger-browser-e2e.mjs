@@ -11,7 +11,8 @@ const organizationId='22222222-2222-4222-8222-222222222222';
 const contentType={'.html':'text/html','.js':'application/javascript','.css':'text/css',
   '.svg':'image/svg+xml','.png':'image/png','.json':'application/json'};
 
-export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sql}){
+export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,
+  foreignEmail,foreignPassword,userId,sql}){
   if(!['127.0.0.1','localhost','::1'].includes(new URL(apiUrl).hostname))
     throw new Error('RADAR_E2E_HOSTED_API_FORBIDDEN');
   const umd=readFileSync(join(root,'node_modules/@supabase/supabase-js/dist/umd/supabase.js'));
@@ -217,8 +218,80 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
     assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(expectedTotal+2));
     assert.equal(await secondTab.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),0);
     await secondTab.close();
+    const capture=async(tab,sequence)=>tab.evaluate(({id,sequence})=>
+      window.nexaRadarLedgerTestCandidate.captureEvent({event_id:crypto.randomUUID(),
+        sequence,id:'dyspnea',concept:'dyspnea',type:'changed',
+        previous_status:'asked',current_status:'to_ask',previous_priority:'high',
+        current_priority:'high',reason_code:'manual_reopen',origin:'human',
+        engine_version:'radar-temporal-v1',snapshot_version:1},id,
+      window.nexaClinicalRuntime18121.getProfile().id),{id:encounterId,sequence});
+    const count=()=>Number(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`));
+    const baseline=count();
+    // A storage failure must be visible. The same event can be captured after storage recovers.
+    const storageFailure=await reopened.evaluate(async({id,sequence})=>{
+      const original=indexedDB.open;
+      indexedDB.open=()=>{throw new Error('SYNTHETIC_IDB_FAILURE')};
+      let rejected=false;
+      try{await window.nexaRadarLedgerTestCandidate.captureEvent({event_id:crypto.randomUUID(),
+        sequence,id:'dyspnea',concept:'dyspnea',type:'changed',
+        previous_status:'asked',current_status:'to_ask',previous_priority:'high',
+        current_priority:'high',reason_code:'manual_reopen',origin:'human',
+        engine_version:'radar-temporal-v1',snapshot_version:1},id,
+      window.nexaClinicalRuntime18121.getProfile().id)}catch{rejected=true}
+      finally{indexedDB.open=original}
+      return {rejected,state:window.nexaRadar.state.ledgerSyncStatus.state};
+    },{id:encounterId,sequence:baseline+1});
+    assert.deepEqual(storageFailure,{rejected:true,state:'blocked'});
+    assert.equal(count(),baseline);
+    assert.equal(await reopened.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),0);
+    await capture(reopened,baseline+1);
+    assert.equal((await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())).complete,true);
+    assert.equal(count(),baseline+1);
+    // The remote write may finish while the browser is resetting. Its delayed ACK
+    // must not mark a new consultation synchronized.
+    await capture(reopened,baseline+2);
+    let releaseAck,ackArrived;
+    const ackGate=new Promise(resolve=>{releaseAck=resolve});
+    const ackReady=new Promise(resolve=>{ackArrived=resolve});
+    const delayedAck=async route=>{const response=await route.fetch();ackArrived();await ackGate;
+      await route.fulfill({response})};
+    await reopened.route(rpcPattern,delayedAck);
+    const inFlight=reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry());
+    await ackReady;
+    await reopened.evaluate(()=>window.dispatchEvent(new Event('nexa:consultation-reset')));
+    releaseAck();
+    const resetResult=await inFlight;
+    await reopened.unroute(rpcPattern,delayedAck);
+    assert.equal(resetResult.complete,false);
+    assert.equal(await reopened.evaluate(()=>window.nexaRadar.state.ledgerSyncStatus.state),'unbound');
+    assert.equal(count(),baseline+2,'A real server ACK still commits the old encounter event');
+    await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.close());
+    await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.activate());
+    await capture(reopened,baseline+3);
+    sql(`UPDATE public.organization_memberships SET status='revoked' WHERE user_id='${userId}'`);
+    const revoked=await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry());
+    assert.equal(revoked.complete,false);
+    assert.equal(count(),baseline+2);
+    assert.equal(await reopened.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),1);
+    sql(`UPDATE public.organization_memberships SET status='active' WHERE user_id='${userId}'`);
+    assert.equal((await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())).complete,true);
+    assert.equal(count(),baseline+3);
+    await capture(reopened,baseline+4);
+    const switched=await reopened.evaluate(async({email,password})=>{
+      const client=window.nexaClinicalRuntime18121.client;
+      const result=await client.auth.signInWithPassword({email,password});
+      return {error:!!result.error,userId:result.data?.user?.id};
+    },{email:foreignEmail,password:foreignPassword});
+    assert.equal(switched.error,false);
+    assert.notEqual(switched.userId,userId);
+    let switchResult;
+    try{switchResult=await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())}
+    catch{switchResult={complete:false}}
+    assert.equal(switchResult.complete,false);
+    assert.equal(count(),baseline+3);
+    assert.equal(await reopened.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),1);
     await context.close();
-    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, network/ACK loss, two tabs, encrypted outbox and reload recovery`);
+    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, network/ACK loss, two tabs, reset, storage failure, revocation and identity switch`);
   }finally{
     await browser?.close();
     await new Promise(resolve=>server.close(resolve));

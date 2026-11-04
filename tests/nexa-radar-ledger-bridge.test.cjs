@@ -54,6 +54,16 @@ test('a delayed lookup cannot send after encounter switch',async()=>{
   assert.equal(rpcCalls,0);
 });
 
+test('storage failure blocks the UI without claiming an event was queued',async()=>{
+  const statuses=[];
+  const candidate=bridge.create({ledger,client:{auth:{getUser:async()=>({data:{user:{id:owner}}})}},
+    userId:owner,organizationId:organization,currentEncounterId:()=>encounter,
+    outbox:{enqueue:async()=>{throw new Error('RADAR_OUTBOX_STORAGE_FAILED')},
+      drain:async()=>({complete:true,pending:0})},onStatus:value=>statuses.push(value.state)});
+  await assert.rejects(()=>candidate.captureEvent(event,encounter,owner),/RADAR_OUTBOX_STORAGE_FAILED/);
+  assert.deepEqual(statuses,['blocked']);
+});
+
 test('candidate bridge follows autosave events and detaches cleanly',async()=>{
   const target=new EventTarget(),statuses=[];let boundId='',drains=0;
   const client={auth:{getUser:async()=>({data:{user:{id:owner}}})},
