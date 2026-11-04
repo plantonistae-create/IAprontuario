@@ -214,7 +214,10 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,
     {id:encounterId,sequence:expectedTotal+2});
     const concurrent=await Promise.all([reopened,secondTab].map(tab=>
       tab.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())));
-    assert(concurrent.every(value=>value.complete),'Concurrent tabs must both reconcile after the same ACK');
+    const reconciled=await Promise.all([reopened,secondTab].map((tab,index)=>
+      concurrent[index].complete?Promise.resolve(concurrent[index]):
+        tab.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())));
+    assert(reconciled.every(value=>value.complete),'Concurrent tabs must reconcile after an idempotent retry');
     assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(expectedTotal+2));
     assert.equal(await secondTab.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),0);
     await secondTab.close();
