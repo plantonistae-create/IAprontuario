@@ -61,6 +61,13 @@ test('negated and third-party mentions do not generate omission warnings',()=>{
  ])assert.equal(reviewMedicationVolume(transcript,'NÃO RELATADO NA CONSULTA').requires_review,false,transcript);
 });
 
+test('allergy-only mention does not imply use while a separate use remains reviewable',()=>{
+ assert.equal(reviewMedicationVolume('Paciente: Sou alérgica à dipirona.','NÃO RELATADO NA CONSULTA').requires_review,false);
+ const review=reviewMedicationVolume('Paciente: Sou alérgica à dipirona; tomo omeprazol 5 mL.','NÃO RELATADO NA CONSULTA');
+ assert.deepEqual(review.alerts.map(a=>a.medicine),['omeprazol','omeprazol']);
+ assert.deepEqual(review.alerts.map(a=>a.code),['medication_missing','volume_missing']);
+});
+
 test('recognizes conservative lexical catalog without inferring an administered presentation',()=>{
  const review=reviewMedicationVolume('Paciente: tomo losartana e metformina.','NÃO RELATADO NA CONSULTA');
  assert.deepEqual(review.alerts.map(a=>a.medicine),['losartana','metformina']);

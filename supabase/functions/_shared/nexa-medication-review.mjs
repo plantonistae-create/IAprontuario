@@ -22,6 +22,9 @@ export function reviewMedicationVolume(transcript, documentedMedication) {
     if(label)speaker=label;
     const fragment=labeled.replace(/^(?:medico|medica|dr|dra|paciente|acompanhante)\s*[:—-]\s*/,'');
     if(!fragment||/[?]$/.test(fragment)||['medico','medica','dr','dra','acompanhante'].includes(speaker)||negative(fragment))continue;
+    // An allergy-only mention is not evidence of medication use.
+    if(/\b(?:alergia|alergias|alergico|alergica)\b/.test(fragment)&&
+       !/\b(?:tomo|toma|tomei|uso|usa|usei|utilizo|utiliza|faz uso)\b/.test(fragment))continue;
     // A relative's own medicine is not evidence of patient use.
     if(/\b(minha|meu|sua|seu)\s+(filha?|mae|pai|esposa|marido)\b/.test(fragment))continue;
     const mentioned=medicines.flatMap(m=>m.names.filter(n=>hasName(fragment,n)).map(name=>({medicine:m,name})));
