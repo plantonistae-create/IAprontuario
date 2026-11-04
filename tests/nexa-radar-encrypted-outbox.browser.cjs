@@ -17,7 +17,7 @@ test('ciphertext survives page close and 502 events recover after external key u
       await page.evaluate(async secret=>{
         const key=await crypto.subtle.importKey('raw',new Uint8Array(secret),
           {name:'AES-GCM'},false,['encrypt','decrypt']);
-        window.syntheticOutbox=NexaRadarEncryptedOutbox.create({key});
+        window.syntheticOutbox=NexaRadarEncryptedOutbox.create({key,keySlot:'44444444-4444-4444-8444-444444444444'});
       },bytes);
     };
     const first=await context.newPage();await load(first);

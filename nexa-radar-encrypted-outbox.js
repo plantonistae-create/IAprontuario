@@ -56,8 +56,8 @@
     return {get:id=>run('readonly',s=>s.get(id)),all:()=>run('readonly',s=>s.getAll()),
       add:item=>run('readwrite',s=>s.add(item)),remove:id=>run('readwrite',s=>s.delete(id))};
   }
-  function create({key,store=indexedDbStore(),ledger=root.NexaRadarLedgerClient}={}){
-    if(key?.algorithm?.name!=='AES-GCM'||key.extractable!==false||
+  function create({key,keySlot,store=indexedDbStore(),ledger=root.NexaRadarLedgerClient}={}){
+    if(!uuid.test(keySlot||'')||key?.algorithm?.name!=='AES-GCM'||key.extractable!==false||
        !key.usages?.includes('encrypt')||!key.usages?.includes('decrypt')||
        typeof store?.add!=='function'||typeof store?.get!=='function'||
        typeof store?.all!=='function'||typeof store?.remove!=='function'||
@@ -66,7 +66,7 @@
     async function seal(value){
       const iv=crypto.getRandomValues(new Uint8Array(12));
       const ciphertext=await subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(JSON.stringify(value)));
-      return {id:value.event.event_id,iv,ciphertext};
+      return {id:value.event.event_id,slot:keySlot,iv,ciphertext};
     }
     async function unseal(item){
       try{return canonical(JSON.parse(decoder.decode(await subtle.decrypt(
@@ -78,14 +78,15 @@
       try{await store.add(sealed)}catch(error){
         if(error?.message!=='RADAR_OUTBOX_DUPLICATE')throw error;
         const existing=await store.get(sealed.id);
-        if(!existing||JSON.stringify(await unseal(existing))!==JSON.stringify(value))
+        if(!existing||existing.slot!==keySlot||
+           JSON.stringify(await unseal(existing))!==JSON.stringify(value))
           throw new Error('RADAR_OUTBOX_EVENT_ID_CONFLICT');
       }
       return {event_id:sealed.id,state:'pending'};
     }
     async function pending(binding){
       const items=await store.all(),matching=[];
-      for(const item of items){const value=await unseal(item);
+      for(const item of items){if(item.slot!==keySlot)continue;const value=await unseal(item);
         if(value.owner_user_id===binding?.owner_user_id&&value.encounter_id===binding?.encounter_id&&
            value.organization_id===binding?.organization_id)matching.push(value)}
       return matching.sort((a,b)=>a.event.local_sequence-b.event.local_sequence||

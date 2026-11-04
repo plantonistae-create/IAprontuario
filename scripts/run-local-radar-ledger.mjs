@@ -99,7 +99,7 @@ try{
     add:async item=>{if(items.has(item.id))throw new Error('RADAR_OUTBOX_DUPLICATE');items.set(item.id,item)},
     remove:async key=>{items.delete(key)}};
   const key=await webcrypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-  const outbox=encryptedOutbox({key,store,ledger});
+  const outbox=encryptedOutbox({key,keySlot:randomUUID(),store,ledger});
   const bridge=ledgerBridge({ledger,outbox,client,userId,organizationId,
     currentEncounterId:()=>encounterId});
   const first={event_id:randomUUID(),sequence:1,id:'dyspnea',concept:'dyspnea',type:'appeared',
