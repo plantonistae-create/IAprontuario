@@ -227,9 +227,15 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarPost18130').count(),0);
   assert.equal(await page.locator('#processBtn').isVisible(),true);
   assert.equal(await page.locator('#resetBtn').isVisible(),true);
+  await page.evaluate(()=>{
+    window.__qa.processingStates=[];
+    window.addEventListener('nexa:clinical-processing',event=>
+      window.__qa.processingStates.push(event.detail?.state));
+  });
   await page.locator('#processBtn').click();
-  await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='processing');
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review'&&/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+  assert.ok(await page.evaluate(()=>window.__qa.processingStates.includes('processing')),
+    'the consultation must enter processing even if its UI phase was brief');
   assert.equal(await page.locator('#nexaFlowHistory').isVisible(),true);
   await assertNoOverflow(page,'Chromium '+viewport.width+' final');
   assert.deepEqual(errors,[],'Chromium '+viewport.width+' must have no page errors');
