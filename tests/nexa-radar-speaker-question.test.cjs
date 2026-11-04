@@ -60,6 +60,25 @@ test('a head strike activates cranial safety questions without inventing a neuro
  assert.equal(result.alerts.some(alert=>alert.concept==='focal'),false);
 });
 
+test('knee weight bearing does not invoke ankle-specific examination, while ankle trauma still does',()=>{
+ const knee=scan('Paciente: Torci o joelho e não consigo apoiar o peso.');
+ for(const id of ['malleoli','midfoot','fourSteps'])
+  assert.equal(knee.items.some(item=>item.concept===id),false,'knee must not request '+id);
+ assert.ok(knee.items.some(item=>item.concept==='neurovascular'));
+ const ankle=scan('Paciente: Torci o tornozelo e dói no pé.');
+ for(const id of ['malleoli','midfoot','fourSteps'])
+  assert.ok(ankle.items.some(item=>item.concept===id),'ankle/foot must retain '+id);
+});
+
+test('first-person fainting in chest pain is an explicit alarm; physician question alone is not',()=>{
+ const reported=scan('Paciente: Tenho dor no peito e desmaiei.');
+ assert.equal(reported.facts.syncope.state,'known_present');
+ assert.ok(reported.alerts.some(alert=>alert.concept==='syncope'));
+ const question=scan('Médico: Desmaiou. Paciente: Não.');
+ assert.equal(question.facts.syncope.state,'known_absent');
+ assert.equal(question.alerts.some(alert=>alert.concept==='syncope'),false);
+});
+
 test('companion statements remain to confirm and cannot resolve the physician question',()=>{
  const answer=scan('Médico: Teve febre. Acompanhante: Não.');
  assert.equal(answer.facts.fever.state,'not_asked');
