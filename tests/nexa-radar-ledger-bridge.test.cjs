@@ -74,3 +74,23 @@ test('candidate bridge follows autosave events and detaches cleanly',async()=>{
   await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(drains,1);
 });
+
+test('reset or sign-out blocks a late ACK for the old encounter',async()=>{
+  const target=new EventTarget();let drains=0,authListener;
+  const client={auth:{getUser:async()=>({data:{user:{id:owner}}}),
+    onAuthStateChange:fn=>{authListener=fn;return {data:{subscription:{unsubscribe(){}}}}}},
+    from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:row,error:null})})};
+  const candidate=bridge.create({ledger,client,userId:owner,organizationId:organization,
+    currentEncounterId:()=>encounter,radar:{bindEncounter:()=>true},
+    outbox:{enqueue:async()=>{},drain:async()=>{drains++;return {complete:true,pending:0}}}});
+  const detach=candidate.attach(target);
+  target.dispatchEvent(new Event('nexa:consultation-reset'));
+  await assert.rejects(()=>candidate.captureEvent(event,encounter,owner),/RADAR_LEDGER_ENCOUNTER_UNBOUND/);
+  target.dispatchEvent(new CustomEvent('nexa:encounter-synced',{detail:{encounter_id:encounter}}));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(drains,0);
+  authListener('SIGNED_OUT');
+  assert.deepEqual(await candidate.onAutosaveSynced({encounter_id:encounter}),
+    {complete:false,reason:'superseded'});
+  detach();
+});

@@ -8,10 +8,10 @@
        typeof outbox?.drain!=='function'||typeof currentEncounterId!=='function'||
        typeof client?.auth?.getUser!=='function'||!uuid.test(userId||'')||
        !uuid.test(organizationId||''))throw new Error('RADAR_LEDGER_BRIDGE_UNAVAILABLE');
-    let generation=0;
+    let generation=0,blockedEncounter=null;
     const status=(state,pending=null)=>onStatus({state,pending});
     async function captureEvent(event,encounterId,ownerId){
-      if(ownerId!==userId||!uuid.test(encounterId||'')||
+      if(ownerId!==userId||blockedEncounter===encounterId||!uuid.test(encounterId||'')||
          currentEncounterId()!==encounterId)throw new Error('RADAR_LEDGER_ENCOUNTER_UNBOUND');
       const result=await outbox.enqueue({owner_user_id:userId,organization_id:organizationId,
         encounter_id:encounterId,event});
@@ -22,6 +22,7 @@
       const epoch=++generation;
       if(!uuid.test(encounter_id||'')||currentEncounterId()!==encounter_id)
         throw new Error('RADAR_LEDGER_ENCOUNTER_UNBOUND');
+      if(blockedEncounter===encounter_id)return {complete:false,reason:'superseded'};
       let binding;
       try{binding=await ledger.bindConfirmed(client,{activeEncounterId:encounter_id,
         userId,organizationId})}
@@ -36,14 +37,15 @@
       status(result.complete?'confirmed':'pending',result.pending);
       return result;
     }
-    function invalidate(){generation++;status('unbound')}
+    function invalidate(){generation++;blockedEncounter=currentEncounterId();status('unbound')}
     function attach(target=root){
       if(typeof target?.addEventListener!=='function'||typeof target?.removeEventListener!=='function')
         throw new Error('RADAR_LEDGER_EVENT_TARGET_REQUIRED');
       const started=event=>{
         const id=event?.detail?.encounter_id;
-        if(!uuid.test(id||'')||currentEncounterId()!==id||radar?.bindEncounter?.(id)!==true)
-          status('unbound');
+        if(!uuid.test(id||'')||blockedEncounter===id||currentEncounterId()!==id||
+           radar?.bindEncounter?.(id)!==true)status('unbound');
+        else blockedEncounter=null;
       };
       const synced=event=>{void onAutosaveSynced(event?.detail).catch(()=>status('blocked'))};
       const reset=()=>invalidate();
@@ -51,7 +53,11 @@
       const listeners=[['nexa:encounter-started',started],['nexa:encounter-synced',synced],
         ['nexa:consultation-reset',reset],['nexa:encounter-sync-conflict',conflict]];
       for(const [name,handler] of listeners)target.addEventListener(name,handler);
-      return ()=>{for(const [name,handler] of listeners)target.removeEventListener(name,handler)};
+      const subscription=client.auth.onAuthStateChange?.((event)=>{
+        if(event==='SIGNED_OUT')invalidate()
+      })?.data?.subscription;
+      return ()=>{for(const [name,handler] of listeners)target.removeEventListener(name,handler);
+        subscription?.unsubscribe?.()};
     }
     return {captureEvent,onAutosaveSynced,invalidate,attach};
   }
