@@ -192,7 +192,8 @@
       if(!t)continue;
       if(/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|usa)\b/.test(t)){pending='';continue;}
       const targets=Object.keys(cues).filter(id=>cues[id].test(t));
-      if(/[?]\s*$/.test(raw.trim())||/^(?:voce|o senhor|a senhora|paciente) (?:tem|possui|usa|toma|faz uso)\b/.test(t)&&speaker==='medico'){
+      if(/[?]\s*$/.test(raw.trim())||/^(?:voce|o senhor|a senhora|paciente) (?:tem|possui|usa|toma|faz uso)\b/.test(t)&&
+         ['medico','medica','profissional'].includes(speaker)){
         pending=targets.length===1?targets[0]:'';
         if(pending&&speaker!=='paciente'&&speaker!=='acompanhante')out.asked[pending]={quote:raw.trim(),section:'transcript'};
         continue;

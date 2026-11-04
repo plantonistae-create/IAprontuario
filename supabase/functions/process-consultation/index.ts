@@ -3,6 +3,7 @@ import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from 
 import { buildTranscriptProvenance } from "../_shared/nexa-transcript-provenance.mjs";
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
+import { reviewMedicationVolume } from "../_shared/nexa-medication-review.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1113,13 +1114,9 @@ async function openAIResponse(
     !resp.ok
   ) {
 
-    const errorText =
-      await resp.text();
-
     console.error(
       "OpenAI structured error:",
-      resp.status,
-      errorText
+      resp.status
     );
 
     throw new Error(
@@ -1251,13 +1248,9 @@ async function processOpenAI(
     !tr.ok
   ) {
 
-    const errorText =
-      await tr.text();
-
     console.error(
       "OpenAI transcription error:",
-      tr.status,
-      errorText
+      tr.status
     );
 
     throw new Error(
@@ -1345,6 +1338,7 @@ async function processOpenAI(
       ...docs,
       ...assist
     },
+    medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
 
     transcript_provenance:transcriptProvenance,
 
@@ -1445,13 +1439,9 @@ async function geminiGenerate(
     !resp.ok
   ) {
 
-    const errorText =
-      await resp.text();
-
     console.error(
       "Gemini error:",
-      resp.status,
-      errorText
+      resp.status
     );
 
     throw new Error(
@@ -1712,6 +1702,7 @@ async function processGemini(
       ...docs,
       ...assist
     },
+    medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
 
     transcript_provenance:transcriptProvenance,
 
