@@ -135,3 +135,67 @@ jobs:
           NEXA_STAGING_EMAIL: ${{ secrets.NEXA_STAGING_EMAIL }}
           NEXA_STAGING_PASSWORD: ${{ secrets.NEXA_STAGING_PASSWORD }}
         run: npm run test:staging-auth
+
+  medication-asr-synthetic:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.medication_asr_benchmark && github.ref == 'refs/heads/feature/medication-fidelity-20261101' }}
+    runs-on: macos-latest
+    environment: nexa-asr-synthetic
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Generate and validate synthetic WAV corpus
+        env:
+          NEXA_AUDIO_FIXTURE_DIR: ${{ runner.temp }}/nexa-medication-audio
+        run: node scripts/generate-medication-audio-fixtures.mjs
+      - name: Compare synthetic ASR without and with context
+        env:
+          OPENAI_API_KEY: ${{ secrets.NEXA_ASR_TEST_API_KEY }}
+          NEXA_AUDIO_FIXTURE_DIR: ${{ runner.temp }}/nexa-medication-audio
+          NEXA_ASR_BENCHMARK_REPORT: ${{ runner.temp }}/nexa-medication-asr-benchmark.json
+        run: node scripts/benchmark-medication-asr.mjs
+      - name: Save aggregate synthetic metrics only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medication-asr-synthetic-metrics
+          path: ${{ runner.temp }}/nexa-medication-asr-benchmark.json
+          retention-days: 7
+      - name: Remove temporary synthetic audio
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/nexa-medication-audio/*.wav "$RUNNER_TEMP"/nexa-medication-audio/*.aiff
+
+  medication-staging-synthetic:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.medication_staging_gate && github.ref == 'refs/heads/feature/medication-fidelity-20261101' }}
+    runs-on: macos-latest
+    environment: nexa-medication-staging
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Generate and validate synthetic WAV corpus
+        env:
+          NEXA_AUDIO_FIXTURE_DIR: ${{ runner.temp }}/nexa-medication-audio
+        run: node scripts/generate-medication-audio-fixtures.mjs
+      - name: Process and recover synthetic medication encounter
+        env:
+          NEXA_SYNTHETIC_ACCOUNT: '1'
+          NEXA_STAGING_EMAIL: ${{ secrets.NEXA_MEDICATION_STAGING_SYNTHETIC_EMAIL }}
+          NEXA_STAGING_PASSWORD: ${{ secrets.NEXA_MEDICATION_STAGING_SYNTHETIC_PASSWORD }}
+          NEXA_AUDIO_FIXTURE_DIR: ${{ runner.temp }}/nexa-medication-audio
+        run: npm run test:medication-staging
+      - name: Remove temporary synthetic audio
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/nexa-medication-audio/*.wav "$RUNNER_TEMP"/nexa-medication-audio/*.aiff
