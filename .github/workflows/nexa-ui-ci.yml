@@ -65,6 +65,9 @@ jobs:
   validate-ui:
     needs: clinical-regression-focused
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
     timeout-minutes: 18
     steps:
       - name: Checkout
@@ -94,8 +97,6 @@ jobs:
           deno check supabase/functions/audit-backfill/index.ts
           deno check supabase/functions/consultation-speakers/index.ts
           deno check supabase/functions/core-dataset-export/index.ts
-      - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
       - name: Desktop and mobile browser regression
         run: npm run test:e2e
       - name: Safari WebKit auditor regression
