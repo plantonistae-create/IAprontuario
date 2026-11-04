@@ -181,6 +181,12 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(Number(await page.locator('#nexaPsPendCount').innerText()),counts.pending);
   assert.equal(Number(await page.locator('#nexaPsCovCount').innerText()),counts.covered);
 
+  // The spoken phrase schedules a legitimate remote analysis. Wait for its
+  // request and ACK before measuring whether view-only toggles add a call.
+  await page.waitForFunction(()=>window.__qa.requests.some(request=>
+    request.url.includes('realtime-radar')&&request.body?.includes('Cefaleia desde hoje.'))&&
+    window.nexaRadar.state.busy===false);
+
   const before=await page.evaluate(()=>({
     state:JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}),
     recorder:document.getElementById('recBtn')?.dataset.recordingState,
