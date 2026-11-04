@@ -19,7 +19,7 @@
   c('neuro','Queixa neurológica',/tontura|vertigem|parestesia|fraqueza|dormencia|convulsao/);
   c('fever','Febre',/febre|febril|afebril/);
   c('dyspnea','Dispneia',/dispneia|falta de ar|dificuldade (?:para )?respirar|eupneic\w*/);
-  c('syncope','Síncope',/sincope|desmaio|desmaiou/);
+  c('syncope','Síncope',/\bsincope\b|\bdesmai\w*/);
   c('sweating','Sudorese',/sudorese|suor frio/);
   c('focal','Déficit neurológico focal',/deficit(?:s)? (?:neurologic\w* )?foca\w*|hemiparesia|hemiplegia|assimetria facial|disartria/,'exame_fisico');
   c('consciousness','Alteração de consciência',/(?:alteracao|rebaixamento|perda) (?:da |de )?consciencia|inconscien\w*|glasgow\s*[:=]?\s*\d+|lucid\w*|confusao mental|desorientad\w*|sonolen\w*/,'exame_fisico','text');
@@ -150,7 +150,7 @@
       const clinician=['medico','medica','profissional'].includes(speaker),companion=speaker==='acompanhante';
       const t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
       // ASR often drops question marks. A clinician's question must not become a patient fact.
-      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmaio|sangue nas fezes)[.!]?$/i.test(t);
+      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmai\w*|sangue nas fezes)[.!]?$/i.test(t);
       const question=/\?\s*$/.test(quote)||clinicianPrompt||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
       const third=/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|sente|apresenta)/.test(t);
       const proposed=/^(?:investigar|considerar|avaliar|perguntar|se (?:tiver|apresentar)|caso (?:tenha|apresente))\b/.test(t);
@@ -483,7 +483,7 @@
       for(const id of ['pleuriticPain','respFocal','rr','spo2'])
         add(id,'high','Investigar sinais respiratórios pertinentes à possibilidade de pneumonia.');
     const currentText=norm([fields.queixa_principal,fields.hda,context.transcript].filter(Boolean).join(' '));
-    if(active('trauma')&&/tornozelo|pe/.test(currentText))for(const id of ['weightThen','fourSteps','malleoli','midfoot'])add(id,'high','Caracteriza o trauma de tornozelo/pé; não aplica automaticamente uma regra de imagem.');
+    if(active('trauma')&&/\b(?:tornozelo|pe|pes)\b/.test(currentText))for(const id of ['weightThen','fourSteps','malleoli','midfoot'])add(id,'high','Caracteriza o trauma de tornozelo/pé; não aplica automaticamente uma regra de imagem.');
     if(active('trauma')&&/crani\w*|cabeca|tce/.test(currentText))for(const id of ['consciousness','focal'])add(id,'critical','Possível trauma craniano exige esclarecimento contextual.',true);
     if((active('trauma')||active('limb'))&&/\b(?:joelho|tornozelo|perna|braco|punho|cotovelo|ombro|membro)\b/.test(currentText)){
       for(const id of ['jointRange','weightBearing'])add(id,'moderate','Limitação funcional influencia avaliação de lesão osteomuscular.');
