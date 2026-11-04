@@ -74,6 +74,8 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
     await page.locator('#authSubmitBtn').click();
     await page.waitForFunction(()=>window.nexaClinicalRuntime18121?.getProfile?.()?.clinical_access===true);
     await page.evaluate(()=>window.nexaRadarLedgerTestCandidate.activate());
+    // Force an unsent real autosave: the application may save a new encounter immediately.
+    await context.setOffline(true);
     const encounterId=await page.evaluate(async()=>{
       const rec=await window.nexaEncounterAutosave18101.startNew('synthetic_browser_e2e');
       return rec?.encounter_id;
@@ -96,6 +98,9 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
       const queue=await window.nexaRadarLedgerTestCandidate.pending(id);
       return queue.length===count;
     },{id:encounterId,count:generated.sequence},{timeout:90000});
+    const beforeAck=await page.locator('#ngLedgerSyncStatus').innerText();
+    assert.match(beforeAck,/aguardando confirmação do servidor/i);
+    assert.match(beforeAck,/histórico visual parcial/i);
     assert.equal(sql(`SELECT count(*) FROM public.consultation_history WHERE encounter_id='${encounterId}'`),'0',
       'Radar must not send before a remote autosave');
     assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),'0');
@@ -109,11 +114,40 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
         item.ciphertext instanceof ArrayBuffer&&!JSON.stringify(item).includes('Paciente com'));
     });
     assert(opaque,'Outbox contains unexpected cleartext fields');
+    await context.setOffline(false);
     const saved=await page.evaluate(()=>window.nexaEncounterAutosave18101.preserve('synthetic_radar_e2e'));
     assert.equal(saved?.encounter_id,encounterId);
     await page.waitForFunction(()=>window.nexaRadar?.state?.ledgerSyncStatus?.state==='confirmed',null,{timeout:180000});
+    assert.match(await page.locator('#ngLedgerSyncStatus').innerText(),/fila temporal confirmada/i);
     assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(generated.sequence));
     assert.equal(await page.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),0);
+    const captureForFailure=sequence=>page.evaluate(({id,sequence})=>
+      window.nexaRadarLedgerTestCandidate.captureEvent({event_id:crypto.randomUUID(),sequence,
+        id:'dyspnea',concept:'dyspnea',type:'changed',previous_status:'to_ask',
+        current_status:'asked',previous_priority:'high',current_priority:'high',
+        reason_code:'patient_answer',origin:'engine',engine_version:'radar-temporal-v1',
+        snapshot_version:1},id,window.nexaClinicalRuntime18121.getProfile().id),
+      {id:encounterId,sequence});
+    const rpcPattern='**/rest/v1/rpc/append_nexa_radar_question_event';
+    await captureForFailure(generated.sequence+1);
+    const offline=route=>route.abort();
+    await page.route(rpcPattern,offline);
+    const noSend=await page.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry());
+    assert.equal(noSend.complete,false);
+    assert.equal(await page.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),1);
+    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(generated.sequence));
+    await page.unroute(rpcPattern,offline);
+    assert.equal((await page.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())).complete,true);
+    await captureForFailure(generated.sequence+2);
+    const lostAck=async route=>{await route.fetch();await route.abort()};
+    await page.route(rpcPattern,lostAck);
+    const unconfirmed=await page.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry());
+    assert.equal(unconfirmed.complete,false);
+    assert.equal(await page.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),1);
+    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(generated.sequence+2));
+    await page.unroute(rpcPattern,lostAck);
+    assert.equal((await page.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())).complete,true);
+    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(generated.sequence+2));
     await page.close();
     const reopened=await context.newPage();
     await reopened.goto(appUrl,{waitUntil:'domcontentloaded'});
@@ -128,8 +162,9 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
     await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.activate());
     const recovered=await reopened.evaluate(()=>window.nexaRadarLedgerTestCandidate.recover());
     assert.equal(recovered.complete,true);
-    assert.equal(recovered.events.length,generated.sequence);
-    assert.deepEqual(recovered.events.map(x=>x.sequence),Array.from({length:generated.sequence},(_,i)=>i+1));
+    const expectedTotal=generated.sequence+2;
+    assert.equal(recovered.events.length,expectedTotal);
+    assert.deepEqual(recovered.events.map(x=>x.sequence),Array.from({length:expectedTotal},(_,i)=>i+1));
     const keyFailure=await reopened.evaluate(async({id,sequence,slot})=>{
       const userId=window.nexaClinicalRuntime18121.getProfile().id;
       const provider=window.__NEXA_RADAR_LEDGER_E2E__;
@@ -154,12 +189,12 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
       provider.unlock=goodUnlock;
       await window.nexaRadarLedgerTestCandidate.activate();
       return {before,wrong,missing,unavailable};
-    },{id:encounterId,sequence:generated.sequence+1,slot:keySlot});
+    },{id:encounterId,sequence:expectedTotal+1,slot:keySlot});
     assert.deepEqual(keyFailure,{before:1,wrong:'blocked',missing:true,unavailable:'blocked'});
     await reopened.waitForFunction(()=>window.nexaRadar?.state?.ledgerSyncStatus?.state==='confirmed',null,{timeout:30000});
-    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(generated.sequence+1));
+    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(expectedTotal+1));
     await context.close();
-    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, encrypted outbox and reload recovery`);
+    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, loss of network/ACK, encrypted outbox and reload recovery`);
   }finally{
     await browser?.close();
     await new Promise(resolve=>server.close(resolve));

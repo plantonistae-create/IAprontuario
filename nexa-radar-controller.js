@@ -210,12 +210,13 @@
       const pending=state.items.filter(i=>i.status!=='confirm').length,confirm=state.confirm||[],clarified=state.clarified||[];
       setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
       const sync=state.ledgerSyncStatus||{};
-      setText('ngLedgerSyncStatus',state.questionEventCaptureError?'Falha ao proteger eventos temporais; cronologia incompleta.':
-        state.questionTraceTruncated?'Histórico temporal local parcial; há eventos além do limite visual.':
-        sync.state==='pending'?`Eventos temporais aguardando confirmação do servidor${sync.pending===null?'':`: ${sync.pending}`}.`:
+      const syncText=sync.state==='pending'?`Eventos temporais aguardando confirmação do servidor${sync.pending===null?'':`: ${sync.pending}`}.`:
         sync.state==='blocked'?'Sincronização temporal bloqueada; eventos locais ainda pendentes.':
         sync.state==='confirmed'?'Fila temporal confirmada; cronologia remota completa ainda não verificada.':
-        'Cronologia temporal local; sincronização ainda não habilitada.');
+        'Cronologia temporal local; sincronização ainda não habilitada.';
+      setText('ngLedgerSyncStatus',(state.questionEventCaptureError?
+        'Falha ao proteger eventos temporais; cronologia incompleta.':syncText)+
+        (state.questionTraceTruncated?' Histórico visual parcial; há eventos além do limite de 300.':''));
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
       setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} achado(s) de alerta identificado(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:'');
       const stale=state.transcriptIncomplete||['unavailable','stale'].includes(state.transcriptStatus);
