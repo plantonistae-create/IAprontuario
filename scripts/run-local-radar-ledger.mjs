@@ -130,14 +130,29 @@ try{
   const retry=await bridge.onAutosaveSynced({encounter_id:encounterId});
   if(!retry.complete||retry.acknowledged!==1||items.size!==0)
     throw new Error('Expired JWT retry did not receive idempotent ACK');
-  sql(`UPDATE public.organization_memberships SET status='revoked' WHERE user_id='${userId}'`);
   const revokedEvent={...first,event_id:randomUUID(),sequence:3};
   await bridge.captureEvent(revokedEvent,encounterId,userId);
+  sql(`UPDATE public.consultation_history SET encounter_state='audited' WHERE id='${consultationId}'`);
+  const closed=await bridge.onAutosaveSynced({encounter_id:encounterId});
+  if(closed.complete||items.size!==1||
+     sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='2')
+    throw new Error('Terminal consultation accepted a Radar event');
+  sql(`UPDATE public.consultation_history SET encounter_state='draft' WHERE id='${consultationId}';
+    UPDATE public.organization_memberships SET status='revoked' WHERE user_id='${userId}'`);
   const revoked=await bridge.onAutosaveSynced({encounter_id:encounterId});
   if(revoked.complete||items.size!==1||
      sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE consultation_id='${consultationId}'`)!=='2')
     throw new Error('Revoked Radar access was not blocked');
-  console.log('LOCAL_RADAR_LEDGER_PASS: 502 SQL events; Auth/JWT ACK, natural expiry, refresh, recovery and revocation');
+  sql(`DO $test$ BEGIN
+    BEGIN
+      DELETE FROM public.consultation_history WHERE id='${consultationId}';
+      RAISE EXCEPTION 'Ledger allowed consultation deletion';
+    EXCEPTION WHEN foreign_key_violation THEN NULL;
+    END;
+  END $test$;`);
+  if(sql(`SELECT count(*) FROM public.consultation_history WHERE id='${consultationId}'`)!=='1')
+    throw new Error('Consultation deletion guard changed state');
+  console.log('LOCAL_RADAR_LEDGER_PASS: 502 SQL events; Auth/JWT expiry, refresh, recovery, closure, deletion guard and revocation');
 }finally{
   if(started){try{cli(['destroy','--stack',stack,'--yes']);destroyed=true;}catch{console.error('Inspect disposable stack',stack);}}
   if(destroyed||!started){rmSync(workdir,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}
