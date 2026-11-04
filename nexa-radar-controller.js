@@ -18,9 +18,38 @@
   function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
-    let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
+    let questionTraceTruncated=false,questionEventCaptureError=false,ledgerSyncStatus={state:'inactive',pending:null};const listeners=new Set(),questionTrace=new Map();
+    // Bounded categorical chronology; never store transcript, note or patient quotes.
+    const questionEvents=[];let traceSequence=0;const previousQuestions=new Map();
+    function event(type,item,reason='engine_recalculation',prior=null){
+      const entry={event_id:crypto.randomUUID(),sequence:++traceSequence,at:new Date().toISOString(),type,
+        id:item.id,concept:item.concept,priority:item.priority,status:item.status,
+        previous_status:prior?.status??null,current_status:type==='removed'?null:item.status,
+        previous_priority:prior?.priority??null,current_priority:type==='removed'?null:item.priority,
+        reason,reason_code:reason,origin:'engine',engine_version:'radar-temporal-v1',snapshot_version:1,
+        engine:'nexa-radar-controller',version:'temporal-v1',
+        provider:remoteMeta.provider,model_version:remoteMeta.model_version};
+      if(questionEvents.length<300)questionEvents.push(entry);
+      else questionTraceTruncated=true;
+      if(adapter.captureEvent){
+        const capturedEncounter=encounter,capturedOwner=owner;
+        try{Promise.resolve(adapter.captureEvent({...entry},encounter,owner)).catch(()=>{
+          if(encounter===capturedEncounter&&owner===capturedOwner){
+            questionEventCaptureError=true;state.questionEventCaptureError=true;publish()}})}
+        catch{questionEventCaptureError=true}
+      }
+    }
     function traceQuestions(items){
+      const active=new Set();
       for(const item of Array.isArray(items)?items:[]){
+        if(item?.id)active.add(String(item.id));
+        const prior=previousQuestions.get(String(item?.id||''));
+        if(item?.id&&item?.concept){
+          const next={id:String(item.id),concept:String(item.concept),priority:String(item.priority||'moderate'),status:String(item.status||'to_ask')};
+          if(!prior)event('appeared',next);
+          else if(prior.status!==next.status||prior.priority!==next.priority)event('changed',next,'engine_recalculation',prior);
+          previousQuestions.set(next.id,next);
+        }
         const id=String(item?.id||''),concept=String(item?.concept||'');
         if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!concept||questionTrace.has(id))continue;
         if(questionTrace.size>=150){questionTraceTruncated=true;continue;}
@@ -28,8 +57,11 @@
           reason:String(item.reason||'').slice(0,360),priority:String(item.priority||'moderate'),
           status:String(item.status||'to_ask'),redFlag:item.redFlag===true,category:String(item.category||'')});
       }
+      for(const [id,prior] of previousQuestions){if(!active.has(id)){
+        event('removed',prior,'no_longer_suggested',prior);previousQuestions.delete(id);
+      }}
     }
-    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionTraceTruncated};}
+    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionEvents:questionEvents.map(x=>({...x})),questionEventSequence:traceSequence,questionTraceTruncated,questionEventCaptureError};}
     // A streaming transcript usually grows monotonically. Retain one in-flight
     // analysis when new completed utterances only append text, then refresh it.
     // Changing clinical fields, owner, or encounter still invalidates immediately.
@@ -49,7 +81,7 @@
         lastKey=key;lastContext=JSON.parse(key);aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
-      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
+      traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionEvents=questionEvents.map(x=>({...x}));state.questionTraceTruncated=questionTraceTruncated;state.questionEventCaptureError=questionEventCaptureError;state.ledgerSyncStatus={...ledgerSyncStatus};
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
@@ -88,9 +120,29 @@
       const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionEvents.length=0;previousQuestions.clear();traceSequence=0;questionTraceTruncated=false;questionEventCaptureError=false;ledgerSyncStatus={state:'inactive',pending:null};remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
+      for(const ev of Array.isArray(saved.questionEvents)?saved.questionEvents.slice(0,300):[]){
+        if(!ev||!['appeared','changed','removed'].includes(ev.type)||!E.concepts[ev.concept]||
+           !Number.isSafeInteger(ev.sequence)||ev.sequence<=traceSequence||
+           !/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(String(ev.id||''))){
+          questionTraceTruncated=true;continue;
+        }
+        const eventId=typeof ev.event_id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ev.event_id)?ev.event_id:null;
+        if(!eventId)questionTraceTruncated=true; // Historical local events cannot be replayed as authenticated backend events.
+        questionEvents.push({event_id:eventId,sequence:ev.sequence,at:String(ev.at||''),type:ev.type,id:String(ev.id||''),concept:ev.concept,
+          priority:String(ev.priority||'moderate'),status:String(ev.status||'to_ask'),
+          previous_status:ev.previous_status??null,current_status:ev.current_status??null,
+          previous_priority:ev.previous_priority??null,current_priority:ev.current_priority??null,
+          reason:String(ev.reason||''),reason_code:String(ev.reason_code||''),origin:String(ev.origin||'engine'),
+          engine_version:String(ev.engine_version||'radar-temporal-v1'),snapshot_version:1,
+          engine:'nexa-radar-controller',version:'temporal-v1',provider:String(ev.provider||'unknown'),model_version:String(ev.model_version||'unknown')});
+        traceSequence=Math.max(traceSequence,ev.sequence);
+      }
+      if(Number.isSafeInteger(saved.questionEventSequence)&&saved.questionEventSequence>traceSequence)
+        traceSequence=saved.questionEventSequence;
+      questionEventCaptureError=saved.questionEventCaptureError===true;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
         const id=String(x?.id||''),concept=String(x?.concept||'');
         if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;
@@ -99,8 +151,19 @@
           status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});
       }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
+    function bindEncounter(id){
+      if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+      if(id===encounter)return true;
+      if(traceSequence>0)return false; // Never reassign a recorded event to another encounter.
+      invalidate();encounter=id;lastKey='';state.encounter=id;publish();return true;
+    }
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
+    return {get state(){return state;},snapshot,restore,reset,setOwner,bindEncounter,recalculate,respond,schedule,analyzeRemote,
+      setLedgerSyncStatus(value){const next=value?.state,pending=value?.pending;
+        if(!['inactive','pending','confirmed','blocked','unbound'].includes(next))return;
+        ledgerSyncStatus={state:next,pending:Number.isSafeInteger(pending)&&pending>=0?pending:null};
+        state.ledgerSyncStatus={...ledgerSyncStatus};publish();},
+      setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
     const api=create(adapter),q=id=>document.getElementById(id);
@@ -109,7 +172,7 @@
     const card=q('realtimeRadarCard');
     if(!card)return api;
     card.innerHTML=`<div id="nfRadarHead"><div><strong>RADAR CLÍNICO</strong><small>Perguntas e alertas que acompanham a consulta.</small></div><span id="radarLiveText" role="status">Aguardando informações</span></div>
-      <div id="nexaContextualStatus" aria-live="polite"></div><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
+      <div id="nexaContextualStatus" aria-live="polite"></div><p id="ngLedgerSyncStatus" class="ng-muted" role="status">Cronologia temporal local; sincronização ainda não habilitada.</p><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
       <div class="ng-layout"><div class="ng-main"><nav id="nfRadarTabs" role="tablist" aria-label="Radar clínico">
       <button type="button" id="ngQuestionsTab" role="tab" aria-controls="ngQuestionsPanel" aria-selected="true" tabindex="0">Perguntas da consulta</button><button type="button" id="ngRisksTab" role="tab" aria-controls="ngRisksPanel" aria-selected="false" tabindex="-1">Riscos e alertas</button></nav>
       <section id="ngQuestionsPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngQuestionsTab"><h4>Próximas perguntas</h4><p class="ng-muted">Ordenadas por prioridade</p><div id="radarQuestions"></div><button type="button" id="nexaRadarMore" hidden></button><p class="ng-conversation">As respostas são reconhecidas na conversa.</p></section>
@@ -146,6 +209,14 @@
     function render(state){
       const pending=state.items.filter(i=>i.status!=='confirm').length,confirm=state.confirm||[],clarified=state.clarified||[];
       setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
+      const sync=state.ledgerSyncStatus||{};
+      const syncText=sync.state==='pending'?`Eventos temporais aguardando confirmação do servidor${sync.pending===null?'':`: ${sync.pending}`}.`:
+        sync.state==='blocked'?'Sincronização temporal bloqueada; eventos locais ainda pendentes.':
+        sync.state==='confirmed'?'Fila temporal confirmada; cronologia remota completa ainda não verificada.':
+        'Cronologia temporal local; sincronização ainda não habilitada.';
+      setText('ngLedgerSyncStatus',(state.questionEventCaptureError?
+        'Falha ao proteger eventos temporais; cronologia incompleta.':syncText)+
+        (state.questionTraceTruncated?' Histórico visual parcial; há eventos além do limite de 300.':''));
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
       setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} achado(s) de alerta identificado(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:'');
       const stale=state.transcriptIncomplete||['unavailable','stale'].includes(state.transcriptStatus);
