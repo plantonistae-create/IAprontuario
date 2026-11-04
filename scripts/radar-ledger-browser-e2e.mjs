@@ -193,8 +193,32 @@ export async function runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sq
     assert.deepEqual(keyFailure,{before:1,wrong:'blocked',missing:true,unavailable:'blocked'});
     await reopened.waitForFunction(()=>window.nexaRadar?.state?.ledgerSyncStatus?.state==='confirmed',null,{timeout:30000});
     assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(expectedTotal+1));
+    const secondTab=await context.newPage();
+    await secondTab.goto(appUrl,{waitUntil:'domcontentloaded'});
+    await secondTab.waitForFunction(()=>window.nexaRadarLedgerTestCandidate?.activate&&window.nexaEncounterAutosave18101);
+    if(await secondTab.locator('#loginGate').isVisible()){
+      await secondTab.locator('#authEmail').fill(email);
+      await secondTab.locator('#authPassword').fill(password);
+      await secondTab.locator('#authSubmitBtn').click();
+    }
+    await secondTab.waitForFunction(()=>window.nexaClinicalRuntime18121?.getProfile?.()?.clinical_access===true);
+    await secondTab.evaluate(id=>window.nexaEncounterAutosave18101.setActiveId(id),encounterId);
+    await secondTab.evaluate(()=>window.nexaRadarLedgerTestCandidate.activate());
+    await reopened.evaluate(({id,sequence})=>window.nexaRadarLedgerTestCandidate.captureEvent({
+      event_id:crypto.randomUUID(),sequence,id:'dyspnea',concept:'dyspnea',type:'changed',
+      previous_status:'asked',current_status:'to_ask',previous_priority:'high',
+      current_priority:'high',reason_code:'manual_reopen',origin:'human',
+      engine_version:'radar-temporal-v1',snapshot_version:1
+    },id,window.nexaClinicalRuntime18121.getProfile().id),
+    {id:encounterId,sequence:expectedTotal+2});
+    const concurrent=await Promise.all([reopened,secondTab].map(tab=>
+      tab.evaluate(()=>window.nexaRadarLedgerTestCandidate.retry())));
+    assert(concurrent.every(value=>value.complete),'Concurrent tabs must both reconcile after the same ACK');
+    assert.equal(sql(`SELECT count(*) FROM public.nexa_radar_question_events WHERE encounter_id='${encounterId}'`),String(expectedTotal+2));
+    assert.equal(await secondTab.evaluate(id=>window.nexaRadarLedgerTestCandidate.pending(id).then(x=>x.length),encounterId),0);
+    await secondTab.close();
     await context.close();
-    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, loss of network/ACK, encrypted outbox and reload recovery`);
+    console.log(`RADAR_LEDGER_BROWSER_PASS: ${generated.sequence} real UI events; Auth, autosave ACK, network/ACK loss, two tabs, encrypted outbox and reload recovery`);
   }finally{
     await browser?.close();
     await new Promise(resolve=>server.close(resolve));
