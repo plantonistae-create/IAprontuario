@@ -53,3 +53,24 @@ test('a delayed lookup cannot send after encounter switch',async()=>{
   assert.deepEqual(await waiting,{complete:false,reason:'superseded'});
   assert.equal(rpcCalls,0);
 });
+
+test('candidate bridge follows autosave events and detaches cleanly',async()=>{
+  const target=new EventTarget(),statuses=[];let boundId='',drains=0;
+  const client={auth:{getUser:async()=>({data:{user:{id:owner}}})},
+    from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:row,error:null})})};
+  const candidate=bridge.create({ledger,client,userId:owner,organizationId:organization,
+    currentEncounterId:()=>encounter,radar:{bindEncounter:id=>{boundId=id;return true}},
+    outbox:{enqueue:async()=>{},drain:async()=>{drains++;return {complete:true,pending:0}}},
+    onStatus:s=>statuses.push(s.state)});
+  const detach=candidate.attach(target);
+  target.dispatchEvent(new CustomEvent('nexa:encounter-started',{detail:{encounter_id:encounter}}));
+  assert.equal(boundId,encounter);
+  target.dispatchEvent(new CustomEvent('nexa:encounter-synced',{detail:{encounter_id:encounter}}));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(drains,1);
+  assert.equal(statuses.at(-1),'confirmed');
+  detach();
+  target.dispatchEvent(new CustomEvent('nexa:encounter-synced',{detail:{encounter_id:encounter}}));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(drains,1);
+});
