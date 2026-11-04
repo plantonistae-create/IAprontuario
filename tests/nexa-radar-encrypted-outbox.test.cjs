@@ -75,3 +75,19 @@ test('retains all 502 categorical events beyond the visual cap and drains in ord
   assert.deepEqual(result,{acknowledged:502,pending:0,complete:true});
   assert.equal(store.items.size,0);
 });
+
+test('two tabs may race to retry one event without losing its ID',async()=>{
+  const secret=await key(),store=memoryStore();
+  const a=outbox.create({key:secret,store,ledger}),b=outbox.create({key:secret,store,ledger});
+  await a.enqueue(input(503));
+  const seen=[];
+  const client={rpc:async(_name,payload)=>{
+    seen.push(payload.p_event_id);
+    await new Promise(resolve=>setTimeout(resolve,2));
+    return {data:503,error:null};
+  }};
+  const results=await Promise.all([a.drain(client,binding()),b.drain(client,binding())]);
+  assert.ok(results.every(x=>x.complete));
+  assert.deepEqual(seen,[event(503).event_id,event(503).event_id]);
+  assert.equal(store.items.size,0);
+});
