@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.nexa_radar_question_events (
   sequence bigint NOT NULL CHECK (sequence > 0),
   recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   question_id text NOT NULL CHECK (question_id ~ '^(conflict:)?[a-z][A-Za-z0-9_]{0,63}$'),
-  concept text NOT NULL CHECK (concept ~ '^[a-z][a-z0-9_]{0,63}$'),
+  concept text NOT NULL CHECK (concept ~ '^[a-z][A-Za-z0-9_]{0,63}$'),
   event_type text NOT NULL CHECK (event_type IN ('appeared','changed','removed','manual_answer','reopened')),
   previous_status text CHECK (previous_status IS NULL OR previous_status IN ('to_ask','asked','confirm','clarified','dismissed','not_applicable')),
   current_status text CHECK (current_status IS NULL OR current_status IN ('to_ask','asked','confirm','clarified','dismissed','not_applicable')),
@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS public.nexa_radar_question_events (
   snapshot_version integer NOT NULL CHECK (snapshot_version BETWEEN 1 AND 10000),
   CONSTRAINT nexa_radar_question_sequence_unique UNIQUE (consultation_id,sequence)
 );
+-- The clinical engine uses stable camelCase concept IDs such as respFocal.
+ALTER TABLE public.nexa_radar_question_events
+  DROP CONSTRAINT IF EXISTS nexa_radar_question_events_concept_check;
+ALTER TABLE public.nexa_radar_question_events
+  ADD CONSTRAINT nexa_radar_question_events_concept_check
+  CHECK (concept ~ '^[a-z][A-Za-z0-9_]{0,63}$');
 CREATE INDEX IF NOT EXISTS nexa_radar_question_events_owner_page_idx
   ON public.nexa_radar_question_events (owner_user_id,consultation_id,sequence);
 CREATE INDEX IF NOT EXISTS nexa_radar_question_events_org_page_idx
@@ -120,7 +126,7 @@ BEGIN
     RAISE EXCEPTION 'RADAR_EVENT_CLINICAL_ACCESS_REQUIRED' USING ERRCODE='42501';
   END IF;
   IF p_question_id !~ '^(conflict:)?[a-z][A-Za-z0-9_]{0,63}$'
-     OR p_concept !~ '^[a-z][a-z0-9_]{0,63}$'
+     OR p_concept !~ '^[a-z][A-Za-z0-9_]{0,63}$'
      OR p_event_type NOT IN ('appeared','changed','removed','manual_answer','reopened')
      OR p_reason_code NOT IN ('engine_recalculation','no_longer_suggested','patient_answer','clinician_answer','manual_reopen','not_applicable','superseded','unresolved_conflict')
      OR p_origin NOT IN ('engine','ai','human')

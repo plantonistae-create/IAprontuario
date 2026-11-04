@@ -7,6 +7,7 @@ import {spawnSync,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {runRadarLedgerBrowserE2E} from './radar-ledger-browser-e2e.mjs';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const require=createRequire(import.meta.url);
@@ -63,6 +64,8 @@ try{
   // Reapply after data exists: the candidate must preserve every event.
   call(psql,['-X','-v','ON_ERROR_STOP=1','--file',
     'supabase/migrations/20261102092515_nexa_radar_question_event_ledger_candidate.sql'],pgEnv);
+  call(psql,['-X','-v','ON_ERROR_STOP=1','--file','tests/radar-ledger/ui-schema.sql'],pgEnv);
+  await new Promise(resolve=>setTimeout(resolve,750));
   // The stack CLI's db advisors subcommand does not accept this disposable
   // loopback database. Security grants and tenant access are asserted in SQL.
   const actor='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -83,8 +86,8 @@ try{
   if(!['127.0.0.1','localhost','::1'].includes(new URL(apiUrl).hostname)||!anonKey)
     throw new Error('Disposable Auth or API unavailable');
   const client=createClient(apiUrl,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
-  const signup=await client.auth.signUp({email:`synthetic-radar-${id}@example.invalid`,
-    password:randomBytes(24).toString('hex')});
+  const email=`synthetic-radar-${id}@example.invalid`,password=randomBytes(24).toString('hex');
+  const signup=await client.auth.signUp({email,password});
   const userId=signup.data?.user?.id;
   if(signup.error||!signup.data?.session?.access_token||
      !/^[0-9a-f-]{36}$/.test(userId||''))throw new Error('Disposable Auth signup failed');
@@ -93,8 +96,9 @@ try{
   sql(`INSERT INTO public.profiles VALUES ('${userId}','active',true,false);
     INSERT INTO public.organization_memberships VALUES ('${organizationId}','${userId}',
       'active',ARRAY['clinician']);
-    INSERT INTO public.consultation_history VALUES ('${consultationId}','${encounterId}',
+    INSERT INTO public.consultation_history (id,encounter_id,user_id,organization_id,encounter_state) VALUES ('${consultationId}','${encounterId}',
       '${userId}','${organizationId}','draft');`);
+  await runRadarLedgerBrowserE2E({apiUrl,anonKey,email,password,sql});
   const items=new Map(),store={get:async key=>items.get(key),all:async()=>[...items.values()],
     add:async item=>{if(items.has(item.id))throw new Error('RADAR_OUTBOX_DUPLICATE');items.set(item.id,item)},
     remove:async key=>{items.delete(key)}};

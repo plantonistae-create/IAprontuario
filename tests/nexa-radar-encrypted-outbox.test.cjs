@@ -86,6 +86,26 @@ test('retains all 502 categorical events beyond the visual cap and drains in ord
   assert.equal(store.items.size,0);
 });
 
+test('accepts actual clinical engine concepts, including camelCase IDs',async()=>{
+  globalThis.NexaRadarEngine=require('../nexa-radar-engine.js');
+  require('../nexa-radar-controller.js');
+  const captured=[];let hda='';
+  const controller=NexaRadarController.create({context:()=>({fields:{hda},transcript:'',cid:''}),
+    publish(){},captureEvent:value=>captured.push(value)});
+  controller.setOwner(owner);
+  controller.bindEncounter(encounter);
+  for(let i=0;i<300&&captured.length<502;i++){
+    hda=i%2?'Paciente com dispneia há dois dias.':'Paciente com dor abdominal há dois dias.';
+    controller.recalculate();
+  }
+  assert(captured.length>=502);
+  assert(captured.some(value=>value.concept==='respFocal'));
+  const box=outbox.create({keySlot,key:await key(),store:memoryStore(),ledger});
+  for(const value of captured)await box.enqueue({owner_user_id:owner,
+    encounter_id:encounter,organization_id:organization,event:value});
+  assert.equal((await box.pending(binding())).length,captured.length);
+});
+
 test('two tabs may race to retry one event without losing its ID',async()=>{
   const secret=await key(),store=memoryStore();
   const a=outbox.create({keySlot,key:secret,store,ledger}),b=outbox.create({keySlot,key:secret,store,ledger});

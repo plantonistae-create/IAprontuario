@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - 'scripts/run-local-radar-ledger.mjs'
+      - 'scripts/radar-ledger-browser-e2e.mjs'
       - 'tests/radar-ledger/**'
+      - 'index.html'
+      - 'nexa-radar-ledger-e2e.js'
       - 'nexa-radar-ledger-client.js'
       - 'nexa-radar-ledger-bridge.js'
       - 'nexa-radar-encrypted-outbox.js'
@@ -26,6 +29,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
+      - name: Install Chromium for the local authenticated UI E2E
+        run: npx playwright install --with-deps chromium
       - name: Exercise 500 synthetic events with local Auth roles and RLS
         run: node scripts/run-local-radar-ledger.mjs
       - name: Verify candidate bridge, encrypted queue and visual-cap capture

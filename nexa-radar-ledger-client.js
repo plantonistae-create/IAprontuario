@@ -4,7 +4,7 @@
   const verified=new WeakSet();
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const question=/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/;
-  const concept=/^[a-z][a-z0-9_]{0,63}$/;
+  const concept=/^[a-z][A-Za-z0-9_]{0,63}$/;
   const eventTypes=new Set(['appeared','changed','removed','manual_answer','reopened']);
   const statuses=new Set(['to_ask','asked','confirm','clarified','dismissed','not_applicable']);
   const priorities=new Set(['critical','high','moderate','low']);
