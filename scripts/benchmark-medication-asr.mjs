@@ -45,7 +45,16 @@ async function transcribe(scenario,variant){
   method:'POST',headers:{Authorization:`Bearer ${key}`},body:form,signal:AbortSignal.timeout(60000)
  });
  const latency_ms=Math.round(performance.now()-started);
- if(!response.ok)throw new Error(`ASR request failed for ${scenario.id}/${variant}: HTTP ${response.status}`);
+ if(!response.ok){
+  // Only provider error identifiers are logged; response messages may contain sensitive text.
+  const failure=await response.json().catch(()=>null);
+  const safeIdentifier=value=>String(value||'unknown').replace(/[^a-z0-9_]/gi,'').slice(0,64)||'unknown';
+  const code=safeIdentifier(failure?.error?.code);
+  const type=safeIdentifier(failure?.error?.type);
+  const retryAfter=Number(response.headers.get('retry-after'));
+  const retryInfo=Number.isFinite(retryAfter)&&retryAfter>=0?` retry_after_s=${Math.ceil(retryAfter)}`:'';
+  throw new Error(`ASR request failed for ${scenario.id}/${variant}: HTTP ${response.status} code=${code} type=${type}${retryInfo}`);
+ }
  const result=await response.json();
  if(typeof result.text!=='string')throw new Error(`ASR response missing text for ${scenario.id}/${variant}`);
  const text=normalize(result.text),rubric=scenario.asr||{};
