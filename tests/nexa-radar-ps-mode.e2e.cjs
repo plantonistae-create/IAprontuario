@@ -181,6 +181,12 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(Number(await page.locator('#nexaPsPendCount').innerText()),counts.pending);
   assert.equal(Number(await page.locator('#nexaPsCovCount').innerText()),counts.covered);
 
+  // The spoken phrase schedules a legitimate remote analysis. Wait for its
+  // request and ACK before measuring whether view-only toggles add a call.
+  await page.waitForFunction(()=>window.__qa.requests.some(request=>
+    request.url.includes('realtime-radar')&&request.body?.includes('Cefaleia desde hoje.'))&&
+    window.nexaRadar.state.busy===false);
+
   const before=await page.evaluate(()=>({
     state:JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}),
     recorder:document.getElementById('recBtn')?.dataset.recordingState,
@@ -221,9 +227,15 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarPost18130').count(),0);
   assert.equal(await page.locator('#processBtn').isVisible(),true);
   assert.equal(await page.locator('#resetBtn').isVisible(),true);
+  await page.evaluate(()=>{
+    window.__qa.processingStates=[];
+    window.addEventListener('nexa:clinical-processing',event=>
+      window.__qa.processingStates.push(event.detail?.state));
+  });
   await page.locator('#processBtn').click();
-  await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='processing');
   await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review'&&/cefaleia/i.test(document.querySelector('.field[data-key="hda"] textarea')?.value||''));
+  assert.ok(await page.evaluate(()=>window.__qa.processingStates.includes('processing')),
+    'the consultation must enter processing even if its UI phase was brief');
   assert.equal(await page.locator('#nexaFlowHistory').isVisible(),true);
   await assertNoOverflow(page,'Chromium '+viewport.width+' final');
   assert.deepEqual(errors,[],'Chromium '+viewport.width+' must have no page errors');
