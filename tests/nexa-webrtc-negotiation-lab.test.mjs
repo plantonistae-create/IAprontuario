@@ -41,5 +41,5 @@ test('lab has no paid API, microphone, Supabase, Deno or clinical dependencies',
  const lab=readFileSync(new URL('../experimental/nexa-webrtc-negotiation-lab.mjs',import.meta.url),'utf8');
  assert.doesNotMatch(lab,/\bfetch\s*\(|\bWebSocket\s*\(|\bgetUserMedia\s*\(|\bDeno\.serve\s*\(/);
  assert.doesNotMatch(lab,/https:\/\/api\.openai\.com/);
- assert.doesNotMatch(lab,/import\s+.+from\s+['"]\.\.\/(?!)/);
+ assert.doesNotMatch(lab,/\bimport\s+.*\bfrom\s+['"]/);
 });
