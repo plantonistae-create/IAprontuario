@@ -52,8 +52,8 @@ export function analyzeAggregates(data) {
  object(data.window,['start_utc','end_utc']);
  const start=Date.parse(data.window.start_utc),end=Date.parse(data.window.end_utc);
  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||end-start>86400000 ||
-    !/^\\d{4}-\\d{2}-\\d{2}T/.test(data.window.start_utc) ||
-    !/^\\d{4}-\\d{2}-\\d{2}T/.test(data.window.end_utc)) throw new Error('INVALID_WINDOW');
+    !/^\d{4}-\d{2}-\d{2}T/.test(data.window.start_utc) ||
+    !/^\d{4}-\d{2}-\d{2}T/.test(data.window.end_utc)) throw new Error('INVALID_WINDOW');
  if(!Array.isArray(data.usage)||data.usage.length>30)throw new Error('INVALID_AGGREGATE_ROWS');
  const rows=data.usage.map(summarizeRow);
  object(data.http_requests, [...HTTP_FUNCTIONS]);
@@ -92,10 +92,10 @@ if(process.argv[1] && fileURLToPath(import.meta.url)===process.argv[1]) {
   // Accept ONLY pre-aggregated JSON piped from a controlled source.
   const raw=readFileSync(0,'utf8');
   if(Buffer.byteLength(raw)>131072)throw new Error('INPUT_TOO_LARGE');
-  process.stdout.write(JSON.stringify(analyzeAggregates(JSON.parse(raw)),null,2)+'\\n');
+  process.stdout.write(JSON.stringify(analyzeAggregates(JSON.parse(raw)),null,2)+'\n');
  } catch {
   // Intentionally do not echo input or parse exceptions that could include sensitive content.
-  process.stderr.write('Rejected: aggregate-only input required. No raw logs or patient fields.\\n');
+  process.stderr.write('Rejected: aggregate-only input required. No raw logs or patient fields.\n');
   process.exitCode=1;
  }
 }
