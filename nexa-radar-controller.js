@@ -25,7 +25,9 @@
   }
   function remoteKey(context){
     const fields=context?.fields&&typeof context.fields==='object'&&!Array.isArray(context.fields)
-      ?Object.fromEntries(Object.entries(context.fields).map(([field,value])=>[field,trailingSpaceValue(value)]))
+      ?Object.fromEntries(Object.entries(context.fields)
+        .sort(([a],[b])=>a<b?-1:a>b?1:0)
+        .map(([field,value])=>[field,trailingSpaceValue(value)]))
       :context?.fields;
     return JSON.stringify({...context,fields,transcript:trailingSpaceValue(context?.transcript)});
   }
@@ -50,8 +52,9 @@
       if(!before||!after)return false;
       const a=String(before.transcript||''),b=String(after.transcript||'');
       if(!b.startsWith(a)||b.length<=a.length)return false;
-      const {transcript:oldText,...oldRest}=before,{transcript:newText,...newRest}=after;
-      return JSON.stringify(oldRest)===JSON.stringify(newRest);
+      // Field insertion order is not new patient evidence. Keep ongoing work
+      // when the same fields arrive in a different JS-object key order.
+      return remoteKey({...before,transcript:''})===remoteKey({...after,transcript:''});
     }
     function invalidate(){revision++;controller?.abort();controller=null;busy=false;clearTimeout(aiTimer);}
     function publish(){adapter.publish?.(state);listeners.forEach(fn=>fn(state));}
