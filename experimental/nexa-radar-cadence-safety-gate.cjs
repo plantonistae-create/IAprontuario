@@ -19,11 +19,14 @@ function validSnapshot(s){
     (!('encounter' in s)||typeof s.encounter==='string');
 }
 function safeKey(s){
+  // Unknown clinical metadata must NOT be silently ignored. Only the fixture
+  // clock and the explicitly untrusted urgent oracle are nonclinical here.
+  const {atMs,urgent,...context}=s;
   return JSON.stringify({
+    ...context,
     transcript:trimOnlyEndOfLine(s.transcript),
     fields:Object.fromEntries(Object.entries(s.fields)
-      .map(([key,value])=>[key,typeof value==='string'?trimOnlyEndOfLine(value):value])),
-    cid:s.cid??null
+      .map(([key,value])=>[key,typeof value==='string'?trimOnlyEndOfLine(value):value]))
   });
 }
 function assessment(s){
@@ -54,17 +57,22 @@ function decideConservativeDeferral(before,after){
     });
   if(after.recordingState==='stale'||after.recordingState==='unavailable')
     return blocked('INCOMPLETE_AUDIO');
-  if(safeKey(before)===safeKey(after)){
-    // This is a true duplicate up to trailing formatting; do not create
-    // any remote request. It is NOT permission to delay new clinical text.
-    return {
-      allowSkip:true,allowDelay:false,requiresRemoteReview:false,
-      reason:'EXACT_OR_TRAILING_WHITESPACE_DUPLICATE'
-    };
+  try {
+    if(safeKey(before)===safeKey(after)){
+      // Exact or trailing-formatting duplicate only; never defer new speech.
+      return {
+        allowSkip:true,allowDelay:false,requiresRemoteReview:false,
+        reason:'EXACT_OR_TRAILING_WHITESPACE_DUPLICATE'
+      };
+    }
+    const old=assessment(before),current=assessment(after);
+    const changed=JSON.stringify(old)!==JSON.stringify(current);
+    return blocked(changed?'LOCAL_CLINICAL_FINDINGS_CHANGED':'NEW_UNRECOGNIZED_EVIDENCE');
+  } catch {
+    // Unfamiliar clinical values or a failed local engine are NOT evidence
+    // that the remote analysis can be skipped.
+    return blocked('SAFETY_GATE_EVALUATION_FAILED');
   }
-  const old=assessment(before),current=assessment(after);
-  const changed=JSON.stringify(old)!==JSON.stringify(current);
-  return blocked(changed?'LOCAL_CLINICAL_FINDINGS_CHANGED':'NEW_UNRECOGNIZED_EVIDENCE');
 }
 function auditCadenceSafety(events){
   if(!Array.isArray(events)||events.length===0||events.length>200)
