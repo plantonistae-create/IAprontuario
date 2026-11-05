@@ -16,7 +16,8 @@ function seven(){
    input_tokens:200,cached_tokens:0,output_tokens:100,reasoning_tokens:0,audio_seconds:0,
   });
   return {window:{start_utc:a,end_utc:b},usage,
-   http_requests:{radar:{post:3,options:3},realtime:{post:4,options:4},consultation:{post:1,options:1}}};
+   http_requests:{radar:{post:3,options:3},realtime:{post:4,options:4},consultation:{post:1,options:1}},
+   technical_execution:{webrtc_attempt_logs:2,webrtc_http502_logs:2,chunk_success_logs:4,chunk_failed_logs:0,upstream_status_events:0}};
  })};
 }
 
@@ -90,4 +91,35 @@ test('seven-day analytical report is deterministic and has no network or clinica
  assert.deepEqual(a,b);
  assert.equal(Object.hasOwn(a,'invoice_usd'),false);
  assert.equal(a.gates.includes('RECONCILE_AGGREGATED_PROVIDER_BILLING_BY_DAY_AND_MODALITY'),true);
+});
+
+test('technical aggregates expose failed observed WebRTC handshakes, not billed sessions',()=>{
+ const r=analyzeSevenDays(seven());
+ assert.equal(r.totals.webrtc_attempt_logs,14);
+ assert.equal(r.totals.webrtc_http502_logs,14);
+ assert.equal(r.totals.chunk_success_logs,28);
+ assert.equal(r.totals.chunk_failed_logs,0);
+ assert.equal(r.days_with_technical_execution_aggregates,7);
+ assert.equal(r.observed_webrtc_http502_pct,100);
+ assert.equal(r.coverage.upstream_status_events_not_observed,true);
+ assert.equal(r.coverage.http_502_does_not_establish_openai_upstream_status,true);
+});
+test('missing technical aggregate is unknown, never silently counted as a successful session',()=>{
+ const d=seven();delete d.days[3].technical_execution;
+ const r=analyzeSevenDays(d);
+ assert.equal(r.days_with_technical_execution_aggregates,6);
+ assert.equal(r.days[3].technical_execution,null);
+ assert.deepEqual(r.coverage.days_without_technical_execution_aggregates,['2026-11-01']);
+});
+test('technical telemetry accepts only five nonnegative integral aggregate counters',()=>{
+ for(const change of [
+  x=>x.days[0].technical_execution.user_id='private',
+  x=>x.days[0].technical_execution.webrtc_attempt_logs=-1,
+  x=>x.days[0].technical_execution.webrtc_http502_logs=3,
+  x=>x.days[0].technical_execution.chunk_success_logs='4',
+  x=>delete x.days[0].technical_execution.upstream_status_events,
+ ]){
+  const d=seven();change(d);
+  assert.throws(()=>analyzeSevenDays(d),/AGGREGATES_ONLY|INVALID_TECHNICAL_AGGREGATE|INCONSISTENT_WEBRTC_FAILURES/);
+ }
 });
