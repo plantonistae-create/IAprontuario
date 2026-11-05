@@ -73,6 +73,10 @@ test('field updates and clinical boundaries always require immediate fresh proce
  mustImmediate(base,base,null,{force:true});
  mustImmediate(base,sample(base.transcript,{fields:null}),
   'INVALID_OR_MISSING_CONTEXT');
+ mustImmediate(base,sample(base.transcript,{transcriptIncomplete:true}),
+  'ADDITIONAL_CLINICAL_STATE_CHANGED');
+ mustImmediate(base,sample(base.transcript,{auditPending:true}),
+  'ADDITIONAL_CLINICAL_STATE_CHANGED');
 });
 
 test('five clinical domains forbid deferral of every new recognized and unrecognized utterance',()=>{
