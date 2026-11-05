@@ -138,3 +138,70 @@ test('negation, units, speaker boundaries and clinical fields still trigger remo
     radar.reset();
   }finally{timer.restore()}
 });
+
+
+test('field insertion-order changes do not trigger a duplicate Radar provider call',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const first={hda:'Paciente: Nego febre.',antecedentes:'Paciente: Sem comorbidades.'};
+  set({fields:first,transcript:'Paciente: Dor no joelho.'});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  assert.deepEqual(Object.keys(calls[0].input.fields),['hda','antecedentes'],
+   'the provider receives the original field order; no clinical payload is rewritten');
+  set({fields:{antecedentes:first.antecedentes,hda:first.hda},
+    transcript:'Paciente: Dor no joelho.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,false);
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();
+  timer.tick(2000);
+  assert.equal(calls.length,1,'reordered identical clinical fields are the same evidence');
+  radar.reset();
+ }finally{timer.restore()}
+});
+
+test('append-only speech retains in-flight analysis even if object field order changes',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const first={hda:'Paciente: Dor no joelho.',antecedentes:'Sem alergias.'};
+  set({fields:first,transcript:'Paciente: Dor no joelho.'});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  set({fields:{antecedentes:first.antecedentes,hda:first.hda},
+    transcript:'Paciente: Dor no joelho.\nPaciente: Apresenta edema recente.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,false,
+   'an unchanged clinical field object must not abort valid ongoing analysis');
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();
+  timer.tick(1500);
+  assert.equal(calls.length,2,
+   'new clinical speech still schedules exactly one follow-up analysis');
+  calls[1].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();timer.tick(2000);
+  assert.equal(calls.length,2);
+  radar.reset();
+ }finally{timer.restore()}
+});
+
+test('reordering cannot hide changed negations, dosages or clinical field values',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const first={hda:'Paciente: Nega falta de ar.',medicacoes:'Dipirona 500 mg.'};
+  set({fields:first,transcript:'Paciente: Relata dor torácica.'});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  set({fields:{medicacoes:'Dipirona 1000 mg.',hda:'Paciente: Refere falta de ar.'},
+    transcript:'Paciente: Relata dor torácica.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,true,'changed medication and negation cancel stale work');
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();
+  timer.tick(1500);
+  assert.equal(calls.length,2,'clinically different text must trigger a new request');
+  assert.equal(calls[1].input.fields.medicacoes,'Dipirona 1000 mg.');
+  assert.equal(calls[1].input.fields.hda,'Paciente: Refere falta de ar.');
+  radar.reset();
+ }finally{timer.restore()}
+});
