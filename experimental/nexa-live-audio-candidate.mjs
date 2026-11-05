@@ -57,7 +57,8 @@ export function buildLiveTranscriptionSessionUpdate({
 export function createAppendEvent(pcm16Base64) {
   if (typeof pcm16Base64 !== 'string' || pcm16Base64.length === 0 ||
       pcm16Base64.length > 262144 || pcm16Base64.length % 4 !== 0 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pcm16Base64))
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pcm16Base64) ||
+      ((pcm16Base64.length / 4 * 3) - (pcm16Base64.endsWith('==') ? 2 : pcm16Base64.endsWith('=') ? 1 : 0)) % 2 !== 0)
     throw new Error('INVALID_AUDIO_PACKET');
   return {type: 'input_audio_buffer.append', audio: pcm16Base64};
 }
@@ -70,7 +71,7 @@ export function createCommitEvent() {
 // published in server-committed order only. A gap/failure makes the transcript
 // explicitly incomplete rather than silently dropping evidence.
 export function createCompletedTurnCollector() {
-  const order = [], entries = new Map();
+  const order = [], entries = new Map(), early = new Map();
   let unavailable = false;
   function ingest(event) {
     if (!event || typeof event !== 'object') return false;
@@ -78,22 +79,33 @@ export function createCompletedTurnCollector() {
     const id = typeof event.item_id === 'string' ? event.item_id : '';
     if (!/^[A-Za-z0-9_:.-]{1,120}$/.test(id)) return false;
     if (event.type === 'input_audio_buffer.committed') {
-      if (!entries.has(id)) { entries.set(id,{state:'pending',text:''}); order.push(id); return true; }
-      return false;
+      if (entries.has(id)) return false;
+      entries.set(id,early.get(id) || {state:'pending',text:''});
+      early.delete(id);
+      order.push(id);
+      return true;
     }
     if (event.type === 'conversation.item.input_audio_transcription.delta') return false;
     if (event.type !== 'conversation.item.input_audio_transcription.completed' &&
         event.type !== 'conversation.item.input_audio_transcription.failed') return false;
-    if (!entries.has(id)) { entries.set(id,{state:'pending',text:''}); order.push(id); }
-    const old = entries.get(id);
-    if (old.state !== 'pending') return false;
-    if (event.type === 'conversation.item.input_audio_transcription.failed') {
-      old.state = 'failed'; unavailable = true; return true;
+    const failure = event.type === 'conversation.item.input_audio_transcription.failed' ||
+      typeof event.transcript !== 'string' || !event.transcript.trim();
+    const next = failure ? {state:'failed',text:''} :
+      {state:'complete',text:event.transcript};
+    // A completion can precede its commit acknowledgement. Do not invent
+    // turn order from completion arrival order: hold until its committed ID
+    // arrives, and mark the transcript incomplete in the meantime.
+    if (!entries.has(id)) {
+      if (early.has(id)) return false;
+      if (early.size >= 128) { unavailable = true; return false; }
+      early.set(id,next);
+    } else {
+      const old = entries.get(id);
+      if (old.state !== 'pending') return false;
+      entries.set(id,next);
     }
-    if (typeof event.transcript !== 'string' || !event.transcript.trim()) {
-      old.state = 'failed'; unavailable = true; return true;
-    }
-    old.state = 'complete'; old.text = event.transcript; return true;
+    if (failure) unavailable = true;
+    return true;
   }
   function snapshot() {
     const emitted = [];
@@ -104,12 +116,14 @@ export function createCompletedTurnCollector() {
     }
     return {
       transcript: emitted.join('\n'),
-      complete: !unavailable && order.every(id => entries.get(id).state === 'complete'),
-      unavailable: unavailable || order.some(id => entries.get(id).state === 'failed'),
+      complete: !unavailable && early.size === 0 &&
+        order.every(id => entries.get(id).state === 'complete'),
+      unavailable: unavailable || early.size > 0 ||
+        order.some(id => entries.get(id).state === 'failed'),
       pending: order.filter(id => entries.get(id).state === 'pending').length
     };
   }
-  return {ingest,snapshot,reset(){order.length=0;entries.clear();unavailable=false;}};
+  return {ingest,snapshot,reset(){order.length=0;entries.clear();early.clear();unavailable=false;}};
 }
 
 // Public pricing snapshot (2026-11-05), NOT provider billing data.
