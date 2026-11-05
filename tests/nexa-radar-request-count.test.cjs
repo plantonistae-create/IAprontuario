@@ -89,3 +89,52 @@ test('owner and encounter changes reject late results without carrying answers',
     assert.notEqual(radar.snapshot().encounter,encounter);
   }finally{timer.restore()}
 });
+
+
+test('trailing spaces and tabs in transcript or clinical fields never schedule a second paid analysis',async()=>{
+  const timer=clock();try{
+    const {radar,calls,set}=setup();
+    const fields={hda:'Paciente: Tenho falta de ar.  '};
+    set({fields,transcript:'Paciente: Nego febre.   \t'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,1);
+    assert.equal(calls[0].input.transcript,'Paciente: Nego febre.   \t',
+      'request payload retains literal transcript despite the scheduling key');
+    assert.equal(calls[0].input.fields.hda,'Paciente: Tenho falta de ar.  ',
+      'clinical fields must remain literal in provider payload');
+    set({fields:{hda:'Paciente: Tenho falta de ar.'},transcript:'Paciente: Nego febre.'});
+    radar.recalculate({remote:true});
+    assert.equal(calls[0].signal.aborted,false,'whitespace-only ASR updates cannot abort a useful request');
+    calls[0].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+    timer.tick(2000);assert.equal(calls.length,1,
+      'trailing formatting alone cannot bill the provider again');
+    radar.reset();
+  }finally{timer.restore()}
+});
+
+test('negation, units, speaker boundaries and clinical fields still trigger remote analysis',async()=>{
+  const timer=clock();try{
+    const {radar,calls,set}=setup();
+    const base={hda:'Paciente: Tenho falta de ar.'};
+    set({fields:base,transcript:'Paciente: Não tenho alergias.'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,1);
+    calls[0].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+    set({fields:base,transcript:'Paciente: Tenho alergias.'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,2,'negation changed');
+    calls[1].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+    set({fields:base,transcript:'Paciente: Tenho alergias.\nMédico: Qual medicamento?'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,3,'new line and speaker require a fresh interpretation');
+    calls[2].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+    set({fields:base,transcript:'Paciente: Tomei 10 mg.'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,4,'dosage change is not normalized');
+    calls[3].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+    set({fields:{hda:'Paciente: Tenho falta de ar e síncope.'},transcript:'Paciente: Tomei 10 mg.'});
+    radar.recalculate({remote:true});timer.tick(1500);
+    assert.equal(calls.length,5,'clinical field changes must never be suppressed');
+    radar.reset();
+  }finally{timer.restore()}
+});

@@ -16,6 +16,19 @@
   }
   // The model needs prior answers, not account or encounter identifiers.
   function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
+  // Trailing horizontal spaces from ASR or textarea reformatting never
+  // alter clinical meaning. Normalize only the request identity, not the
+  // clinical engine, literal transcript, original fields or provider payload.
+  // Preserve words, newlines, punctuation, number separators, negations and CID.
+  function trailingSpaceValue(value){
+    return typeof value==='string'?value.replace(/[ \t]+(?=\r?$)/gm,''):value;
+  }
+  function remoteKey(context){
+    const fields=context?.fields&&typeof context.fields==='object'&&!Array.isArray(context.fields)
+      ?Object.fromEntries(Object.entries(context.fields).map(([field,value])=>[field,trailingSpaceValue(value)]))
+      :context?.fields;
+    return JSON.stringify({...context,fields,transcript:trailingSpaceValue(context?.transcript)});
+  }
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
     let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
@@ -43,10 +56,10 @@
     function invalidate(){revision++;controller?.abort();controller=null;busy=false;clearTimeout(aiTimer);}
     function publish(){adapter.publish?.(state);listeners.forEach(fn=>fn(state));}
     function recalculate({remote=false,force=false}={}){
-      const context=adapter.context(),key=JSON.stringify(context);
+      const context=adapter.context(),key=remoteKey(context);
       if(key!==lastKey){
         if(!(busy&&appendOnly(lastContext,context)))invalidate();
-        lastKey=key;lastContext=JSON.parse(key);aiKey='';
+        lastKey=key;lastContext=JSON.parse(JSON.stringify(context));aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
       traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
@@ -61,17 +74,17 @@
       if(busy)return;
       lastRequestAt=Date.now();
       invalidate();
-      const epoch=revision,encounterAtStart=encounter,context=adapter.context(),key=JSON.stringify(context);
+      const epoch=revision,encounterAtStart=encounter,context=adapter.context(),key=remoteKey(context);
       // A direct request may precede the first scheduled recalculation. Bind its
       // context before publishing busy state so that recalculate cannot clear it.
-      lastKey=key;lastContext=JSON.parse(key);aiKey='';
+      lastKey=key;lastContext=JSON.parse(JSON.stringify(context));aiKey='';
       controller=new AbortController();const requestController=controller,signal=requestController.signal;
       const timeout=setTimeout(()=>requestController.abort(),20000);busy=true;error='';recalculate();
       try{
         const result=await adapter.analyze(context,signal);
         const current=adapter.context();
         if(epoch!==revision||encounterAtStart!==encounter||
-           (key!==JSON.stringify(current)&&!appendOnly(context,current)))return;
+           (key!==remoteKey(current)&&!appendOnly(context,current)))return;
         if(!Array.isArray(result?.items))throw new Error('Resposta da IA incompatível com o Radar contextual.');
         aiItems=result.items;observations=Array.isArray(result.observations)?result.observations:[];
         const version=value=>typeof value==='string'&&/^[A-Za-z0-9._:-]{1,80}$/.test(value)?value:'unknown';
