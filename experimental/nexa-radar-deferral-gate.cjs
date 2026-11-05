@@ -46,6 +46,17 @@ function inspectRadarDeferral(previous,current,{force=false,closing=false,retry=
   if(['stale','unavailable','incomplete'].includes(current.transcriptStatus))
     return {decision:'immediate',reason:'INCOMPLETE_OR_UNAVAILABLE_ASR',localChanged:null};
 
+  // Unknown recording/audit/clinical flags cannot be interpreted as harmless.
+  // Exclude only fixture timestamps and the untrusted fixture urgency oracle.
+  const otherState=x=>{const {owner,encounter,recordingState,transcriptStatus,
+    transcript,fields,cid,atMs,urgent,...rest}=x;return JSON.stringify(rest);};
+  try {
+    if(otherState(previous)!==otherState(current))
+      return {decision:'immediate',reason:'ADDITIONAL_CLINICAL_STATE_CHANGED',localChanged:null};
+  } catch {
+    return {decision:'immediate',reason:'UNKNOWN_CONTEXT_STATE',localChanged:null};
+  }
+
   let sameFields=false,localBefore,localAfter;
   try{
     sameFields=JSON.stringify(previous.fields)===JSON.stringify(current.fields)
