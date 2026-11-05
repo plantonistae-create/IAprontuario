@@ -112,3 +112,59 @@ test('physician gender or professional label does not lose a short core-history 
   }
  }
 });
+
+test('five-syndrome matrix preserves explicit answers, unresolved ambiguity and safety questions',()=>{
+ const cases=[
+  {name:'respiratory short denial',speech:'Médico: Está com falta de ar. Paciente: Não.',
+   fact:'dyspnea',state:'known_absent',noAlert:'dyspnea',notAsk:'dyspnea'},
+  {name:'respiratory ambiguous answer',speech:'Médico: Está com falta de ar. Paciente: Acho que não.',
+   fact:'dyspnea',state:'unknown',noAlert:'dyspnea'},
+  {name:'gastrointestinal denied blood',speech:'Paciente: Tenho diarreia, mas não há sangue nas fezes.',
+   fact:'stoolBlood',state:'known_absent',noAlert:'stoolBlood',notAsk:'stoolBlood'},
+  {name:'gastrointestinal documented blood',speech:'Paciente: Tenho diarreia com sangue nas fezes.',
+   fact:'stoolBlood',state:'known_present',alert:'stoolBlood'},
+  {name:'musculoskeletal inability to bear weight',speech:'Paciente: Torci o joelho e não consigo apoiar o peso.',
+   fact:'weightBearing',state:'known_absent',notAsk:'weightBearing'},
+  {name:'neurological sudden headache',speech:'Paciente: Dor de cabeça súbita, a pior da vida.',
+   fact:'sudden',state:'known_present',alert:'sudden',ask:'focal'},
+  {name:'neurological head trauma',speech:'Paciente: Caí e bati a cabeça.',
+   fact:'trauma',state:'known_present',ask:'consciousness'},
+  {name:'cardiovascular denied fainting',speech:'Paciente: Tenho dor no peito, mas não desmaiei.',
+   fact:'syncope',state:'known_absent',noAlert:'syncope',notAsk:'syncope'},
+  {name:'cardiovascular documented fainting',speech:'Paciente: Tenho dor no peito e desmaiei.',
+   fact:'syncope',state:'known_present',alert:'syncope'},
+  {name:'cardiovascular family report',speech:'Paciente: Tenho dor no peito. Minha mãe desmaiou.',
+   fact:'syncope',state:'not_asked',noAlert:'syncope',ask:'syncope'}
+ ];
+ for(const scenario of cases){
+  const result=scan(scenario.speech),ids=new Set(result.items.map(item=>item.concept));
+  assert.equal(result.facts[scenario.fact].state,scenario.state,scenario.name);
+  if(scenario.ask)assert.ok(ids.has(scenario.ask),scenario.name+' safety gap');
+  if(scenario.notAsk)assert.equal(ids.has(scenario.notAsk),false,scenario.name+' repeated answer');
+  if(scenario.alert)assert.ok(result.alerts.some(item=>item.concept===scenario.alert),scenario.name+' alarm');
+  if(scenario.noAlert)assert.equal(result.alerts.some(item=>item.concept===scenario.noAlert),false,scenario.name+' false alarm');
+ }
+});
+
+test('explicit correction resolves a prior denial; later contradictory reports require confirmation',()=>{
+ const corrected=scan('Paciente: Não tenho falta de ar. Na verdade, tenho falta de ar.');
+ assert.equal(corrected.facts.dyspnea.state,'known_present');
+ assert.equal(corrected.facts.dyspnea.conflict,false);
+ const contradictions=[
+  ['stoolBlood','Paciente: Tenho diarreia. Não há sangue nas fezes. Depois vi sangue nas fezes.'],
+  ['syncope','Paciente: Tenho dor no peito. Não desmaiei. Depois desmaiei.'],
+  ['weightBearing','Paciente: Torci o joelho. Não consigo apoiar o peso. Depois consegui apoiar.']
+ ];
+ for(const [concept,speech] of contradictions){
+  const result=scan(speech);
+  assert.equal(result.facts[concept].conflict,true,concept+' must retain conflicting evidence');
+  assert.ok(result.items.some(item=>item.id==='conflict:'+concept&&item.status==='confirm'),concept+' needs explicit reconciliation');
+ }
+});
+
+test('a hypothetical fainting warning does not become an observed episode',()=>{
+ const result=scan('Paciente: Tenho dor no peito. Médico: Se desmaiar, procure atendimento urgente.');
+ assert.equal(result.facts.syncope.state,'not_asked');
+ assert.ok(result.items.some(item=>item.concept==='syncope'));
+ assert.equal(result.alerts.some(item=>item.concept==='syncope'),false);
+});

@@ -19,7 +19,7 @@
   c('neuro','Queixa neurológica',/tontura|vertigem|parestesia|fraqueza|dormencia|convulsao/);
   c('fever','Febre',/febre|febril|afebril/);
   c('dyspnea','Dispneia',/dispneia|falta de ar|dificuldade (?:para )?respirar|eupneic\w*/);
-  c('syncope','Síncope',/\bsincope\b|\bdesmai\w*/);
+  c('syncope','Síncope',/\bsincope\b|\bdesmai(?:o|ei|ou|ava|avam|aram|ando|a|am)\b/);
   c('sweating','Sudorese',/sudorese|suor frio/);
   c('focal','Déficit neurológico focal',/deficit(?:s)? (?:neurologic\w* )?foca\w*|hemiparesia|hemiplegia|assimetria facial|disartria/,'exame_fisico');
   c('consciousness','Alteração de consciência',/(?:alteracao|rebaixamento|perda) (?:da |de )?consciencia|inconscien\w*|glasgow\s*[:=]?\s*\d+|lucid\w*|confusao mental|desorientad\w*|sonolen\w*/,'exame_fisico','text');
@@ -64,7 +64,7 @@
   c('jointPain','Artralgia / dor articular',/\b(?:artralgia|artrite|dor (?:no|na|nos|nas) (?:joelho|ombro|cotovelo|punho|quadril|articulac\w*)|joelho doloroso)\b/);
   c('jointHot','Articulação quente / hiperemiada',/\b(?:articulac\w*|joelho|tornozelo)\b.{0,45}\b(?:quente|calor|hiperemi\w*|vermelh\w*|rubor)\b/,'exame_fisico');
   c('jointRange','Amplitude de movimento / limitação funcional',/\b(?:amplitude de movimento|mobilidade|movimentac\w*|flexao|extensao|limitac\w* funcional|limita\w* movimento)\b/,'exame_fisico','text');
-  c('weightBearing','Capacidade de apoiar / caminhar',/\b(?:consegue|incapaz|impossib\w*|dificuldade de)\b.{0,30}\b(?:andar|caminhar|apoiar|deambular)\b|\bapoio de peso\b/,'hda','text');
+  c('weightBearing','Capacidade de apoiar / caminhar',/\b(?:consegue|consigo|consegui|incapaz|impossib\w*|dificuldade de)\b.{0,30}\b(?:andar|caminhar|apoiar|deambular)\b|\bapoio de peso\b/,'hda','text');
   c('jointEffusion','Derrame articular / edema localizado',/\b(?:derrame articular|hidartrose|edema articular|joelho inchado|joelho com edema)\b/,'exame_fisico','text');
   c('wound','Ferida aberta / exposição',/\b(?:ferida aberta|ferimento aberto|exposicao ossea|fratura exposta|lacerac\w*)\b/,'exame_fisico');
   c('paresthesia','Parestesia ou déficit sensitivo',/\b(?:parestesi\w*|formigamento|dormencia|perda de sensibilidade)\b/,'hda');
@@ -150,7 +150,7 @@
       const clinician=['medico','medica','profissional'].includes(speaker),companion=speaker==='acompanhante';
       const t=norm(quote).replace(/^(?:medic[oa]|profissional|paciente|acompanhante):\s*/,''),ids=Object.values(concepts).filter(c=>!['comorbidities','medicines','allergies'].includes(c.id)&&c.pattern.test(t)).map(c=>c.id);
       // ASR often drops question marks. A clinician's question must not become a patient fact.
-      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmai\w*|sangue nas fezes)[.!]?$/i.test(t);
+      const clinicianPrompt=clinician&&/^(?:(?:voce|o senhor|a senhora)\s+)?(?:tem|teve|sente|sentiu|apresenta|apresentou|notou|percebeu|consegue|esta com|ta com|usa|toma|houve)\b|^(?:febre|dispneia|falta de ar|dor no peito|dor toracica|desmai\w*|sangue nas fezes)[.!]?$/i.test(t);
       const question=/\?\s*$/.test(quote)||clinicianPrompt||/^(?:voce (?:tem|teve|sente|sentiu)|ha algum|quando |onde |como |qual |desde quando |a dor .*(?:\bou\b|\?$))/.test(t);
       const third=/\b(?:minha|meu|sua|seu) (?:mae|pai|irma|irmao|esposa|marido|filh[oa]|avo)\b|^(?:a mae|o pai|a esposa|o marido) (?:tem|teve|sente|apresenta)/.test(t);
       const proposed=/^(?:investigar|considerar|avaliar|perguntar|se (?:tiver|apresentar)|caso (?:tenha|apresente))\b/.test(t);
@@ -280,7 +280,9 @@
             // Negation spans lists, but stops at an affirmative clause.
             const clause=prefix.split(/\b(?:refere|apresenta|relata|tem|teve|com)\b/).pop();
             const unknown=/talvez|acho que|nao lembro|nao entendi|nao (?:sei|sabe|soube)|nao (?:informad|relatad|investigad|avaliad|perguntad)|desconhec/.test(text)||(concept.id==='consciousness'&&/glasgow/.test(m[0])&&measurement(concept.id,m[0])===null);
-            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nunca tive)\b/.test(clause)||/\b(?:nao|nunca)\s+(?:teve|tem|apresenta|sente|possui|refere)\s*$/.test(prefix)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
+            let negative=/\b(?:nega|negou|sem|ausencia de|nao tenho|nao tive|nao sinto|nao houve|nao ha|nunca tive)\b/.test(clause)||/\b(?:nao|nunca)\s+(?:teve|tem|apresenta|sente|possui|refere)\s*$/.test(prefix)||/^\s*(?::|=)?\s*(?:negad[oa]|ausente|nao\b)/.test(suffix)||/^(?:afebril|eupneic)/.test(m[0]);
+            if(concept.id==='syncope'&&/\b(?:nao|nunca)\s*$/.test(prefix)&&/^desmai\w*/.test(m[0]))negative=true;
+            if(concept.id==='weightBearing'&&/\b(?:nao|nunca)\s*$/.test(prefix)&&/^(?:consigo|consegue|consegui)\b/.test(m[0]))negative=true;
             if(universal.has(concept.id))negative=/^(?:(?:comorbidades|alergias|medicacoes(?: utilizadas)?)\s*:\s*)?(?:nega\b|negou\b|sem\b|nao\s+(?:tem|possui|usa|toma|faz uso)\b)/.test(text);
             const value=measurement(concept.id,m[0]);
             if(concept.id==='consciousness'&&(/^lucid/.test(m[0])||value===15))negative=!negative;
