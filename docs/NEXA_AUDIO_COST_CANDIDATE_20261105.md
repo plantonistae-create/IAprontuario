@@ -29,13 +29,16 @@
 | `gpt-realtime-2.1-mini` áudio entrada | US$ 10/1M tokens |
 | `gpt-realtime-2.1-mini` áudio entrada em cache | US$ 0,30/1M tokens |
 | `gpt-realtime-2.1-mini` áudio saída | US$ 20/1M tokens |
+| `gpt-realtime-2.1-mini` texto entrada | US$ 0,60/1M tokens |
+| `gpt-realtime-2.1-mini` texto entrada em cache | US$ 0,06/1M tokens |
+| `gpt-realtime-2.1-mini` texto saída | US$ 2,40/1M tokens |
 
 Fontes oficiais:
 - https://developers.openai.com/api/docs/pricing
 - https://developers.openai.com/api/docs/guides/realtime-transcription
 - https://developers.openai.com/api/docs/guides/voice-webrtc
 
-**Não comparar US$ 0,017/min apenas com US$ 0,003/min:** o atual modo WebRTC abre uma sessão de modelo conversacional mais transcrição; seu custo efetivo depende dos tokens de áudio, cache e tempo. O candidato dedicado só será mais barato se o custo completo da sessão atual exceder US$ 0,017/min (na mesma configuração, sem contar custos comuns aos dois pipelines).
+**Não comparar US$ 0,017/min apenas com US$ 0,003/min:** o atual modo WebRTC abre uma sessão de modelo conversacional mais transcrição; seu custo efetivo depende dos tokens de áudio, cache, texto e tempo. O simulador só declara uma comparação numérica se tiver contadores de áudio **e** texto; do contrário, o resultado permanece explicitamente indisponível. O candidato dedicado só será mais barato se o custo completo da sessão atual exceder US$ 0,017/min (na mesma configuração, sem contar custos comuns aos dois pipelines).
 
 ## Gates antes de qualquer ativação
 
