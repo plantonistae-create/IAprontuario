@@ -64,3 +64,31 @@ As hipóteses de redução de pequenas quantidades de texto têm impacto matemá
 4. Quantificar ganho líquido frente a baseline, preferencialmente com comparação controlada e rollback; sem prova, manter Draft.
 
 **Rollback:** fechamento/revert da PR #118 remove apenas ferramenta/testes/documentação. Nenhum código da produção foi tocado. PRs #115/#117/#92/#93/#94/#111 preservadas.
+
+
+## P0 adicional — observabilidade do transporte WebRTC vs fallback
+
+Segunda leitura **somente agregada** dos mesmos sete recortes, agora usando logs técnicos `NEXA_AI_EXECUTION` por modelo e sucesso/erro, sem consultas individuais:
+
+| Início da janela UTC | Execuções WebRTC registradas | WebRTC com envelope HTTP_502 | Fallback em blocos: sucesso | Fallback: falha |
+|---|---:|---:|---:|---:|
+| 29/out | 6 | 6 | 17 | 0 |
+| 30/out | 23 | 23 | 633 | 1 |
+| 31/out | 19 | 19 | 695 | 0 |
+| 01/nov | 26 | 26 | 711 | 0 |
+| 02/nov | 19 | 19 | 462 | 0 |
+| 03/nov | 33 | 33 | 994 | 1 |
+| 04/nov | 35 | 35 | 1.001 | 0 |
+| **Total** | **161** | **161** | **4.513** | **2** |
+
+**Todos os 161 logs de execução de tentativa WebRTC encontrados neste recorte reportaram `HTTP_502` como envelope de resposta da Edge.** Não foi comprovado o status exato ou a causa da resposta da OpenAI, pois a função converte qualquer HTTP não-2xx upstream em 502 próprio. Logs de execução e Edge HTTP podem divergir por latência, instrumentação, janela ou retenção e não devem ser unidos por contagem.
+
+A instrumentação `nexa_realtime_upstream_v1` tem **zero eventos encontrados** nos sete recortes. A versão v6 da função em produção contém o helper, mas a ausência de eventos não prova falha do logger: versão, momento da publicação, caminho do código e janela precisam ser considerados. Só novos eventos agregados posteriores ao deploy podem esclarecer o status upstream real. Não inserir segredo ou payload SDP em logs.
+
+Taxas técnicas observadas: `161/161` tentativas WebRTC registradas resultaram em envelope 502; fallback em blocos com `4513/4515` sucessos técnicos. **Sucesso técnico não certifica fidelidade de transcrição clínica.**
+
+A ferramenta offline de sete dias passou a aceitar opcionalmente a seção agregada e estrita `technical_execution` por dia: `webrtc_attempt_logs`, `webrtc_http502_logs`, `chunk_success_logs`, `chunk_failed_logs`, `upstream_status_events`. Se omitida, o dia é classificado **sem cobertura**, e não como ausência de falhas. O analisador valida que erros WebRTC não excedem tentativas observadas, rejeita quaisquer outras propriedades e não calcula custos a partir de sucessos ou HTTP.
+
+**Prioridade técnica:** diagnóstico da negociação WebRTC com SDP completo e ICE gathering em navegador sintético isolado, conferência do schema/permissões/limites do endpoint e comparação dos impactos de latência e custo antes de qualquer mudança. Não alterar fluxo médico, gravação, ASR, fallback, modelos ou horários em produção sem homologação clínica e evidência de faturamento. Mesmo reparando o WebRTC, o caminho pode ter custo por modalidade diferente; reduzir falhas não é automaticamente reduzir a fatura.
+
+Os 161 envelopes 502 observados são um alvo de confiabilidade e disponibilidade, **não 161 cobranças extras demonstradas**.
