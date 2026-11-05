@@ -11,7 +11,8 @@ export async function radarRequestFingerprint(owner, provider, model, raw) {
   return [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
-export function createRadarInFlightCoalescer(limit = 64) {
+export function createRadarInFlightCoalescer(limit = 64, observe = console.info) {
+  if (typeof observe !== 'function') throw new Error('RADAR_OBSERVER_INVALID');
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1024) {
     throw new Error('RADAR_INFLIGHT_LIMIT_INVALID');
   }
@@ -20,7 +21,11 @@ export function createRadarInFlightCoalescer(limit = 64) {
     if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key) ||
         typeof execute !== 'function') throw new Error('RADAR_INFLIGHT_ARGS_INVALID');
     const existing = pending.get(key);
-    if (existing) return existing;
+    if (existing) {
+      // Aggregate counter only. Never log the hash or patient context.
+      try { observe('NEXA_RADAR_COALESCED_v1'); } catch {}
+      return existing;
+    }
     // If the isolate is busy, fail open: execute the clinical request separately.
     const promise = Promise.resolve().then(execute);
     if (pending.size >= limit) return promise;
