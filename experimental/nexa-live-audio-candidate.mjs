@@ -120,6 +120,9 @@ export const AUDIO_PRICES_USD = Object.freeze({
   realtime_mini_audio_input_million: 10.00,
   realtime_mini_audio_cached_input_million: 0.30,
   realtime_mini_audio_output_million: 20.00,
+  realtime_mini_text_input_million: 0.60,
+  realtime_mini_text_cached_input_million: 0.06,
+  realtime_mini_text_output_million: 2.40,
   fallback_mini_transcription_minute: 0.003
 });
 
@@ -132,13 +135,17 @@ export function compareLiveAudioCost({
   realtimeAudioInputTokens,
   realtimeAudioCachedInputTokens,
   realtimeAudioOutputTokens,
+  realtimeTextInputTokens,
+  realtimeTextCachedInputTokens,
+  realtimeTextOutputTokens,
   fallbackTranscriptionMinutes
 } = {}) {
   if (!nonnegative(minutes) || minutes > 1440)
     throw new Error('INVALID_AUDIO_DURATION');
   const dedicatedCostUsd = usd(minutes * AUDIO_PRICES_USD.live_transcribe_minute);
   const values = [realtimeAudioInputTokens,realtimeAudioCachedInputTokens,
-    realtimeAudioOutputTokens,fallbackTranscriptionMinutes];
+    realtimeAudioOutputTokens,realtimeTextInputTokens,realtimeTextCachedInputTokens,
+    realtimeTextOutputTokens,fallbackTranscriptionMinutes];
   if (!values.every(nonnegative)) return {
     comparable: false,
     dedicatedCostUsd,
@@ -147,13 +154,18 @@ export function compareLiveAudioCost({
     reason: 'CURRENT_AUDIO_USAGE_UNAVAILABLE'
   };
   if (realtimeAudioCachedInputTokens > realtimeAudioInputTokens ||
+      realtimeTextCachedInputTokens > realtimeTextInputTokens ||
       fallbackTranscriptionMinutes > minutes)
     throw new Error('INVALID_AUDIO_USAGE');
   const legacyUsd = (
     (realtimeAudioInputTokens - realtimeAudioCachedInputTokens) *
       AUDIO_PRICES_USD.realtime_mini_audio_input_million +
     realtimeAudioCachedInputTokens * AUDIO_PRICES_USD.realtime_mini_audio_cached_input_million +
-    realtimeAudioOutputTokens * AUDIO_PRICES_USD.realtime_mini_audio_output_million
+    realtimeAudioOutputTokens * AUDIO_PRICES_USD.realtime_mini_audio_output_million +
+    (realtimeTextInputTokens - realtimeTextCachedInputTokens) *
+      AUDIO_PRICES_USD.realtime_mini_text_input_million +
+    realtimeTextCachedInputTokens * AUDIO_PRICES_USD.realtime_mini_text_cached_input_million +
+    realtimeTextOutputTokens * AUDIO_PRICES_USD.realtime_mini_text_output_million
   ) / 1e6 + fallbackTranscriptionMinutes * AUDIO_PRICES_USD.fallback_mini_transcription_minute;
   return {
     comparable: true,
