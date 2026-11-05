@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
+import { emitRealtimeUpstreamStatus } from "../_shared/nexa-realtime-upstream-status.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -303,6 +304,9 @@ async function createRealtimeCall(
   const answerSdp =
     await upstream.text();
 
+  // OpenAI upstream HTTP status only; never emit SDP or response body.
+  emitRealtimeUpstreamStatus("webrtc", upstream.status);
+
   if (
     !upstream.ok
   ) {
@@ -427,6 +431,8 @@ async function transcribeFallback(
   if (
     !upstream.ok
   ) {
+    // Only log the provider status on a failed chunk; never the audio or text.
+    emitRealtimeUpstreamStatus("chunk", upstream.status);
     // Do not log consultation audio, transcript or upstream bodies.
 
     return json(
