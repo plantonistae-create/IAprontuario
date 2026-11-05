@@ -23,7 +23,7 @@
   // outbound request still receive the original literal transcript.
   function remoteKey(context){
     const transcript=typeof context?.transcript==='string'
-      ?context.transcript.replace(/[ \\t]+(?=\\r?$)/gm,'')
+      ?context.transcript.replace(/[ \t]+(?=\r?$)/gm,'')
       :context?.transcript;
     return JSON.stringify({...context,transcript});
   }
