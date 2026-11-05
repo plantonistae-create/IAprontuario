@@ -91,16 +91,18 @@ test('owner and encounter changes reject late results without carrying answers',
 });
 
 
-test('transcript trailing spaces and tabs never schedule a second paid analysis',async()=>{
+test('trailing spaces and tabs in transcript or clinical fields never schedule a second paid analysis',async()=>{
   const timer=clock();try{
     const {radar,calls,set}=setup();
-    const fields={hda:'Paciente: Tenho falta de ar.'};
+    const fields={hda:'Paciente: Tenho falta de ar.  '};
     set({fields,transcript:'Paciente: Nego febre.   \t'});
     radar.recalculate({remote:true});timer.tick(1500);
     assert.equal(calls.length,1);
     assert.equal(calls[0].input.transcript,'Paciente: Nego febre.   \t',
       'request payload retains literal transcript despite the scheduling key');
-    set({fields,transcript:'Paciente: Nego febre.'});
+    assert.equal(calls[0].input.fields.hda,'Paciente: Tenho falta de ar.  ',
+      'clinical fields must remain literal in provider payload');
+    set({fields:{hda:'Paciente: Tenho falta de ar.'},transcript:'Paciente: Nego febre.'});
     radar.recalculate({remote:true});
     assert.equal(calls[0].signal.aborted,false,'whitespace-only ASR updates cannot abort a useful request');
     calls[0].resolve({items:[]});await Promise.resolve();await Promise.resolve();
