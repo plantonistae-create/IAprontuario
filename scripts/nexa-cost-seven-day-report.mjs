@@ -13,29 +13,46 @@ function object(value,keys){
     Object.keys(value).some(k=>!keys.includes(k)))throw new Error('AGGREGATES_ONLY');
 }
 
+const TECH_FIELDS=['webrtc_attempt_logs','webrtc_http502_logs','chunk_success_logs','chunk_failed_logs','upstream_status_events'];
+function validTechnical(input){
+ object(input,TECH_FIELDS);
+ for(const field of TECH_FIELDS){
+  if(!Object.hasOwn(input,field)||!Number.isSafeInteger(input[field])||
+     input[field]<0||input[field]>1e12)throw new Error('INVALID_TECHNICAL_AGGREGATE');
+ }
+ if(input.webrtc_http502_logs>input.webrtc_attempt_logs)throw new Error('INCONSISTENT_WEBRTC_FAILURES');
+ return input;
+}
+
 export function analyzeSevenDays(data){
  object(data,['days']);
  if(!Array.isArray(data.days)||data.days.length!==7)throw new Error('REQUIRES_SEVEN_DAYS');
  let prevEnd=null;
  const reports=data.days.map((day,i)=>{
-  object(day,['window','usage','http_requests']);
+  object(day,['window','usage','http_requests','technical_execution']);
+  const technical=day.technical_execution===undefined?null:validTechnical(day.technical_execution);
   if(!day.window || !isoUtc(day.window.start_utc) || !isoUtc(day.window.end_utc))
    throw new Error('UTC_WINDOW_REQUIRED');
   const start=Date.parse(day.window.start_utc),end=Date.parse(day.window.end_utc);
   if(end-start!==86400000)throw new Error('FULL_DAY_WINDOW_REQUIRED');
   if(i>0&&start!==prevEnd)throw new Error('NONCONTIGUOUS_DAYS');
   prevEnd=end;
-  return analyzeAggregates(day);
+  return {...analyzeAggregates({window:day.window,usage:day.usage,http_requests:day.http_requests}),
+   technical_execution:technical};
  });
  const totals={radar_http_posts:0,radar_http_options:0,realtime_http_posts:0,realtime_http_options:0,
    consultation_http_posts:0,provider_usage_events:0,radar_usage_events:0,
    radar_input_tokens:0,radar_cached_tokens:0,radar_output_tokens:0,
    live_asr_usage_events:0,final_asr_usage_events:0,
-   documentation_usage_events:0,assistance_usage_events:0};
- let partialCost=0,radarCost=0,radarOutputCost=0,observedUsageDays=0,unpriced=false;
+   documentation_usage_events:0,assistance_usage_events:0,
+   webrtc_attempt_logs:0,webrtc_http502_logs:0,chunk_success_logs:0,
+   chunk_failed_logs:0,upstream_status_events:0};
+ let partialCost=0,radarCost=0,radarOutputCost=0,observedUsageDays=0,unpriced=false,technicalObservedDays=0;
  const days=[],radarGapDays=[],audioGapDays=[],notComparableDays=[];
  for(const report of reports){
   const date=report.window.start_utc.slice(0,10),http=report.http_requests_by_function_and_method;
+  const technical=report.technical_execution;
+  if(technical){technicalObservedDays++;for(const field of TECH_FIELDS)totals[field]+=technical[field];}
   const usage=report.usage_by_capability_and_model;
   const count=cap=>usage.filter(row=>row.capability===cap).reduce((n,row)=>n+row.usage_events,0);
   const radarCount=count('realtime.radar'),liveCount=count('realtime.transcription');
@@ -78,6 +95,7 @@ export function analyzeSevenDays(data){
    radar_usage_events:radarCount,live_asr_usage_events:liveCount,
    radar_input_tokens:radarInput,radar_cached_tokens:radarCache,radar_output_tokens:radarOutput,
    radar_cached_input_pct:radarInput?Math.round(radarCache/radarInput*10000)/100:null,
+   technical_execution:technical,
   });
  }
  return {
@@ -87,6 +105,9 @@ export function analyzeSevenDays(data){
   days,
   totals,
   days_with_usage_observed:observedUsageDays,
+  days_with_technical_execution_aggregates:technicalObservedDays,
+  observed_webrtc_http502_pct:totals.webrtc_attempt_logs?
+   Math.round(totals.webrtc_http502_logs/totals.webrtc_attempt_logs*10000)/100:null,
   priced_usage_estimate_usd:partialCost>0?round6(partialCost):null,
   priced_radar_usage_estimate_usd:radarCost>0?round6(radarCost):null,
   radar_cached_input_pct:totals.radar_input_tokens?
@@ -99,6 +120,9 @@ export function analyzeSevenDays(data){
   savings_measured_usd:null,billing_reconciled:false,
   coverage:{
    days_with_radar_POST_but_no_usage_event:radarGapDays,
+   days_without_technical_execution_aggregates:days.filter(d=>d.technical_execution===null).map(d=>d.window_start_utc.slice(0,10)),
+   upstream_status_events_not_observed:totals.webrtc_attempt_logs>0&&totals.upstream_status_events===0,
+   http_502_does_not_establish_openai_upstream_status:true,
    days_with_realtime_POST_but_no_live_ASR_usage_event:audioGapDays,
    days_with_radar_usage_events_exceeding_HTTP_POSTs:notComparableDays,
    unknown_billed_WebRTC_audio:true,
@@ -109,6 +133,7 @@ export function analyzeSevenDays(data){
   gates:[
    'RECONCILE_AGGREGATED_PROVIDER_BILLING_BY_DAY_AND_MODALITY',
    'VERIFY_WEBRTC_AUDIO_USAGE_AND_PROVIDER_COST',
+   'INVESTIGATE_WEBRTC_NEGOTIATION_WITH_SYNTHETIC_FIXTURES_BEFORE_ANY_RUNTIME_CHANGE',
    'CLINICAL_EQUIVALENCE_REQUIRED_FOR_ANY_SIGNAL_OR_OUTPUT_CHANGE',
    'NO_PAID_API_CALLS_OR_CLINICAL_RUNTIME_CHANGES',
   ]
