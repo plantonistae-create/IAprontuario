@@ -43,3 +43,20 @@ A transcrição literal e a análise local permaneceriam disponíveis para cada 
 ## O que fazer sem arriscar qualidade agora
 
 Continuar melhorias de deduplicação estritamente semânticas, eliminar pedidos redundantes com contexto idêntico/formatado, e aguardar o contador de upstream em uso normal. Não trocar ASR/modelo nem ampliar cadência até conclusão da homologação clínica. Priorizar em paralelo a preservação de áudio e casos de auditoria (PRs #92/#93/#94 em Draft), que é um risco operacional independente de custo.
+
+
+## Gate conservador adicional — implementado no laboratório
+
+A função offline `experimental/nexa-radar-deferral-gate.cjs` utiliza diretamente o motor real `NexaRadarEngine.analyze` para comparar cada atualização clínica com a anterior. Seu resultado possui apenas categorias técnicas, sem conteúdo de paciente.
+
+**Política fail-closed:**
+- Qualquer primeira fala, nova palavra, reescrita ASR, mudança de fala, dose, negação, dado do exame, CID, prontuário, médico, encontro, gravação, status da transcrição, retry ou encerramento => `immediate`.
+- Mesmo que o motor local não detecte mudança de fatos e perguntas, **uma fala atípica diferente ainda exige análise imediata** (`UNRECOGNIZED_OR_REPHRASED_EVIDENCE`).
+- Apenas uma cópia *exatamente idêntica* do contexto completo é classificada como `exact_duplicate`; isso já é deduplicação, não autorização de cadência estendida.
+- Nenhuma comparação do gate aprova a cadência de 12/16s; `approvedForLongerCadence` fica sempre `false`.
+- O laboratório não altera nem intercepta tráfego de produção e não expõe transcrições em métricas.
+
+`tests/nexa-radar-deferral-gate.test.cjs` cobre os cinco sistemas, falas atípicas não reconhecidas, mudanças em negadores, doses, falantes, contradições, HDA/CID, encerramento, estado de gravação e identidade. A comparação com o simulador demonstra que reduzir chamadas com 12/16s **pode retardar evidências novas não classificadas**, mesmo preservando transcrição final.
+
+**Conclusão:** o projeto ainda não dispõe de um detector de urgência capaz de justificar liberar a cadência maior. As próximas economias de produção devem ser estritamente relacionadas a requisições sem nova informação clínica, sem tocar no prazo das demais análises.
+
