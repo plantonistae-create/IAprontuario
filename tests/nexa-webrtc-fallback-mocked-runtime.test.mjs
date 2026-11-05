@@ -141,6 +141,24 @@ test('actual frontend: late successful WebRTC response cannot override active fa
  assert.equal(h.recorders.length,1);
 });
 
+test('actual frontend: watchdog starts chunks while pending WebRTC request is not aborted',async()=>{
+ const h=harness({deferred:true});
+ const running=h.start();
+ await flush();
+ assert.equal(h.calls.length,1);
+ const requestController=h.sandbox.radarTransportAbort;
+ assert.equal(requestController.signal.aborted,false);
+ h.fire(10000);
+ assert.equal(h.sandbox.radarFallbackActive,true);
+ assert.equal(h.recorders.length,1);
+ // This is a transport overlap opportunity, NOT proof the provider billed twice.
+ assert.equal(requestController.signal.aborted,false);
+ h.resolve(200);
+ await running;
+ assert.equal(h.pcs[0].remoteDescription,null);
+ assert.equal(h.recorders.length,1);
+});
+
 test('actual frontend: stale revision or stopped recording must not start fallback after a 502',async()=>{
  const h=harness({deferred:true});
  const running=h.start();
