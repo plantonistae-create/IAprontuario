@@ -2797,28 +2797,52 @@ async function nexaOpenTranscriptVersions(consult){
     dialog.append(draftNotice);
     const feedback=document.createElement('p');feedback.className='banner error';feedback.setAttribute('role','alert');
     feedback.hidden=true;correctionFeedback=feedback;dialog.append(feedback);
+    const corrected=versions.filter(row=>row.transcript_kind==='corrected');
+    const parent=corrected.at(-1)||original;
+    const draftBridge=window.NexaTranscriptDraftBridge?.enabled?.()
+      ?await window.NexaTranscriptDraftBridge.attach({dialog,edit,notice:draftNotice,consult,owner,versions,parent})
+      :null;
     const save=document.createElement('button');save.type='button';save.textContent='Registrar correção';
     save.onclick=async()=>{
+      if(correctionConfirmed)return;
       const text=edit.value.trim();if(!text)return show('Informe a correção antes de salvar.',true);
       if(epoch!==clinicalEpoch||currentProf?.id!==owner)return show('Sessão clínica alterada.',true);
-      const corrected=versions.filter(row=>row.transcript_kind==='corrected');
-      const parent=corrected.at(-1)||original;
-      correctionSaving=true;save.disabled=true;
+      correctionSaving=true;save.disabled=true;edit.readOnly=true;
       try{
-        const {error:writeError}=await nexaTranscriptTimedQuery(sb.from('encounter_transcript_versions').insert({
-          consultation_id:consult.id,encounter_id:consult.encounter_id,organization_id:consult.organization_id,
-          owner_user_id:owner,transcript_kind:'corrected',revision:corrected.length+1,
-          source_event_id:crypto.randomUUID(),corrected_from_id:parent.id,
-          source_provider:'human-review',source_model:'manual-correction',
-          source_pipeline_version:'nexa-transcript-v1',transcript_text:text,
-          consent_recorded_at:consult.consent_recorded_at
-        }),'TRANSCRIPT_CORRECTION_ACK_MISMATCH');
-        if(writeError)throw writeError;
+        const eventId=draftBridge?await draftBridge.flush(text):crypto.randomUUID();
+        if(epoch!==clinicalEpoch||currentProf?.id!==owner)throw Error('TRANSCRIPT_SESSION_CHANGED');
+        let writeError=null;
+        try{
+          const result=await nexaTranscriptTimedQuery(sb.from('encounter_transcript_versions').insert({
+            consultation_id:consult.id,encounter_id:consult.encounter_id,organization_id:consult.organization_id,
+            owner_user_id:owner,transcript_kind:'corrected',revision:corrected.length+1,
+            source_event_id:eventId,corrected_from_id:parent.id,
+            source_provider:'human-review',source_model:'manual-correction',
+            source_pipeline_version:'nexa-transcript-v1',transcript_text:text,
+            consent_recorded_at:consult.consent_recorded_at
+          }),'TRANSCRIPT_CORRECTION_ACK_MISMATCH');
+          writeError=result.error;
+        }catch(error){writeError=error}
+        if(draftBridge){
+          const {data:ack,error:ackError}=await nexaTranscriptTimedQuery(sb.from('encounter_transcript_versions')
+            .select('id,source_event_id,transcript_text,corrected_from_id,revision')
+            .eq('consultation_id',consult.id).eq('source_event_id',eventId).maybeSingle(),
+            'TRANSCRIPT_CORRECTION_ACK_MISMATCH');
+          if(ackError||!ack||ack.transcript_text!==text||ack.corrected_from_id!==parent.id||
+             ack.revision!==corrected.length+1)throw Error('TRANSCRIPT_CORRECTION_ACK_MISMATCH');
+          if(epoch!==clinicalEpoch||currentProf?.id!==owner)throw Error('TRANSCRIPT_SESSION_CHANGED');
+          correctionConfirmed=true;
+          if(!await draftBridge.acknowledge(eventId)){
+            feedback.textContent='Servidor confirmou a correção, mas o rascunho local cifrado não foi removido. Reabra as versões antes de corrigir novamente.';
+            feedback.hidden=false;return;
+          }
+        }
+        else if(writeError)throw writeError;
         correctionConfirmed=true;dialog.close();dialog.remove();await nexaOpenTranscriptVersions(consult);
       }catch{
         feedback.textContent='Correção não confirmada pelo servidor. Mantenha o texto nesta janela e recarregue as versões antes de tentar novamente.';
         feedback.hidden=false;
-      }finally{correctionSaving=false;save.disabled=false}
+      }finally{correctionSaving=false;save.disabled=correctionConfirmed;edit.readOnly=correctionConfirmed}
     };dialog.append(save);
   }
   const hasUnsavedCorrection=()=>!!correctionEdit?.value.trim()&&!correctionConfirmed;

@@ -2,6 +2,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {create}=require('../nexa-transcript-encrypted-draft');
+const bridge=require('../nexa-transcript-draft-bridge');
 const uuid=()=>crypto.randomUUID();
 const key=()=>crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 const binding=()=>({owner_user_id:uuid(),organization_id:uuid(),encounter_id:uuid(),
@@ -12,6 +13,24 @@ function store(){
     add:async item=>{if(fail)throw Error('synthetic storage failure');if(rows.has(item.id))throw Error('duplicate');rows.set(item.id,item)},
     all:async()=>[...rows.values()],remove:async id=>{if(fail)throw Error('synthetic storage failure');rows.delete(id)}};
 }
+
+test('draft bridge cannot activate on the public production host',()=>{
+  const previous={location:globalThis.location,flag:globalThis.__NEXA_TRANSCRIPT_DRAFT_E2E__,
+    store:globalThis.NexaTranscriptEncryptedDraft};
+  try{
+    globalThis.NexaTranscriptEncryptedDraft={create};
+    globalThis.__NEXA_TRANSCRIPT_DRAFT_E2E__={enabled:true};
+    globalThis.location={hostname:'plantonistae-create.github.io'};
+    assert.equal(bridge.enabled(),false);
+    globalThis.location={hostname:'127.0.0.1'};
+    delete globalThis.__NEXA_TRANSCRIPT_DRAFT_E2E__;
+    assert.equal(bridge.enabled(),false);
+  }finally{
+    globalThis.location=previous.location;
+    globalThis.__NEXA_TRANSCRIPT_DRAFT_E2E__=previous.flag;
+    globalThis.NexaTranscriptEncryptedDraft=previous.store;
+  }
+});
 
 test('a forced close can reopen only encrypted, unconfirmed snapshots with the supplied key',async()=>{
   const memory=store(),secret=await key(),slot=uuid(),scope=binding(),parent=uuid();

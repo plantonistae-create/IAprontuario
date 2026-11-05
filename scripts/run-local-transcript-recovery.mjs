@@ -23,10 +23,11 @@ const cliEnv={...process.env,SUPABASE_EXPERIMENTAL_STACK:'1',SUPABASE_HOME:home}
 function call(bin,args,env=cliEnv){
  const r=spawnSync(bin,args,{cwd:root,env,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:600000,maxBuffer:4*1024*1024});
  if(r.error||r.status!==0){
+  const phase=String(r.stderr||'').split('\n').find(line=>line.startsWith('Phase '))||'';
   const safe=String(r.stderr||'').replace(/postgres(?:ql)?:\/\/\S+/gi,'[redacted-db-url]')
    .replace(/eyJ[A-Za-z0-9._-]{40,}/g,'[redacted-jwt]').split('\n').slice(-4).join(' ').slice(0,500);
   const advisor=args.includes('advisors')?String(r.stdout||'').slice(-1000):'';
-  throw new Error(`Disposable transcript command failed: ${bin} (${r.status??r.error?.code}) ${safe} ${advisor}`);
+  throw new Error(`Disposable transcript command failed: ${bin} (${r.status??r.error?.code}) ${phase.slice(0,120)} ${safe} ${advisor}`);
  }
  return r.stdout||'';
 }
@@ -152,7 +153,8 @@ try{
   email:emailA,password,owner:a.data.user.id,organization:oa,encounter:browserEncounter,event:browserEvent,
   expiredJwt:expiringSession.access_token}),{mode:0o600});
  const browserResult=call(process.execPath,['tests/transcript/browser-two-contexts.cjs',browserFile]);
- assert.ok(browserResult.includes('session refresh')&&browserResult.includes('delayed POST timeout'));
+ assert.ok(browserResult.includes('session refresh')&&browserResult.includes('delayed POST timeout')&&
+  browserResult.includes('ENCRYPTED_EDITOR_CRASH_RECOVERY_PASS'));
  const revokedRefresh=await session3.auth.refreshSession();
  assert.equal(revokedRefresh.error?.code,'refresh_token_not_found',
   'Browser logout must revoke the earlier refresh token');
