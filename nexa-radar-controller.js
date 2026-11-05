@@ -56,8 +56,11 @@
       // only when the *entire earlier clinical prefix* is unchanged.
       // Punctuation, negation, medications and earlier words remain literal.
       const stablePrefix=a.replace(/[ \t]+$/,'');
-      if(!stablePrefix || !b.startsWith(stablePrefix) ||
-         b.length<=stablePrefix.length || !b.slice(stablePrefix.length).trim())return false;
+      // Preserve the existing empty-prefix and literal-append semantics.
+      // The new path is only for ASR rewrites of an existing whitespace tail.
+      if(!(b.startsWith(a)&&b.length>a.length) &&
+         (stablePrefix.length===a.length || !b.startsWith(stablePrefix) ||
+          b.length<=stablePrefix.length || !b.slice(stablePrefix.length).trim()))return false;
       // Field insertion order is not new patient evidence. Keep ongoing work
       // when the same fields arrive in a different JS-object key order.
       return remoteKey({...before,transcript:''})===remoteKey({...after,transcript:''});
