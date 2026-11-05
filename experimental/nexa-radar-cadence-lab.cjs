@@ -61,6 +61,7 @@ function simulateRadarCadence(events, {cadenceMs = 1500, localAnalyze = () => nu
     scheduled:sent, localUpdates:local.length,
     localAnalysisTimes:local.map(x=>x.atMs),
     urgentRemoteDelayMs:urgency.map(x=>x.remoteAtMs-x.atMs),
+    evidenceDelaysMs:events.map((e,i)=>sent.find(call=>call.lastEvidenceIndex>=i).atMs-e.atMs),
     finalTranscriptCovered:true
   };
 }
