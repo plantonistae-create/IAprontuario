@@ -73,7 +73,7 @@ test('completion preceding its commit is buffered, never mistaken for first utte
  buffer.ingest({type:'input_audio_buffer.committed',item_id:'b'});
  assert.deepEqual(buffer.snapshot(),{transcript:'',complete:false,unavailable:false,pending:1});
  buffer.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Tem alergias?'});
- assert.deepEqual(buffer.snapshot(),{transcript:'Tem alergias?\\nNega alergias.',complete:true,unavailable:false,pending:0});
+ assert.deepEqual(buffer.snapshot(),{transcript:'Tem alergias?\nNega alergias.',complete:true,unavailable:false,pending:0});
 });
 
 test('missing or failed audio is explicit, and later speech never erases a gap',()=>{
