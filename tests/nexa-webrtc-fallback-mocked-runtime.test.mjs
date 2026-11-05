@@ -13,10 +13,10 @@ const end=frontend.indexOf('function stopRealtimeRadar(',start);
 assert.ok(start>0&&end>start,'actual frontend functions must be present');
 const transportCode=frontend.slice(start,end);
 
-function harness({status=200,deferred=false,authenticated=true}={}){
+function harness({status=200,deferred=false,authenticated=true,candidateAbortOnFallback=false,abortableFetch=false}={}){
  const pcs=[],recorders=[],calls=[],statuses=[];
  const timers=new Map();
- let seq=0,pending=null;
+ let seq=0,pending=null,abortSeen=0;
  const mediaStream={getAudioTracks:()=>[{kind:'audio',synthetic:true}]};
  class FakePeer {
   constructor(){this.remoteDescription=null;this.closed=false;this.channels=[];pcs.push(this);}
@@ -68,14 +68,29 @@ function harness({status=200,deferred=false,authenticated=true}={}){
    const body=JSON.parse(init.body);
    calls.push({app_version:body.app_version,has_offer_snapshot:body.sdp==='v=0\r\ns=fake\r\n',
     includes_final_ice_candidate:body.sdp.includes('a=candidate:')});
-   if(deferred)return new Promise(resolve=>{pending=resolve;});
+   if(deferred)return new Promise((resolve,reject)=>{
+    pending=resolve;
+    if(abortableFetch) {
+     if(init.signal.aborted){abortSeen++;reject(new Error('SYNTHETIC_ABORT'));return;}
+     init.signal.addEventListener('abort',()=>{
+      abortSeen++;reject(new Error('SYNTHETIC_ABORT'));
+     },{once:true});
+    }
+   });
    return response(status);
   },
   mediaStream,
  };
- vm.runInNewContext(transportCode,sandbox,{timeout:1000,filename:'real-frontend-fake-dependencies'});
+ let codeToRun=transportCode;
+ if(candidateAbortOnFallback){
+  const anchor="radarFallbackActive=true;clearTimeout(radarConnectTimeout);";
+  assert.equal(transportCode.split(anchor).length,2,'exactly one safe injection point');
+  codeToRun=transportCode.replace(anchor,anchor+
+   "\n  radarTransportAbort?.abort(); // SYNTHETIC CANDIDATE ONLY; not in runtime");
+ }
+ vm.runInNewContext(codeToRun,sandbox,{timeout:1000,filename:'real-frontend-fake-dependencies'});
  return {
-  sandbox,pcs,recorders,calls,statuses,timers,
+  sandbox,pcs,recorders,calls,statuses,timers,get abortSeen(){return abortSeen;},
   start:()=>sandbox.startRealtimeRadar(mediaStream),
   resolve:(code)=>{assert.ok(pending,'deferred request not reached');pending(response(code));},
   fire:(delay)=>{for(const [id,t] of [...timers])if(t.delay===delay){timers.delete(id);t.fn();}},
@@ -157,6 +172,48 @@ test('actual frontend: watchdog starts chunks while pending WebRTC request is no
  await running;
  assert.equal(h.pcs[0].remoteDescription,null);
  assert.equal(h.recorders.length,1);
+});
+
+test('synthetic-only candidate aborts pending fetch at fallback, without duplicate recorder',async()=>{
+ const h=harness({deferred:true,abortableFetch:true,candidateAbortOnFallback:true});
+ const running=h.start();
+ await flush();
+ assert.equal(h.calls.length,1);
+ const parent=h.sandbox.radarTransportAbort;
+ assert.equal(parent.signal.aborted,false);
+ h.fire(10000);
+ await running;
+ assert.equal(parent.signal.aborted,true);
+ assert.equal(h.abortSeen,1,'the stub transport observed exactly one abort');
+ assert.equal(h.sandbox.radarFallbackActive,true);
+ assert.equal(h.recorders.length,1);
+ assert.equal(h.pcs[0].remoteDescription,null);
+ h.fire(10000);
+ assert.equal(h.recorders.length,1);
+});
+
+test('naive abort candidate changes abort lifecycle also used to guard chunk fallback',async()=>{
+ const h=harness({deferred:true,abortableFetch:true,candidateAbortOnFallback:true});
+ const run=h.start();await flush();h.fire(10000);await run;
+ assert.equal(h.sandbox.radarTransportAbort.signal.aborted,true);
+ // Current chunk drain registers abort bridging on this same shared controller.
+ // New listeners attached after parent abort do not re-fire that past event.
+ assert.match(transportCode,/radarTransportAbort\?\.signal\.addEventListener\('abort',abort,/);
+ const parent=h.sandbox.radarTransportAbort;
+ let notified=0;
+ parent.signal.addEventListener('abort',()=>notified++);
+ await flush();
+ assert.equal(notified,0);
+ // Hence simply inserting abort() in the real frontend is NOT authorized.
+});
+
+test('candidate abort does not run on WebRTC 200/open before fallback',async()=>{
+ const h=harness({status:200,candidateAbortOnFallback:true,abortableFetch:true});
+ await h.start();
+ h.pcs[0].channels[0].onopen();h.fire(10000);
+ assert.equal(h.sandbox.radarTransportAbort.signal.aborted,false);
+ assert.equal(h.sandbox.radarFallbackActive,false);
+ assert.equal(h.abortSeen,0);
 });
 
 test('actual frontend: stale revision or stopped recording must not start fallback after a 502',async()=>{
