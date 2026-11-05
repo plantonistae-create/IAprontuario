@@ -3,6 +3,7 @@ import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from 
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { reviewMedicationVolume } from "../_shared/nexa-medication-review.mjs";
+import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1127,6 +1128,12 @@ async function openAIResponse(
   const response =
     await resp.json();
 
+  // Aggregate provider counters only; never log prompts or response text.
+  if (name === "clinical_documentation") {
+    emitUsage("clinical.documentation", model, response.usage);
+  } else if (name === "clinical_assistance") {
+    emitUsage("clinical.assistance", model, response.usage);
+  }
 
   const text =
     extractResponseText(
@@ -1261,6 +1268,7 @@ async function processOpenAI(
   const transcriptionData =
     await tr.json();
 
+  emitUsage("final.transcription", transcribeModel, transcriptionData.usage);
 
   transcript =
     transcriptionData.text || "";
