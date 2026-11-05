@@ -40,7 +40,7 @@ test('candidate is offline and disconnected from clinical production',()=>{
   assert.doesNotMatch(readFileSync(file,'utf8'),/nexa-radar-cadence-lab/);
  }
  const ui=readFileSync('index.html','utf8');
- assert.match(ui,/radarChunkStopper=setTimeout\(\(\)=>\{if\(rec.state!=='inactive'\)rec.stop\(\)\},8000\)/);
+ assert.ok(ui.includes("radarChunkStopper=setTimeout(()=>{if(rec.state!=='inactive')rec.stop();},8000)"), 'the current fallback records at 8 seconds per chunk');
 });
 
 for(const c of cases){
