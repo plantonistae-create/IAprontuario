@@ -168,3 +168,11 @@ test('a hypothetical fainting warning does not become an observed episode',()=>{
  assert.ok(result.items.some(item=>item.concept==='syncope'));
  assert.equal(result.alerts.some(item=>item.concept==='syncope'),false);
 });
+
+test('plural fainting episodes remain explicit evidence without promoting a denied history',()=>{
+ const episodes=scan('Paciente: Tive dois desmaios hoje.');
+ assert.equal(episodes.facts.syncope.state,'known_present');
+ const denied=scan('Médico: Teve desmaios. Paciente: Não.');
+ assert.equal(denied.facts.syncope.state,'known_absent');
+ assert.equal(denied.alerts.some(item=>item.concept==='syncope'),false);
+});
