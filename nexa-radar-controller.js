@@ -16,16 +16,18 @@
   }
   // The model needs prior answers, not account or encounter identifiers.
   function remoteState(snapshot){return {version:snapshot?.version||1,ledger:snapshot?.ledger||{}};}
-  // ASR can rewrite trailing horizontal whitespace without adding a word.
-  // The remote decision must retain all newlines, words, punctuation,
-  // negations, dose separators and clinical fields exactly as received.
-  // This affects only the *request identity*: the clinical engine and
-  // outbound request still receive the original literal transcript.
+  // Trailing horizontal spaces from ASR or textarea reformatting never
+  // alter clinical meaning. Normalize only the request identity, not the
+  // clinical engine, literal transcript, original fields or provider payload.
+  // Preserve words, newlines, punctuation, number separators, negations and CID.
+  function trailingSpaceValue(value){
+    return typeof value==='string'?value.replace(/[ \t]+(?=\r?$)/gm,''):value;
+  }
   function remoteKey(context){
-    const transcript=typeof context?.transcript==='string'
-      ?context.transcript.replace(/[ \t]+(?=\r?$)/gm,'')
-      :context?.transcript;
-    return JSON.stringify({...context,transcript});
+    const fields=context?.fields&&typeof context.fields==='object'&&!Array.isArray(context.fields)
+      ?Object.fromEntries(Object.entries(context.fields).map(([field,value])=>[field,trailingSpaceValue(value)]))
+      :context?.fields;
+    return JSON.stringify({...context,fields,transcript:trailingSpaceValue(context?.transcript)});
   }
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
