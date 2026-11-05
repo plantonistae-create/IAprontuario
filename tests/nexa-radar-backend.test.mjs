@@ -73,3 +73,35 @@ test('Radar coalescing is gated after clinical Auth and clones HTTP bodies',()=>
  assert.match(source,/coalesceRadarInFlight\(requestKey,/);
  assert.match(source,/withTechnicalExecutionHeaders\(radarResponse\.clone\(\),radarMetadata\)/);
 });
+
+test('coalescing reports only the count of avoided calls, never patient evidence',async()=>{
+ const events=[];
+ const coalesce=createRadarInFlightCoalescer(64,event=>events.push(event));
+ const key=await radarRequestFingerprint('synthetic-doctor','openai','gpt-5.6-luna',
+   '{"transcript":"synthetic private text"}');
+ let resolve,calls=0;
+ const first=coalesce(key,()=>{calls++;return new Promise(done=>{resolve=done;});});
+ const second=coalesce(key,()=>{throw Error('must never duplicate the provider');});
+ await Promise.resolve();
+ assert.equal(calls,1);
+ assert.strictEqual(first,second);
+ assert.deepEqual(events,['NEXA_RADAR_COALESCED_v1']);
+ assert.equal(events.join('').includes('private'),false);
+ assert.equal(events.join('').includes(key),false);
+ resolve({items:[]});await Promise.all([first,second]);
+ const another=await coalesce(key,()=>{calls++;return Promise.resolve({items:[]});});
+ assert.equal(calls,2,'new request after completion must not reuse stale answer');
+ assert.deepEqual(events,['NEXA_RADAR_COALESCED_v1'],'only in-flight duplication emits a counter');
+});
+
+test('monitoring failures never interrupt the Radar, even on shared requests',async()=>{
+ const coalesce=createRadarInFlightCoalescer(64,()=>{throw Error('logging unavailable')});
+ const key='a'.repeat(64);
+ let release;
+ const first=coalesce(key,()=>new Promise(done=>{release=done;}));
+ const second=coalesce(key,()=>Promise.reject(new Error('should not execute')));
+ await Promise.resolve();
+ release('ok');
+ assert.deepEqual(await Promise.all([first,second]),['ok','ok']);
+ assert.throws(()=>createRadarInFlightCoalescer(64,{}),/RADAR_OBSERVER_INVALID/);
+});
