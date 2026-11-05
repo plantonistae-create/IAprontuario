@@ -1,0 +1,35 @@
+name: NEXA Local Transcript Recovery
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'scripts/run-local-transcript-recovery.mjs'
+      - 'scripts/verify-transcript-new-process.mjs'
+      - 'tests/transcript/local-transcript-schema.sql'
+      - 'tests/transcript/browser-two-contexts.cjs'
+      - 'nexa-transcript-encrypted-draft.js'
+      - 'nexa-transcript-draft-bridge.js'
+      - 'nexa-history-style-audit-v18.9.7.js'
+      - 'supabase/migrations/20261027140151_nexa_encounter_transcript_versions.sql'
+      - '.github/workflows/nexa-transcript-local-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-transcript-auth-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Install Chromium for independent browser contexts
+        run: npx playwright install --with-deps chromium
+      - name: Check local-only draft bridge syntax
+        run: node --check nexa-transcript-draft-bridge.js && node --check tests/transcript/browser-two-contexts.cjs
+      - name: Recover synthetic transcript in separate local Auth sessions
+        run: node scripts/run-local-transcript-recovery.mjs

@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
+import { buildTranscriptProvenance } from "../_shared/nexa-transcript-provenance.mjs";
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { reviewMedicationVolume } from "../_shared/nexa-medication-review.mjs";
@@ -1299,6 +1300,14 @@ async function processOpenAI(
     );
 
 
+  const transcriptProvenance = buildTranscriptProvenance({
+    enabled:Deno.env.get('NEXA_TRANSCRIPT_PROVENANCE_RESPONSE')==='enabled',
+    text:transcript,provider:'openai',
+    transcriberModel:verifiedTranscript ? 'speaker-transcript-input' : transcribeModel,
+    structuringModel:structModel,
+    pipelineVersion:'2026-09-02-v3.3.3-ps-antecedentes-dor-febre',
+    sourceEventId:crypto.randomUUID(),sourceKind:'final'
+  });
   const docs = normalizeHdaSource(rawDocs,transcript);
 
   /* ASSISTÊNCIA */
@@ -1330,6 +1339,8 @@ async function processOpenAI(
       ...assist
     },
     medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
+
+    transcript_provenance:transcriptProvenance,
 
     provider:
       "openai",
@@ -1657,6 +1668,12 @@ async function processGemini(
     );
 
 
+  const transcriptProvenance = buildTranscriptProvenance({
+    enabled:Deno.env.get('NEXA_TRANSCRIPT_PROVENANCE_RESPONSE')==='enabled',
+    text:transcript,provider:'gemini',transcriberModel:model,structuringModel:model,
+    pipelineVersion:'2026-09-02-v3.3.3-ps-antecedentes-dor-febre',
+    sourceEventId:crypto.randomUUID(),sourceKind:'final'
+  });
   const docs = normalizeHdaSource(rawDocs,transcript);
 
   /* ASSISTÊNCIA */
@@ -1686,6 +1703,8 @@ async function processGemini(
       ...assist
     },
     medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
+
+    transcript_provenance:transcriptProvenance,
 
     provider:
       "gemini",
