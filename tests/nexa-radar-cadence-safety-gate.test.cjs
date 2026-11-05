@@ -138,6 +138,12 @@ test('malformed or missing contexts fail closed and do not disclose case text in
  assert.equal(denied.reason,'INVALID_OR_UNKNOWN_CONTEXT');
  assert.equal(denied.requiresRemoteReview,true);
  assert.equal(decideConservativeDeferral(null,before).reason,'FIRST_EVIDENCE');
+ const unknownStatus=decideConservativeDeferral(before,{...before,transcriptIncomplete:true});
+ assert.equal(unknownStatus.requiresRemoteReview,true);
+ assert.equal(unknownStatus.allowSkip,false,'unrecognized safety metadata must block deduplication');
+ const cyc={};cyc.self=cyc;
+ const broken=decideConservativeDeferral(before,{...before,unexpected:cyc});
+ assert.equal(broken.reason,'SAFETY_GATE_EVALUATION_FAILED');
  const update=decideConservativeDeferral(before,{
   ...before,transcript:before.transcript+'\nPaciente: Sinal incomum.'});
  assert.equal(JSON.stringify(update).includes('privados'),false,
