@@ -205,3 +205,69 @@ test('reordering cannot hide changed negations, dosages or clinical field values
   radar.reset();
  }finally{timer.restore()}
 });
+
+
+test('ASR trims prior trailing spaces before appending a new utterance without wasting in-flight work',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const fields={hda:'Paciente: Dor torácica.'};
+  set({fields,transcript:'Paciente: Nego febre.  \t'});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  set({fields,transcript:'Paciente: Nego febre.\nPaciente: Também tive falta de ar.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,false,
+    'old unchanged clinical prefix must retain its useful in-flight request');
+  assert.equal(radar.state.facts.dyspnea.state,'known_present',
+    'the local detector must process the new respiratory alarm immediately');
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();
+  timer.tick(1500);
+  assert.equal(calls.length,2,
+    'new evidence still requires one and only one additional remote analysis');
+  assert.equal(calls[1].input.transcript,'Paciente: Nego febre.\nPaciente: Também tive falta de ar.',
+    'transcription sent to the model remains original and complete');
+  calls[1].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();timer.tick(2000);
+  assert.equal(calls.length,2);
+  radar.reset();
+ }finally{timer.restore()}
+});
+
+test('ASR prefix correction changes clinical meaning and must abort stale analysis',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const fields={hda:'Paciente: Dor torácica.'};
+  set({fields,transcript:'Paciente: Nego alergias. \t'});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  set({fields,transcript:'Paciente: Tenho alergias.\nPaciente: Uso dipirona 1000 mg.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,true,
+    'modified negation cannot be mistaken for appended speech');
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();timer.tick(1500);
+  assert.equal(calls.length,2);
+  assert.equal(calls[1].input.transcript.includes('Tenho alergias.'),true);
+  calls[1].resolve({items:[]});await Promise.resolve();await Promise.resolve();
+  radar.reset();
+ }finally{timer.restore()}
+});
+
+test('ASR-only whitespace rewrite schedules no new call and does not erase patient evidence',async()=>{
+ const timer=clock();try{
+  const {radar,calls,set}=setup();
+  const fields={hda:'Paciente: Cefaleia de início súbito.'};
+  set({fields,transcript:'Paciente: Cefaleia intensa.    '});
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  set({fields,transcript:'Paciente: Cefaleia intensa.'});
+  radar.recalculate({remote:true});
+  assert.equal(calls[0].signal.aborted,false);
+  calls[0].resolve({items:[]});
+  await Promise.resolve();await Promise.resolve();timer.tick(1600);
+  assert.equal(calls.length,1);
+  assert.equal(radar.state.facts.sudden.state,'known_present');
+  radar.reset();
+ }finally{timer.restore()}
+});
