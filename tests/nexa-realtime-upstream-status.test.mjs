@@ -38,7 +38,7 @@ test('malformed diagnostic data does not write logs and logging failure does not
 
 test('status-only instrumentation appears after OpenAI response; clinical paths and fallback remain intact',()=>{
  const src=readFileSync(new URL('../supabase/functions/realtime-call/index.ts',import.meta.url),'utf8');
- assert.match(src,/import \{ emitRealtimeUpstreamStatus \} from ".\.\.\/_shared\/nexa-realtime-upstream-status\.mjs"/);
+ assert.ok(src.includes('import { emitRealtimeUpstreamStatus } from "../_shared/nexa-realtime-upstream-status.mjs"'));
  const webrtc=src.indexOf('emitRealtimeUpstreamStatus("webrtc", upstream.status)');
  const fallback=src.indexOf('emitRealtimeUpstreamStatus("chunk", upstream.status)');
  assert.ok(webrtc>src.indexOf('const answerSdp ='));
