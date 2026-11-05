@@ -83,15 +83,25 @@ test('cost estimate does not invent savings or double count shared final transcr
     potentialSavingsUsd:null,reason:'CURRENT_AUDIO_USAGE_UNAVAILABLE'
   });
   const usage=compareLiveAudioCost({minutes:10,realtimeAudioInputTokens:50000,
-    realtimeAudioCachedInputTokens:0,realtimeAudioOutputTokens:0,fallbackTranscriptionMinutes:0});
+    realtimeAudioCachedInputTokens:0,realtimeAudioOutputTokens:0,
+    realtimeTextInputTokens:0,realtimeTextCachedInputTokens:0,realtimeTextOutputTokens:0,
+    fallbackTranscriptionMinutes:0});
+  assert.equal(compareLiveAudioCost({minutes:10,realtimeAudioInputTokens:50000,
+    realtimeAudioCachedInputTokens:0,realtimeAudioOutputTokens:0,
+    fallbackTranscriptionMinutes:0}).comparable,false,
+    'the Realtime text counters must be known before comparing full sessions');
   assert.equal(usage.comparable,true);
   assert.equal(usage.dedicatedCostUsd,0.17);
   assert.equal(usage.currentCostUsd,0.5);
   assert.equal(usage.potentialSavingsUsd,0.33);
   const cheaperLegacy=compareLiveAudioCost({minutes:10,realtimeAudioInputTokens:1000,
-    realtimeAudioCachedInputTokens:0,realtimeAudioOutputTokens:0,fallbackTranscriptionMinutes:0});
+    realtimeAudioCachedInputTokens:0,realtimeAudioOutputTokens:0,
+    realtimeTextInputTokens:0,realtimeTextCachedInputTokens:0,realtimeTextOutputTokens:0,
+    fallbackTranscriptionMinutes:0});
   assert.ok(cheaperLegacy.potentialSavingsUsd<0,'dedicated audio can be more expensive');
   assert.throws(()=>compareLiveAudioCost({minutes:-1}),/INVALID_AUDIO_DURATION/);
   assert.throws(()=>compareLiveAudioCost({minutes:10,realtimeAudioInputTokens:10,
-    realtimeAudioCachedInputTokens:11,realtimeAudioOutputTokens:0,fallbackTranscriptionMinutes:0}),/INVALID_AUDIO_USAGE/);
+    realtimeAudioCachedInputTokens:11,realtimeAudioOutputTokens:0,
+    realtimeTextInputTokens:0,realtimeTextCachedInputTokens:0,realtimeTextOutputTokens:0,
+    fallbackTranscriptionMinutes:0}),/INVALID_AUDIO_USAGE/);
 });
