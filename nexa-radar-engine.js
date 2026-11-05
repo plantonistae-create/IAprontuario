@@ -19,7 +19,7 @@
   c('neuro','Queixa neurológica',/tontura|vertigem|parestesia|fraqueza|dormencia|convulsao/);
   c('fever','Febre',/febre|febril|afebril/);
   c('dyspnea','Dispneia',/dispneia|falta de ar|dificuldade (?:para )?respirar|eupneic\w*/);
-  c('syncope','Síncope',/\bsincope\b|\bdesmai(?:o|ei|ou|ava|avam|aram|ando|a|am)\b/);
+  c('syncope','Síncope',/\bsincope\b|\bdesmai(?:os?|ei|ou|ava|avam|aram|ando|a|am)\b/);
   c('sweating','Sudorese',/sudorese|suor frio/);
   c('focal','Déficit neurológico focal',/deficit(?:s)? (?:neurologic\w* )?foca\w*|hemiparesia|hemiplegia|assimetria facial|disartria/,'exame_fisico');
   c('consciousness','Alteração de consciência',/(?:alteracao|rebaixamento|perda) (?:da |de )?consciencia|inconscien\w*|glasgow\s*[:=]?\s*\d+|lucid\w*|confusao mental|desorientad\w*|sonolen\w*/,'exame_fisico','text');
