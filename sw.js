@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-core-audit-v4-reset-20261025";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261025-core-audit-v4-reset";
+const CACHE_NAME="nexa-v18-15-0-autosave-bounded-20261106";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261106-autosave-bounded";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){

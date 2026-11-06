@@ -108,3 +108,72 @@ const after=await api.preserve('later',{sync:false});
 assert.equal(after.encounter_state,'audited');
 assert.equal(after.sync_state,'locked','An audited encounter must remain locked after local edits');
 console.log('NEXA encounter autosave offline, audit, CAS contract: PASS');
+
+
+// Regression: continuous typing must not postpone every durable local save.
+// Timers and IndexedDB are synthetic; no network, credentials or patient data.
+{
+ const saved=new Map(),listeners=new Map(),timers=new Map(),session=new Map();
+ let clock=0,timerId=0,typed='HDA fictícia inicial',uuidCount=0;
+ const schedule=(fn,ms=0)=>{const id=++timerId;timers.set(id,{at:clock+ms,fn});return id};
+ const clear=id=>timers.delete(id);
+ const advance=async ms=>{
+   const end=clock+ms;
+   while(true){
+     const next=[...timers].filter(([,x])=>x.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];
+     if(!next)break;
+     clock=next[1].at;timers.delete(next[0]);next[1].fn();
+     for(let n=0;n<12;n++)await Promise.resolve();
+   }
+   clock=end;
+   for(let n=0;n<12;n++)await Promise.resolve();
+ };
+ const doc={
+   documentElement:{dataset:{}},
+   getElementById:()=>null,
+   querySelectorAll:()=>[],
+   addEventListener:(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn)}
+ };
+ const ctx={
+   console,structuredClone,document:doc,navigator:{onLine:false},
+   sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,String(v)),removeItem:k=>session.delete(k)},
+   indexedDB:{open(){throw new Error('Synthetic adapter must be used')}},
+   crypto:{randomUUID:()=> '22222222-2222-4222-8222-'+String(++uuidCount).padStart(12,'0')},
+   CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},
+   setTimeout:schedule,clearTimeout:clear,addEventListener(){},dispatchEvent(){},
+   currentProf:{id:profileId},collect:()=>({hda:typed}),window:null
+ };
+ ctx.window=ctx;
+ vm.runInNewContext(source,ctx);
+ const bounded=ctx.nexaEncounterAutosave18101;
+ bounded.setStoreAdapter({
+   get:async id=>structuredClone(saved.get(id)||null),
+   put:async item=>{saved.set(item.encounter_id,structuredClone(item));return item},
+   all:async()=>structuredClone([...saved.values()]),
+   comparePut:async(expected,item)=>{
+     const previous=saved.get(expected.encounter_id);
+     if(!previous||previous.local_revision!==expected.local_revision)return false;
+     saved.set(item.encounter_id,structuredClone(item));return true;
+   }
+ });
+ timers.clear(); // Synthetic startup flush is irrelevant for this test.
+ const initial=await bounded.startNew('synthetic_start');
+ assert.equal(initial.local_revision,1);
+ for(let i=1;i<=65;i++){
+   typed='HDA fictícia em digitação contínua '+String(i);
+   for(const listener of listeners.get('input')||[])
+     listener({target:{matches:selector=>selector==='textarea,input,select',closest:()=>null}});
+   await advance(100);
+ }
+ const durable=await bounded.get(initial.encounter_id);
+ assert.ok(durable.local_revision>=2,'an uninterrupted edit must be saved before typing ends');
+ assert.match(durable.fields.hda,/HDA fictícia em digitação contínua/);
+ assert.ok(durable.fields.hda!=='HDA fictícia inicial','save must contain newer content');
+ const beforeNavigation=durable.local_revision;
+ await bounded.preserve('navigation',{sync:false});
+ assert.equal(timers.size,0,'manual/navigation persistence must consume both edit timers');
+ await advance(6000);
+ assert.equal((await bounded.get(initial.encounter_id)).local_revision,beforeNavigation+1,
+   'stale input timer must not overwrite a navigation snapshot');
+}
+console.log('NEXA continuous-edit autosave max-wait regression: PASS');

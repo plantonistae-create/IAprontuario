@@ -12,7 +12,7 @@ const START='#recBtn,#nfStart';
 const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.stringify(x))}};
 const nowIso=()=>new Date().toISOString();
-let storeAdapter=null,archiveAdapter=null,persistTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
+let storeAdapter=null,archiveAdapter=null,persistTimer=null,persistMaxTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
 let localPersistQueue=Promise.resolve();
 const editedAfterReconciliation=new Set();
 function serializeLocal(fn){const p=localPersistQueue.then(fn,fn);localPersistQueue=p.catch(()=>{});return p}
@@ -274,6 +274,9 @@ async function syncOne(rec){
 }
 }
 async function preserve(reason='autosave',{sync=true}={}){
+ // A manual/navigation/reset save consumes the pending debounce and max-wait.
+ // Capturing here must precede any asynchronous IndexedDB work.
+ cancelScheduledPersist();
  // Capture before queued IndexedDB work: Reset/pagehide may clear the visible form.
  const existingId=currentEncounterId(),fields=collectFields();
  return serializeLocal(async()=>{
@@ -384,7 +387,17 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
  window.dispatchEvent(new CustomEvent('nexa:encounter-conflict-resolved',{detail:{encounter_id:id,choice:mode}}));
  return{resolved:true,item:saved};
 }
-function schedulePersist(reason='input'){clearTimeout(persistTimer);persistTimer=setTimeout(()=>void preserve(reason),350)}
+function cancelScheduledPersist(){
+ clearTimeout(persistTimer);clearTimeout(persistMaxTimer);
+ persistTimer=null;persistMaxTimer=null;
+}
+function schedulePersist(reason='input'){
+ // Trailing 350 ms debounce preserves existing quiet-period behavior. Without
+ // a maximum wait, uninterrupted typing can defer ALL durable saves indefinitely.
+ clearTimeout(persistTimer);
+ persistTimer=setTimeout(()=>void preserve(reason),350);
+ if(persistMaxTimer===null)persistMaxTimer=setTimeout(()=>void preserve('input_max_wait'),5000);
+}
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked','conflict'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
 async function flush(reason='manual'){
  if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
