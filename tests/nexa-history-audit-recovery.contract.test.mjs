@@ -80,3 +80,63 @@ test('recovery UI exposes manual CAS retry and authenticated audit submission, w
  assert.match(history,/14\*86400000/);
 });
 
+
+
+test('session autosave checks exact checkpoint identity before displaying success',async()=>{
+ const begin=html.indexOf('  function nexaSameClinicalFields(');
+ const end=html.indexOf('  function nexaPersistSessionSoon()',begin);
+ assert.ok(begin>0&&end>begin,'checkpoint guard must exist');
+ const source=html.slice(begin,end);
+ const who={id:'synthetic-owner'};
+ const writes=[];
+ let visible={hda:'Nota clínica sintética atual',alergias:'Sem alergias referidas'};
+ const old={encounter_id:'synthetic-encounter',owner_user_id:who.id,local_revision:1,
+   fields:{hda:'Nota clínica sintética antiga',alergias:'Sem alergias referidas'}};
+ let durable=old;
+ const api={
+   collectFields:()=>({...visible}),
+   preserve:async()=>({...old}),
+   get:async()=>({...durable})
+ };
+ const currentWindow={nexaEncounterAutosave18101:api};
+ const factory=new Function('currentProf','window','q','localStorage','NEXA_SESSION_KEY',
+   'nexaSessionState','document','setTimeout','console',
+   source+'\nreturn nexaPersistSession;');
+ const persist=factory(who,currentWindow,()=>null,{setItem:(...v)=>writes.push(v)},
+   'synthetic-session','structured',{body:{dataset:{nexaStage:'summary'}}},()=>0,console);
+ await assert.rejects(persist('structured'),/CAMPOS_CLINICOS_NAO_PERSISTIDOS/);
+ assert.equal(writes.length,0,'old saved HDA must never receive a success pointer');
+ durable={...old,fields:{...visible},local_revision:2};
+ api.preserve=async()=>({...durable});
+ await persist('structured');
+ assert.equal(writes.length,1,'exact match can publish recovery pointer');
+ let first=true;
+ api.collectFields=()=>first?(first=false,{...visible}):{...visible,hda:'Alteração sintética durante gravação'};
+ await assert.rejects(persist('structured'),/CAMPOS_ALTERADOS_DURANTE_SALVAMENTO/);
+ assert.equal(writes.length,1,'in-flight clinical edit must never be declared saved');
+});
+
+test('history reopen uses the durable local copy instead of an older server row',async()=>{
+ const begin=html.indexOf('  async function nexaRecoverSavedEncounter(row){');
+ const end=html.indexOf('  window.nexaRecoverSavedEncounter=nexaRecoverSavedEncounter;',begin);
+ assert.ok(begin>0&&end>begin,'history reopen implementation must exist');
+ const source=html.slice(begin,end);
+ const who={id:'synthetic-owner'},id='11111111-1111-4111-8111-111111111111';
+ const remote={encounter_id:id,user_id:who.id,fields:{hda:'Cópia sintética antiga do servidor'},
+   processing_meta:{},sync_version:2};
+ const local={encounter_id:id,owner_user_id:who.id,fields:{hda:'Rascunho sintético mais recente no dispositivo'},
+   processing_meta:{},sync_version:2,local_revision:4,sync_state:'pending'};
+ const calls=[];
+ const win={nexaEncounterAutosave18101:{adoptExisting:async incoming=>{
+   calls.push(['adopt',incoming]);return local;
+ }}};
+ const factory=new Function('window','currentProf','nexaHasMeaningfulSession','nexaPersistSession',
+   'nexaRestoreSession',source+'\nreturn nexaRecoverSavedEncounter;');
+ const reopen=factory(win,who,()=>false,async reason=>calls.push(['persist',reason]),
+   snapshot=>calls.push(['render',snapshot]));
+ assert.equal(await reopen(remote),true);
+ const rendered=calls.find(call=>call[0]==='render')?.[1];
+ assert.equal(rendered.fields.hda,local.fields.hda);
+ assert.equal(rendered.encounter_id,id);
+ assert.equal(calls.find(call=>call[0]==='persist')?.[1],'history_reopened');
+});
