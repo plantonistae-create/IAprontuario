@@ -64,6 +64,11 @@ function server(){
      document.querySelector('#nexaFocusHistory18160 [data-concept="'+id+'"]')?.dataset.state==='documented')
      &&document.getElementById('nexaFocusHistoryCount18160')?.textContent==='3/3',null,{timeout:12000});
    for(const id of ['comorbidities','allergies','medicines'])assert.equal(await stateOf(id),'documented',id+' must visibly refresh while recording');
+   await speak('core-a-allergy-conflict','Paciente: Tenho alergia a penicilina.');
+   await page.waitForFunction(()=>window.nexaRadar.state.facts.allergies.conflict===true);
+   await page.waitForFunction(()=>document.querySelector('#nexaFocusHistory18160 [data-concept="allergies"]')?.dataset.state==='confirm');
+   assert.equal(await stateOf('allergies'),'confirm','Conflicting allergy history must reopen the required check');
+   assert.equal(await page.locator('#nexaFocusHistoryCount18160').innerText(),'2/3','Conflict cannot count as documented history');
    assert.deepEqual(await currentHistory(),before,'Recognizing live history must not silently modify the structured medical record');
    assert.deepEqual(errors,[],'No uncaught browser errors');
    await page.screenshot({path:path.join(root,'test-results','radar-live-history-'+viewport.width+'.png')});

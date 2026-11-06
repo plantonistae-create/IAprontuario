@@ -5,6 +5,11 @@ test('A: ankle pain identifies trauma gap',()=>assert.ok(has(result('Dor no torn
 test('B: established sprain advances to mechanism and exam',()=>{const r=result('Dor no tornozelo esquerdo após entorse jogando futebol.');assert.ok(!has(r,'trauma'));assert.ok(has(r,'fourSteps'));assert.ok(has(r,'neurovascular'));});
 test('C: measured fever is not missing temperature',()=>assert.ok(!has(result('Febre de 38,5 °C.'),'temperature')));
 test('D: unmeasured reported fever',()=>{const r=result('Refere febre, não aferiu temperatura.');assert.ok(!has(r,'temperature'));assert.equal(r.facts.fever.state,'known_present');});
+test('passive wording of unmeasured fever does not repeatedly demand a temperature',()=>{
+ for(const text of ['Refere febre; temperatura não foi aferida.','Refere febre; temperatura ainda não foi medida.']){
+  const r=result(text);assert.equal(r.facts.fever.state,'known_present');assert.ok(!has(r,'temperature'),text);
+ }
+});
 test('E: negative fever does not activate fever pack',()=>{const r=result('Nega febre.');assert.ok(!has(r,'temperature'));assert.equal(r.facts.fever.state,'known_absent');});
 test('F: chest red flags rank above characterization',()=>{const r=result('Dor torácica.');assert.ok(has(r,'dyspnea'));assert.equal(r.items[0].priority,'critical');});
 test('G: coordinated negation respects all three symptoms',()=>{const r=result('Dor torácica, nega dispneia, síncope e sudorese.');for(const id of ['dyspnea','syncope','sweating']){assert.ok(!has(r,id));assert.equal(r.facts[id].state,'known_absent');}});
@@ -29,6 +34,19 @@ for(const [name,text,id] of cases)test('simulated case: '+name,()=>{const r=resu
 
 test('conversation: a question is not a patient finding',()=>{const r=E.analyze({transcript:'Cefaleia desde hoje. Médico: Teve febre?'});assert.equal(r.facts.fever.state,'not_asked');assert.equal(r.items.find(i=>i.id==='fever').status,'asked');assert.equal(r.alerts.length,0);});
 test('conversation: isolated answer resolves the preceding boolean question',()=>{const r=E.analyze({transcript:'Cefaleia desde hoje. Médico: Teve febre? Paciente: Não.'});assert.equal(r.facts.fever.state,'known_absent');assert.ok(!has(r,'fever'));assert.ok(r.clarified.some(i=>i.id==='fever'));});
+test('manual negative answer documents each required history as an explicit denial',()=>{
+ for(const [id,section] of [['comorbidities','comorbidades'],['allergies','alergias'],['medicines','medicacoes']]){
+  const context={fields:{hda:'Tosse desde ontem.'}},item=E.analyze(context).items.find(i=>i.concept===id);
+  const result=E.answer(context,{},item,'Não');
+  assert.equal(E.analyze(result.context,result.ledger).facts[id].state,'known_absent',id);
+  assert.ok(!E.analyze(result.context,result.ledger).items.some(i=>i.concept===id),id);
+  assert.ok(result.context.fields[section].length>3,id);
+ }
+});
+test('manual affirmative history requires a specific detail',()=>{
+ const context={fields:{hda:'Tosse desde ontem.'}},item=E.analyze(context).items.find(i=>i.concept==='allergies');
+ assert.throws(()=>E.answer(context,{},item,'Sim'),/descreva/i);
+});
 test('conversation: answering a sudden onset question reveals an enduring alert',()=>{const r=E.analyze({transcript:'Cefaleia desde hoje. Médico: A dor começou de repente? Paciente: Sim.'});assert.equal(r.facts.sudden.state,'known_present');assert.ok(!has(r,'sudden'));assert.ok(r.alerts.some(i=>i.concept==='sudden'));assert.match(r.alerts[0].evidence[0].questionQuote,/de repente/);});
 test('conversation: ambiguous and compound answers require confirmation',()=>{for(const transcript of ['Dor torácica. Médico: Teve dispneia e síncope? Paciente: Não.','Dor torácica. Médico: Teve dispneia? Paciente: Talvez.']){const r=E.analyze({transcript});assert.equal(r.items.find(i=>i.concept==='dyspnea').status,'confirm');assert.notEqual(r.facts.dyspnea.state,'known_absent');}});
 test('conversation: third-party symptoms do not become patient symptoms',()=>{const r=E.analyze({transcript:'Cefaleia. Minha mãe teve febre de 39 °C.'});assert.equal(r.facts.fever.state,'not_asked');assert.equal(r.facts.temperature.state,'not_asked');});
