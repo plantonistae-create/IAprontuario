@@ -95,6 +95,8 @@ jobs:
         run: npm run check:js
       - name: UI contract tests
         run: npm test
+      - name: Offline OpenAI infrastructure and aggregate cost gates
+        run: npm run test:openai-infra
       - name: Lint, backend typecheck and static build
         run: npm run lint && npm run typecheck && npm run build
       - name: Desktop and mobile browser regression
