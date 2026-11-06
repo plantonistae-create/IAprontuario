@@ -501,7 +501,7 @@
       if(!active('trauma')&&!headacheContext)['radiation','aggravation','relief','evolution'].forEach(id=>add(id,'low','Complementar a caracterização da dor conforme pertinência.'));
     }
     // A reported but unmeasured fever is known information, not a missing temperature question.
-    if(active('fever')&&/nao aferi\w*|nao mediu|nao mensurad\w*/.test(currentText))items.delete('temperature');
+    if(active('fever')&&/nao aferi\w*|nao mediu|nao mensurad\w*|(?:ainda\s+)?nao (?:foi\s+)?(?:aferid\w*|medid\w*|mensurad\w*)/.test(currentText))items.delete('temperature');
     for(const [id,f] of Object.entries(known))if(f.conflict)add(id,'high','Confirmar cronologia e conteúdo antes de manter afirmações incompatíveis.');
     const post=!!fields.hipotese_diagnostica;
     // Universal checks above do not depend on a recorded hypothesis.
@@ -565,7 +565,11 @@
     const fields={...(context.fields||{})},next={...ledger},concept=concepts[item.concept];
     const record={action,value,section:item.targetSection,evidenceKey:item.evidenceKey,at:new Date().toISOString()};
     if(action==='answer'){
-      let statement=concept.type==='boolean'&&/^sim$/i.test(value)?`${concept.label}: presente.`:concept.type==='boolean'&&/^(?:nao|não)$/i.test(value)?`${concept.label}: negado.`:`${concept.label}: ${value.replace(/[.]+$/,'')}.`;
+      const core=universal.has(item.concept),negative=/^(?:nao|não)$/i.test(value);
+      if(core&&/^(?:sim|não|nao)\s*,?\s*$/i.test(value)&&!negative)
+        throw new Error('Se a resposta for sim, descreva o histórico confirmado pelo médico.');
+      const coreDenials={comorbidities:'Nega comorbidades.',allergies:'Nega alergias.',medicines:'Nega uso de medicamentos contínuos.'};
+      let statement=core&&negative?coreDenials[item.concept]:concept.type==='boolean'&&/^sim$/i.test(value)?`${concept.label}: presente.`:concept.type==='boolean'&&negative?`${concept.label}: negado.`:`${concept.label}: ${value.replace(/[.]+$/,'')}.`;
       // Keep historical surgeries in history, even when the triggering item was a history question.
       if(/cirurg|operad|procedimento/i.test(value)&&/h[aá] \d+ anos|em (?:19|20)\d{2}/i.test(value))record.section='antecedentes';
       let previous=String(fields[record.section]||'').trim();

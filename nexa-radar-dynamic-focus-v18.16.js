@@ -20,7 +20,8 @@ function model(s){
  const safety=items.filter(i=>domain(i)==='safety'),context=items.filter(i=>domain(i)==='context');
  const core=CORE.map(c=>{
   const i=items.find(x=>x.concept===c.id);
-  const known=['known_present','known_absent'].includes(s?.facts?.[c.id]?.state);
+  const fact=s?.facts?.[c.id];
+  const known=!fact?.conflict&&['known_present','known_absent'].includes(fact?.state);
   return {...c,item:i,status:known?'documented':i?.status==='confirm'?'confirm':i?.status==='asked'?'asked':'pending'};
  });
  const unavailable=!!s?.error||!!s?.transcriptIncomplete||['unavailable','stale'].includes(s?.transcriptStatus);
