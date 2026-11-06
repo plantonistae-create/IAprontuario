@@ -4605,17 +4605,30 @@ function pauseSession(){
       discarded:[...(nexaDiscardedHypotheses||[])],hadRecording:!!recording,hadAudio:!!audioBlob};
   }
 
+  function nexaSameClinicalFields(expected,actual){
+    return Object.entries(expected||{}).every(([key,value])=>
+      typeof value!=='string'||String(actual?.[key]??'')===value);
+  }
   async function nexaPersistSession(reason='session_autosave'){
     if(!currentProf?.id)return null;
     const id=currentProf.id,api=window.nexaEncounterAutosave18101;
     const t=q('nexaSessionAutosaveText');
     try{
-      if(!api?.preserve)throw new Error('ARMAZENAMENTO_LOCAL_INDISPONIVEL');
+      if(!api?.preserve||!api?.get||!api?.collectFields)throw new Error('ARMAZENAMENTO_LOCAL_INDISPONIVEL');
+      // Snapshot BEFORE awaiting IndexedDB; compare the exact content instead of
+      // merely checking that some historical field happens to be nonempty.
+      const captured=api.collectFields();
       const rec=await api.preserve(reason);
       if(!rec?.encounter_id||rec.owner_user_id!==id)throw new Error('RASCUNHO_NAO_CONFIRMADO');
-      const collected=nexaSessionFields();
-      if(Object.values(collected).some(v=>v?.trim())&&!Object.values(rec.fields||{}).some(v=>typeof v==='string'&&v.trim()))
+      const durable=await api.get(rec.encounter_id);
+      if(!durable||durable.owner_user_id!==id||
+         Number(durable.local_revision||0)<Number(rec.local_revision||0)||
+         !nexaSameClinicalFields(captured,durable.fields))
         throw new Error('CAMPOS_CLINICOS_NAO_PERSISTIDOS');
+      // If an edit occurred while the write was pending, avoid claiming that
+      // the CURRENT on-screen note was saved. Another autosave can retry it.
+      if(!nexaSameClinicalFields(api.collectFields(),durable.fields))
+        throw new Error('CAMPOS_ALTERADOS_DURANTE_SALVAMENTO');
       // Never remove a valid recovery pointer before the new IndexedDB record
       // is confirmed. This marker contains NO clinical text, only the record ID.
       localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify({
@@ -4624,7 +4637,7 @@ function pauseSession(){
         stage:document.body.dataset.nexaStage||'summary'
       }));
       if(t){t.textContent='Salvo neste dispositivo';setTimeout(()=>{if(t)t.textContent='Autosave ativo'},1800)}
-      return rec;
+      return durable;
     }catch(error){
       if(t)t.textContent='Salvamento pendente — revise antes de fechar';
       console.warn('[NEXA] Não foi possível confirmar backup local',error?.message||'SAVE_FAILED');
@@ -4664,12 +4677,17 @@ function pauseSession(){
     const api=window.nexaEncounterAutosave18101;
     if(!api?.adoptExisting)throw new Error('Armazenamento clínico indisponível.');
     const canonical={...row,owner_user_id:userId};
-    await api.adoptExisting(canonical);
-    const meta=row.processing_meta?.encounter_autosave||{};
-    const snap={owner:userId,encounter_id:row.encounter_id,saved_at:row.last_client_saved_at||row.updated_at||new Date().toISOString(),
-      state:meta.state||'structured',stage:'summary',fields:row.fields||{},
-      radar:meta.radar||null,processing_meta:row.processing_meta||{},
-      hypothesisReview:meta.hypothesisReview||row.processing_meta?.hypothesisReview||{},
+    // adoptExisting returns the durable local version when this encounter ID
+    // already exists. Never render an older server row over pending local edits.
+    const restored=await api.adoptExisting(canonical);
+    if(!restored||restored.owner_user_id!==userId||
+       restored.encounter_id!==row.encounter_id)throw new Error('Rascunho local não confirmado.');
+    const meta=restored.processing_meta?.encounter_autosave||{};
+    const snap={owner:userId,encounter_id:restored.encounter_id,
+      saved_at:restored.last_client_saved_at||restored.updated_at||new Date().toISOString(),
+      state:meta.state||'structured',stage:'summary',fields:restored.fields||{},
+      radar:meta.radar||null,processing_meta:restored.processing_meta||{},
+      hypothesisReview:meta.hypothesisReview||restored.processing_meta?.hypothesisReview||{},
       alternatives:meta.alternatives||[],discarded:meta.discarded||[]};
     nexaRestoreSession(snap);
     await nexaPersistSession('history_reopened');
