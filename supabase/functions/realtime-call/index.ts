@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 import { emitRealtimeUpstreamStatus } from "../_shared/nexa-realtime-upstream-status.mjs";
+import { createRealtimeOfferForm } from "../_shared/nexa-realtime-multipart.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -252,36 +253,7 @@ async function createRealtimeCall(
     },
   };
 
-  const form =
-    new FormData();
-
-  form.append(
-    "sdp",
-    new Blob(
-      [sdp],
-      {
-        type:
-          "application/sdp",
-      },
-    ),
-    "offer.sdp",
-  );
-
-  form.append(
-    "session",
-    new Blob(
-      [
-        JSON.stringify(
-          session,
-        ),
-      ],
-      {
-        type:
-          "application/json",
-      },
-    ),
-    "session.json",
-  );
+  const form = createRealtimeOfferForm(sdp, session);
 
   const upstream =
     await fetch(
