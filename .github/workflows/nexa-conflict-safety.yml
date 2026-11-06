@@ -25,7 +25,10 @@ permissions:
 jobs:
   encounter-conflicts:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,10 +41,8 @@ jobs:
           node --check nexa-hotfix.js
       - name: Run synthetic consultation safety tests
         run: node --test tests/nexa-conflict-reconciliation.test.cjs
-      - name: Install pinned dependencies and focused browser
-        run: |
-          npm ci
-          npx playwright install chromium firefox --with-deps
+      - name: Install pinned dependencies
+        run: npm ci
       - name: Run synthetic conflict interface in Chromium
         run: node tests/nexa-conflict-browser.e2e.cjs
       - name: Run synthetic conflict interface in Firefox
