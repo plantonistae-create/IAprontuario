@@ -177,3 +177,68 @@ console.log('NEXA encounter autosave offline, audit, CAS contract: PASS');
    'stale input timer must not overwrite a navigation snapshot');
 }
 console.log('NEXA continuous-edit autosave max-wait regression: PASS');
+
+
+// Regression: a failed IndexedDB write must not disappear inside a timer's
+// rejected Promise. No real accounts, patient data or requests are involved.
+{
+ const saved=new Map(),timers=new Map(),listeners=new Map(),events=[];
+ let sequence=0,timerId=0,failWrite=false,note='HDA sintética inicial';
+ const schedule=(fn,ms=0)=>{const id=++timerId;timers.set(id,{fn,ms});return id};
+ const clear=id=>timers.delete(id);
+ const fire=async()=>{
+   const entry=[...timers.entries()].sort((a,b)=>a[1].ms-b[1].ms)[0];
+   assert.ok(entry,'expected queued local checkpoint');
+   timers.delete(entry[0]);entry[1].fn();
+   for(let i=0;i<30;i++)await Promise.resolve();
+ };
+ const doc={
+   documentElement:{dataset:{}},
+   getElementById:()=>null,querySelectorAll:()=>[],
+   addEventListener:(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn)}
+ };
+ const synthetic={
+   console,structuredClone,document:doc,navigator:{onLine:false},
+   sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+   indexedDB:{open(){throw Error('Synthetic store expected')}},
+   crypto:{randomUUID:()=> '44444444-4444-4444-8444-'+String(++sequence).padStart(12,'0')},
+   CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},
+   setTimeout:schedule,clearTimeout:clear,addEventListener(){},
+   dispatchEvent:e=>events.push(e),
+   currentProf:{id:profileId},collect:()=>({hda:note}),window:null
+ };
+ synthetic.window=synthetic;
+ vm.runInNewContext(source,synthetic);
+ const item=synthetic.nexaEncounterAutosave18101;
+ item.setStoreAdapter({
+   get:async id=>structuredClone(saved.get(id)||null),
+   put:async rec=>{
+     if(failWrite)throw Error('Synthetic quota write failure, no patient text');
+     saved.set(rec.encounter_id,structuredClone(rec));return rec;
+   },
+   all:async()=>structuredClone([...saved.values()]),
+   comparePut:async(expected,rec)=>{
+     saved.set(rec.encounter_id,structuredClone(rec));return true;
+   }
+ });
+ timers.clear();
+ const initial=await item.startNew('synthetic_first');
+ assert.ok(initial?.encounter_id);
+ events.length=0;
+ failWrite=true;note='Texto fictício que ainda não foi persistido';
+ for(const listener of listeners.get('input')||[])
+   listener({target:{matches:selector=>selector==='textarea,input,select',closest:()=>null}});
+ await fire();
+ const failures=events.filter(e=>e.type==='nexa:encounter-local-save-failed');
+ assert.equal(failures.length,1,'deferred local save failure must produce a visible failure signal');
+ assert.equal(failures[0].detail.code,'LOCAL_CHECKPOINT_FAILED');
+ assert.equal(failures[0].detail.reason,'input');
+ assert.ok(!JSON.stringify(failures[0]).includes(note),'failure signal cannot expose clinical text');
+ assert.equal((await item.get(initial.encounter_id)).fields.hda,'HDA sintética inicial');
+ failWrite=false;
+ for(const listener of listeners.get('input')||[])
+   listener({target:{matches:selector=>selector==='textarea,input,select',closest:()=>null}});
+ await fire();
+ assert.equal((await item.get(initial.encounter_id)).fields.hda,note);
+}
+console.log('NEXA deferred local checkpoint errors surface safely and retry: PASS');

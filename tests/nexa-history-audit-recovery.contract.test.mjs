@@ -187,3 +187,19 @@ test('single-writer recovery pointer follows confirmed local save, not an extra 
  assert.equal(await check({detail:{encounter_id:id}}),true);
  assert.match(status.textContent,/conflito pendente/i);
 });
+
+
+test('deferred local save failure is visible to clinician without showing patient text',()=>{
+ const begin=html.indexOf("  window.addEventListener('nexa:encounter-local-save-failed'");
+ const end=html.indexOf("  window.addEventListener('beforeunload'",begin);
+ assert.ok(begin>0&&end>begin,'local save failure listener must be installed');
+ const source=html.slice(begin,end);
+ assert.match(source,/ATENÇÃO: alterações não salvas localmente/);
+ assert.match(source,/saveState\('error','não salvo · armazenamento local'\)/);
+ assert.match(source,/Copie o texto clínico antes de fechar/);
+ assert.ok(!source.includes('event.detail.fields'),'failure event must not display clinical content');
+ assert.match(html,/nexa-hotfix\.js\?v=20261106-save-alert/);
+ assert.match(worker,/nexa-v18-15-0-save-alert-20261106/);
+ assert.match(worker,/nexa-hotfix\.js\?v=20261106-save-alert/);
+ assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-save-alert/);
+});

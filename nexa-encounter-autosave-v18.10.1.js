@@ -391,12 +391,23 @@ function cancelScheduledPersist(){
  clearTimeout(persistTimer);clearTimeout(persistMaxTimer);
  persistTimer=null;persistMaxTimer=null;
 }
+function reportLocalSaveFailure(reason){
+ // Deferred IndexedDB writes previously rejected without any visible alert.
+ // Never include patient fields or storage exception text in the event.
+ console.warn('[NEXA] Local clinical checkpoint not confirmed',String(reason||'autosave'));
+ window.dispatchEvent(new CustomEvent('nexa:encounter-local-save-failed',{
+   detail:{reason:String(reason||'autosave'),code:'LOCAL_CHECKPOINT_FAILED'}
+ }));
+}
+function preserveDeferred(reason,options){
+ void preserve(reason,options).catch(()=>reportLocalSaveFailure(reason));
+}
 function schedulePersist(reason='input'){
- // Trailing 350 ms debounce preserves existing quiet-period behavior. Without
- // a maximum wait, uninterrupted typing can defer ALL durable saves indefinitely.
+ // Trailing 350 ms debounce and 5 s maximum wait preserve the same cadence.
+ // Every delayed failure must alert the physician instead of rejecting silently.
  clearTimeout(persistTimer);
- persistTimer=setTimeout(()=>void preserve(reason),350);
- if(persistMaxTimer===null)persistMaxTimer=setTimeout(()=>void preserve('input_max_wait'),5000);
+ persistTimer=setTimeout(()=>preserveDeferred(reason),350);
+ if(persistMaxTimer===null)persistMaxTimer=setTimeout(()=>preserveDeferred('input_max_wait'),5000);
 }
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked','conflict'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
 async function flush(reason='manual'){
@@ -417,17 +428,17 @@ function bind(){
  document.addEventListener('change',e=>{if(isClinicalEdit(e)){const id=currentEncounterId();if(id)editedAfterReconciliation.add(id);schedulePersist('change')}},true);
  document.addEventListener('click',e=>{
    if(e.target?.closest?.('#nexa-c-overlay,#nexa-c-banner,#nexa-c-status'))return;
-   if(e.target?.closest?.(START)){if(!currentEncounterId())void startNew('recording_start');else void preserve('recording_start');return}
-   if(e.target?.closest?.(RESET)){if(window.nexaAuditOutbox18919?.beforeReset)return;pendingNew=true;void preserve('before_reset');return}
-   if(e.target?.closest?.('#logoutBtn')){void preserve('logout');return}
-   if(e.target?.closest?.(NAV))void preserve('navigation');
+   if(e.target?.closest?.(START)){if(!currentEncounterId())void startNew('recording_start').catch(()=>reportLocalSaveFailure('recording_start'));else preserveDeferred('recording_start');return}
+   if(e.target?.closest?.(RESET)){if(window.nexaAuditOutbox18919?.beforeReset)return;pendingNew=true;preserveDeferred('before_reset');return}
+   if(e.target?.closest?.('#logoutBtn')){preserveDeferred('logout');return}
+   if(e.target?.closest?.(NAV))preserveDeferred('navigation');
  },true);
- window.addEventListener('nexa:consultation-reset',()=>{if(!pendingNew)return;pendingNew=false;rotateEncounter();setTimeout(()=>void startNew('after_reset'),0)});
- addEventListener('pagehide',()=>{void preserve('pagehide')});
- addEventListener('beforeunload',()=>{void preserve('beforeunload',{sync:false})});
- document.addEventListener('visibilitychange',()=>{if(document.hidden)void preserve('hidden');else void flush('visible')});
+ window.addEventListener('nexa:consultation-reset',()=>{if(!pendingNew)return;pendingNew=false;rotateEncounter();setTimeout(()=>void startNew('after_reset').catch(()=>reportLocalSaveFailure('after_reset')),0)});
+ addEventListener('pagehide',()=>{preserveDeferred('pagehide',{sync:false})});
+ addEventListener('beforeunload',()=>{preserveDeferred('beforeunload',{sync:false})});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)preserveDeferred('hidden',{sync:false});else void flush('visible')});
  addEventListener('online',()=>void flush('online'));
- addEventListener('offline',()=>void preserve('offline',{sync:false}));
+ addEventListener('offline',()=>preserveDeferred('offline',{sync:false}));
  addEventListener('focus',()=>void flush('focus'));
  addEventListener('nexa:encounter-flush-request',()=>void flush('event'));
  addEventListener('nexa:encounter-priority-request',()=>void prioritize());
