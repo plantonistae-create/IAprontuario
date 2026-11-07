@@ -3882,12 +3882,12 @@ function nexaScrollToProcessCta(){
 const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
   if(recording||recordingStarting||!$('consent').checked||!currentProf?.clinical_access)return;
   recordingStarting=true;try{
-  const startEpoch=clinicalEpoch;
+  const startEpoch=clinicalEpoch,consentEpoch=nexaConsentRevision;
   stopRecordingTimer();
   discardStoppedRecording=false;
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
   catch(e){return show('Não foi possível acessar o microfone.',true)}
-  if(startEpoch!==clinicalEpoch||!$('consent').checked){stream?.getTracks().forEach(t=>t.stop());stream=null;return;}
+  if(startEpoch!==clinicalEpoch||consentEpoch!==nexaConsentRevision||!$('consent').checked){stream?.getTracks().forEach(t=>t.stop());stream=null;return;}
   chunks=[];audioBlob=null;$('processBtn').disabled=true;
   audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   const source=audioCtx.createMediaStreamSource(stream);
