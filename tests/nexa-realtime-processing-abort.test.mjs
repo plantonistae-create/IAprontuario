@@ -87,4 +87,5 @@ test('the real frontend cancels processing on reset and consent withdrawal',()=>
   assert.match(process,/if\(processingAbort\.signal\.aborted\)return;/,'diarization abort must not fall through to standard paid transcription');
   assert.match(process,/nexaClinicalProcessingAbort=processingAbort/);
   assert.match(process,/nexaClinicalProcessingAbort!==processingAbort/,'old finally must not reset newer processing');
+  assert.match(process,/await nexaPersistSession\('structured'\);\s*if\(processingAbort\.signal\.aborted\|\|consentRevision!==nexaConsentRevision\|\|epoch!==clinicalEpoch\)return;/,'late local-save completion must not announce structured success after revoke');
 });
