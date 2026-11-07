@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-save-alert-20261106";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261106-save-alert";
+const CACHE_NAME="nexa-v18-15-0-owner-isolation-20261106";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261106-owner-isolation";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
