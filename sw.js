@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-history-ack-guard-20261107";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261107-history-ack-guard";
+const CACHE_NAME="nexa-v18-15-0-status-only-cost-20261107";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261107-status-only-cost";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
