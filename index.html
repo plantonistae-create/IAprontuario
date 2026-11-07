@@ -2764,19 +2764,42 @@ async function loadHistory(){
   renderHistory();
 }
 function renderHistory(){
-  $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
+  const historyOwner=String(currentProf?.id||'');
+  // A tab can be reused by another clinician. Never render the prior owner's
+  // HDA excerpts from the in-memory history list before the next fetch.
+  const visible=historyOwner?history.filter(r=>String(r.user_id||'')===historyOwner):[];
+  $('historyCount').textContent=`${visible.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
-  if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),async()=>{
+  if(!visible.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
+  visible.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),async()=>{
     try{
+      if(currentProf?.id!==historyOwner)throw new Error('HISTORY_OWNER_CHANGED');
       if(!window.nexaRecoverSavedEncounter)throw new Error('RECOVERY_UNAVAILABLE');
       const opened=await window.nexaRecoverSavedEncounter(r);
-      if(opened){activeHistoryId=r.id;saveState('saved','salvo');}
+      if(opened&&currentProf?.id===historyOwner){activeHistoryId=r.id;saveState('saved','salvo');}
     }catch(error){
       console.warn('[NEXA] Legacy history recovery was blocked',error?.message||'RECOVERY_FAILED');
       show('Não foi possível recuperar a consulta sem preservar o atendimento atual.',true);
     }
-  },async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  },async()=>{
+    if(currentProf?.id!==historyOwner){renderHistory();return}
+    if(!confirm('Remover esta consulta do histórico?'))return;
+    try{
+      // Successful HTTP alone does not prove a row was removed. Verify the
+      // returned ID and keep the entry visible when the delete is rejected.
+      const {data,error}=await sb.from('consultation_history').delete()
+        .eq('id',r.id).eq('user_id',historyOwner).select('id');
+      if(currentProf?.id!==historyOwner){renderHistory();return}
+      if(error||!Array.isArray(data)||!data.some(entry=>entry.id===r.id))
+        throw new Error('HISTORY_DELETE_NOT_CONFIRMED');
+      history=history.filter(entry=>entry.id!==r.id||entry.user_id!==historyOwner);
+      renderHistory();
+    }catch(error){
+      if(currentProf?.id!==historyOwner){renderHistory();return}
+      console.warn('[NEXA] Historical record deletion not confirmed',error?.code||'DELETE_NOT_CONFIRMED');
+      show('A exclusão não foi confirmada pelo servidor. A consulta permanece no histórico.',true);
+    }
+  }));
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -5461,5 +5484,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261107-safe-reset-guard"></script>
+<script src="./nexa-hotfix.js?v=20261107-history-ack-guard"></script>
 </body></html>
