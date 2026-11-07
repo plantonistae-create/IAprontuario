@@ -14,6 +14,7 @@ const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.strin
 const nowIso=()=>new Date().toISOString();
 let storeAdapter=null,archiveAdapter=null,persistTimer=null,persistMaxTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
 let localPersistQueue=Promise.resolve();
+let activeOwnerId=null,ownerSwitchRequiresExplicitEncounter=false;
 const editedAfterReconciliation=new Set();
 function serializeLocal(fn){const p=localPersistQueue.then(fn,fn);localPersistQueue=p.catch(()=>{});return p}
 const syncInflight=new Map();
@@ -49,7 +50,25 @@ function isUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a
 function readSessionId(){try{return sessionStorage.getItem(activeKey())||''}catch{return''}}
 function legacyHistoryId(){try{return typeof activeHistoryId!=='undefined'?String(activeHistoryId||''):''}catch{return''}}
 function setLegacyHistoryId(id){try{if(typeof activeHistoryId!=='undefined')activeHistoryId=id}catch{}}
+function ensureOwnerScope(){
+ const userId=owner();
+ if(activeOwnerId===null){activeOwnerId=userId;return false}
+ if(activeOwnerId===userId)return false;
+ // An in-tab account switch must never reuse a previous physician's global
+ // encounter ID, form reconciliation flags or deferred autosave timers.
+ activeOwnerId=userId;currentId='';
+ window.__NEXA_ACTIVE_ENCOUNTER_ID__='';
+ window.__NEXA_ACTIVE_HISTORY_ID__='';
+ window.nexaActiveHistoryId='';
+ setLegacyHistoryId('');
+ if(document.documentElement?.dataset)delete document.documentElement.dataset.nexaEncounterId;
+ editedAfterReconciliation.clear();
+ cancelScheduledPersist();
+ ownerSwitchRequiresExplicitEncounter=true;
+ return true;
+}
 function setActiveId(id){
+ ensureOwnerScope();
  id=String(id||'').trim();currentId=id;
  try{id?sessionStorage.setItem(activeKey(),id):sessionStorage.removeItem(activeKey())}catch{}
  window.__NEXA_ACTIVE_ENCOUNTER_ID__=id;window.__NEXA_ACTIVE_HISTORY_ID__=id;window.nexaActiveHistoryId=id;
@@ -58,7 +77,11 @@ function setActiveId(id){
  return id;
 }
 function currentEncounterId(){
- const candidates=[currentId,window.__NEXA_ACTIVE_ENCOUNTER_ID__,readSessionId(),legacyHistoryId()];
+ ensureOwnerScope();
+ // Require explicit new encounter or owner-verified recovery after switching
+ // accounts; an old visible form must not be saved under a different doctor.
+ if(ownerSwitchRequiresExplicitEncounter)return '';
+ const candidates=[currentId,readSessionId(),window.__NEXA_ACTIVE_ENCOUNTER_ID__,legacyHistoryId()];
  const id=candidates.map(x=>String(x||'').trim()).find(isUuid)||'';
  if(id&&id!==currentId)setActiveId(id);
  return id;
@@ -161,7 +184,9 @@ function due(item){return !item?.next_attempt_at||new Date(item.next_attempt_at)
 async function buildLocal(reason='autosave',forcedId='',capturedFields=null){
  const userId=owner();if(!userId)return null;
  let id=String(forcedId||currentEncounterId()||'').trim();if(!isUuid(id))id=uuid();setActiveId(id);
- const previous=await store.get(id),fields=capturedFields===null?collectFields():clone(capturedFields),ready=eligible(fields),ts=nowIso();
+ const previous=await store.get(id);
+ if(previous&&previous.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
+ const fields=capturedFields===null?collectFields():clone(capturedFields),ready=eligible(fields),ts=nowIso();
  const needsReview=!!previous?.requires_form_refresh&&JSON.stringify(fields)!==JSON.stringify(previous.fields||{});
  const remainsConflict=previous?.sync_state==='conflict'||needsReview;
  const terminal=['audited','discarded'].includes(previous?.encounter_state);
@@ -274,12 +299,16 @@ async function syncOne(rec){
 }
 }
 async function preserve(reason='autosave',{sync=true}={}){
+ const capturedOwner=owner();
+ ensureOwnerScope();
+ if(ownerSwitchRequiresExplicitEncounter)throw new Error('OWNER_SWITCH_REQUIRES_NEW_OR_RECOVERED_ENCOUNTER');
  // A manual/navigation/reset save consumes the pending debounce and max-wait.
  // Capturing here must precede any asynchronous IndexedDB work.
  cancelScheduledPersist();
  // Capture before queued IndexedDB work: Reset/pagehide may clear the visible form.
  const existingId=currentEncounterId(),fields=collectFields();
  return serializeLocal(async()=>{
+ if(owner()!==capturedOwner)throw new Error('OWNER_CHANGED_DURING_CHECKPOINT');
  const passiveWithoutEncounter=new Set(['before_reset','navigation','logout','pagehide','beforeunload','hidden','offline']);
  if(!existingId&&!meaningful(fields)&&passiveWithoutEncounter.has(reason))return null;
  // After choosing server/merge the old on-screen form must be refreshed. Browser
@@ -295,21 +324,31 @@ async function preserve(reason='autosave',{sync=true}={}){
  return rec;
 })}
 async function startNew(reason='new_encounter'){
- const capturedFields=collectFields();
+ ensureOwnerScope();
+ const userId=owner(),capturedFields=collectFields();
  return serializeLocal(async()=>{
- const userId=owner();if(!userId)return null;const id=uuid();setActiveId(id);
+ if(!userId||owner()!==userId)return null;
+ const id=uuid();setActiveId(id);
  const rec=await buildLocal(reason,id,capturedFields);if(!rec)return null;await store.put(rec);
+ ownerSwitchRequiresExplicitEncounter=false;
  if(navigator.onLine!==false)void syncOne(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-started',{detail:{encounter_id:id}}));return rec;
 })}
 async function adoptExisting(rowOrId){
- const id=String(typeof rowOrId==='object'?(rowOrId?.encounter_id||rowOrId?.id):rowOrId||'').trim();
- if(!isUuid(id))return null;setActiveId(id);
- const existing=await store.get(id);if(existing)return existing;
- const userId=owner();if(!userId)return null;
+ ensureOwnerScope();
+ const userId=owner(),id=String(typeof rowOrId==='object'?(rowOrId?.encounter_id||rowOrId?.id):rowOrId||'').trim();
+ if(!userId||!isUuid(id))return null;
  const row=typeof rowOrId==='object'?rowOrId:{};
+ const rowOwner=String(row.owner_user_id||row.user_id||'');
+ if(rowOwner&&rowOwner!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
+ const existing=await store.get(id);
+ if(owner()!==userId)throw new Error('OWNER_CHANGED_DURING_RECOVERY');
+ if(existing&&existing.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
+ // Only an owner-verified row may activate an encounter in this tab.
+ setActiveId(id);
+ if(existing){ownerSwitchRequiresExplicitEncounter=false;return existing}
  window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),local_revision:0,legacy_status:row.status||'draft'};
- await store.put(rec);return rec;
+ await store.put(rec);ownerSwitchRequiresExplicitEncounter=false;return rec;
 }
 async function prioritize(){return serializeLocal(async()=>{
  const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='conflict')return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
