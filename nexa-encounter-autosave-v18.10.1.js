@@ -361,11 +361,43 @@ async function adoptExisting(rowOrId){
  const rowOwner=String(row.owner_user_id||row.user_id||'');
  if(rowOwner&&rowOwner!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
  const existing=await store.get(id);
- if(owner()!==userId)throw new Error('OWNER_CHANGED_DURING_RECOVERY');
+ assertOwnerStill(userId);
  if(existing&&existing.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
- // Only an owner-verified row may activate an encounter in this tab.
+ let selected=existing;
+ const remoteVersion=Number(row.sync_version),localVersion=Number(existing?.sync_version||0);
+ // A pending or conflicted local draft always wins. Conversely, a strictly
+ // newer, authenticated server revision must not be masked by an old local
+ // record that has already been fully synchronized.
+ const newerSyncedRemote=!!existing&&existing.sync_state==='synced'&&
+   rowOwner===userId&&row.fields&&typeof row.fields==='object'&&!Array.isArray(row.fields)&&
+   Number.isInteger(remoteVersion)&&remoteVersion>localVersion;
+ if(newerSyncedRemote){
+   const hydrated={...existing,
+     fields:clone(row.fields),
+     processing_meta:row.processing_meta&&typeof row.processing_meta==='object'
+       ?clone(row.processing_meta):existing.processing_meta,
+     protocol_usage:Array.isArray(row.protocol_usage)?clone(row.protocol_usage):existing.protocol_usage,
+     encounter_state:row.encounter_state||existing.encounter_state,
+     legacy_status:row.status||existing.legacy_status,
+     audit_priority:row.audit_priority===undefined?existing.audit_priority:Number(row.audit_priority||0),
+     audit_ready_at:Object.prototype.hasOwnProperty.call(row,'audit_ready_at')?row.audit_ready_at:existing.audit_ready_at,
+     consent_recorded_at:Object.prototype.hasOwnProperty.call(row,'consent_recorded_at')?row.consent_recorded_at:existing.consent_recorded_at,
+     server_updated_at:row.updated_at||existing.server_updated_at,
+     last_client_saved_at:row.last_client_saved_at||row.updated_at||existing.last_client_saved_at,
+     sync_version:remoteVersion,local_revision:Number(existing.local_revision||0)+1,
+     sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,requires_form_refresh:false
+   };
+   // A newer local edit may arrive while the remote copy is being adopted.
+   // Never overwrite it; use the record currently persisted by IndexedDB.
+   const updated=await store.comparePut(existing,hydrated);
+   assertOwnerStill(userId);
+   selected=updated?hydrated:await store.get(id);
+   assertOwnerStill(userId);
+   if(!selected||selected.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
+ }
+ // Only an owner-verified, committed local record may become active.
  setActiveId(id);
- if(existing){ownerSwitchRequiresExplicitEncounter=false;return existing}
+ if(selected){ownerSwitchRequiresExplicitEncounter=false;return selected}
  window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),local_revision:0,legacy_status:row.status||'draft'};
  await store.put(rec);
  assertOwnerStill(userId);
