@@ -2747,19 +2747,36 @@ async function saveCurrentToStyle(){
 }
 $('saveStyleFromCurrentBtn').onclick=saveCurrentToStyle;
 async function loadHistory(){
-  if(!currentProf)return;
+  const ownerAtRequest=String(currentProf?.id||'');
+  if(!ownerAtRequest)return;
   try{
     const cutoff=new Date(Date.now()-7*24*60*60*1000).toISOString();
-    const {data,error}=await sb.from('consultation_history').select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta').eq('user_id',currentProf.id).gte('created_at',cutoff).order('created_at',{ascending:false});
-    if(error)throw error;history=data||[];
-  }catch(e){console.warn('Falha ao carregar histórico recente:',e);history=[]}
+    const {data,error}=await sb.from('consultation_history')
+      .select('id,fields,created_at,updated_at,status,consent_recorded_at,processing_meta,sync_version,encounter_state,protocol_usage,audit_priority,audit_ready_at')
+      .eq('user_id',ownerAtRequest).gte('created_at',cutoff).order('created_at',{ascending:false});
+    if(currentProf?.id!==ownerAtRequest)return; // Older response from a previous account.
+    if(error)throw error;
+    history=(data||[]).map(row=>({...row,encounter_id:row.id,user_id:ownerAtRequest}));
+  }catch(e){
+    if(currentProf?.id!==ownerAtRequest)return;
+    console.warn('Falha ao carregar histórico recente:',e);history=[];
+  }
   renderHistory();
 }
 function renderHistory(){
   $('historyCount').textContent=`${history.length} nos últimos 7 dias ${$('historyBody').classList.contains('open')?'▾':'▸'}`;
   $('historyList').replaceChildren();
   if(!history.length){$('historyList').innerHTML='<div class="empty">Nenhuma transcrição salva nos últimos 7 dias.</div>';return}
-  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),()=>{clearClinicalSession();fill(r.fields||{});activeHistoryId=r.id;lastProcessedMeta=r.processing_meta||{};nexaShowMedicationReview(lastProcessedMeta?.medication_review);restoreHypothesisReview(lastProcessedMeta?.hypothesisReview,r.fields?.hipotese_diagnostica||'');saveState('saved','salvo')},async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
+  history.forEach(r=>item($('historyList'),`${new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${(r.fields?.queixa_principal||'Consulta').slice(0,60)}`,(r.fields?.hda||'').slice(0,90),async()=>{
+    try{
+      if(!window.nexaRecoverSavedEncounter)throw new Error('RECOVERY_UNAVAILABLE');
+      const opened=await window.nexaRecoverSavedEncounter(r);
+      if(opened){activeHistoryId=r.id;saveState('saved','salvo');}
+    }catch(error){
+      console.warn('[NEXA] Legacy history recovery was blocked',error?.message||'RECOVERY_FAILED');
+      show('Não foi possível recuperar a consulta sem preservar o atendimento atual.',true);
+    }
+  },async()=>{if(!confirm('Remover esta consulta do histórico?'))return;await sb.from('consultation_history').delete().eq('id',r.id).eq('user_id',currentProf.id);history=history.filter(x=>x.id!==r.id);renderHistory()}));
 }
 $('historyHead').onclick=()=>{$('historyBody').classList.toggle('open');renderHistory()};
 $('refreshHistoryBtn').onclick=e=>{e.stopPropagation();loadHistory()};
@@ -3863,7 +3880,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
     }
     audioBlob=new Blob(chunks,{type:mime});
     $('processBtn').disabled=false;
-    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;
+    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever · áudio ainda apenas na memória · transcreva antes de sair`;
     flat();syncRecordingUi();
     window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
     nexaScrollToProcessCta();
@@ -4668,6 +4685,10 @@ function pauseSession(){
     const userId=currentProf.id,recordOwner=String(row.owner_user_id||row.user_id||'');
     if(recordOwner!==userId)throw new Error('Este atendimento pertence a outro perfil.');
     if(!row.encounter_id||!row.fields||typeof row.fields!=='object')throw new Error('Rascunho inválido.');
+    if(recording||recordingStarting||(audioBlob&&audioBlob.size>0)){
+      show('Existe áudio ainda não transcrito. Finalize e processe a gravação antes de abrir outro atendimento.',true);
+      return false;
+    }
     if(nexaHasMeaningfulSession()){
       const ok=confirm('Há um atendimento aberto. Preservar o atendimento atual e reabrir o selecionado?');
       if(!ok)return false;
@@ -4773,7 +4794,17 @@ function pauseSession(){
       show('Falha ao preservar a consulta neste dispositivo. Copie o texto clínico antes de fechar ou iniciar outro atendimento.',true);
     }
   });
-  window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;void nexaPersistSession('beforeunload').catch(()=>{});e.preventDefault();e.returnValue=''});
+  // Audio is only in memory until the full transcription and local checkpoint
+  // succeed. A note-free encounter can still contain minutes of unprocessed
+  // recording and must be guarded against accidental reload/close.
+  function nexaShouldWarnBeforeExit(){
+    return Boolean(recording||recordingStarting||(audioBlob&&audioBlob.size>0)||nexaHasMeaningfulSession());
+  }
+  window.addEventListener('beforeunload',e=>{
+    if(!nexaShouldWarnBeforeExit())return;
+    if(nexaHasMeaningfulSession())void nexaPersistSession('beforeunload').catch(()=>{});
+    e.preventDefault();e.returnValue='';
+  });
   nexaCheckRecoverableSession();
   window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
   setTimeout(()=>void nexaCheckRecoverableSession(),1800);
@@ -5421,5 +5452,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261106-server-refresh"></script>
+<script src="./nexa-hotfix.js?v=20261107-audio-exit-guard"></script>
 </body></html>

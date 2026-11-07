@@ -131,9 +131,10 @@ test('history reopen uses the durable local copy instead of an older server row'
    calls.push(['adopt',incoming]);return local;
  }}};
  const factory=new Function('window','currentProf','nexaHasMeaningfulSession','nexaPersistSession',
-   'nexaRestoreSession',source+'\nreturn nexaRecoverSavedEncounter;');
+   'nexaRestoreSession','recording','recordingStarting','audioBlob','show',
+   source+'\nreturn nexaRecoverSavedEncounter;');
  const reopen=factory(win,who,()=>false,async reason=>calls.push(['persist',reason]),
-   snapshot=>calls.push(['render',snapshot]));
+   snapshot=>calls.push(['render',snapshot]),false,false,null,()=>{});
  assert.equal(await reopen(remote),true);
  const rendered=calls.find(call=>call[0]==='render')?.[1];
  assert.equal(rendered.fields.hda,local.fields.hda);
@@ -198,8 +199,83 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.match(source,/saveState\('error','não salvo · armazenamento local'\)/);
  assert.match(source,/Copie o texto clínico antes de fechar/);
  assert.ok(!source.includes('event.detail.fields'),'failure event must not display clinical content');
- assert.match(html,/nexa-hotfix\.js\?v=20261106-server-refresh/);
- assert.match(worker,/nexa-v18-15-0-server-refresh-20261106/);
- assert.match(worker,/nexa-hotfix\.js\?v=20261106-server-refresh/);
+ assert.match(html,/nexa-hotfix\.js\?v=20261107-audio-exit-guard/);
+ assert.match(worker,/nexa-v18-15-0-audio-exit-guard-20261107/);
+ assert.match(worker,/nexa-hotfix\.js\?v=20261107-audio-exit-guard/);
  assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
+});
+
+
+test('unprocessed recorded audio warns before unload even with no clinical text',()=>{
+ const begin=html.indexOf('  function nexaShouldWarnBeforeExit(){');
+ const end=html.indexOf('  nexaCheckRecoverableSession();',begin);
+ assert.ok(begin>0&&end>begin,'exit guard must precede recoverable-session setup');
+ const guard=html.slice(begin,end);
+ assert.match(guard,/recording\|\|recordingStarting/);
+ assert.match(guard,/audioBlob&&audioBlob\.size>0/);
+ assert.match(guard,/nexaHasMeaningfulSession\(\)/);
+ assert.match(guard,/e\.preventDefault\(\);e\.returnValue=''/);
+ const runScenario=({recording=false,starting=false,audioSize=0,hasNote=false})=>{
+   let handler=null,checkpointCount=0,prevented=false;
+   const win={addEventListener:(name,callback)=>{
+     if(name==='beforeunload')handler=callback;
+   }};
+   const factory=new Function('window','recording','recordingStarting','audioBlob',
+     'nexaHasMeaningfulSession','nexaPersistSession',
+     guard+'\nreturn window;');
+   factory(win,recording,starting,audioSize?{size:audioSize}:null,
+     ()=>hasNote,async()=>{checkpointCount++;return null});
+   assert.equal(typeof handler,'function');
+   const evt={preventDefault:()=>{prevented=true},returnValue:undefined};
+   handler(evt);
+   return {prevented,returnValue:evt.returnValue,checkpointCount};
+ };
+ assert.deepEqual(runScenario({}),{prevented:false,returnValue:undefined,checkpointCount:0});
+ for(const state of [{audioSize:1800},{recording:true},{starting:true}]){
+   const result=runScenario(state);
+   assert.equal(result.prevented,true,'recorded/in-progress audio must warn before closing');
+   assert.equal(result.returnValue,'');
+   assert.equal(result.checkpointCount,0,'audio-only session cannot falsely claim audio persistence');
+ }
+ const withNote=runScenario({hasNote:true});
+ assert.equal(withNote.prevented,true);
+ assert.equal(withNote.checkpointCount,1,'clinical text should still trigger the IndexedDB checkpoint');
+ assert.match(html,/áudio ainda apenas na memória · transcreva antes de sair/,
+   'recording completion must clearly warn that audio is not durably stored');
+});
+
+
+test('legacy seven-day history cannot silently discard the open clinical note or audio',async()=>{
+ const legacy=html.slice(html.indexOf('async function loadHistory(){'),html.indexOf("$('historyHead').onclick",html.indexOf('async function loadHistory(){')));
+ assert.match(legacy,/const ownerAtRequest=String\(currentProf\?\.id\|\|''\)/);
+ assert.match(legacy,/if\(currentProf\?\.id!==ownerAtRequest\)return/);
+ assert.match(legacy,/\.eq\('user_id',ownerAtRequest\)/);
+ assert.match(legacy,/history=\(data\|\|\[\]\)\.map\(row=>\(\{\.\.\.row,encounter_id:row\.id,user_id:ownerAtRequest\}\)\)/);
+ assert.match(legacy,/await window\.nexaRecoverSavedEncounter\(r\)/);
+ assert.doesNotMatch(legacy,/\(\)=>\{clearClinicalSession\(\);fill\(r\.fields\|\|\{\}\)/,
+   'opening an old history item must not wipe the current consultation directly');
+ const begin=html.indexOf('  async function nexaRecoverSavedEncounter(row){');
+ const end=html.indexOf('  window.nexaRecoverSavedEncounter=nexaRecoverSavedEncounter;',begin);
+ assert.ok(begin>0&&end>begin,'canonical history recovery must exist');
+ const source=html.slice(begin,end);
+ assert.ok(source.indexOf("if(recording||recordingStarting||(audioBlob&&audioBlob.size>0))")
+   < source.indexOf("await nexaPersistSession('before_history_recovery')"),
+   'volatile audio guard must precede any history switch');
+ const id='88888888-8888-4888-8888-888888888888';
+ const row={encounter_id:id,user_id:'synthetic-owner',fields:{hda:'Consulta sintética arquivada'}};
+ for(const state of [{recording:true,starting:false,audio:null},{recording:false,starting:true,audio:null},{recording:false,starting:false,audio:{size:1024}}]){
+   let calls=0,adoptCalls=0,persistCalls=0;
+   const factory=new Function('currentProf','recording','recordingStarting','audioBlob',
+     'show','nexaHasMeaningfulSession','nexaPersistSession','window',
+     'nexaRestoreSession','confirm',
+     source+'\nreturn nexaRecoverSavedEncounter;');
+   const reopen=factory({id:'synthetic-owner'},state.recording,state.starting,state.audio,
+     ()=>{calls++;},()=>false,async()=>{persistCalls++;},
+     {nexaEncounterAutosave18101:{adoptExisting:async()=>{adoptCalls++;}}},
+     ()=>{},()=>true);
+   assert.equal(await reopen(row),false);
+   assert.equal(calls,1,'physician must receive a clear warning before switching');
+   assert.equal(adoptCalls,0,'the clinical record must not be replaced while audio is volatile');
+   assert.equal(persistCalls,0,'audio-only guard must not pretend a text checkpoint saved the audio');
+ }
 });
