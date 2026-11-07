@@ -4073,6 +4073,7 @@ async function processAudio(){
     try{
       if(processingAbort.signal.aborted)return;
       await nexaPersistSession('structured');
+      if(processingAbort.signal.aborted||consentRevision!==nexaConsentRevision||epoch!==clinicalEpoch)return;
       structuredSaved=true;
       void window.nexaEncounterAutosave18101?.flush?.('structured');
     }catch(saveError){
