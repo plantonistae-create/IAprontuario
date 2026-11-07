@@ -242,3 +242,39 @@ test('unprocessed recorded audio warns before unload even with no clinical text'
  assert.match(html,/áudio ainda apenas na memória · transcreva antes de sair/,
    'recording completion must clearly warn that audio is not durably stored');
 });
+
+
+test('legacy seven-day history cannot silently discard the open clinical note or audio',async()=>{
+ const legacy=html.slice(html.indexOf('async function loadHistory(){'),html.indexOf("$('historyHead').onclick",html.indexOf('async function loadHistory(){')));
+ assert.match(legacy,/const ownerAtRequest=String\(currentProf\?\.id\|\|''\)/);
+ assert.match(legacy,/if\(currentProf\?\.id!==ownerAtRequest\)return/);
+ assert.match(legacy,/\.eq\('user_id',ownerAtRequest\)/);
+ assert.match(legacy,/history=\(data\|\|\[\]\)\.map\(row=>\(\{\.\.\.row,encounter_id:row\.id,user_id:ownerAtRequest\}\)\)/);
+ assert.match(legacy,/await window\.nexaRecoverSavedEncounter\(r\)/);
+ assert.doesNotMatch(legacy,/\(\)=>\{clearClinicalSession\(\);fill\(r\.fields\|\|\{\}\)/,
+   'opening an old history item must not wipe the current consultation directly');
+ const begin=html.indexOf('  async function nexaRecoverSavedEncounter(row){');
+ const end=html.indexOf('  window.nexaRecoverSavedEncounter=nexaRecoverSavedEncounter;',begin);
+ assert.ok(begin>0&&end>begin,'canonical history recovery must exist');
+ const source=html.slice(begin,end);
+ assert.ok(source.indexOf("if(recording||recordingStarting||(audioBlob&&audioBlob.size>0))")
+   < source.indexOf("await nexaPersistSession('before_history_recovery')"),
+   'volatile audio guard must precede any history switch');
+ const id='88888888-8888-4888-8888-888888888888';
+ const row={encounter_id:id,user_id:'synthetic-owner',fields:{hda:'Consulta sintética arquivada'}};
+ for(const state of [{recording:true,starting:false,audio:null},{recording:false,starting:true,audio:null},{recording:false,starting:false,audio:{size:1024}}]){
+   let calls=0,adoptCalls=0,persistCalls=0;
+   const factory=new Function('currentProf','recording','recordingStarting','audioBlob',
+     'show','nexaHasMeaningfulSession','nexaPersistSession','window',
+     'nexaRestoreSession','confirm',
+     source+'\nreturn nexaRecoverSavedEncounter;');
+   const reopen=factory({id:'synthetic-owner'},state.recording,state.starting,state.audio,
+     ()=>{calls++;},()=>false,async()=>{persistCalls++;},
+     {nexaEncounterAutosave18101:{adoptExisting:async()=>{adoptCalls++;}}},
+     ()=>{},()=>true);
+   assert.equal(await reopen(row),false);
+   assert.equal(calls,1,'physician must receive a clear warning before switching');
+   assert.equal(adoptCalls,0,'the clinical record must not be replaced while audio is volatile');
+   assert.equal(persistCalls,0,'audio-only guard must not pretend a text checkpoint saved the audio');
+ }
+});
