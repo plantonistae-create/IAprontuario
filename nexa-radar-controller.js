@@ -104,7 +104,15 @@
     function respond(id,value,action='answer'){
       const item=state.items.find(i=>i.id===id);if(!item)return false;
       if(action!=='answer'&&['comorbidities','allergies','medicines'].includes(item.concept))return false; // require documentation
-      const result=E.answer(adapter.context(),ledger,item,value,action);ledger=result.ledger;
+      const before=adapter.context(),result=E.answer(before,ledger,item,value,action);
+      ledger=result.ledger;
+      // Marking a question evaluated/dismissed changes only the local audit
+      // ledger, not patient evidence. Keep any useful in-flight analysis and
+      // avoid an additional provider call with identical clinical content.
+      // Explicit answers and every changed clinical field still reanalyze.
+      if(action!=='answer'&&remoteKey(before)===remoteKey(result.context)){
+        recalculate();adapter.persist?.();return true;
+      }
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
     function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}

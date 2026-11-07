@@ -205,3 +205,74 @@ test('reordering cannot hide changed negations, dosages or clinical field values
   radar.reset();
  }finally{timer.restore()}
 });
+
+
+test('status-only Radar review does not cancel or duplicate a paid analysis',async()=>{
+ const timer=clock();
+ try{
+  let context={fields:{hda:'Paciente: Dor torácica.'},transcript:''};
+  const calls=[],persisted=[];
+  const radar=NexaRadarController.create({
+   context:()=>context,publish(){},
+   apply:fields=>{context={...context,fields}},
+   persist:()=>persisted.push('ledger'),
+   analyze:(input,signal)=>new Promise((resolve,reject)=>calls.push({input,signal,resolve,reject}))
+  });
+  radar.setOwner('synthetic-doctor');
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1,'initial evidence requires a provider analysis');
+  const first=radar.state.items.find(i=>i.concept==='dyspnea');
+  assert.ok(first,'chest pain must trigger dyspnea question');
+  const beforeFields=structuredClone(context.fields);
+  assert.equal(radar.respond(first.id,'Já avaliado','evaluated'),true);
+  assert.equal(calls[0].signal.aborted,false,
+   'status-only review must not cancel clinically relevant inflight analysis');
+  assert.deepEqual(context.fields,beforeFields,
+   'status-only review never fabricates clinical evidence');
+  assert.equal(radar.snapshot().ledger[first.id].action,'evaluated');
+  assert.equal(persisted.length,1,'review still persists audit ledger');
+  calls[0].resolve({items:[]});
+  for(let k=0;k<6;k++)await Promise.resolve();
+  timer.tick(2500);
+  assert.equal(calls.length,1,
+   'status-only review must not cause an extra provider request');
+  const second=radar.state.items.find(i=>
+   !['comorbidities','allergies','medicines'].includes(i.concept));
+  assert.ok(second,'another optional clinical gap exists');
+  assert.equal(radar.respond(second.id,'Dispensar','dismissed'),true);
+  timer.tick(2500);
+  assert.equal(calls.length,1,'dismissal of unchanged evidence stays local');
+  assert.equal(persisted.length,2,'both review actions remain auditable');
+  radar.reset();
+ }finally{timer.restore()}
+});
+
+test('new clinical answer after status-only review still triggers provider analysis',async()=>{
+ const timer=clock();
+ try{
+  let context={fields:{hda:'Paciente: Dor torácica.'},transcript:''};
+  const calls=[];
+  const radar=NexaRadarController.create({
+   context:()=>context,publish(){},
+   apply:fields=>{context={...context,fields}},
+   analyze:(input,signal)=>new Promise((resolve,reject)=>calls.push({input,signal,resolve,reject}))
+  });
+  radar.setOwner('synthetic-doctor');
+  radar.recalculate({remote:true});timer.tick(1500);
+  assert.equal(calls.length,1);
+  const item=radar.state.items.find(i=>i.concept==='dyspnea');
+  assert.ok(item);
+  radar.respond(item.id,'Não','answer');
+  assert.equal(calls[0].signal.aborted,true,
+   'new documented negation invalidates stale interpretation');
+  assert.match(context.fields.hda,/negado/i);
+  calls[0].resolve({items:[]});
+  for(let k=0;k<6;k++)await Promise.resolve();
+  timer.tick(1500);
+  assert.equal(calls.length,2,'new patient evidence must be analyzed again');
+  assert.match(calls[1].input.fields.hda,/negado/i);
+  calls[1].resolve({items:[]});
+  for(let k=0;k<6;k++)await Promise.resolve();
+  radar.reset();
+ }finally{timer.restore()}
+});
