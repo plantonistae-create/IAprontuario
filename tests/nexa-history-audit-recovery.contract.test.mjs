@@ -131,9 +131,10 @@ test('history reopen uses the durable local copy instead of an older server row'
    calls.push(['adopt',incoming]);return local;
  }}};
  const factory=new Function('window','currentProf','nexaHasMeaningfulSession','nexaPersistSession',
-   'nexaRestoreSession',source+'\nreturn nexaRecoverSavedEncounter;');
+   'nexaRestoreSession','recording','recordingStarting','audioBlob','show',
+   source+'\nreturn nexaRecoverSavedEncounter;');
  const reopen=factory(win,who,()=>false,async reason=>calls.push(['persist',reason]),
-   snapshot=>calls.push(['render',snapshot]));
+   snapshot=>calls.push(['render',snapshot]),false,false,null,()=>{});
  assert.equal(await reopen(remote),true);
  const rendered=calls.find(call=>call[0]==='render')?.[1];
  assert.equal(rendered.fields.hda,local.fields.hda);
