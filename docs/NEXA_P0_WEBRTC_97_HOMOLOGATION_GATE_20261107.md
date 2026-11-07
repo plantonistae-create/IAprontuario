@@ -1,10 +1,10 @@
 # NEXA P0 WebRTC 9.7 — Gate consolidado de homologação isolada (PREPARAÇÃO; NO-GO)
 
 **Estado:** DOCUMENTAL / NÃO EXECUTADO. **Data:** 2026-11-07.
-**Repositório:** \`plantonistae-create/IAprontuario\`.
-**Referência de origem:** PR #133 Draft, HEAD anterior a este documento \`ed53215208b27d32882fbb4befc5e75080eeda6f\`, base \`main cb95e0e19dcc9d81947e791ff5d10537104d0686\`.
+**Repositório:** `plantonistae-create/IAprontuario`.
+**Referência de origem:** PR #133 Draft, HEAD anterior a este documento `ed53215208b27d32882fbb4befc5e75080eeda6f`, base `main cb95e0e19dcc9d81947e791ff5d10537104d0686`.
 **CI aprovada da implementação:** [#42355477729](https://github.com/plantonistae-create/IAprontuario/actions/runs/42355477729) (não equivale a ensaio real com microfone ou upstream). Um commit deste documento abre uma nova CI; não inferir sua conclusão.
-**Produção hospedada:** Supabase \`realtime-call\` v6, \`verify_jwt=true\`, hash do bundle \`1675c95f6b1a25569c6af86e5c461f05fd475ee0d8a759439631d2d56221e005\`.
+**Produção hospedada:** Supabase `realtime-call` v6, `verify_jwt=true`, hash do bundle `1675c95f6b1a25569c6af86e5c461f05fd475ee0d8a759439631d2d56221e005`.
 **Cuidado:** a função de staging observada era v5, e a versão do repositório diverge da v6 hospedada. Nenhuma das duas substitui a v6 preservada.
 
 ## 0. Política de autorização (bloqueio antes de qualquer execução)
@@ -31,10 +31,10 @@ Gates progressivos e independentes:
 | ID | Checagem objetiva | PASS | FAIL/STOP |
 |---|---|---|---|
 | P01 | PRs #118, #119, #121 e #133 abertas **Draft**; main/base e HEAD fixados | Refs e hash registrados | Branch drift, merge ou publicação não autorizada |
-| P02 | V6 hosted original: versão, \`verify_jwt\`, hash do bundle | v6, true, hash exato do cabeçalho | Divergência => congelar; nunca reconstruir a partir da main |
-| P03 | Snapshot dos **4 arquivos da v6** verificado por \`reconcileHostedV6()\` do script \`scripts/nexa-realtime-v6-offline-reconcile.mjs\` | File set, comprimento, SHA-256 e patch reversível exatamente aprovados | Fonte faltante, hash alterado, arquivo extra ou invariante ausente |
-| P04 | Diff do candidato multipart (PR #121 como hipótese) | Somente mudança para campos multipart textuais \`sdp\` e \`session\` no entrypoint; 3 outros arquivos byte-a-byte iguais | Qualquer alteração de Auth, JWT, modelo, timeout, fallback, logs ou \`deno.json\` |
-| P05 | SDP/ICE | Módulo \`scripts/nexa-realtime-ice-offline.mjs\` permanece isolado e testes de timeout/abort aprovados | Candidato ICE integrado sem análise do deadline de 10 s |
+| P02 | V6 hosted original: versão, `verify_jwt`, hash do bundle | v6, true, hash exato do cabeçalho | Divergência => congelar; nunca reconstruir a partir da main |
+| P03 | Snapshot dos **4 arquivos da v6** verificado por `reconcileHostedV6()` do script `scripts/nexa-realtime-v6-offline-reconcile.mjs` | File set, comprimento, SHA-256 e patch reversível exatamente aprovados | Fonte faltante, hash alterado, arquivo extra ou invariante ausente |
+| P04 | Diff do candidato multipart (PR #121 como hipótese) | Somente mudança para campos multipart textuais `sdp` e `session` no entrypoint; 3 outros arquivos byte-a-byte iguais | Qualquer alteração de Auth, JWT, modelo, timeout, fallback, logs ou `deno.json` |
+| P05 | SDP/ICE | Módulo `scripts/nexa-realtime-ice-offline.mjs` permanece isolado e testes de timeout/abort aprovados | Candidato ICE integrado sem análise do deadline de 10 s |
 | P06 | CI frontend do commit de implementação | #42355477729 SUCCESS; gates clínicos, consentimento, fallback e browsers aprovados | CI regressiva ou evidência insuficiente |
 | P07 | Custos e proteção de dados | Projeto isolado, orçamento aprovado, logging redigido, plano de descarte e rollback assinado | Qualquer um ausente => G1/G2 NO-GO |
 
@@ -55,7 +55,7 @@ Usar no máximo uma sessão humana consolidada, com cenário sintético previame
 | H07 | Candidato v6 + multipart textual em sandbox | Negociação obtém resposta SDP válida e DataChannel aberto, se upstream permitir; comparar baseline com mesmas restrições | HTTP 400/401/429/5xx, resposta inválida ou handshake abortado => não promover |
 | H08 | ICE/SDP completo no navegador descartável | SDP final válido, sem negociação tardia, e coleta dentro do deadline aprovado | Coleta excede limite, reaparece canal antigo ou requer mudança não aprovada |
 | H09 | WebRTC→chunks 10 s e timeout de chunk 18 s | Fallback único, sem abortar chunk pelo controlador da negociação; fila não duplica conteúdo | Recursão/reenvio, fila >4, perda silenciosa de segmento |
-| H10 | Pausar/Retomar/Finalizar | Indicadores coerentes; \`live\` só com DataChannel aberto; track realmente mudo em pausa | UI declara ao vivo em fallback ou microfone persiste após parar |
+| H10 | Pausar/Retomar/Finalizar | Indicadores coerentes; `live` só com DataChannel aberto; track realmente mudo em pausa | UI declara ao vivo em fallback ou microfone persiste após parar |
 | H11 | Continuidade/qualidade clínica com roteiro fictício | Todos os segmentos do texto fictício reconhecidos sem criar fatos, examinados por médico; perdas explicitadas | Omissão crítica, inventar paciente/acompanhante, declaração de sucesso incompleto |
 | H12 | Auth expirada, 400/401/429/5xx e rede inválida | Aborto/falha fechada, sem duplicação, mensagens sem conteúdo sensível | Retentativa silenciosa, alerta enganoso, vazamento |
 | H13 | Custo | Uso oficial do provedor conciliável com orçamento e requests de teste, por modalidade/modelo/dia UTC | Sem fatura/uso oficial => status **NOT_TESTED**, economia não comprovada |
@@ -66,7 +66,7 @@ Usar no máximo uma sessão humana consolidada, com cenário sintético previame
 
 Separar alterações em **uma variável por vez**, com fonte v6 pinada: (A) fonte hosted inalterada; (B) candidate multipart textual *apenas*; (C) ICE/SDP só em proposta isolada posterior. Não ativar (B) e (C) juntos no primeiro ensaio. O upstream 400 é compatível com diferentes causas (multipart, schema, autorização, modelo, quota, SDP/ICE); somente sucesso/erro observado de forma controlada pode distinguir hipóteses. Eventuais erros Realtime recuperáveis não devem acionar novas sessões pagas indiscriminadamente.
 
-Relatório de ensaio autorizado: \`gate_id; run_utc; candidate_sha256; pass|fail|not_tested; upstream_http_status_band; fallback_count; duplicate_count; abort_count; audio_continuity_review_pass|fail|not_tested; billing_match_pass|fail|not_tested; stop_reason; reviewer_approved\`. Nunca incluir valores de áudio/SDP ou identificadores pessoais.
+Relatório de ensaio autorizado: `gate_id; run_utc; candidate_sha256; pass|fail|not_tested; upstream_http_status_band; fallback_count; duplicate_count; abort_count; audio_continuity_review_pass|fail|not_tested; billing_match_pass|fail|not_tested; stop_reason; reviewer_approved`. Nunca incluir valores de áudio/SDP ou identificadores pessoais.
 
 ## 5. Economia: reaproveitamento, NÃO nova modelagem
 
@@ -81,13 +81,13 @@ Relatório de ensaio autorizado: \`gate_id; run_utc; candidate_sha256; pass|fail
 **Se um futuro ensaio em sandbox falhar:**
 1. Interromper novas sessões e requisições; desativar acesso ao ensaio sem alterar Auth/RLS de produção.
 2. Preservar apenas relatório sanitizado, contadores, commit da candidata e razão FAIL; destruir sessão de teste e mídia temporária de acordo com política previamente aprovada.
-3. Restaurar **somente no ambiente descartável**, a v6 original dos quatro arquivos com versão/metadata verificadas; conferir checksums e \`verify_jwt=true\`, endpoints e comportamento de bloqueio anônimo, se esse ensaio for autorizado.
+3. Restaurar **somente no ambiente descartável**, a v6 original dos quatro arquivos com versão/metadata verificadas; conferir checksums e `verify_jwt=true`, endpoints e comportamento de bloqueio anônimo, se esse ensaio for autorizado.
 4. Não aplicar rollback de função hospedada na produção; ela permaneceu inalterada. Se publicação futura for autorizada separadamente, exigir plano e snapshot específicos de recuperação antes de tocar a função.
 5. Reclassificar todos os testes dependentes de autenticação/upstream como NÃO HOMOLOGADOS até evidência nova.
 
 ## 7. Decisão operacional / ações humanas
 
-- **Situação atual:** \`G0=DOCUMENTADO\`, \`G1=BLOCKED\`, \`G2=BLOCKED\`, \`G3=BLOCKED\`, \`G4=NO-GO\`. **Nenhuma ação humana necessária para conservar esse estado.**
+- **Situação atual:** `G0=DOCUMENTADO`, `G1=BLOCKED`, `G2=BLOCKED`, `G3=BLOCKED`, `G4=NO-GO`. **Nenhuma ação humana necessária para conservar esse estado.**
 - **Quando houver pedido de homologação real:** autorização separada para **ambiente descartável, custódia, uso de credenciais de teste e limite financeiro**, depois autorização explícita **independente** para cada ensaio que possa chamar o provedor e gerar custo. Solicitar uma única sessão manual consolidada, com checklist e modelo de relatório acima.
 - **Não pedir agora** instalação, senha, token, acesso à conta, consentimento clínico, áudio real, assinatura ou publicação.
 - **Liberação produtiva:** exigirá todas as evidências aplicáveis PASS, revisão humana, análise de custo, rollback aprovado e autorização explícita posterior de merge/deploy. É proibido transformar esta preparação em autorização implícita.
