@@ -326,6 +326,10 @@ async function preserve(reason='autosave',{sync=true}={}){
 async function startNew(reason='new_encounter'){
  ensureOwnerScope();
  const userId=owner(),capturedFields=collectFields();
+ // A second physician must never inherit note text left in the first
+ // physician's form. Require the form to be cleared before opening a draft.
+ if(ownerSwitchRequiresExplicitEncounter&&meaningful(capturedFields))
+   throw new Error('OWNER_SWITCH_REQUIRES_CLEAR_FORM');
  return serializeLocal(async()=>{
  if(!userId||owner()!==userId)return null;
  const id=uuid();setActiveId(id);
