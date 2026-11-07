@@ -3863,7 +3863,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
     }
     audioBlob=new Blob(chunks,{type:mime});
     $('processBtn').disabled=false;
-    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever`;
+    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · áudio ainda apenas na memória · transcreva antes de sair`;
     flat();syncRecordingUi();
     window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
     nexaScrollToProcessCta();
@@ -4773,7 +4773,17 @@ function pauseSession(){
       show('Falha ao preservar a consulta neste dispositivo. Copie o texto clínico antes de fechar ou iniciar outro atendimento.',true);
     }
   });
-  window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;void nexaPersistSession('beforeunload').catch(()=>{});e.preventDefault();e.returnValue=''});
+  // Audio is only in memory until the full transcription and local checkpoint
+  // succeed. A note-free encounter can still contain minutes of unprocessed
+  // recording and must be guarded against accidental reload/close.
+  function nexaShouldWarnBeforeExit(){
+    return Boolean(recording||recordingStarting||(audioBlob&&audioBlob.size>0)||nexaHasMeaningfulSession());
+  }
+  window.addEventListener('beforeunload',e=>{
+    if(!nexaShouldWarnBeforeExit())return;
+    if(nexaHasMeaningfulSession())void nexaPersistSession('beforeunload').catch(()=>{});
+    e.preventDefault();e.returnValue='';
+  });
   nexaCheckRecoverableSession();
   window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
   setTimeout(()=>void nexaCheckRecoverableSession(),1800);
@@ -5421,5 +5431,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261106-server-refresh"></script>
+<script src="./nexa-hotfix.js?v=20261107-audio-exit-guard"></script>
 </body></html>
