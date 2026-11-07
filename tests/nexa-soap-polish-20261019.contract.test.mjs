@@ -29,7 +29,7 @@ test('single manual opt-in for detailed speaker diarization is beside transcript
  assert.match(soap,/processRow\.appendChild\(voiceOption\)/);
  assert.match(soap,/checkbox\.checked=false/);
  assert.match(html,/identifySpeakersLegacy/);
- assert.match(html,/nexaDiarizeAudio\(audioBlob\)/);
+ assert.match(html,/nexaDiarizeAudio\(audioBlob,processingAbort\.signal\)/);
 });
 test('SOAP exam editor visible, redundant vitals hidden, one copy O',()=>{
  assert.match(soap,/vital\.classList\.add\('nexa-v1811-hidden'\)/);
