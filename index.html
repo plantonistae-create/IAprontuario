@@ -3924,7 +3924,7 @@ function stopRec({discard=false}={}){
   try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
-}$('consent').onchange=()=>{const allowed=$('consent').checked;$('recBtn').disabled=!allowed;if(!allowed&&(recording||recordingStarting||(mediaRecorder&&mediaRecorder.state!=='inactive'))){stopRec({discard:true});$('status').textContent='Consentimento retirado · gravação interrompida.';}};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
+}let nexaConsentRevision=0;$('consent').onchange=()=>{const allowed=$('consent').checked;$('recBtn').disabled=!allowed;if(!allowed){++nexaConsentRevision;if(recording||recordingStarting||(mediaRecorder&&mediaRecorder.state!=='inactive'))stopRec({discard:true});audioBlob=null;chunks=[];$('processBtn').disabled=true;$('status').textContent='Consentimento retirado · gravação interrompida.';}};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
 async function requireClinicalSession(){
   let {data:{session},error}=await sb.auth.getSession();if(error||!session?.access_token)throw new Error('Sessão expirada. Entre novamente no NEXA.');
   const check=await sb.auth.getUser(session.access_token).catch(()=>({data:{user:null},error:new Error('AUTH_CHECK_FAILED')}));
@@ -4013,13 +4013,15 @@ function nexaShowMedicationReview(review){
 }
 window.nexaShowMedicationReview=nexaShowMedicationReview;
 async function processAudio(){
-  const processingEpoch=clinicalEpoch;stopRecordingTimer();
-  if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch)return;}
+  if(!$('consent').checked)return show('Confirme o consentimento antes de transcrever.',true);
+  const consentRevision=nexaConsentRevision,processingEpoch=clinicalEpoch;stopRecordingTimer();
+  if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;}
   if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);
   $('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';$('status').textContent='Transcrevendo e estruturando…';
   document.body.dataset.nexaProcessing='1';window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'processing'}}));
   const prior=collect();
   try{
+    if(consentRevision!==nexaConsentRevision||!$('consent').checked)return;
     const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString();
     let payload;
     let autoSpeakerFallback=false;
@@ -4038,7 +4040,7 @@ async function processAudio(){
         autoSpeakerFallback=true;
         console.warn('NEXA speaker diarization unavailable; using standard transcription');
       }
-      if(epoch!==clinicalEpoch)return;
+      if(epoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
       if(segments){
         $('status').textContent='Estruturando prontuário…';
         payload=await nexaInvokeAutomaticSpeakerSegments(segments);
@@ -4047,7 +4049,7 @@ async function processAudio(){
         payload=await invoke(audioBlob);
       }
     }else payload=await invoke(audioBlob);
-    if(epoch!==clinicalEpoch)return;
+    if(epoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
     const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
     activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
     fill(parsed);nexaShowMedicationReview(payload.medication_review);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
@@ -4073,13 +4075,13 @@ async function processAudio(){
     }
     window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
   }catch(e){
-    if(processingEpoch===clinicalEpoch){
+    if(processingEpoch===clinicalEpoch&&consentRevision===nexaConsentRevision&&$('consent').checked){
       const message=e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message;
       $('status').textContent=`Falha ao transcrever/estruturar · ${message}`;show(message,true);
       window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'error',message}}));
     }
   }finally{
-    if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=false;$('processBtn').textContent='Transcrever e estruturar'
+    if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=!$('consent').checked;$('processBtn').textContent='Transcrever e estruturar'
   }
 }$('processBtn').onclick=processAudio;
 // Keep both visible transcription entry points on the same explicit opt-in.
