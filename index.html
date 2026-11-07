@@ -3755,7 +3755,7 @@ async function radarAnalyze(force=false){window.nexaRadar?.recalculate({remote:t
 
 // Same microphone stream as the recorder. Complete utterances only enter clinical analysis.
 const radarTranscriptBuffer=NexaRadarController.createTranscriptBuffer();
-let radarTransportRevision=0,radarTransportAbort=null,radarConnectTimeout=null,radarChunkSequence=0,radarChunkQueue=[],radarChunkSending=false;
+let radarTransportRevision=0,radarTransportAbort=null,radarNegotiationAbort=null,radarConnectTimeout=null,radarChunkSequence=0,radarChunkQueue=[],radarChunkSending=false;
 function radarTransportStatus(status){window.nexaRadar?.setTranscriptStatus(status);}
 function handleRealtimeEvent(evt,revision=radarTransportRevision){
   if(revision!==radarTransportRevision||!recording)return;
@@ -3766,7 +3766,7 @@ function handleRealtimeEvent(evt,revision=radarTransportRevision){
   }
 }
 async function startRealtimeRadar(mediaStream){
-  const revision=++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
+  const revision=++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=new AbortController();radarNegotiationAbort?.abort();radarNegotiationAbort=new AbortController();const signal=radarNegotiationAbort.signal;
   const current=()=>revision===radarTransportRevision&&recording;
   try{
     if(!current()||!$('consent').checked)return;
@@ -3805,7 +3805,7 @@ async function drainRadarChunks(revision){
 function radarAudioMime(){return ['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(type=>MediaRecorder.isTypeSupported(type))||'';}
 function startRadarChunkFallback(mediaStream,revision=radarTransportRevision){
   if(radarFallbackActive||!recording||revision!==radarTransportRevision)return;
-  radarFallbackActive=true;clearTimeout(radarConnectTimeout);
+  radarFallbackActive=true;clearTimeout(radarConnectTimeout);radarNegotiationAbort?.abort();radarNegotiationAbort=null;
   if(realtimeDc){realtimeDc.onmessage=null;realtimeDc.onclose=null;}try{realtimeDc?.close();realtimePc?.close();}catch{}realtimeDc=null;realtimePc=null;
   radarTransportStatus(sessionPaused?'paused':'connecting');
   const loop=()=>{
@@ -3825,7 +3825,7 @@ function startRadarChunkFallback(mediaStream,revision=radarTransportRevision){
   };loop();
 }
 function stopRealtimeRadar({wipe=true}={}){
-  ++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=null;radarChunkQueue=[];radarChunkSending=false;radarFallbackActive=false;
+  ++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=null;radarNegotiationAbort?.abort();radarNegotiationAbort=null;radarChunkQueue=[];radarChunkSending=false;radarFallbackActive=false;
   clearTimeout(radarConnectTimeout);clearTimeout(radarChunkStopper);radarChunkStopper=null;
   try{if(radarChunkRecorder&&radarChunkRecorder.state!=='inactive')radarChunkRecorder.stop();}catch{}radarChunkRecorder=null;
   clearInterval(radarTimer);radarTimer=null;
