@@ -178,6 +178,76 @@ console.log('NEXA encounter autosave offline, audit, CAS contract: PASS');
 }
 console.log('NEXA continuous-edit autosave max-wait regression: PASS');
 
+// A shared workstation can change authenticated clinician without reloading.
+// IDs, local records and visible note text must never cross that boundary.
+{
+ const saved=new Map(),session=new Map(),events=[],input={hda:'Consulta sintética da médica A'};
+ const currentProf={id:'doctor-A'};
+ let count=0;
+ const ctx={
+   console,structuredClone,currentProf,document:{
+     documentElement:{dataset:{}},
+     getElementById:()=>null,querySelectorAll:()=>[],addEventListener(){}
+   },
+   navigator:{onLine:false},
+   sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,String(v)),removeItem:k=>session.delete(k)},
+   indexedDB:{open(){throw new Error('Synthetic store required')}},
+   crypto:{randomUUID:()=> '55555555-5555-4555-8555-'+String(++count).padStart(12,'0')},
+   CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},
+   setTimeout:()=>0,clearTimeout(){},addEventListener(){},
+   dispatchEvent:e=>events.push(e),window:null,
+   collect:()=>({...input})
+ };
+ ctx.window=ctx;
+ vm.runInNewContext(source,ctx);
+ const scoped=ctx.nexaEncounterAutosave18101;
+ scoped.setStoreAdapter({
+   get:async id=>structuredClone(saved.get(id)||null),
+   put:async rec=>{saved.set(rec.encounter_id,structuredClone(rec));return rec},
+   all:async()=>structuredClone([...saved.values()]),
+   comparePut:async(old,rec)=>{
+     saved.set(rec.encounter_id,structuredClone(rec));return true
+   }
+ });
+ const a=await scoped.startNew('synthetic_A');
+ await scoped.preserve('input',{sync:false});
+ assert.equal(scoped.currentEncounterId(),a.encounter_id);
+ assert.equal((await scoped.get(a.encounter_id)).owner_user_id,'doctor-A');
+ // Switch in the same tab, while the visible HDA still belongs to A.
+ currentProf.id='doctor-B';
+ assert.equal(scoped.currentEncounterId(),'','foreign active encounter ID must be cleared');
+ assert.equal(ctx.__NEXA_ACTIVE_ENCOUNTER_ID__,'');
+ await assert.rejects(scoped.preserve('input',{sync:false}),/OWNER_SWITCH_REQUIRES_NEW_OR_RECOVERED_ENCOUNTER/);
+ await assert.rejects(scoped.startNew('synthetic_B'),/OWNER_SWITCH_REQUIRES_CLEAR_FORM/);
+ assert.equal((await scoped.get(a.encounter_id)).fields.hda,'Consulta sintética da médica A');
+ await assert.rejects(
+   scoped.adoptExisting({encounter_id:a.encounter_id,owner_user_id:'doctor-B',fields:{hda:'Fake B'}}),
+   /ENCOUNTER_OWNER_MISMATCH/,
+   'a forged B-tagged row must not adopt a durable A record'
+ );
+ assert.equal(scoped.currentEncounterId(),'');
+ await assert.rejects(
+   scoped.adoptExisting({encounter_id:'66666666-6666-4666-8666-666666666666',user_id:'doctor-A',fields:{hda:'Fake'}}),
+   /ENCOUNTER_OWNER_MISMATCH/,
+   'remote row from another doctor must be rejected'
+ );
+ input.hda='';
+ const b=await scoped.startNew('synthetic_B_clean_form');
+ assert.notEqual(b.encounter_id,a.encounter_id);
+ assert.equal(b.owner_user_id,'doctor-B');
+ assert.equal(scoped.currentEncounterId(),b.encounter_id);
+ assert.equal((await scoped.get(a.encounter_id)).owner_user_id,'doctor-A');
+ // Switching back requires owner-verified recovery, not auto-selecting B's ID.
+ currentProf.id='doctor-A';
+ assert.equal(scoped.currentEncounterId(),'');
+ const restored=await scoped.adoptExisting({encounter_id:a.encounter_id,owner_user_id:'doctor-A'});
+ assert.equal(restored.fields.hda,'Consulta sintética da médica A');
+ assert.equal(scoped.currentEncounterId(),a.encounter_id);
+ assert.equal((await scoped.get(b.encounter_id)).owner_user_id,'doctor-B');
+}
+console.log('NEXA owner-switch encounter isolation regression: PASS');
+
+
 
 // Regression: a failed IndexedDB write must not disappear inside a timer's
 // rejected Promise. No real accounts, patient data or requests are involved.
