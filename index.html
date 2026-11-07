@@ -4756,10 +4756,22 @@ function pauseSession(){
       ?'Preservado localmente · conflito pendente':'Salvo neste dispositivo';
     return true;
   }
+  let localCheckpointFailureVisible=false;
   window.addEventListener('nexa:encounter-local-saved',event=>{
-    void nexaUpdatePointerAfterLocalSave(event).catch(error=>{
+    void nexaUpdatePointerAfterLocalSave(event).then(confirmed=>{
+      if(confirmed)localCheckpointFailureVisible=false;
+    }).catch(error=>{
       console.warn('[NEXA] Marcador de recuperação pendente',error?.message||'POINTER_FAILED');
     });
+  });
+  window.addEventListener('nexa:encounter-local-save-failed',()=>{
+    const status=q('nexaSessionAutosaveText');
+    if(status)status.textContent='ATENÇÃO: alterações não salvas localmente';
+    saveState('error','não salvo · armazenamento local');
+    if(!localCheckpointFailureVisible){
+      localCheckpointFailureVisible=true;
+      show('Falha ao preservar a consulta neste dispositivo. Copie o texto clínico antes de fechar ou iniciar outro atendimento.',true);
+    }
   });
   window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;void nexaPersistSession('beforeunload').catch(()=>{});e.preventDefault();e.returnValue=''});
   nexaCheckRecoverableSession();
