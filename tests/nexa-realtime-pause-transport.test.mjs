@@ -84,3 +84,10 @@ test('pause mutes track and cannot report live status in either transport', () =
     assert.equal(h.events.uiSync, 1);
   }
 });
+
+test('browser fixture uses genuine DataChannel readyState transitions', () => {
+  const fixture = readFileSync(new URL('./browser-fixture.js', import.meta.url), 'utf8');
+  assert.match(fixture, /readyState:'connecting'/);
+  assert.match(fixture, /this\.channel\.readyState='open';this\.channel\.onopen\?\.\(\)/);
+  assert.match(fixture, /close\(\)\{this\.readyState='closed';this\.onclose\?\.\(\)/);
+});
