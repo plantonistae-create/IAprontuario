@@ -3863,7 +3863,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
     }
     audioBlob=new Blob(chunks,{type:mime});
     $('processBtn').disabled=false;
-    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · áudio ainda apenas na memória · transcreva antes de sair`;
+    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever · áudio ainda apenas na memória · transcreva antes de sair`;
     flat();syncRecordingUi();
     window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
     nexaScrollToProcessCta();
