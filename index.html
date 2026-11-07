@@ -4573,7 +4573,7 @@ function pauseSession(){
       }else if(sessionPaused && mediaRecorder.state==='paused'){
         stream?.getAudioTracks().forEach(t=>t.enabled=true);mediaRecorder.resume();sessionPaused=false;
         timerInt=setInterval(()=>{seconds+=1;q('timer').textContent=fmt(seconds)},1000);wave();
-        q('status').textContent='Gravando consulta…';radarTransportStatus('live');
+        q('status').textContent='Gravando consulta…';radarTransportStatus(radarFallbackActive?'connecting':realtimeDc?.readyState==='open'?'live':'connecting');
       }
     }catch(e){console.warn('NEXA pause/resume',e);show('Não foi possível pausar ou retomar a gravação.',true)}
     syncRecordingUi();
