@@ -512,7 +512,7 @@ function bind(){
  addEventListener('offline',()=>preserveDeferred('offline',{sync:false}));
  addEventListener('focus',()=>void flush('focus'));
  addEventListener('nexa:encounter-flush-request',()=>void flush('event'));
- addEventListener('nexa:encounter-priority-request',()=>void prioritize());
+ addEventListener('nexa:encounter-priority-request',()=>void prioritize().catch(()=>reportLocalSaveFailure('manual_priority')));
  setTimeout(()=>void flush('startup'),800);
 }
 bind();
