@@ -73,3 +73,18 @@ O cliente atual envia offer.sdp logo após setLocalDescription, sem provar que I
 ### Política de merge/deploy
 
 Manter #121 e #133 Draft até fechar teste offline real do snapshot v6, CI final, avaliação de comportamento clínico com áudio sintético, segurança e autorização específica para publicar. O status 400 upstream pode ter outras causas (modelo, schema de sessão, quota, ICE ou autenticação) e a correção multipart não representa sucesso comprovado. Custos: sem acesso à fatura agregada do provedor, economia líquida ainda não mensurável.
+
+
+## Gate 9.3 — retirada de consentimento durante a gravação
+
+Revisão de segurança clínica do frontend detectou que o checkbox de consentimento inicialmente apenas desabilitava o botão de gravação. A alteração ainda **somente na PR #133 Draft** agora invoca `stopRec({discard:true})` ao retirar o consentimento se houver gravação ativa, inicialização pendente ou MediaRecorder ainda ativo. Essa rotina para o microfone e aborta os transportes WebRTC/chunk; sinaliza descarte do áudio ainda em memória. A mensagem informa que a gravação foi interrompida. A intervenção não modifica autenticação, JWT, RLS, funções Edge ou produção.
+
+**Limite de privacidade:** a interrupção não pode desfazer segmentos já enviados nem apagar registros clínicos previamente persistidos. O `stopRec` preserva o conteúdo já transcrito na memória da consulta (`wipe:false`) para evitar perda silenciosa de evidência clínica anterior. Confirmar a política de retenção do produto antes de qualquer futura alteração desse comportamento. O teste de navegador com microfone real e retirada de consentimento ainda é gate manual da homologação, não coberto pelos stubs.
+
+Contrato `tests/nexa-realtime-consent-offline.test.mjs`: executa as funções reais do frontend em VM com media stream/recorder fictícios; cobre consentimento retirado durante gravação, inicialização pendente, recorder ainda ativo, e controle ocioso. Verifica abortos de ambos os transportes por inspeção do código e sem fazer rede, autenticação ou consumo pago.
+
+## Gate de staging — retry direcionado sem modificar código de autenticação
+
+A CI #42350317902 (HEAD c67d527e970b) apresentou timeout de 20 s na segunda função anônima de staging, `clinical-assistant`, após `process-consultation` responder com HTTP 401 esperado. Foi executado **um** retry somente do job `staging-auth-smoke`, resultando em SUCCESS da tentativa 2, com todas as rotas anônimas negadas. Isso é compatível com falha transitória de rede ou staging, sem identificar causa única. Os testes autenticados com login permaneceram SKIPPED: `NEXA_STAGING_EMAIL/PASSWORD` não configuradas. Não alegar que a autenticação real foi homologada.
+
+A PR #133 permanece Draft; avaliar a CI do HEAD contendo o gate de consentimento antes de qualquer ação subsequente. Sem autorização para merge/deploy. Economia USD permanece não comprovada.
