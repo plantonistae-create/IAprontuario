@@ -8,15 +8,16 @@ const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8'
 for(const token of [
   'nexaAutoRadarWorkspace','nexaAutoStatus','nexaNextBest','nexaPriorityList',
   'captureVitals','nexaAutoVitals','nexaFinalPending','nexaClinicalPhase',
-  'nexaExamOptional','nexa:radar-state','nexaEncounterAutosave18101',
-  'spoken_vitals','review','consult'
+  'nexaExamOptional','nexa:radar-state','review','consult'
 ]) assert.ok(code.includes(token),`missing ${token}`);
 
-assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20261024-core-history'),'v18.12 module must be loaded with the current cache bust');
+assert.ok(loader.includes('nexa-radar-auto-review-v18.12.js?v=20261106-single-writer'),'v18.12 module must be loaded with the current cache bust');
 assert.ok(engine.includes('pressao')&&engine.includes('por')&&engine.includes('talvez'),'engine must accept spoken blood pressure using "por" and retain uncertainty markers');
 assert.ok(engine.includes('\\s+e\\s+meio'),'engine must recognize spoken half-degree temperature');
 assert.ok(code.includes("item.status==='confirm'"),'ambiguous Radar state must remain visible for confirmation');
 assert.ok(code.includes("existing&&existing!==value"),'spoken vitals must never silently overwrite a different recorded value');
+assert.match(code,/ta\.dispatchEvent\(new Event\('input'/,'spoken vital updates must use the canonical input autosave');
+assert.doesNotMatch(code,/nexaEncounterAutosave18101\?\.preserve\?\./,'spoken vital updates must not force a second clinical revision');
 assert.ok(code.includes("phase==='review'"),'post-consult review must be phase-gated');
 assert.ok(code.includes("Continuar mesmo assim"),'final pending review must not block physician output');
 assert.ok(!code.includes('submit-audit-case'),'v18.12 flow module must not reopen the Audit pipeline');
