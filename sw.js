@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-server-refresh-20261106";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261106-server-refresh";
+const CACHE_NAME="nexa-v18-15-0-audio-exit-guard-20261107";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261107-audio-exit-guard";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){
