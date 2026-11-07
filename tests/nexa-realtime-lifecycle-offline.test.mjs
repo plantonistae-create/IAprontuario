@@ -12,14 +12,14 @@ assert.ok(begin > 0 && end > begin, 'transport functions must remain discoverabl
 const transportSource = html.slice(begin, end);
 
 function harness(behavior) {
-  const state = { timers: [], requests: [], statuses: [], peers: [], recorders: 0, remoteAnswers: 0, fetchAborts: 0, localDescriptions: 0, offerStarted: false, resolveOffer: null, resolveLocal: null };
+  const state = { timers: [], requests: [], statuses: [], peers: [], channels: [], answer: null, recorders: 0, remoteAnswers: 0, fetchAborts: 0, localDescriptions: 0, offerStarted: false, resolveOffer: null, resolveLocal: null };
   class Peer {
     constructor() { this.closed = false; state.peers.push(this); }
     addTrack() {}
-    createDataChannel() { return { onmessage: null, onopen: null, onclose: null, close() {} }; }
+    createDataChannel() { const channel = { onmessage: null, onopen: null, onclose: null, close() {} }; state.channels.push(channel); return channel; }
     async createOffer() { state.offerStarted = true; if (behavior === 'pending-offer') return new Promise(resolve => { state.resolveOffer = () => resolve({type:'offer',sdp:'v=0\r\ns=synthetic\r\n'}); }); return { type: 'offer', sdp: 'v=0\r\ns=synthetic\r\n' }; }
     async setLocalDescription() { state.localDescriptions++; if (behavior === 'pending-local') return new Promise(resolve => { state.resolveLocal = resolve; }); }
-    async setRemoteDescription() { state.remoteAnswers++; }
+    async setRemoteDescription(answer) { state.remoteAnswers++; state.answer = answer; }
     close() { this.closed = true; }
   }
   class Recorder {
@@ -48,6 +48,7 @@ function harness(behavior) {
     fetch(url, options) {
       state.requests.push({ url, options });
       assert.ok(url.startsWith('https://example.invalid/'), 'synthetic endpoint only');
+      if (behavior === 'success') return Promise.resolve({ ok: true, json: async () => ({ sdp: 'v=0\r\ns=synthetic-answer\r\n' }) });
       if (behavior === 'http400') {
         return Promise.resolve({ ok: false, json: async () => ({ error: 'REALTIME_SESSION_FAILED', status: 400 }) });
       }
@@ -160,5 +161,25 @@ test('fallback timeout during setLocalDescription cannot dispatch a stale offer'
   assert.equal(h.state.localDescriptions, 1);
   assert.equal(h.state.recorders, 1);
   assert.equal(h.state.requests.length, 0, 'cancelled local description must not create an HTTP request');
+  assert.equal(h.state.peers[0].closed, true);
+});
+
+test('successful synthetic handshake sets answer once and opens live channel without fallback', async () => {
+  const h = harness('success');
+  await h.control.start(h.stream);
+  assert.equal(h.state.requests.length, 1);
+  assert.equal(h.state.remoteAnswers, 1);
+  assert.equal(h.state.answer.type, 'answer');
+  assert.match(h.state.answer.sdp, /synthetic-answer/);
+  assert.equal(h.state.recorders, 0);
+  assert.equal(h.state.peers[0].closed, false);
+  const deadline = h.state.timers.find(t => t.active && t.ms === 10000);
+  assert.ok(deadline);
+  h.state.channels[0].onopen();
+  assert.equal(deadline.active, false, 'active channel cancels the connection deadline');
+  assert.equal(h.state.statuses.at(-1), 'live');
+  deadline.fn(); // Defensive exercise of an already-cleared synthetic timer
+  assert.equal(h.state.recorders, 0);
+  h.control.stop();
   assert.equal(h.state.peers[0].closed, true);
 });
