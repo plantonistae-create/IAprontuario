@@ -49,9 +49,12 @@ function harness(behavior) {
       state.requests.push({ url, options });
       assert.ok(url.startsWith('https://example.invalid/'), 'synthetic endpoint only');
       if (behavior === 'success') return Promise.resolve({ ok: true, json: async () => ({ sdp: 'v=0\r\ns=synthetic-answer\r\n' }) });
-      if (behavior === 'http400') {
-        return Promise.resolve({ ok: false, json: async () => ({ error: 'REALTIME_SESSION_FAILED', status: 400 }) });
+      if (/^http(400|401|429|500|503)$/.test(behavior)) {
+        const status = Number(behavior.slice(4));
+        return Promise.resolve({ ok: false, json: async () => ({ error: 'REALTIME_SESSION_FAILED', status }) });
       }
+      if (behavior === 'network-error') return Promise.reject(new Error('synthetic network only'));
+      if (behavior === 'invalid-json') return Promise.resolve({ ok: true, json: async () => { throw new Error('synthetic invalid json'); } });
       if (behavior === 'pending') {
         return new Promise((_resolve, reject) => {
           if (options.signal.aborted) { state.fetchAborts++; reject(new Error('already aborted')); return; }
@@ -213,4 +216,29 @@ test('successful open channel still forwards active synthetic transcript event',
   assert.equal(h.state.statuses.at(-1), 'live');
   h.control.stop();
   assert.equal(h.state.statuses.at(-1), 'stopped');
+});
+
+test('provider error classes use one fallback without cross-revision messages', async () => {
+  for (const status of [400, 401, 429, 500, 503]) {
+    const h = harness('http' + status);
+    await h.control.start(h.stream);
+    assert.equal(h.state.requests.length, 1, 'one session request for ' + status);
+    assert.equal(h.state.recorders, 1, 'one fallback for ' + status);
+    assert.equal(h.state.remoteAnswers, 0);
+    assert.equal(h.state.peers[0].closed, true);
+    assert.equal(h.state.requests[0].options.signal.aborted, true);
+    h.control.stop();
+  }
+});
+
+test('network rejection or invalid handshake JSON falls back exactly once', async () => {
+  for (const mode of ['network-error', 'invalid-json']) {
+    const h = harness(mode);
+    await h.control.start(h.stream);
+    assert.equal(h.state.requests.length, 1);
+    assert.equal(h.state.recorders, 1, 'fallback should activate for ' + mode);
+    assert.equal(h.state.remoteAnswers, 0);
+    assert.equal(h.state.peers[0].closed, true);
+    h.control.stop();
+  }
 });
