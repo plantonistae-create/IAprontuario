@@ -12,8 +12,8 @@ test("normal doctor/patient consultation defaults to faster standard transcripti
   assert.match(index,/id="identifySpeakers" type="checkbox" autocomplete="off"/);
   assert.doesNotMatch(index,/id="identifySpeakers" type="checkbox" checked/);
   assert.match(index,/for\(const id of \['identifySpeakers','identifySpeakersLegacy','identifySpeakersToolbar'\]\)/);
-  assert.match(index,/else payload=await invoke\(audioBlob\)/);
-  assert.match(index,/segments=await nexaDiarizeAudio\(audioBlob\)/);
+  assert.match(index,/else payload=await invoke\(audioBlob,processingAbort\.signal\)/);
+  assert.match(index,/segments=await nexaDiarizeAudio\(audioBlob,processingAbort\.signal\)/);
   assert.match(index,/speaker_identification_duration_ms:speakerIdentificationMs/);
 });
 
