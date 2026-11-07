@@ -54,7 +54,9 @@ assert.ok(html.includes("if(q('finalRecordActions')) views.plan.appendChild(q('f
 assert.ok(html.includes("sb.from('consultation_history').update"));
 assert.ok(html.includes("sb.from('consultation_history').insert"));
 assert.ok(html.includes("const NEXA_SESSION_KEY='nexa-active-clinical-session-v370'"));
-assert.ok(html.includes("document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()}"));
+assert.ok(html.includes("window.addEventListener('nexa:encounter-local-saved'"),'Recovery pointer must follow canonical durable autosave');
+assert.ok(html.includes("!nexaSameClinicalFields(api.collectFields(),saved.fields)"),'Do not advertise stale clinical fields as saved');
+assert.ok(!html.includes("document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()}"),'Clinical input must not trigger duplicate checkpoint writes');
 for(const token of ['__NEXA_SUMMARY_STATE_GUARD_V18_9_10__','SUMMARY_KEYS','nexa:summary-restored-after-error','MutationObserver','nexaSummaryStateGuard1910'])assert.ok(summaryGuard.includes(token),`Summary guard v18.9.10 sem ${token}`);
 for(const key of summaryKeys)assert.ok(summaryGuard.includes(`'${key}'`),`Summary guard não protege ${key}`);
 assert.ok(summaryGuard.includes("banner.querySelector('.banner.error')"));

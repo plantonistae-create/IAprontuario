@@ -4731,8 +4731,36 @@ function pauseSession(){
   }
 
   q('nexaTimestampConductBtn')?.addEventListener('click',nexaAddConductTimestamp);
-  document.addEventListener('input',e=>{if(e.target?.matches?.('textarea,input,select'))nexaPersistSessionSoon()});
-  document.addEventListener('change',()=>nexaPersistSessionSoon());
+  // The canonical encounter autosave already handles input/change, with a
+  // 350 ms debounce and a 5 s maximum wait. Calling nexaPersistSessionSoon()
+  // for the SAME events used to perform another full IndexedDB write and could
+  // schedule a duplicate CAS sync. Only issue a recovery pointer after the
+  // canonical local save is durably confirmed.
+  async function nexaUpdatePointerAfterLocalSave(event){
+    const encounterId=String(event?.detail?.encounter_id||'');
+    const userId=String(currentProf?.id||'');
+    const api=window.nexaEncounterAutosave18101;
+    if(!encounterId||!userId||!api?.get||!api?.collectFields||!api?.currentEncounterId)return false;
+    const saved=await api.get(encounterId);
+    if(!saved||saved.owner_user_id!==userId||currentProf?.id!==userId||
+       api.currentEncounterId()!==encounterId||
+       !nexaSameClinicalFields(api.collectFields(),saved.fields))return false;
+    // The marker stores only owner, encounter ID and UI state; never PHI.
+    localStorage.setItem(NEXA_SESSION_KEY,JSON.stringify({
+      owner:userId,encounter_id:encounterId,version:'18.10.1-pointer',
+      saved_at:saved.last_client_saved_at||new Date().toISOString(),
+      state:nexaSessionState,stage:document.body.dataset.nexaStage||'summary'
+    }));
+    const status=q('nexaSessionAutosaveText');
+    if(status)status.textContent=saved.sync_state==='conflict'
+      ?'Preservado localmente · conflito pendente':'Salvo neste dispositivo';
+    return true;
+  }
+  window.addEventListener('nexa:encounter-local-saved',event=>{
+    void nexaUpdatePointerAfterLocalSave(event).catch(error=>{
+      console.warn('[NEXA] Marcador de recuperação pendente',error?.message||'POINTER_FAILED');
+    });
+  });
   window.addEventListener('beforeunload',e=>{if(!nexaHasMeaningfulSession())return;void nexaPersistSession('beforeunload').catch(()=>{});e.preventDefault();e.returnValue=''});
   nexaCheckRecoverableSession();
   window.addEventListener('nexa:continuous-soap-mounted',()=>void nexaCheckRecoverableSession());
@@ -5381,5 +5409,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261106-autosave-bounded"></script>
+<script src="./nexa-hotfix.js?v=20261106-single-writer"></script>
 </body></html>

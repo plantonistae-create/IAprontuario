@@ -140,3 +140,50 @@ test('history reopen uses the durable local copy instead of an older server row'
  assert.equal(rendered.encounter_id,id);
  assert.equal(calls.find(call=>call[0]==='persist')?.[1],'history_reopened');
 });
+
+
+test('single-writer recovery pointer follows confirmed local save, not an extra write',async()=>{
+ const begin=html.indexOf('  async function nexaUpdatePointerAfterLocalSave(event){');
+ const end=html.indexOf("  window.addEventListener('nexa:encounter-local-saved'",begin);
+ assert.ok(begin>0&&end>begin,'single writer pointer listener must exist');
+ const source=html.slice(begin,end);
+ assert.doesNotMatch(html,/document\.addEventListener\('input',e=>\{if\(e\.target\?\.matches\?\.\('textarea,input,select'\)\)nexaPersistSessionSoon\(\)/,
+   'input handler must not schedule a second encounter write');
+ const who={id:'synthetic-owner'},id='11111111-1111-4111-8111-111111111111';
+ const fields={hda:'Evolução sintética preservada',exame_fisico:'Exame sintético'};
+ const saved={encounter_id:id,owner_user_id:who.id,fields:{...fields},
+   last_client_saved_at:'2026-11-06T12:00:00Z',sync_state:'pending'};
+ let currentId=id,visible={...fields},stored={...saved};
+ const pointerWrites=[],status={textContent:''};
+ const api={
+   get:async()=>({...stored}),
+   collectFields:()=>({...visible}),
+   currentEncounterId:()=>currentId
+ };
+ const factory=new Function('window','currentProf','localStorage','NEXA_SESSION_KEY',
+   'nexaSameClinicalFields','document','nexaSessionState','q',
+   source+'\nreturn nexaUpdatePointerAfterLocalSave;');
+ const check=factory({nexaEncounterAutosave18101:api},who,
+   {setItem:(...args)=>pointerWrites.push(args)},'synthetic-pointer',
+   (expected,actual)=>Object.entries(expected).every(([key,val])=>actual[key]===val),
+   {body:{dataset:{nexaStage:'summary'}}},'structured',()=>status);
+ assert.equal(await check({detail:{encounter_id:id}}),true);
+ assert.equal(pointerWrites.length,1);
+ const pointer=JSON.parse(pointerWrites[0][1]);
+ assert.equal(pointer.encounter_id,id);
+ assert.equal(pointer.owner,who.id);
+ assert.equal(pointer.saved_at,saved.last_client_saved_at);
+ assert.ok(!JSON.stringify(pointer).includes(fields.hda),'never store clinical text in pointer');
+ visible={...fields,hda:'Novos dados ainda não salvos'};
+ assert.equal(await check({detail:{encounter_id:id}}),false);
+ assert.equal(pointerWrites.length,1,'stale clinical fields must not update recovery pointer');
+ visible={...fields};currentId='22222222-2222-4222-8222-222222222222';
+ assert.equal(await check({detail:{encounter_id:id}}),false);
+ assert.equal(pointerWrites.length,1,'old encounter event must not revive a reset session');
+ currentId=id;who.id='different-owner';
+ assert.equal(await check({detail:{encounter_id:id}}),false);
+ assert.equal(pointerWrites.length,1,'other user cannot receive a clinical recovery pointer');
+ who.id='synthetic-owner';stored={...saved,sync_state:'conflict'};
+ assert.equal(await check({detail:{encounter_id:id}}),true);
+ assert.match(status.textContent,/conflito pendente/i);
+});
