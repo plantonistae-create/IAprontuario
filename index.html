@@ -3768,18 +3768,19 @@ function handleRealtimeEvent(evt,revision=radarTransportRevision){
 async function startRealtimeRadar(mediaStream){
   const revision=++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=new AbortController();radarNegotiationAbort?.abort();radarNegotiationAbort=new AbortController();const signal=radarNegotiationAbort.signal;
   const current=()=>revision===radarTransportRevision&&recording;
+  const negotiating=()=>current()&&!radarFallbackActive&&!signal.aborted;
   try{
-    if(!current()||!$('consent').checked)return;
+    if(!negotiating()||!$('consent').checked)return;
     if(!APP_CONFIG.realtimeCallPath||!window.RTCPeerConnection)throw new Error('WebRTC indisponível');
-    radarTransportStatus('connecting');const {data:{session}}=await sb.auth.getSession();if(!current())return;if(!session?.access_token)throw new Error('Sessão expirada');
+    radarTransportStatus('connecting');const {data:{session}}=await sb.auth.getSession();if(!negotiating())return;if(!session?.access_token)throw new Error('Sessão expirada');
     const pc=new RTCPeerConnection();realtimePc=pc;const track=mediaStream.getAudioTracks()[0];if(!track)throw new Error('Áudio indisponível');pc.addTrack(track,mediaStream);
     const dc=pc.createDataChannel('oai-events');realtimeDc=dc;dc.onmessage=evt=>handleRealtimeEvent(evt,revision);
     let opened=false;dc.onopen=()=>{if(current()){opened=true;clearTimeout(radarConnectTimeout);radarTransportStatus(sessionPaused?'paused':'live');}};
     dc.onclose=()=>{if(current()&&!radarFallbackActive)startRadarChunkFallback(mediaStream,revision);};
     radarConnectTimeout=setTimeout(()=>{if(current()&&!opened)startRadarChunkFallback(mediaStream,revision);},10000);
-    const offer=await pc.createOffer();if(!current())return;await pc.setLocalDescription(offer);
+    const offer=await pc.createOffer();if(!negotiating())return;await pc.setLocalDescription(offer);if(!negotiating())return;
     const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeCallPath,{method:'POST',signal,headers:{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({sdp:offer.sdp,device_hint:matchMedia('(max-width:760px)').matches?'near_field':'far_field',app_version:APP_CONFIG.appVersion})});
-    const d=await r.json();if(!current()||radarFallbackActive)return;if(!r.ok)throw new Error('REALTIME_SESSION_FAILED');await pc.setRemoteDescription({type:'answer',sdp:d.sdp});
+    const d=await r.json();if(!negotiating())return;if(!r.ok)throw new Error('REALTIME_SESSION_FAILED');await pc.setRemoteDescription({type:'answer',sdp:d.sdp});
   }catch{if(current()&&!radarFallbackActive)startRadarChunkFallback(mediaStream,revision);}
 }
 async function drainRadarChunks(revision){
