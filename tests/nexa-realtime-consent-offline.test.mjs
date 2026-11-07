@@ -21,11 +21,13 @@ function scenario({ consent, recording = false, starting = false, recorderState 
     recBtn: { disabled: false, classList: { remove(name) { if (name === 'recording') counters.recordingCssRemovals++; } } },
     circleShape: { style: {} },
     stopShape: { style: {} },
+    processBtn: { disabled: false }, 
     status: { textContent: '' },
   };
   const context = {
     recording, recordingStarting: starting,
     discardStoppedRecording: false,
+    audioBlob: new Blob(['synthetic-only']), chunks: [new Blob(['synthetic-only'])],
     mediaRecorder: {
       state: recorderState,
       stop() { counters.recorderStops++; this.state = 'inactive'; },
@@ -95,6 +97,42 @@ test('abort of pending chunk and WebRTC work is still delegated to stopRealtimeR
   assert.match(stop, /radarChunkQueue=\[\]/);
   assert.match(stop, /radarTransportRevision/);
   const onstop = html.slice(html.indexOf('mediaRecorder.onstop=()=>{'), html.indexOf('mediaRecorder.start();'));
-  assert.match(onstop, /if\(discardStoppedRecording\)/);
+  assert.match(onstop, /if\(discardStoppedRecording\|\|!\$\('consent'\)\.checked\)/);
   assert.match(onstop, /chunks=\[\];audioBlob=null/);
+});
+
+test('withdrawn consent discards completed unprocessed audio and disables remote processing', () => {
+  const h = scenario({ consent: false, recorderState: 'inactive' });
+  assert.equal(h.counters.recorderStops, 0, 'already-completed audio should not invoke stop again');
+  assert.equal(h.counters.radarStops.length, 0);
+  assert.equal(h.context.audioBlob, null, 'completed audio must be dropped from memory');
+  assert.deepEqual(Array.from(h.context.chunks), []);
+  assert.equal(h.nodes.processBtn.disabled, true);
+  assert.match(h.nodes.status.textContent, /Consentimento retirado/);
+});
+
+test('checking consent does not silently discard an earlier recorded blob', () => {
+  const h = scenario({ consent: true });
+  assert.notEqual(h.context.audioBlob, null);
+  assert.equal(h.context.chunks.length, 1);
+  assert.equal(h.nodes.processBtn.disabled, false);
+});
+
+test('processAudio fails closed before any outbound work without active consent', async () => {
+  const start = html.indexOf('async function processAudio(){');
+  const end = html.indexOf("}$('processBtn').onclick=processAudio;", start);
+  assert.ok(start > 0 && end > start);
+  const source = html.slice(start, end + 1);
+  const status = [];
+  const context = {
+    $(name) { assert.equal(name, 'consent'); return { checked: false }; },
+    show(message, error) { status.push({ message, error }); },
+  };
+  vm.runInNewContext('let nexaConsentRevision=0;\n' + source + '\nglobalThis.run=processAudio;', context, { timeout: 1000 });
+  await context.run();
+  assert.equal(status.length, 1);
+  assert.equal(status[0].error, true);
+  assert.match(status[0].message, /consentimento/i);
+  assert.match(source, /consentRevision!==nexaConsentRevision/, 'in-flight responses must not apply after consent withdrawal');
+  assert.match(source, /\$\('processBtn'\)\.disabled=!\$\('consent'\)\.checked/, 'finally must not re-enable processing on withdrawal');
 });
