@@ -312,3 +312,60 @@ console.log('NEXA owner-switch encounter isolation regression: PASS');
  assert.equal((await item.get(initial.encounter_id)).fields.hda,note);
 }
 console.log('NEXA deferred local checkpoint errors surface safely and retry: PASS');
+
+
+// Regression: an account can change while an IndexedDB get() is unresolved.
+// The captured former physician's clinical text must never be written to a
+// new account, even when the old encounter does not yet exist in the store.
+{
+ const rows=new Map(),session=new Map(),form={hda:'Texto fictício da médica A'},prof={id:'doctor-A'};
+ let counter=0,blocked=null,pauseNextGet=true;
+ const context={
+   console,structuredClone,document:{
+     documentElement:{dataset:{}},querySelectorAll:()=>[],getElementById:()=>null,addEventListener(){}
+   },
+   navigator:{onLine:false},
+   sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,String(v)),removeItem:k=>session.delete(k)},
+   indexedDB:{open(){throw Error('Synthetic store only')}},
+   crypto:{randomUUID:()=> '77777777-7777-4777-8777-'+String(++counter).padStart(12,'0')},
+   CustomEvent:class{constructor(type,opts){this.type=type;this.detail=opts?.detail}},
+   setTimeout:()=>0,clearTimeout(){},addEventListener(){},dispatchEvent(){},
+   currentProf:prof,collect:()=>({...form}),window:null
+ };
+ context.window=context;
+ vm.runInNewContext(source,context);
+ const api=context.nexaEncounterAutosave18101;
+ api.setStoreAdapter({
+   get:id=>{
+     if(pauseNextGet){
+       pauseNextGet=false;
+       return new Promise(resolve=>{blocked=()=>resolve(structuredClone(rows.get(id)||null))});
+     }
+     return Promise.resolve(structuredClone(rows.get(id)||null));
+   },
+   put:async row=>{rows.set(row.encounter_id,structuredClone(row));return row},
+   all:async()=>structuredClone([...rows.values()]),
+   comparePut:async(old,row)=>{rows.set(row.encounter_id,structuredClone(row));return true}
+ });
+ const waitForRead=async()=>{
+   for(let i=0;i<40&&!blocked;i++)await Promise.resolve();
+   assert.equal(typeof blocked,'function','the synthetic IndexedDB read must be in progress');
+   const resolve=blocked;blocked=null;return resolve;
+ };
+ const absentId='88888888-8888-4888-8888-888888888888';
+ api.setActiveId(absentId);
+ const pending=api.preserve('input',{sync:false});
+ const finishRead=await waitForRead();
+ prof.id='doctor-B';finishRead();
+ await assert.rejects(pending,/OWNER_CHANGED_DURING_CHECKPOINT/);
+ assert.equal(rows.size,0,'no cross-account row may be persisted');
+ assert.equal(api.currentEncounterId(),'','old account encounter pointer must be invalidated');
+ form.hda='';pauseNextGet=true;
+ const next=api.startNew('new_for_doctor_B');
+ const finishNewRead=await waitForRead();
+ prof.id='doctor-A';finishNewRead();
+ await assert.rejects(next,/OWNER_CHANGED_DURING_CHECKPOINT/);
+ assert.equal(rows.size,0,'a delayed startNew must not commit under a switched account');
+ assert.equal(api.currentEncounterId(),'');
+}
+console.log('NEXA asynchronous owner-switch checkpoint isolation: PASS');

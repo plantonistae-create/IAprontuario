@@ -67,6 +67,12 @@ function ensureOwnerScope(){
  ownerSwitchRequiresExplicitEncounter=true;
  return true;
 }
+function assertOwnerStill(expected){
+ if(!expected||owner()!==expected){
+   ensureOwnerScope(); // Clear any stale global encounter pointer for the new owner.
+   throw new Error('OWNER_CHANGED_DURING_CHECKPOINT');
+ }
+}
 function setActiveId(id){
  ensureOwnerScope();
  id=String(id||'').trim();currentId=id;
@@ -181,10 +187,12 @@ async function withSessionRetry(c,expectedOwner,operation){
 }
 function backoff(attempt){return Math.min(300000,3000*Math.pow(2,Math.max(0,attempt-1)))}
 function due(item){return !item?.next_attempt_at||new Date(item.next_attempt_at).getTime()<=Date.now()}
-async function buildLocal(reason='autosave',forcedId='',capturedFields=null){
- const userId=owner();if(!userId)return null;
+async function buildLocal(reason='autosave',forcedId='',capturedFields=null,expectedOwner=owner()){
+ assertOwnerStill(expectedOwner);
+ const userId=expectedOwner;
  let id=String(forcedId||currentEncounterId()||'').trim();if(!isUuid(id))id=uuid();setActiveId(id);
  const previous=await store.get(id);
+ assertOwnerStill(expectedOwner); // IndexedDB may have yielded during account change.
  if(previous&&previous.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
  const fields=capturedFields===null?collectFields():clone(capturedFields),ready=eligible(fields),ts=nowIso();
  const needsReview=!!previous?.requires_form_refresh&&JSON.stringify(fields)!==JSON.stringify(previous.fields||{});
@@ -315,8 +323,12 @@ async function preserve(reason='autosave',{sync=true}={}){
  // pagehide, navigation and timers must not recreate a conflict with stale
  // screen values unless an intentional clinical input was made afterwards.
  const previous=existingId?await store.get(existingId):null;
+ assertOwnerStill(capturedOwner);
  if(previous?.requires_form_refresh&&!editedAfterReconciliation.has(existingId)&&!['input','change'].includes(reason))return previous;
- const rec=await buildLocal(reason,existingId,fields);if(!rec)return null;await store.put(rec);
+ const rec=await buildLocal(reason,existingId,fields,capturedOwner);if(!rec)return null;
+ assertOwnerStill(capturedOwner);
+ await store.put(rec);
+ assertOwnerStill(capturedOwner);
  editedAfterReconciliation.delete(rec.encounter_id);
  window.dispatchEvent(new CustomEvent('nexa:encounter-local-saved',{detail:{encounter_id:rec.encounter_id,state:rec.encounter_state,reason}}));
  if(rec.sync_state==='conflict')window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
@@ -333,7 +345,10 @@ async function startNew(reason='new_encounter'){
  return serializeLocal(async()=>{
  if(!userId||owner()!==userId)return null;
  const id=uuid();setActiveId(id);
- const rec=await buildLocal(reason,id,capturedFields);if(!rec)return null;await store.put(rec);
+ const rec=await buildLocal(reason,id,capturedFields,userId);if(!rec)return null;
+ assertOwnerStill(userId);
+ await store.put(rec);
+ assertOwnerStill(userId);
  ownerSwitchRequiresExplicitEncounter=false;
  if(navigator.onLine!==false)void syncOne(rec);
  window.dispatchEvent(new CustomEvent('nexa:encounter-started',{detail:{encounter_id:id}}));return rec;
@@ -352,11 +367,24 @@ async function adoptExisting(rowOrId){
  setActiveId(id);
  if(existing){ownerSwitchRequiresExplicitEncounter=false;return existing}
  window.__NEXA_PROTOCOL_USAGE__=Array.isArray(row.protocol_usage)?clone(row.protocol_usage):[];const rec={encounter_id:id,owner_user_id:userId,fields:clone(row.fields||{}),encounter_state:row.encounter_state||'draft',protocol_usage:clone(window.__NEXA_PROTOCOL_USAGE__),audit_priority:Number(row.audit_priority||0),audit_ready_at:row.audit_ready_at||null,consent_recorded_at:row.consent_recorded_at||null,processing_meta:clone(row.processing_meta||{}),created_at:row.created_at||nowIso(),last_client_saved_at:row.updated_at||nowIso(),sync_state:'synced',attempt_count:0,next_attempt_at:null,last_error:null,server_updated_at:row.updated_at||null,sync_version:Number(row.sync_version||0),local_revision:0,legacy_status:row.status||'draft'};
- await store.put(rec);ownerSwitchRequiresExplicitEncounter=false;return rec;
+ await store.put(rec);
+ assertOwnerStill(userId);
+ ownerSwitchRequiresExplicitEncounter=false;return rec;
 }
-async function prioritize(){return serializeLocal(async()=>{
- const rec=await buildLocal('manual_priority');if(!rec)return null;if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='conflict')return rec;rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));await store.put(rec);if(navigator.onLine!==false)void syncOne(rec);return rec;
-})}
+async function prioritize(){
+ const userId=owner();ensureOwnerScope();
+ if(ownerSwitchRequiresExplicitEncounter)throw new Error('OWNER_SWITCH_REQUIRES_NEW_OR_RECOVERED_ENCOUNTER');
+ return serializeLocal(async()=>{
+ assertOwnerStill(userId);
+ const rec=await buildLocal('manual_priority','',null,userId);
+ if(!rec)return null;
+ if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='conflict')return rec;
+ rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));
+ assertOwnerStill(userId);
+ await store.put(rec);assertOwnerStill(userId);
+ if(navigator.onLine!==false)void syncOne(rec);
+ return rec;
+ })}
 async function reviewConflict(id){
  const local=await store.get(id);
  if(!local||local.owner_user_id!==owner()||local.sync_state!=='conflict')throw new Error('CONFLICT_NOT_AVAILABLE');
@@ -484,7 +512,7 @@ function bind(){
  addEventListener('offline',()=>preserveDeferred('offline',{sync:false}));
  addEventListener('focus',()=>void flush('focus'));
  addEventListener('nexa:encounter-flush-request',()=>void flush('event'));
- addEventListener('nexa:encounter-priority-request',()=>void prioritize());
+ addEventListener('nexa:encounter-priority-request',()=>void prioritize().catch(()=>reportLocalSaveFailure('manual_priority')));
  setTimeout(()=>void flush('startup'),800);
 }
 bind();
