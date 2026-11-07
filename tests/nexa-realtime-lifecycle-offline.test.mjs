@@ -12,7 +12,7 @@ assert.ok(begin > 0 && end > begin, 'transport functions must remain discoverabl
 const transportSource = html.slice(begin, end);
 
 function harness(behavior) {
-  const state = { timers: [], requests: [], statuses: [], peers: [], channels: [], answer: null, recorders: 0, remoteAnswers: 0, fetchAborts: 0, localDescriptions: 0, offerStarted: false, resolveOffer: null, resolveLocal: null };
+  const state = { timers: [], requests: [], statuses: [], peers: [], channels: [], answer: null, recorders: 0, remoteAnswers: 0, fetchAborts: 0, eventCalls: 0, localDescriptions: 0, offerStarted: false, resolveOffer: null, resolveLocal: null };
   class Peer {
     constructor() { this.closed = false; state.peers.push(this); }
     addTrack() {}
@@ -41,7 +41,7 @@ function harness(behavior) {
     matchMedia: () => ({ matches: false }),
     radarTranscriptBuffer: { clear() {} },
     radarTransportStatus: (s) => state.statuses.push(s),
-    handleRealtimeEvent: () => {},
+    handleRealtimeEvent: () => { state.eventCalls++; },
     setTimeout: (fn, ms) => { const timer = { fn, ms, active: true }; state.timers.push(timer); return timer; },
     clearTimeout: (timer) => { if (timer) timer.active = false; },
     clearInterval: () => {},
@@ -182,4 +182,35 @@ test('successful synthetic handshake sets answer once and opens live channel wit
   assert.equal(h.state.recorders, 0);
   h.control.stop();
   assert.equal(h.state.peers[0].closed, true);
+});
+
+test('late WebRTC open and transcript after fallback cannot override chunk state', async () => {
+  const h = harness('pending');
+  const started = h.control.start(h.stream);
+  await until(() => h.state.requests.length === 1);
+  const channel = h.state.channels[0];
+  const lateOpen = channel.onopen, lateMessage = channel.onmessage;
+  const deadline = h.state.timers.find(t => t.active && t.ms === 10000);
+  deadline.fn();
+  await started;
+  assert.equal(h.state.recorders, 1);
+  const status = h.state.statuses.at(-1);
+  lateOpen();
+  lateMessage({ data: '{"type":"conversation.item.input_audio_transcription.completed","transcript":"synthetic"}' });
+  assert.equal(h.state.statuses.at(-1), status);
+  assert.notEqual(status, 'live', 'fallback must not become WebRTC live');
+  assert.equal(h.state.eventCalls, 0, 'stale channel must not feed transcript into Radar');
+  h.control.stop();
+});
+
+test('successful open channel still forwards active synthetic transcript event', async () => {
+  const h = harness('success');
+  await h.control.start(h.stream);
+  const channel = h.state.channels[0];
+  channel.onopen();
+  channel.onmessage({ data: '{"type":"conversation.item.input_audio_transcription.completed","transcript":"synthetic"}' });
+  assert.equal(h.state.eventCalls, 1);
+  assert.equal(h.state.statuses.at(-1), 'live');
+  h.control.stop();
+  assert.equal(h.state.statuses.at(-1), 'stopped');
 });
