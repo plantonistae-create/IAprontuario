@@ -369,3 +369,81 @@ console.log('NEXA deferred local checkpoint errors surface safely and retry: PAS
  assert.equal(api.currentEncounterId(),'');
 }
 console.log('NEXA asynchronous owner-switch checkpoint isolation: PASS');
+
+
+// Cross-device history recovery: a newer server revision can replace only an
+// older fully-synced local copy. Pending/conflicted drafts and CAS races remain.
+{
+ const records=new Map(),session=new Map(),person={id:profileId};
+ const id='99999999-9999-4999-8999-999999999999';
+ let casCalls=0,simulateConcurrentEdit=false;
+ const older={
+   encounter_id:id,owner_user_id:profileId,sync_state:'synced',
+   sync_version:2,local_revision:4,fields:{hda:'Histórico fictício antigo'},
+   processing_meta:{origin:'local'},encounter_state:'draft',
+   last_client_saved_at:'2026-11-05T12:00:00Z'
+ };
+ const ctx={
+   console,structuredClone,document:{documentElement:{dataset:{}},
+     querySelectorAll:()=>[],getElementById:()=>null,addEventListener(){}},
+   navigator:{onLine:false},
+   sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,String(v)),removeItem:k=>session.delete(k)},
+   indexedDB:{open(){throw Error('Synthetic adapter required')}},
+   crypto:{randomUUID:()=>id},
+   CustomEvent:class{constructor(type,opts){this.type=type;this.detail=opts?.detail}},
+   setTimeout:()=>0,clearTimeout(){},addEventListener(){},dispatchEvent(){},
+   currentProf:person,collect:()=>({}),window:null
+ };
+ ctx.window=ctx;
+ vm.runInNewContext(source,ctx);
+ const api=ctx.nexaEncounterAutosave18101;
+ api.setStoreAdapter({
+   get:async key=>structuredClone(records.get(key)||null),
+   put:async item=>{records.set(item.encounter_id,structuredClone(item));return item},
+   all:async()=>structuredClone([...records.values()]),
+   comparePut:async(old,updated)=>{
+     casCalls++;
+     const prior=records.get(old.encounter_id);
+     if(simulateConcurrentEdit){
+       records.set(id,{...structuredClone(prior),sync_state:'pending',
+         fields:{hda:'Edição fictícia local durante a recuperação'},local_revision:prior.local_revision+1});
+       simulateConcurrentEdit=false;return false;
+     }
+     if(!prior||prior.local_revision!==old.local_revision||
+        prior.sync_state!==old.sync_state)return false;
+     records.set(id,structuredClone(updated));return true;
+   }
+ });
+ const remote=(version,hda)=>({encounter_id:id,user_id:profileId,sync_version:version,
+   updated_at:'2026-11-06T12:00:00Z',fields:{hda},processing_meta:{origin:'server'},
+   encounter_state:'ready_for_audit'});
+ records.set(id,structuredClone(older));
+ const updated=await api.adoptExisting(remote(3,'Histórico fictício atualizado em outro dispositivo'));
+ assert.equal(updated.fields.hda,'Histórico fictício atualizado em outro dispositivo');
+ assert.equal(updated.owner_user_id,profileId);
+ assert.equal(updated.sync_version,3);
+ assert.equal(updated.local_revision,5);
+ assert.equal((await api.get(id)).fields.hda,updated.fields.hda);
+ assert.equal(casCalls,1,'newer server revision must use conditional local write');
+ const pending={...updated,sync_state:'pending',
+   fields:{hda:'Rascunho local fictício ainda não sincronizado'},local_revision:6};
+ records.set(id,structuredClone(pending));
+ const kept=await api.adoptExisting(remote(4,'Servidor também atualizado'));
+ assert.equal(kept.fields.hda,pending.fields.hda,'pending clinical edit must win over server');
+ assert.equal(casCalls,1,'pending drafts must not be overwritten by remote import');
+ const conflict={...pending,sync_state:'conflict',local_revision:7};
+ records.set(id,structuredClone(conflict));
+ const conflicted=await api.adoptExisting(remote(5,'Terceira alteração remota'));
+ assert.equal(conflicted.fields.hda,conflict.fields.hda);
+ assert.equal(casCalls,1);
+ const synced={...updated,sync_state:'synced',sync_version:3,local_revision:8};
+ records.set(id,structuredClone(synced));
+ simulateConcurrentEdit=true;
+ const raced=await api.adoptExisting(remote(5,'Outra cópia do servidor'));
+ assert.equal(raced.fields.hda,'Edição fictícia local durante a recuperação');
+ assert.equal((await api.get(id)).sync_state,'pending','CAS failure must preserve new local edit');
+ assert.equal(casCalls,2);
+ await assert.rejects(api.adoptExisting({...remote(7,'Cópia forjada'),user_id:'another-doctor'}),
+   /ENCOUNTER_OWNER_MISMATCH/);
+}
+console.log('NEXA newer synced server revision recovery, conflict and CAS race: PASS');
