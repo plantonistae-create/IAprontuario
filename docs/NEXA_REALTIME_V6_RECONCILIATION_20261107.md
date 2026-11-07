@@ -49,3 +49,27 @@ Não há fetch externo: todas as URLs são example.invalid interceptadas por moc
 6. Não tocar PRs #118/#119, credenciais, políticas JWT/RLS, gravação oficial, NEXA Core, telemetria identificável ou dados reais.
 
 **Rollback:** enquanto esta PR permanecer Draft, não há alteração em produção. Se a alteração do frontend for autorizada e publicada futuramente, reverter apenas o commit de negociação do index.html, executar CI e verificar a restauração do comportamento original de fallback. Não usar rollback genérico de Edge Function que apagaria diferenças existentes da v6.
+
+
+## Gate adicional — hashes SHA-256 do snapshot hospedado (07/11/2026)
+
+Inventário obtido diretamente dos quatro arquivos da Edge Function v6 hospedada, por acesso somente leitura, sem salvar bundle ou arquivos clínicos no repositório. Os SHA-256 abaixo são do texto UTF-8 de cada arquivo, além do identificador do bundle divulgado pelo Supabase.
+
+| Arquivo hospedado | SHA-256 do conteúdo |
+|---|---|
+| realtime-call/index.ts | ba9f052b8bdcf89053df3ead9c36d111a7d3d7c40edcc662734556175d691588 |
+| _shared/nexa-ai-capability.mjs | 931c7d375f608f5c527162f3b70f6d85ce4212a0aab0ef553cf04feedb7c884e |
+| _shared/nexa-realtime-upstream-status.mjs | 3d1765dd31dc07f0cd664569fce8c2973da883aedea55dccbc19e967c0d7453f |
+| deno.json | fc948950021dfa122f56d700420bc205bb9f3b565e96398accba344c3a2665b4 |
+
+O script scripts/nexa-realtime-v6-offline-reconcile.mjs não lê rede, não registra conteúdo e não escreve artefatos. Só aceita o mesmo bundle se version=6, verify_jwt=true, hash do bundle, conjunto completo de arquivos, comprimentos e hashes SHA-256 dos quatro conteúdos conferirem. Em memória, substitui exclusivamente a montagem Blob/filename do multipart por FormData.set texto. Um gate rejeita divergências do transporte, autenticação, fallback, telemetria de status e timeouts. O resultado marca expressamente deploymentAuthorized=false e upstreamValidated=false. Não há candidato hospedado, alteração de segredo ou autorização de deploy.
+
+Os testes CI com dados inteiramente sintéticos validam a reversibilidade do patch, conteúdo de ambos os campos multipart sem filename, rejeição de manifests falsos e cobertura dos caminhos de falha. Os hashes da função real são preservados na documentação, mas o código real da v6 não é anexado ao repositório. Sua reconciliação de execução depende de fornecer um snapshot oficial, controlado e autenticado, sem segredo; a suíte sintética por si só não atesta comportamento clínico de produção.
+
+### Coleta de ICE / SDP e concorrência
+
+O cliente atual envia offer.sdp logo após setLocalDescription, sem provar que ICE Gathering terminou. Essa hipótese segue independente da divergência multipart. O módulo scripts/nexa-realtime-ice-offline.mjs é um candidato isolado, não integrado ao frontend, que aguarda icegatheringstatechange complete, utiliza pc.localDescription.sdp, respeita abortos e aplica limite de tempo. A CI sintética testa encerramento, cancelamento, timeout e ausência de SDP válido. Não publicar o gate de ICE antes de avaliar impacto sobre o deadline geral de 10s e o fallback já implantado.
+
+### Política de merge/deploy
+
+Manter #121 e #133 Draft até fechar teste offline real do snapshot v6, CI final, avaliação de comportamento clínico com áudio sintético, segurança e autorização específica para publicar. O status 400 upstream pode ter outras causas (modelo, schema de sessão, quota, ICE ou autenticação) e a correção multipart não representa sucesso comprovado. Custos: sem acesso à fatura agregada do provedor, economia líquida ainda não mensurável.
