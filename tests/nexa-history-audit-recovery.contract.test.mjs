@@ -199,9 +199,9 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.match(source,/saveState\('error','não salvo · armazenamento local'\)/);
  assert.match(source,/Copie o texto clínico antes de fechar/);
  assert.ok(!source.includes('event.detail.fields'),'failure event must not display clinical content');
- assert.match(html,/nexa-hotfix\.js\?v=20261107-safe-reset-guard/);
- assert.match(worker,/nexa-v18-15-0-safe-reset-guard-20261107/);
- assert.match(worker,/nexa-hotfix\.js\?v=20261107-safe-reset-guard/);
+ assert.match(html,/nexa-hotfix\.js\?v=20261107-history-ack-guard/);
+ assert.match(worker,/nexa-v18-15-0-history-ack-guard-20261107/);
+ assert.match(worker,/nexa-hotfix\.js\?v=20261107-history-ack-guard/);
  assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
 });
 
@@ -327,4 +327,66 @@ test('canonical native reset blocks volatile audio and confirms only clinical te
    assert.deepEqual(run(state),{allowed:false,confirms:0,warnings:1},
      'audio in memory cannot be discarded by fallback reset');
  }
+});
+
+
+test('legacy history filters owners and waits for confirmed deletion',async()=>{
+ const begin=html.indexOf('function renderHistory(){');
+ const end=html.indexOf("$('historyHead').onclick",begin);
+ assert.ok(begin>0&&end>begin,'legacy seven-day history must exist');
+ const source=html.slice(begin,end);
+ const profile={id:'doctor-A'};
+ const idA='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',idB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ const initial=[
+  {id:idA,user_id:'doctor-A',created_at:'2026-11-07T03:00:00Z',fields:{hda:'Texto fictício A',queixa_principal:'Teste A'}},
+  {id:idB,user_id:'doctor-B',created_at:'2026-11-07T03:10:00Z',fields:{hda:'Texto fictício B',queixa_principal:'Teste B'}}
+ ];
+ let rendered=[],queries=[],messages=[],confirmCount=0;
+ let reply={data:[],error:{code:'42501'}};
+ const nodes={
+  historyCount:{textContent:''},
+  historyBody:{classList:{contains:()=>false}},
+  historyList:{replaceChildren(){rendered=[]},set innerHTML(value){this.empty=value}}
+ };
+ const query=()=>({
+  eq(key,value){queries.push([key,value]);return this},
+  async select(){return reply}
+ });
+ const db={from:table=>{assert.equal(table,'consultation_history');return{delete:query}}};
+ const item=(_host,title,desc,open,remove)=>rendered.push({title,desc,open,remove});
+ const helpers=new Function('history','currentProf','$','item','sb','confirm',
+   'window','activeHistoryId','saveState','console','show',
+   source+'\nreturn {renderHistory, remaining:()=>history};');
+ const ui=helpers(initial,profile,name=>nodes[name],item,db,()=>{confirmCount++;return true},
+   {nexaRecoverSavedEncounter:async()=>true},null,()=>{},
+   {warn:()=>{}},(message,isError)=>{assert.equal(isError,true);messages.push(message)});
+ ui.renderHistory();
+ assert.equal(rendered.length,1,'doctor A must not see doctor B clinical excerpt');
+ assert.match(rendered[0].desc,/Texto fictício A/);
+ assert.doesNotMatch(rendered[0].desc,/Texto fictício B/);
+ const staleAction=rendered[0].remove;
+ profile.id='doctor-B';
+ await staleAction();
+ assert.equal(confirmCount,0,'stale doctor A callback must not attempt deletion');
+ assert.equal(queries.length,0,'stale callback cannot call delete');
+ assert.equal(rendered.length,1);
+ assert.match(rendered[0].desc,/Texto fictício B/);
+ profile.id='doctor-A';ui.renderHistory();
+ reply={data:[],error:{code:'42501'}};
+ await rendered[0].remove();
+ assert.equal(rendered.length,1,'failed server deletion must not remove patient history');
+ assert.equal(messages.length,1);
+ assert.deepEqual(queries.slice(-2),[['id',idA],['user_id','doctor-A']]);
+ reply={data:[],error:null};
+ await rendered[0].remove();
+ assert.equal(rendered.length,1,'zero-row deletion must not be treated as success');
+ assert.equal(messages.length,2);
+ reply={data:[{id:idA}],error:null};
+ await rendered[0].remove();
+ assert.equal(rendered.length,0,'a verified server acknowledgement may remove the item');
+ assert.equal(ui.remaining().length,1);
+ assert.equal(ui.remaining()[0].id,idB);
+ profile.id='doctor-B';ui.renderHistory();
+ assert.equal(rendered.length,1,'the second doctor still sees only their own history');
+ assert.match(rendered[0].desc,/Texto fictício B/);
 });
