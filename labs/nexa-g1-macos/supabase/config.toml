@@ -1,0 +1,19 @@
+# G1 offline only. No linked project, production schema, real users or secrets.
+project_id = "nexa_g1_macos_local_only"
+[api]
+enabled = true
+port = 55321
+[db]
+port = 55322
+shadow_port = 55320
+[studio]
+enabled = true
+port = 55323
+[inbucket]
+enabled = true
+port = 55324
+[auth]
+enabled = true
+enable_signup = false
+site_url = "http://127.0.0.1:4173"
+additional_redirect_urls = ["http://127.0.0.1:4173"]

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "projectId": "nexa_g1_macos_local_only",
+  "network": "nexa-g1-macos-20261107",
+  "parentHead": "fc213ce565416720569ce6f157173e6942c20026",
+  "files": {
+    "preflight.mjs": "0c5296485cbf0d1fbb9f083bf736154c73dc7a3448cbd35253de142f0f542530",
+    "rollback-plan.mjs": "052ba777614e97df79379b8f0e546bdf7dcc5fa0a8e5320717506086663300fe",
+    "supabase/config.toml": "27047b9d4e265046f5488624b2ba82b562f6490386dd57efb5842d9db5a7ac9b"
+  },
+  "gates": {
+    "g1": "BLOCKED",
+    "g2": "NO_GO",
+    "g3": "NO_GO",
+    "g4": "NO_GO"
+  }
+}
