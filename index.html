@@ -4520,7 +4520,10 @@ document.body.classList.add('nexa-v340','nexa-doctor-view','doctor-home-open');
   q('nexaNewCaseBtn')?.addEventListener('click',()=>{openSession();setStage('radar')});
   q('nexaRadarProcessBtn')?.addEventListener('click',()=>q('processBtn')?.click());
   q('nexaRadarResetBtn')?.addEventListener('click',()=>{
-    if(!nexaConfirmReset())return;nexaClearPersistedSession();q('resetBtn')?.click();nexaSetSessionState('idle');
+    // Delegate to the single canonical reset path. A previous handler erased
+    // the recovery pointer BEFORE the native reset was confirmed and prompted
+    // twice. The 'nexa:consultation-reset' event owns the idle transition.
+    q('resetBtn')?.click();
   });
   q('nexaHomeNav')?.addEventListener('click',goHome);
   q('nexaBackBtn')?.addEventListener('click',()=>{
@@ -4741,8 +4744,14 @@ function pauseSession(){
     }catch(e){console.warn('NEXA autosave recovery unavailable',e)}
   }
   function nexaConfirmReset(){
+    // Unprocessed audio lives only in browser memory. Never discard it via a
+    // reset, even if the native audit-outbox capture listener did not load.
+    if(recording||recordingStarting||(audioBlob&&audioBlob.size>0)){
+      show('Existe áudio não transcrito. Finalize e processe a gravação antes de limpar o atendimento.',true);
+      return false;
+    }
     if(!nexaHasMeaningfulSession())return true;
-    return confirm('Existe conteúdo clínico, áudio ou alterações neste atendimento. Deseja realmente limpar e iniciar uma nova consulta?');
+    return confirm('Existe conteúdo clínico ou alterações neste atendimento. Preservar a consulta atual e começar uma nova?');
   }
   function nexaAddConductTimestamp(){
     const el=ta('conduta');if(!el)return;
@@ -5452,5 +5461,5 @@ flat();updateWorkflow();
 
 
 
-<script src="./nexa-hotfix.js?v=20261107-audio-exit-guard"></script>
+<script src="./nexa-hotfix.js?v=20261107-safe-reset-guard"></script>
 </body></html>
