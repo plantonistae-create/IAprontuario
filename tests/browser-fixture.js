@@ -84,7 +84,7 @@
  const persistSession=()=>localStorage.setItem('sb-synthetic-auth-token',JSON.stringify(session));persistSession();
  qa.switchUser=id=>{session={...session,user:{id,email:'qa@example.invalid'}};persistSession();authChange?.('SIGNED_IN',session);};
  qa.speak=(id,transcript,index=qa.channels.length-1)=>{const channel=qa.channels[index];channel.receive?.({data:JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript})});};
- window.RTCPeerConnection=class {addTrack(track){qa.track=track;}createDataChannel(){const channel={close(){this.onclose?.();},send(){}};Object.defineProperty(channel,'onmessage',{set(fn){this.handler=fn;if(fn)this.receive=fn;},get(){return this.handler;}});qa.channels.push(channel);return this.channel=channel;}async createOffer(){return {sdp:'synthetic'};}async setLocalDescription(){}async setRemoteDescription(){this.channel.onopen?.();}close(){}};
+ window.RTCPeerConnection=class {addTrack(track){qa.track=track;}createDataChannel(){const channel={readyState:'connecting',close(){this.readyState='closed';this.onclose?.();},send(){}};Object.defineProperty(channel,'onmessage',{set(fn){this.handler=fn;if(fn)this.receive=fn;},get(){return this.handler;}});qa.channels.push(channel);return this.channel=channel;}async createOffer(){return {sdp:'synthetic'};}async setLocalDescription(){}async setRemoteDescription(){this.channel.readyState='open';this.channel.onopen?.();}close(){}};
  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{qa.clipboard=text;}}});
  const nativeFetch=window.fetch.bind(window);window.fetch=async(input,init={})=>{
  const url=String(input?.url||input);if(url.includes('.supabase.co')){
