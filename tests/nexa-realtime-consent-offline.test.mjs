@@ -65,7 +65,8 @@ test('revoking consent during pending microphone startup cancels locally', () =>
   assert.equal(s.context.discardStoppedRecording, true);
   // Late getUserMedia success is protected independently by startRec's epoch/consent check.
   const originalStart = html.slice(html.indexOf('async function startRec(){'), begin);
-  assert.match(originalStart, /startEpoch!==clinicalEpoch\|\|!\$\('consent'\)\.checked/);
+  assert.match(originalStart, /const startEpoch=clinicalEpoch,consentEpoch=nexaConsentRevision/);
+  assert.match(originalStart, /startEpoch!==clinicalEpoch\|\|consentEpoch!==nexaConsentRevision\|\|!\$\('consent'\)\.checked/);
   assert.match(originalStart, /getTracks\(\)\.forEach\(t=>t\.stop\(\)\)/);
 });
 
@@ -75,7 +76,7 @@ test('active recorder stopped on withdrawal even when recording flag already dro
   assert.equal(s.counters.radarStops.length, 1);
 });
 
-test('an idle consent toggle cannot discard existing work or start recording', () => {
+test('idle consent toggle does not spuriously stop recording', () => {
   const denied = scenario({ consent: false });
   assert.equal(denied.nodes.recBtn.disabled, true);
   assert.equal(denied.counters.radarStops.length, 0);
