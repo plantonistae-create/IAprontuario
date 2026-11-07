@@ -3774,8 +3774,8 @@ async function startRealtimeRadar(mediaStream){
     if(!APP_CONFIG.realtimeCallPath||!window.RTCPeerConnection)throw new Error('WebRTC indisponível');
     radarTransportStatus('connecting');const {data:{session}}=await sb.auth.getSession();if(!negotiating())return;if(!session?.access_token)throw new Error('Sessão expirada');
     const pc=new RTCPeerConnection();realtimePc=pc;const track=mediaStream.getAudioTracks()[0];if(!track)throw new Error('Áudio indisponível');pc.addTrack(track,mediaStream);
-    const dc=pc.createDataChannel('oai-events');realtimeDc=dc;dc.onmessage=evt=>handleRealtimeEvent(evt,revision);
-    let opened=false;dc.onopen=()=>{if(current()){opened=true;clearTimeout(radarConnectTimeout);radarTransportStatus(sessionPaused?'paused':'live');}};
+    const dc=pc.createDataChannel('oai-events');realtimeDc=dc;dc.onmessage=evt=>{if(negotiating())handleRealtimeEvent(evt,revision);};
+    let opened=false;dc.onopen=()=>{if(negotiating()){opened=true;clearTimeout(radarConnectTimeout);radarTransportStatus(sessionPaused?'paused':'live');}};
     dc.onclose=()=>{if(current()&&!radarFallbackActive)startRadarChunkFallback(mediaStream,revision);};
     radarConnectTimeout=setTimeout(()=>{if(current()&&!opened)startRadarChunkFallback(mediaStream,revision);},10000);
     const offer=await pc.createOffer();if(!negotiating())return;await pc.setLocalDescription(offer);if(!negotiating())return;
