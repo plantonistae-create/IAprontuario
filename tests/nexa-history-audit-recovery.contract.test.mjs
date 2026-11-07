@@ -198,8 +198,8 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.match(source,/saveState\('error','não salvo · armazenamento local'\)/);
  assert.match(source,/Copie o texto clínico antes de fechar/);
  assert.ok(!source.includes('event.detail.fields'),'failure event must not display clinical content');
- assert.match(html,/nexa-hotfix\.js\?v=20261106-server-refresh/);
- assert.match(worker,/nexa-v18-15-0-server-refresh-20261106/);
- assert.match(worker,/nexa-hotfix\.js\?v=20261106-server-refresh/);
+ assert.match(html,/nexa-hotfix\.js\?v=20261107-audio-exit-guard/);
+ assert.match(worker,/nexa-v18-15-0-audio-exit-guard-20261107/);
+ assert.match(worker,/nexa-hotfix\.js\?v=20261107-audio-exit-guard/);
  assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
 });
