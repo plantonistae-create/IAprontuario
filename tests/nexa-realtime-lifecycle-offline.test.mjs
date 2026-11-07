@@ -12,13 +12,13 @@ assert.ok(begin > 0 && end > begin, 'transport functions must remain discoverabl
 const transportSource = html.slice(begin, end);
 
 function harness(behavior) {
-  const state = { timers: [], requests: [], statuses: [], peers: [], recorders: 0, remoteAnswers: 0, fetchAborts: 0 };
+  const state = { timers: [], requests: [], statuses: [], peers: [], recorders: 0, remoteAnswers: 0, fetchAborts: 0, localDescriptions: 0, offerStarted: false, resolveOffer: null, resolveLocal: null };
   class Peer {
     constructor() { this.closed = false; state.peers.push(this); }
     addTrack() {}
     createDataChannel() { return { onmessage: null, onopen: null, onclose: null, close() {} }; }
-    async createOffer() { return { type: 'offer', sdp: 'v=0\r\ns=synthetic\r\n' }; }
-    async setLocalDescription() {}
+    async createOffer() { state.offerStarted = true; if (behavior === 'pending-offer') return new Promise(resolve => { state.resolveOffer = () => resolve({type:'offer',sdp:'v=0\r\ns=synthetic\r\n'}); }); return { type: 'offer', sdp: 'v=0\r\ns=synthetic\r\n' }; }
+    async setLocalDescription() { state.localDescriptions++; if (behavior === 'pending-local') return new Promise(resolve => { state.resolveLocal = resolve; }); }
     async setRemoteDescription() { state.remoteAnswers++; }
     close() { this.closed = true; }
   }
@@ -133,4 +133,32 @@ test('source preserves JWT client gate, fallback multipart limit, and 400/502 st
   assert.match(edge, /1024\s*\*\s*1024/);
   assert.match(transportSource, /const timeout=new AbortController\(\)/);
   assert.match(transportSource, /radarChunkQueue\.length<4/);
+});
+
+test('fallback timeout during pending createOffer never starts a late remote negotiation', async () => {
+  const h = harness('pending-offer');
+  const started = h.control.start(h.stream);
+  await until(() => h.state.offerStarted && h.state.timers.some(t => t.active && t.ms === 10000));
+  const deadline = h.state.timers.find(t => t.active && t.ms === 10000);
+  deadline.fn();
+  assert.equal(h.state.recorders, 1, 'fallback should start once');
+  h.state.resolveOffer();
+  await started;
+  assert.equal(h.state.requests.length, 0, 'an outdated offer must never reach backend');
+  assert.equal(h.state.localDescriptions, 0);
+  assert.equal(h.state.peers[0].closed, true);
+});
+
+test('fallback timeout during setLocalDescription cannot dispatch a stale offer', async () => {
+  const h = harness('pending-local');
+  const started = h.control.start(h.stream);
+  await until(() => typeof h.state.resolveLocal === 'function');
+  const deadline = h.state.timers.find(t => t.active && t.ms === 10000);
+  deadline.fn();
+  h.state.resolveLocal();
+  await started;
+  assert.equal(h.state.localDescriptions, 1);
+  assert.equal(h.state.recorders, 1);
+  assert.equal(h.state.requests.length, 0, 'cancelled local description must not create an HTTP request');
+  assert.equal(h.state.peers[0].closed, true);
 });
