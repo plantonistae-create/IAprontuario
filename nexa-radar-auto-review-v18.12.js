@@ -196,7 +196,10 @@ function writeVital(id,value){
  if(existing===value)return false;
  const line=meta.format(value),current=String(ta.value||'').trim();
  vitalWriting=true;ta.value=[current,line].filter(Boolean).join('\n');ta.dispatchEvent(new Event('input',{bubbles:true}));ta.dispatchEvent(new Event('change',{bubbles:true}));vitalWriting=false;
- vitalCache.set(id,value);try{window.nexaEncounterAutosave18101?.preserve?.('spoken_vitals')}catch{}return true;
+ vitalCache.set(id,value); // The bubbled input/change events queue the canonical autosave.
+ // Do not call preserve('spoken_vitals') again: it creates a duplicate revision
+ // and an extra server sync while the first IndexedDB save is pending.
+ return true;
 }
 function captureVitals(state){
  if(vitalWriting||!state?.facts)return{captured:[],confirm:[]};
