@@ -279,3 +279,52 @@ test('legacy seven-day history cannot silently discard the open clinical note or
    assert.equal(persistCalls,0,'audio-only guard must not pretend a text checkpoint saved the audio');
  }
 });
+
+
+test('radar reset delegates exactly once without pre-clearing recovery pointers',()=>{
+ const begin=html.indexOf("  q('nexaRadarResetBtn')?.addEventListener('click',()=>{");
+ const end=html.indexOf("  q('nexaHomeNav')?.addEventListener",begin);
+ assert.ok(begin>0&&end>begin,'radar reset handler must exist');
+ const source=html.slice(begin,end);
+ assert.doesNotMatch(source,/nexaClearPersistedSession\(/,
+   'never erase a recoverable session before confirming the native reset');
+ assert.doesNotMatch(source,/nexaConfirmReset\(/,
+   'only the canonical reset handler may request confirmation');
+ assert.doesNotMatch(source,/nexaSetSessionState\('idle'\)/,
+   'cancelled reset must not transition session to idle');
+ let handler=null,clicks=0,pointers=0;
+ const q=id=>id==='nexaRadarResetBtn'
+   ?{addEventListener:(name,fn)=>{assert.equal(name,'click');handler=fn}}
+   :id==='resetBtn'?{click:()=>{clicks++}}:null;
+ new Function('q',source)(q);
+ assert.equal(typeof handler,'function');
+ handler();
+ assert.equal(clicks,1,'radar reset must invoke the canonical reset once');
+ assert.equal(pointers,0,'fallback never removes pointer without verified reset');
+ assert.match(html,/window\.addEventListener\('nexa:consultation-reset',\(\)=>\{nexaSetSessionState\('idle'\)/,
+   'reset-completed event must own the idle transition');
+});
+
+test('canonical native reset blocks volatile audio and confirms only clinical text',()=>{
+ const begin=html.indexOf('  function nexaConfirmReset(){');
+ const end=html.indexOf('  function nexaAddConductTimestamp(){',begin);
+ assert.ok(begin>0&&end>begin,'native reset guard must exist');
+ const source=html.slice(begin,end);
+ const run=({recording=false,starting=false,size=0,hasNote=false,confirmAnswer=true})=>{
+   let confirms=0,warnings=0;
+   const factory=new Function('recording','recordingStarting','audioBlob',
+     'nexaHasMeaningfulSession','show','confirm',
+     source+'\nreturn nexaConfirmReset;');
+   const fn=factory(recording,starting,size?{size}:null,()=>hasNote,
+     (message,isError)=>{assert.equal(isError,true);warnings++},
+     ()=>{confirms++;return confirmAnswer});
+   return {allowed:fn(),confirms,warnings};
+ };
+ assert.deepEqual(run({}),{allowed:true,confirms:0,warnings:0});
+ assert.deepEqual(run({hasNote:true,confirmAnswer:false}),{allowed:false,confirms:1,warnings:0});
+ assert.deepEqual(run({hasNote:true,confirmAnswer:true}),{allowed:true,confirms:1,warnings:0});
+ for(const state of [{recording:true},{starting:true},{size:2048}]){
+   assert.deepEqual(run(state),{allowed:false,confirms:0,warnings:1},
+     'audio in memory cannot be discarded by fallback reset');
+ }
+});
