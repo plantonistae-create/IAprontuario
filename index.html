@@ -3924,7 +3924,7 @@ function stopRec({discard=false}={}){
   try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
-}let nexaConsentRevision=0;$('consent').onchange=()=>{const allowed=$('consent').checked;$('recBtn').disabled=!allowed;if(!allowed){++nexaConsentRevision;if(recording||recordingStarting||(mediaRecorder&&mediaRecorder.state!=='inactive'))stopRec({discard:true});audioBlob=null;chunks=[];$('processBtn').disabled=true;$('status').textContent='Consentimento retirado · gravação interrompida.';}};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
+}let nexaConsentRevision=0,nexaClinicalProcessingAbort=null;$('consent').onchange=()=>{const allowed=$('consent').checked;$('recBtn').disabled=!allowed;if(!allowed){++nexaConsentRevision;nexaClinicalProcessingAbort?.abort();if(recording||recordingStarting||(mediaRecorder&&mediaRecorder.state!=='inactive'))stopRec({discard:true});audioBlob=null;chunks=[];$('processBtn').disabled=true;$('status').textContent='Consentimento retirado · gravação interrompida.';}};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
 async function requireClinicalSession(){
   let {data:{session},error}=await sb.auth.getSession();if(error||!session?.access_token)throw new Error('Sessão expirada. Entre novamente no NEXA.');
   const check=await sb.auth.getUser(session.access_token).catch(()=>({data:{user:null},error:new Error('AUTH_CHECK_FAILED')}));
@@ -3939,12 +3939,19 @@ async function requireClinicalSession(){
   return session;
 }
 function processingForm(blob){const form=new FormData();form.append('audio',blob,'consulta.webm');form.append('case_mode',mode());form.append('client_request_id',crypto.randomUUID());form.append('app_version',APP_CONFIG.appVersion);form.append('style_examples',JSON.stringify($('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]));return form}
-async function invoke(blob){
-  let session=await requireClinicalSession();
-  const controller=new AbortController(),to=setTimeout(()=>controller.abort(),180000);
+function nexaProcessingGate(signal,ms){
+  const controller=new AbortController(),abort=()=>controller.abort();
+  signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+  const timer=setTimeout(abort,ms);
+  return {signal:controller.signal,check(){if(controller.signal.aborted)throw new DOMException('Processamento interrompido','AbortError')},
+    close(){clearTimeout(timer);signal?.removeEventListener('abort',abort)}};
+}
+async function invoke(blob,signal){
+  const gate=nexaProcessingGate(signal,180000);
   try{
-    const send=async access=>{const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${access}`,apikey:SUPABASE_ANON_KEY},body:processingForm(blob),signal:controller.signal});const d=await r.json().catch(()=>({}));return{r,d}};
-    let {r,d}=await send(session.access_token);
+    let session=await requireClinicalSession();gate.check();
+    const send=async access=>{gate.check();const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{method:'POST',headers:{Authorization:`Bearer ${access}`,apikey:SUPABASE_ANON_KEY},body:processingForm(blob),signal:gate.signal});const d=await r.json().catch(()=>({}));return{r,d}};
+    let {r,d}=await send(session.access_token);gate.check();
     if(r.status===401){
       const refreshed=await sb.auth.refreshSession().catch(()=>({data:{session:null},error:new Error('REFRESH_FAILED')}));session=refreshed?.data?.session||null;
       if(session?.access_token)({r,d}=await send(session.access_token));
@@ -3954,42 +3961,44 @@ async function invoke(blob){
       throw new Error(d.error||`Falha no backend (${r.status}).`);
     }
     return d
-  }finally{clearTimeout(to)}
+  }finally{gate.close()}
 }
-async function nexaDiarizeAudio(blob){
-  const session=await requireClinicalSession();
-  const form=new FormData();
-  form.append('audio',blob,'consulta.webm');
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),175000);
+async function nexaDiarizeAudio(blob,signal){
+  const gate=nexaProcessingGate(signal,175000);
   try{
+    const session=await requireClinicalSession();gate.check();
+    const form=new FormData();
+    form.append('audio',blob,'consulta.webm');
     const r=await fetch(SUPABASE_URL+'/functions/v1/consultation-speakers',{
       method:'POST',
       headers:{Authorization:'Bearer '+session.access_token,apikey:SUPABASE_ANON_KEY},
-      body:form,signal:controller.signal
+      body:form,signal:gate.signal
     });
+    gate.check();
     const result=await r.json().catch(()=>({}));
     if(!r.ok||!Array.isArray(result.segments)||!result.segments.length){
       throw new Error('A identificação dos locutores falhou ('+(result.error||r.status)+'). Nenhum prontuário foi gerado.');
     }
     return result.segments;
-  }finally{clearTimeout(timeout)}
+  }finally{gate.close()}
 }
-async function nexaInvokeAutomaticSpeakerSegments(segments){
-  const session=await requireClinicalSession();
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),180000);
+async function nexaInvokeAutomaticSpeakerSegments(segments,signal){
+  const gate=nexaProcessingGate(signal,180000);
   try{
+    const session=await requireClinicalSession();gate.check();
     const r=await fetch(SUPABASE_URL+APP_CONFIG.aiGatewayPath,{
       method:'POST',
       headers:{Authorization:'Bearer '+session.access_token,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
       body:JSON.stringify({
         segments,case_mode:mode(),
         style_examples:$('useExamples').checked?styleExamples.slice(-APP_CONFIG.maxStyleExamples):[]
-      }),signal:controller.signal
+      }),signal:gate.signal
     });
+    gate.check();
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data.error||'Falha ao estruturar consulta com locutores.');
     return data;
-  }finally{clearTimeout(timeout)}
+  }finally{gate.close()}
 }
 function nexaShowMedicationReview(review){
   $('nexaMedicationReview')?.remove();
@@ -4017,11 +4026,13 @@ async function processAudio(){
   const consentRevision=nexaConsentRevision,processingEpoch=clinicalEpoch;stopRecordingTimer();
   if(recording&&mediaRecorder){const stopped=new Promise(resolve=>mediaRecorder.addEventListener('stop',resolve,{once:true}));stopRec();await stopped;if(processingEpoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;}
   if(!currentProf)return show('Entre na sua conta.',true);if(!audioBlob)return show('Grave uma consulta antes de transcrever.',true);
+  nexaClinicalProcessingAbort?.abort();
+  const processingAbort=new AbortController();nexaClinicalProcessingAbort=processingAbort;
   $('processBtn').disabled=true;$('processBtn').textContent='Transcrevendo e estruturando…';$('status').textContent='Transcrevendo e estruturando…';
   document.body.dataset.nexaProcessing='1';window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'processing'}}));
   const prior=collect();
   try{
-    if(consentRevision!==nexaConsentRevision||!$('consent').checked)return;
+    if(processingAbort.signal.aborted||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
     const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString();
     let payload;
     let autoSpeakerFallback=false;
@@ -4032,24 +4043,25 @@ async function processAudio(){
       let segments=null;
       try{
         const startedDiarizationAt=performance.now();
-        segments=await nexaDiarizeAudio(audioBlob);
+        segments=await nexaDiarizeAudio(audioBlob,processingAbort.signal);
         speakerIdentificationMs=Math.round(performance.now()-startedDiarizationAt);
       }catch(speakerError){
+        if(processingAbort.signal.aborted)return;
         // Gracefully keep the existing one-click transcription if diarization is unavailable.
         // Do not present any speaker as identified in this fallback.
         autoSpeakerFallback=true;
         console.warn('NEXA speaker diarization unavailable; using standard transcription');
       }
-      if(epoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
+      if(epoch!==clinicalEpoch||processingAbort.signal.aborted||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
       if(segments){
         $('status').textContent='Estruturando prontuário…';
-        payload=await nexaInvokeAutomaticSpeakerSegments(segments);
+        payload=await nexaInvokeAutomaticSpeakerSegments(segments,processingAbort.signal);
       }else{
         $('status').textContent='Transcrição padrão disponível · identificação de vozes indisponível';
-        payload=await invoke(audioBlob);
+        payload=await invoke(audioBlob,processingAbort.signal);
       }
-    }else payload=await invoke(audioBlob);
-    if(epoch!==clinicalEpoch||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
+    }else payload=await invoke(audioBlob,processingAbort.signal);
+    if(epoch!==clinicalEpoch||processingAbort.signal.aborted||consentRevision!==nexaConsentRevision||!$('consent').checked)return;
     const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
     activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
     fill(parsed);nexaShowMedicationReview(payload.medication_review);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
@@ -4059,6 +4071,7 @@ async function processAudio(){
     // and confirm this structured note BEFORE discarding the recorded audio.
     let structuredSaved=false;
     try{
+      if(processingAbort.signal.aborted)return;
       await nexaPersistSession('structured');
       structuredSaved=true;
       void window.nexaEncounterAutosave18101?.flush?.('structured');
@@ -4075,12 +4088,13 @@ async function processAudio(){
     }
     window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'structured'}}));
   }catch(e){
-    if(processingEpoch===clinicalEpoch&&consentRevision===nexaConsentRevision&&$('consent').checked){
+    if(processingEpoch===clinicalEpoch&&!processingAbort.signal.aborted&&consentRevision===nexaConsentRevision&&$('consent').checked){
       const message=e.name==='AbortError'?'O processamento excedeu o tempo limite.':e.message;
       $('status').textContent=`Falha ao transcrever/estruturar · ${message}`;show(message,true);
       window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'error',message}}));
     }
   }finally{
+    if(nexaClinicalProcessingAbort!==processingAbort)return;nexaClinicalProcessingAbort=null;
     if(processingEpoch!==clinicalEpoch)return;delete document.body.dataset.nexaProcessing;stopRecordingTimer();$('processBtn').disabled=!$('consent').checked;$('processBtn').textContent='Transcrever e estruturar'
   }
 }$('processBtn').onclick=processAudio;
@@ -4098,7 +4112,7 @@ async function processAudio(){
     sync(Boolean(event.target.checked));
   });
 })();
-function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;clearTimeout(nexaPersistTimer);clearLastQuickAction();
+function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;nexaClinicalProcessingAbort?.abort();nexaClinicalProcessingAbort=null;delete document.body.dataset.nexaProcessing;clearTimeout(nexaPersistTimer);clearLastQuickAction();
   stopRecordingTimer({reset:true});
 
   if(recording||(mediaRecorder&&mediaRecorder.state!=='inactive')){
