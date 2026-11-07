@@ -203,3 +203,42 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.match(worker,/nexa-hotfix\.js\?v=20261107-audio-exit-guard/);
  assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
 });
+
+
+test('unprocessed recorded audio warns before unload even with no clinical text',()=>{
+ const begin=html.indexOf('  function nexaShouldWarnBeforeExit(){');
+ const end=html.indexOf('  nexaCheckRecoverableSession();',begin);
+ assert.ok(begin>0&&end>begin,'exit guard must precede recoverable-session setup');
+ const guard=html.slice(begin,end);
+ assert.match(guard,/recording\|\|recordingStarting/);
+ assert.match(guard,/audioBlob&&audioBlob\.size>0/);
+ assert.match(guard,/nexaHasMeaningfulSession\(\)/);
+ assert.match(guard,/e\.preventDefault\(\);e\.returnValue=''/);
+ const runScenario=({recording=false,starting=false,audioSize=0,hasNote=false})=>{
+   let handler=null,checkpointCount=0,prevented=false;
+   const win={addEventListener:(name,callback)=>{
+     if(name==='beforeunload')handler=callback;
+   }};
+   const factory=new Function('window','recording','recordingStarting','audioBlob',
+     'nexaHasMeaningfulSession','nexaPersistSession',
+     guard+'\nreturn window;');
+   factory(win,recording,starting,audioSize?{size:audioSize}:null,
+     ()=>hasNote,async()=>{checkpointCount++;return null});
+   assert.equal(typeof handler,'function');
+   const evt={preventDefault:()=>{prevented=true},returnValue:undefined};
+   handler(evt);
+   return {prevented,returnValue:evt.returnValue,checkpointCount};
+ };
+ assert.deepEqual(runScenario({}),{prevented:false,returnValue:undefined,checkpointCount:0});
+ for(const state of [{audioSize:1800},{recording:true},{starting:true}]){
+   const result=runScenario(state);
+   assert.equal(result.prevented,true,'recorded/in-progress audio must warn before closing');
+   assert.equal(result.returnValue,'');
+   assert.equal(result.checkpointCount,0,'audio-only session cannot falsely claim audio persistence');
+ }
+ const withNote=runScenario({hasNote:true});
+ assert.equal(withNote.prevented,true);
+ assert.equal(withNote.checkpointCount,1,'clinical text should still trigger the IndexedDB checkpoint');
+ assert.match(html,/áudio ainda apenas na memória · transcreva antes de sair/,
+   'recording completion must clearly warn that audio is not durably stored');
+});
