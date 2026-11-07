@@ -3924,7 +3924,7 @@ function stopRec({discard=false}={}){
   try{stream?.getTracks().forEach(t=>t.stop())}catch(e){}
   try{if(audioCtx&&audioCtx.state!=='closed')audioCtx.close()}catch(e){}
   stream=null;audioCtx=null;
-}$('consent').onchange=()=>{$('recBtn').disabled=!$('consent').checked};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
+}$('consent').onchange=()=>{const allowed=$('consent').checked;$('recBtn').disabled=!allowed;if(!allowed&&(recording||recordingStarting||(mediaRecorder&&mediaRecorder.state!=='inactive'))){stopRec({discard:true});$('status').textContent='Consentimento retirado · gravação interrompida.';}};$('recBtn').onclick=()=>{if(!$('consent').checked)return;if(recording){pauseSession();return}if(audioBlob||document.body.dataset.nexaProcessing==='1')return;startRec()};
 async function requireClinicalSession(){
   let {data:{session},error}=await sb.auth.getSession();if(error||!session?.access_token)throw new Error('Sessão expirada. Entre novamente no NEXA.');
   const check=await sb.auth.getUser(session.access_token).catch(()=>({data:{user:null},error:new Error('AUTH_CHECK_FAILED')}));
