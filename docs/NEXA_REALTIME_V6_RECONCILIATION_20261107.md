@@ -90,3 +90,10 @@ Contrato `tests/nexa-realtime-consent-offline.test.mjs`: executa as funções re
 A CI #42350317902 (HEAD c67d527e970b) apresentou timeout de 20 s na segunda função anônima de staging, `clinical-assistant`, após `process-consultation` responder com HTTP 401 esperado. Foi executado **um** retry somente do job `staging-auth-smoke`, resultando em SUCCESS da tentativa 2, com todas as rotas anônimas negadas. Isso é compatível com falha transitória de rede ou staging, sem identificar causa única. Os testes autenticados com login permaneceram SKIPPED: `NEXA_STAGING_EMAIL/PASSWORD` não configuradas. Não alegar que a autenticação real foi homologada.
 
 A PR #133 permanece Draft; avaliar a CI do HEAD contendo o gate de consentimento antes de qualquer ação subsequente. Sem autorização para merge/deploy. Economia USD permanece não comprovada.
+
+
+## Gate 9.4 — estado do Radar ao retomar uma gravação pausada
+
+O fluxo de Pausar/Retomar usava status `live` incondicional ao retomar o MediaRecorder principal. Em sessão cujo WebRTC já havia falhado e cujo transporte ativo era o fallback por chunks, esse estado **não comprovava** uma conexão WebRTC aberta. O candidato da PR #133 agora informa `connecting` enquanto estiver em fallback ou enquanto o DataChannel WebRTC ainda não estiver aberto; usa `live` somente quando há DataChannel aberto e não foi ativado fallback. A recepção de transcrição posterior continua atualizando o estado segundo o comportamento existente.
+
+Teste `tests/nexa-realtime-pause-transport.test.mjs` executa o `pauseSession` original com MediaRecorder, track e data channel fictícios: cobre retomar chunks, WebRTC aberto, WebRTC ainda conectando e pausa nos dois modos. Nenhuma conexão, login, áudio de paciente ou chamada paga. **Gate residual:** comportamento real com microfone e hardware deve ser homologado em sessão autorizada; o teste sintético apenas verifica transições de estado.
