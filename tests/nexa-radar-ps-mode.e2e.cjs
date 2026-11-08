@@ -61,7 +61,7 @@ async function chromiumFlow(browser,port,viewport){
   // Keep the essential history, alert navigation and invariant that display
   // changes NEVER mutate clinical facts, answers or the audit ledger.
   assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter]').count(),0);
-  assert.match(await page.locator('#nexaFocusHistoryCount18160').innerText(),/^[0-3]\\/3$/);
+  assert.match(await page.locator('#nexaFocusHistoryCount18160').innerText(),/^[0-3]\/3$/);
   assert.ok(await page.locator('#nexaFocusQuestions18160 [data-focus-item]').count()<=1);
   assert.equal(await page.locator('#ngQuestionsTab').count(),1);
   assert.equal(await page.locator('#ngRisksTab').count(),1);
