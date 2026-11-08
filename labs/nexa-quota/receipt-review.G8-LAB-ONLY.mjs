@@ -19,6 +19,7 @@ export function createOfflineReceiptReview({getClaimState,readMockReceipt}={}){
  return async function review(requestId){
   if(typeof requestId!=='string'||!uuid.test(requestId))return result('STOP','INVALID_REQUEST_ID');
   if(reviewed.has(requestId))return reviewed.get(requestId);
+  const pending=(async()=>{
   let state;
   try{state=await getClaimState(requestId);}
   catch{return result('STOP','CLAIM_STATE_UNVERIFIED');}
@@ -44,7 +45,9 @@ export function createOfflineReceiptReview({getClaimState,readMockReceipt}={}){
   }
   // Simulated memoization reduces repeated lab probes but provides no
   // durable exactly-once guarantee or crash consistency.
-  reviewed.set(requestId,answer);
   return answer;
+  })();
+  reviewed.set(requestId,pending);
+  return pending;
  };
 }
