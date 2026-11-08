@@ -34,7 +34,7 @@ test('idempotent retry cannot charge twice or change owners',async()=>{
  const gate=make();const q={tenant:'ten_a',user:'doc_a',encounter:'enc_a',request:'req_1',input:150,output:60};
  assert.equal((await gate.admit(q)).reason,'RESERVED');
  assert.equal((await gate.admit(q)).reason,'ALREADY_RESERVED');
- assert.equal((await gate.admit({...q,user:'doc_b'})).reason,'TENANT_NOT_VERIFIED');
+ assert.equal((await gate.admit({...q,user:'doc_b'})).reason,'ENCOUNTER_NOT_OWNED');
  assert.equal((await gate.admit({...q,input:200})).reason,'IDEMPOTENCY_CONFLICT');
  assert.equal(gate.count(),1);
 });
