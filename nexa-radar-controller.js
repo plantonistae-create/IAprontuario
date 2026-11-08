@@ -87,7 +87,9 @@
         lastKey=key;lastContext=JSON.parse(JSON.stringify(context));aiKey='';
       }
       state=E.analyze(context,ledger,aiItems,observations);
+      const previousAlerts=JSON.stringify([...alertJournal.values()].map(a=>[a.id,a.status]));
       state.reviewAlerts=reconcileAlerts(state.alerts);
+      const alertTransition=previousAlerts!==JSON.stringify([...alertJournal.values()].map(a=>[a.id,a.status]));
       state.alertJournal=[...alertJournal.values()].map(x=>({...x}));
       state.dispositionCaution=state.dispositionCaution||state.reviewAlerts.length>0;
       state.clinicalAudit=clinicalAudit.map(x=>({...x}));
@@ -95,6 +97,15 @@
       state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
       traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
       publish();
+      if(alertTransition&&owner&&typeof adapter.persist==='function'){
+        // Save the existing owner-scoped snapshot when an ASR-only alert
+        // appears/disappears; no new remote inference or clinical field change.
+        // The live consultation's durable storage adapter owns CAS/RLS checks.
+        void Promise.resolve().then(()=>adapter.persist('radar_alert_transition')).catch(()=>{
+          error='Histórico de alertas não confirmado em armazenamento. Revise antes de encerrar.';
+          state.error=error;publish();
+        });
+      }
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
         clearTimeout(aiTimer);
         aiTimer=setTimeout(()=>analyzeRemote(),force?0:Math.max(300,1500-(Date.now()-lastRequestAt)));

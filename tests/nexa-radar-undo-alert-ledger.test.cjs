@@ -3,10 +3,10 @@ const assert=require('node:assert/strict');
 global.NexaRadarEngine=require('../nexa-radar-engine');
 require('../nexa-radar-controller');
 function fixture(fields={hda:'Dor torácica.'}){
- let ctx={fields:{...fields}};
- const api=NexaRadarController.create({context:()=>ctx,publish(){},apply:f=>{ctx={...ctx,fields:f}},persist(){},analyze:async()=>({items:[],observations:[]})});
+ let ctx={fields:{...fields}},saves=0;
+ const api=NexaRadarController.create({context:()=>ctx,publish(){},apply:f=>{ctx={...ctx,fields:f}},persist(){saves++},analyze:async()=>({items:[],observations:[]})});
  api.setOwner('synthetic-doctor');api.recalculate();
- return {api,get context(){return ctx},set:c=>ctx=c};
+ return {api,get context(){return ctx},set:c=>ctx=c,get saves(){return saves}};
 }
 test('last medical answer can be undone without inventing a negative; audited',()=>{
  const f=fixture(),api=f.api,before=structuredClone(f.context.fields);
@@ -65,4 +65,20 @@ test('prior alert cannot disappear without medical review justification',()=>{
  f.set({fields:{hda:'Cefaleia.',exame_fisico:'Rigidez de nuca presente.'}});api.recalculate();
  assert.equal(api.snapshot().alertJournal.find(e=>e.id==='finding:meningism').status,'active');
  api.reset();
+});
+
+test('ASR-only safety transitions request owner-scoped persistence without repeated saves',async()=>{
+ const f=fixture({hda:'Cefaleia.'});
+ const start=f.saves;
+ f.set({fields:{hda:'Cefaleia.',exame_fisico:'Rigidez de nuca presente.'}});
+ f.api.recalculate();await Promise.resolve();await Promise.resolve();
+ assert.equal(f.saves,start+1,'newly detected risk must be persisted');
+ f.api.recalculate();await Promise.resolve();await Promise.resolve();
+ assert.equal(f.saves,start+1,'identical evidence does not rewrite snapshot');
+ f.set({fields:{hda:'Cefaleia.',exame_fisico:''}});
+ f.api.recalculate();await Promise.resolve();await Promise.resolve();
+ assert.equal(f.saves,start+2,'previously detected risk remains pending and persisted');
+ const snapshot=f.api.snapshot();
+ assert.ok(snapshot.alertJournal.some(e=>e.id==='finding:meningism'&&e.status==='pending'));
+ f.api.reset();
 });
