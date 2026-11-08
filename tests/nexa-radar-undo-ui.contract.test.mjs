@@ -12,7 +12,9 @@ test('risk colors are reserved for active danger, amber for uncertain prior aler
  assert.match(file('nexa-radar.css'),/\.ng-review-banner\{background:#fff5e6/);
 });
 test('controller, CSS and service worker share release token',()=>{
- assert.match(file('index.html'),/nexa-radar-controller\.js\?v=20261107-clinical-ledger-p0/);
- assert.match(file('index.html'),/nexa-radar\.css\?v=20261107-clinical-ledger-p0/);
- assert.match(file('sw.js'),/nexa-v18-15-0-20261107-clinical-ledger-p0/);
+ const html=file('index.html'),worker=file('sw.js');
+ const version=html.match(/nexa-radar-controller\.js\?v=(20261107-[a-z0-9-]+)/)?.[1];
+ assert.ok(version,'current controller must be versioned');
+ assert.ok(html.includes('nexa-radar.css?v='+version),'CSS and controller must be released together');
+ assert.ok(worker.includes('nexa-v18-15-0-'+version),'Service Worker must use the same release token');
 });
