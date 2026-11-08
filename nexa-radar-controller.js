@@ -34,7 +34,7 @@
     const ev=fact.currentEvidence||fact.evidence?.at(-1)||null;
     const speaker=evidenceSpeaker(ev,context.transcript),source=ev?.section||'none';
     const quote=String(ev?.quote||''),factState=fact.state||'not_asked';
-    const uncertain=/\b(?:não sei|nao sei|não lembro|nao lembro|não sabe|nao sabe|talvez|acho que|não entendi|nao entendi)\b/i.test(quote);
+    const uncertain=/\b(?:não sei|nao sei|não lembro|nao lembro|não sabe|nao sabe|talvez|acho que|não entendi|nao entendi|sem certeza|não tenho certeza|nao tenho certeza|não consigo afirmar|nao consigo afirmar|não recordo|nao recordo)\b/i.test(quote);
     const denial=/\b(?:nega|negou|negado|não tem|nao tem|sem|nunca|não houve|nao houve|não apresenta|nao apresenta)\b/i.test(quote);
     const confirmed=record?.action==='answer'&&typeof record.documented==='string'&&!!record.documented&&
       typeof context.fields?.[record.section]==='string'&&context.fields[record.section].includes(record.documented)&&

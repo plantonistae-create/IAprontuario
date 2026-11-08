@@ -56,3 +56,13 @@ test('derived provenance never replaces facts or becomes a persisted second ledg
  assert.equal(api.state.evidenceStates.fever.resolves_patient_fact,false);
  assert.ok(!JSON.stringify(api.snapshot()).includes('evidenceStates'));api.reset();
 });
+
+test('patient uncertainty is not a denial when wording includes sem certeza',()=>{
+ for(const quote of ['Paciente: Sem certeza sobre febre.', 'Paciente: Não tenho certeza se tive febre.',
+  'Paciente: Não consigo afirmar se tive febre.', 'Paciente: Não recordo se tive febre.']){
+  const result=c(f('known_absent',quote),null,ctx(quote));
+  assert.equal(result.code,'does_not_know',quote);
+  assert.equal(result.resolves_patient_fact,false,quote);
+ }
+ assert.equal(c(f('known_absent','Paciente: Sem febre.'),null,ctx('Paciente: Sem febre.')).code,'denied_by_patient');
+});
