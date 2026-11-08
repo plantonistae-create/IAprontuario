@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {execFileSync} from 'node:child_process';
+import {readFileSync,mkdtempSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {resolve} from 'node:path';
+import {resolve,join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {assessG16PhaseA1Result as gate} from '../labs/nexa-security/phase-a-count-gate.G16-REVIEW-ONLY.mjs';
 const valid=(count=12)=>({rows:[{candidate_public_definer_routines:count,
  within_explicit_review_cap:count<=250}],error:null,truncated:false});
@@ -85,3 +86,46 @@ test('CLI refuses private result file in public repository',()=>{
   encoding:'utf8',stdio:['ignore','pipe','pipe']
  }),e=>String(e.stderr).includes('G16_PRIVATE_A1_RESULT_MUST_STAY_OUTSIDE_REPOSITORY'));
 });
+
+const g164Cli=fileURLToPath(new URL('../labs/nexa-security/phase-a-count-gate.G16-REVIEW-ONLY.mjs',import.meta.url));
+const g164Root=fileURLToPath(new URL('../',import.meta.url));
+const g164Valid=n=>JSON.stringify({rows:[{candidate_public_definer_routines:n,within_explicit_review_cap:n<=250}],error:null,truncated:false});
+const g164WithTemp=fn=>{const dir=mkdtempSync(join(tmpdir(),'nexa-g16-4-synthetic-'));try{return fn(dir);}finally{rmSync(dir,{recursive:true,force:true});}};
+const g164Run=(file,cwd=g164Root)=>spawnSync(process.execPath,[g164Cli,file],{cwd,encoding:'utf8'});
+test('G16.4 private count stays out of CLI stdout even at 250',()=>g164WithTemp(dir=>{
+ const f=join(dir,'valid.json');writeFileSync(f,g164Valid(250));
+ const r=g164Run(f);assert.equal(r.status,0);
+ assert.match(r.stdout,/REQUIRES_SEPARATE_AUTHORIZATION/);
+ assert.doesNotMatch(r.stdout,/aggregate_candidate_count|250/);
+ assert.match(r.stdout,/"authorized_to_run_A2": false/);
+}));
+test('G16.4 malformed JSON errors never echo private input snippets',()=>g164WithTemp(dir=>{
+ const f=join(dir,'invalid.json');writeFileSync(f,'{"patient": PRIVATE_SENTINEL,');
+ const r=g164Run(f);assert.equal(r.status,2);
+ assert.equal(r.stderr.trim(),'G16_A1_RESULT_INVALID_JSON');
+ assert.doesNotMatch(r.stdout+r.stderr,/patient|PRIVATE_SENTINEL/);
+}));
+test('G16.4 repository check is independent of current working directory',()=>{
+ const f=fileURLToPath(new URL('../package.json',import.meta.url));
+ const r=g164Run(f,fileURLToPath(new URL('../tests/',import.meta.url)));
+ assert.equal(r.status,2);assert.match(r.stderr,/MUST_STAY_OUTSIDE_REPOSITORY/);
+});
+test('G16.4 outside symlink to repository cannot bypass the private-file gate',
+ {skip:process.platform==='win32'},()=>g164WithTemp(dir=>{
+ const f=join(dir,'link.json');
+ symlinkSync(fileURLToPath(new URL('../package.json',import.meta.url)),f);
+ const r=g164Run(f);assert.equal(r.status,2);
+ assert.match(r.stderr,/MUST_STAY_OUTSIDE_REPOSITORY/);
+}));
+test('G16.4 oversized input is rejected without echoing private content',()=>g164WithTemp(dir=>{
+ const f=join(dir,'large.json');writeFileSync(f,'PRIVATE_SENTINEL'.repeat(500));
+ const r=g164Run(f);assert.equal(r.status,2);
+ assert.equal(r.stderr.trim(),'G16_A1_RESULT_INVALID_OR_TOO_LARGE');
+ assert.doesNotMatch(r.stdout+r.stderr,/PRIVATE_SENTINEL/);
+}));
+test('G16.4 251 candidates stays STOP without A2 authorization',()=>g164WithTemp(dir=>{
+ const f=join(dir,'over.json');writeFileSync(f,g164Valid(251));
+ const r=g164Run(f);assert.equal(r.status,2);
+ assert.match(r.stdout,/A1_OVER_250_STOP/);
+ assert.match(r.stdout,/"authorized_to_run_A2": false/);
+}));
