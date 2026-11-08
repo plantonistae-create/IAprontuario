@@ -35,14 +35,14 @@ body[data-contextual-radar] #realtimeRadarCard #nexaRadarDynamic18160{
 }
 #realtimeRadarCard #nexaRadarDynamic18160[data-unavailable="1"] .nexa-focus-identity18160 h3 i{background:#bf8120;box-shadow:0 0 0 4px rgba(191,129,32,.13)}
 #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-alert18160{
- border:1px solid #e9c9ce!important;border-radius:11px!important;
+ border:1px solid var(--rf-border)!important;border-radius:11px!important;
  background:var(--rf-subtle)!important;color:var(--rf-text)!important;
  padding:9px 12px!important;min-height:41px!important;
  display:flex;align-items:center;gap:9px;flex:0 0 auto;font-size:11px!important;font-weight:800
 }
 #realtimeRadarCard .nexa-focus-alert18160 b{
  display:grid;place-items:center;min-width:20px;height:20px;border-radius:7px;
- background:rgba(168,49,70,.11);font-variant-numeric:tabular-nums
+ background:rgba(20,140,149,.12);font-variant-numeric:tabular-nums
 }
 #realtimeRadarCard .nexa-focus-grid18160{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(250px,1fr);gap:12px;align-items:start}
 #realtimeRadarCard .nexa-focus-questions18160,
