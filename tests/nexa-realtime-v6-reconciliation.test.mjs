@@ -16,11 +16,11 @@ test('frozen hosted v6 is reconciled with EXACTLY the multipart field substituti
   assert.ok(start > -1 && end > start);
   assert.equal(hosted.indexOf(anchor, start + 1), -1);
   const original = hosted.slice(start, end);
-  assert.match(original, /form\\.append\\(/);
-  assert.match(original, /offer\\.sdp/);
-  assert.match(original, /session\\.json/);
+  assert.match(original, /form\.append\(/);
+  assert.match(original, /offer\.sdp/);
+  assert.match(original, /session\.json/);
   assert.equal(candidate, hosted.slice(0, start) + replacement + hosted.slice(end));
-  assert.equal((candidate.match(/form\\.set\\(/g) ?? []).length, 2);
+  assert.equal((candidate.match(/form\.set\(/g) ?? []).length, 2);
 });
 
 test('JWT, clinical access, fallback, timeout and upstream observability are byte-preserved', () => {
@@ -36,14 +36,14 @@ test('JWT, clinical access, fallback, timeout and upstream observability are byt
     assert.ok(hosted.includes(token), 'v6 baseline missing '+token);
     assert.ok(candidate.includes(token), 'candidate missing '+token);
   }
-  assert.equal((candidate.match(/AbortSignal\\.timeout\\(18000\\)/g)??[]).length,
+  assert.equal((candidate.match(/AbortSignal\.timeout\(18000\)/g)??[]).length,
     (hosted.match(/AbortSignal\\.timeout\\(18000\\)/g)??[]).length);
   assert.ok(!candidate.includes('emitUsage("realtime.transcription"'),
     'do not silently insert Git-only usage code into hosted v6');
 });
 
 test('SDP and session are multipart STRING fields, not files (no network)', async () => {
-  const sdp = 'v=0\\r\\ns=synthetic-only\\r\\n';
+  const sdp = 'v=0\r\ns=synthetic-only\r\n';
   const session = { type:'realtime', model:'synthetic-model' };
   const form = new FormData();
   form.set('sdp', sdp);
