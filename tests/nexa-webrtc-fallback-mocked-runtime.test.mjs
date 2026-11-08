@@ -9,14 +9,15 @@ import {syntheticEdgeEnvelope} from '../experimental/nexa-webrtc-negotiation-lab
 
 const frontend=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const start=frontend.indexOf('async function startRealtimeRadar(mediaStream){');
-const end=frontend.indexOf('function stopRealtimeRadar(',start);
-assert.ok(start>0&&end>start,'actual frontend functions must be present');
+const stop=frontend.indexOf('function stopRealtimeRadar(',start);
+const end=frontend.indexOf('\n\nlet mediaRecorder,',stop);
+assert.ok(start>0&&stop>start&&end>stop,'actual frontend functions must be present');
 const transportCode=frontend.slice(start,end);
 
-function harness({status=200,deferred=false,authenticated=true,candidateAbortOnFallback=false,abortableFetch=false}={}){
- const pcs=[],recorders=[],calls=[],statuses=[];
+function harness({status=200,deferred=false,authenticated=true,candidateAbortOnFallback=false,abortableFetch=false,candidateSplitAbortDomains=false,chunkDeferred=false,allowSyntheticChunkEvent=false}={}){
+ const pcs=[],recorders=[],calls=[],statuses=[],chunkEvents=[];
  const timers=new Map();
- let seq=0,pending=null,abortSeen=0;
+ let seq=0,pending=null,pendingChunk=null,abortSeen=0,chunkAbortSeen=0;
  const mediaStream={getAudioTracks:()=>[{kind:'audio',synthetic:true}]};
  class FakePeer {
   constructor(){this.remoteDescription=null;this.closed=false;this.channels=[];pcs.push(this);}
@@ -45,12 +46,12 @@ function harness({status=200,deferred=false,authenticated=true,candidateAbortOnF
  const response=(value)=>({ok:value>=200&&value<300,status:value,
   json:async()=>value>=200&&value<300?{sdp:'v=0\r\ns=fake-answer\r\n'}:{error:'SYNTHETIC_STATUS'}});
  const sandbox={
-  radarTransportRevision:0,radarTransportAbort:null,recording:true,
+  radarTransportRevision:0,radarTransportAbort:null,radarRealtimeHandshakeAbort:null,recording:true,
   radarConnectTimeout:null,realtimePc:null,realtimeDc:null,radarFallbackActive:false,
   sessionPaused:false,radarChunkStopper:null,radarChunkRecorder:null,
   radarChunkQueue:[],radarChunkSequence:0,radarChunkSending:false,
   window:{RTCPeerConnection:FakePeer},RTCPeerConnection:FakePeer,
-  MediaRecorder:FakeRecorder,AbortController,Blob,
+  MediaRecorder:FakeRecorder,AbortController,Blob,FormData,
   APP_CONFIG:{realtimeCallPath:'/functions/v1/realtime-call',appVersion:'fixture-only'},
   SUPABASE_URL:'https://not-real.invalid',
   SUPABASE_ANON_KEY:'FAKE_ANON_TEST_ONLY',
@@ -59,12 +60,24 @@ function harness({status=200,deferred=false,authenticated=true,candidateAbortOnF
   $:(id)=>id==='consent'?{checked:true}:null,
   matchMedia:()=>({matches:true}),
   radarTransportStatus:(value)=>statuses.push(value),
-  handleRealtimeEvent:()=>{throw Error('A no-audio mock must not emit a clinical event');},
+  handleRealtimeEvent:(evt)=>{if(!allowSyntheticChunkEvent)throw Error('A no-audio mock must not emit a clinical event');const d=JSON.parse(evt.data);chunkEvents.push({type:d.type,item_id:d.item_id});},
   setTimeout:(fn,delay)=>{const id=++seq;timers.set(id,{fn,delay});return id;},
-  clearTimeout:(id)=>{timers.delete(id);},
+  clearTimeout:(id)=>{timers.delete(id);},clearInterval:()=>{},radarTimer:null,
   fetch:async(url,init)=>{
    assert.equal(url,'https://not-real.invalid/functions/v1/realtime-call');
    assert.equal(init.method,'POST');
+   if(init.body instanceof FormData){
+    assert.equal(init.body.get('mode'),'chunk');
+    assert.ok(init.body.get('audio') instanceof Blob,'synthetic blob only');
+    calls.push({mode:'chunk',has_audio_field:true});
+    if(chunkDeferred)return new Promise((resolve,reject)=>{
+      pendingChunk=resolve;
+      init.signal.addEventListener('abort',()=>{
+        chunkAbortSeen++;reject(new Error('SYNTHETIC_CHUNK_ABORT'));
+      },{once:true});
+    });
+    return {ok:true,status:200,json:async()=>({text:'SYNTHETIC_CHUNK'})};
+   }
    const body=JSON.parse(init.body);
    calls.push({app_version:body.app_version,has_offer_snapshot:body.sdp==='v=0\r\ns=fake\r\n',
     includes_final_ice_candidate:body.sdp.includes('a=candidate:')});
@@ -88,11 +101,26 @@ function harness({status=200,deferred=false,authenticated=true,candidateAbortOnF
   codeToRun=transportCode.replace(anchor,anchor+
    "\n  radarTransportAbort?.abort(); // SYNTHETIC CANDIDATE ONLY; not in runtime");
  }
+ if(candidateSplitAbortDomains){
+  // Experimental source transform is confined to vm.runInNewContext.
+  const handshake='radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;';
+  const split='radarTransportAbort=new AbortController();radarRealtimeHandshakeAbort?.abort();radarRealtimeHandshakeAbort=new AbortController();const signal=radarRealtimeHandshakeAbort.signal;';
+  assert.equal(codeToRun.split(handshake).length,2,'unique handshake source anchor');
+  codeToRun=codeToRun.replace(handshake,split);
+  const fallback='radarFallbackActive=true;clearTimeout(radarConnectTimeout);';
+  assert.equal(codeToRun.split(fallback).length,2,'unique fallback source anchor');
+  codeToRun=codeToRun.replace(fallback,fallback+'radarRealtimeHandshakeAbort?.abort();');
+  const stop='++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=null;';
+  assert.equal(codeToRun.split(stop).length,2,'unique stop source anchor');
+  codeToRun=codeToRun.replace(stop,'++radarTransportRevision;radarTransportAbort?.abort();radarRealtimeHandshakeAbort?.abort();radarRealtimeHandshakeAbort=null;radarTransportAbort=null;');
+ }
  vm.runInNewContext(codeToRun,sandbox,{timeout:1000,filename:'real-frontend-fake-dependencies'});
  return {
-  sandbox,pcs,recorders,calls,statuses,timers,get abortSeen(){return abortSeen;},
+  sandbox,pcs,recorders,calls,statuses,timers,chunkEvents,get abortSeen(){return abortSeen;},get chunkAbortSeen(){return chunkAbortSeen;},
   start:()=>sandbox.startRealtimeRadar(mediaStream),
   resolve:(code)=>{assert.ok(pending,'deferred request not reached');pending(response(code));},
+  resolveChunk:()=>{assert.ok(pendingChunk,'deferred chunk not reached');pendingChunk({ok:true,status:200,json:async()=>({text:'SYNTHETIC_CHUNK'})});},
+  stop:()=>sandbox.stopRealtimeRadar({wipe:false}),
   fire:(delay)=>{for(const [id,t] of [...timers])if(t.delay===delay){timers.delete(id);t.fn();}},
  };
 }
@@ -245,4 +273,83 @@ test('VM harness has no actual network or patient payload in its observable resu
  for(const forbidden of ['FAKE_JWT','FAKE_ANON','v=0','a=candidate:','patient',
   'recording_audio','authorization','Bearer','transcript','encounter'])assert.equal(report.includes(forbidden),false);
  assert.equal(h.calls.length,1);
+});
+
+
+test('lab split: fallback aborts only pending handshake, chunk remains deliverable',async()=>{
+ const h=harness({deferred:true,abortableFetch:true,candidateSplitAbortDomains:true,allowSyntheticChunkEvent:true});
+ const connection=h.start();await flush();
+ const parent=h.sandbox.radarTransportAbort,handshake=h.sandbox.radarRealtimeHandshakeAbort;
+ h.fire(10000);await connection;
+ assert.equal(handshake.signal.aborted,true);
+ assert.equal(parent.signal.aborted,false,'fallback parent must remain usable');
+ assert.equal(h.abortSeen,1);
+ const rev=h.sandbox.radarTransportRevision;
+ h.sandbox.radarChunkQueue.push({blob:new Blob(['NO-AUDIO'],{type:'audio/webm'}),id:'synthetic:1'});
+ await h.sandbox.drainRadarChunks(rev);
+ assert.equal(h.calls.length,2);
+ assert.equal(h.calls[1].mode,'chunk');
+ assert.equal(h.chunkEvents.length,1);
+ assert.equal(h.chunkEvents[0].item_id,'synthetic:1');
+ assert.equal(parent.signal.aborted,false);
+ h.stop();
+ assert.equal(parent.signal.aborted,true);
+});
+
+test('lab split: chunk timeout aborts only one chunk, no retry or parent abort',async()=>{
+ const h=harness({deferred:true,abortableFetch:true,candidateSplitAbortDomains:true,chunkDeferred:true});
+ const connection=h.start();await flush();h.fire(10000);await connection;
+ const parent=h.sandbox.radarTransportAbort,rev=h.sandbox.radarTransportRevision;
+ h.sandbox.radarChunkQueue.push({blob:new Blob(['NO-AUDIO'],{type:'audio/webm'}),id:'synthetic:2'});
+ const pending=h.sandbox.drainRadarChunks(rev);await flush();
+ assert.equal(h.calls.length,2);
+ h.fire(18000);await pending;
+ assert.equal(h.chunkAbortSeen,1);
+ assert.equal(parent.signal.aborted,false);
+ assert.equal(h.sandbox.radarChunkQueue.length,0);
+ assert.ok(h.statuses.includes('unavailable'));
+ h.stop();
+});
+
+test('lab split: stop aborts pending chunk and invalidates stale revision',async()=>{
+ const h=harness({deferred:true,abortableFetch:true,candidateSplitAbortDomains:true,chunkDeferred:true,allowSyntheticChunkEvent:true});
+ const connection=h.start();await flush();h.fire(10000);await connection;
+ const parent=h.sandbox.radarTransportAbort,rev=h.sandbox.radarTransportRevision;
+ h.sandbox.radarChunkQueue.push({blob:new Blob(['NO-AUDIO'],{type:'audio/webm'}),id:'synthetic:3'});
+ const pending=h.sandbox.drainRadarChunks(rev);await flush();
+ assert.equal(h.calls.length,2);
+ h.stop();await pending;
+ assert.equal(parent.signal.aborted,true);
+ assert.equal(h.sandbox.radarRealtimeHandshakeAbort,null);
+ assert.equal(h.chunkAbortSeen,1);
+ assert.equal(h.chunkEvents.length,0);
+ assert.equal(h.sandbox.radarTransportRevision,rev+1);
+ assert.equal(h.sandbox.radarFallbackActive,false);
+});
+
+test('actual frontend: stop aborts handshake without triggering late fallback',async()=>{
+ const h=harness({deferred:true,abortableFetch:true});
+ const connection=h.start();await flush();
+ const parent=h.sandbox.radarTransportAbort;
+ h.stop();await connection;
+ assert.equal(parent.signal.aborted,true);
+ assert.equal(h.abortSeen,1);
+ assert.equal(h.recorders.length,0);
+ assert.equal(h.calls.length,1);
+ assert.equal(h.sandbox.radarFallbackActive,false);
+});
+
+test('lab split: successful live handshake remains active until channel closes',async()=>{
+ const h=harness({status:200,candidateSplitAbortDomains:true});
+ await h.start();
+ const handshake=h.sandbox.radarRealtimeHandshakeAbort;
+ h.pcs[0].channels[0].onopen();h.fire(10000);
+ assert.equal(handshake.signal.aborted,false);
+ assert.equal(h.recorders.length,0);
+ h.pcs[0].channels[0].onclose();
+ assert.equal(h.sandbox.radarFallbackActive,true);
+ assert.equal(handshake.signal.aborted,true);
+ h.fire(10000);
+ assert.equal(h.recorders.length,1);
+ h.stop();
 });
