@@ -66,3 +66,13 @@ test('patient uncertainty is not a denial when wording includes sem certeza',()=
  }
  assert.equal(c(f('known_absent','Paciente: Sem febre.'),null,ctx('Paciente: Sem febre.')).code,'denied_by_patient');
 });
+
+test('G16.9 combined: uncertain wording and short speaker quote remain unconfirmed',()=>{
+ const t='Paciente: Sim.\nMédico: Você confirma?';
+ const q='Paciente informou Sim. e descreveu outros sintomas';
+ assert.equal(s({section:'transcript',quote:q},t),'unknown');
+ assert.equal(c(f('known_present',q),null,ctx(t)).resolves_patient_fact,false);
+ const uncertain='Paciente: Sem certeza sobre febre.';
+ assert.equal(c(f('known_absent',uncertain),null,ctx(uncertain)).code,'does_not_know');
+ assert.equal(c(f('known_absent',uncertain),null,ctx(uncertain)).resolves_patient_fact,false);
+});
