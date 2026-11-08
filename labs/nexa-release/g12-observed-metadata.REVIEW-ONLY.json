@@ -1,0 +1,39 @@
+{
+  "schema_version": "nexa-g12-readiness-snapshot-v1",
+  "checkpoint_commit": "d7144d304640996ca14eca3b0c4081f99fde62fc",
+  "observed_at_utc": "2026-11-08T18:06:16Z",
+  "source_types": {
+    "edge_versions": "supabase_edge_functions_read_only",
+    "rls_tables": "supabase_table_metadata_read_only",
+    "security_advisors": "supabase_security_advisors_read_only",
+    "git_status": "github_commit_status_read_only"
+  },
+  "observations": {
+    "public_tables": 18,
+    "public_rls_enabled": 18,
+    "public_rls_without_policies": 13,
+    "anon_security_definer_rpc": 11,
+    "authenticated_security_definer_rpc": 29,
+    "hosted_functions_active_jwt": {
+      "realtime-call": true,
+      "realtime-radar": true,
+      "process-consultation": true
+    },
+    "hosted_auth_getuser_code_path": {
+      "realtime-call": true,
+      "realtime-radar": true,
+      "process-consultation": true
+    }
+  },
+  "required_evidence": {
+    "authenticated_operator_tenant_link": "unverified",
+    "admin_revocation_end_to_end": "unverified",
+    "rls_and_rpc_privilege_review": "blocked",
+    "verified_signed_provider_receipt": "unverified",
+    "durable_nonce_hosted_trust_boundary": "unverified",
+    "clinical_prospective_review": "unverified",
+    "billable_retry_provider_idempotency": "unverified",
+    "invoice_reconciliation": "unverified",
+    "postmerge_push_and_pages": "unverified"
+  }
+}
