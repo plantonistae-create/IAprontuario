@@ -89,7 +89,7 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarModeComplete18131').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('#ngRisksTab').getAttribute('aria-selected'),'true');
   await page.locator('#nexaRadarModePs18131').click();
-  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
+  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFocusRender);
 
 
 
