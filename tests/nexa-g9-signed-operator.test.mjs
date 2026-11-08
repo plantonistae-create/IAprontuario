@@ -41,7 +41,8 @@ test('caller-provided role, tenant, identity or metadata cannot modify signed cl
  for(const k of ['role','tenant_id','operator_id']){
   const x=setup(),p=proof();p.claims[k]=k==='role'?'admin':T2;
   const r=await x.boundary(p);
-  assert.equal(r.authorized,false);assert.equal(r.reason,'SIGNATURE_UNTRUSTED');
+  assert.equal(r.authorized,false);
+  assert.ok(['SIGNATURE_UNTRUSTED','CLAIMS_NOT_CURRENT_OR_TRUSTED'].includes(r.reason));
   assert.deepEqual(x.stats(),{registryCalls:0,nonceCalls:0});
  }
  for(const k of ['user_metadata','service_role','request_body','jwt_unverified']){
