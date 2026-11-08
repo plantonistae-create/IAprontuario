@@ -76,3 +76,17 @@ test('G16.9 combined: uncertain wording and short speaker quote remain unconfirm
  assert.equal(c(f('known_absent',uncertain),null,ctx(uncertain)).code,'does_not_know');
  assert.equal(c(f('known_absent',uncertain),null,ctx(uncertain)).resolves_patient_fact,false);
 });
+
+test('G17 clinician uncertainty cannot be mislabeled as patient does-not-know',()=>{
+ const doctor='Médico: Não sei se houve febre.';
+ const result=c(f('unknown',doctor),null,ctx(doctor));
+ assert.equal(result.speaker,'doctor');
+ assert.equal(result.code,'uncertain_transcript');
+ assert.equal(result.resolves_patient_fact,false);
+ const ambiguous='Médico: Não sei se houve febre.\nPaciente: Não sei se houve febre.';
+ const quote='Não sei se houve febre.';
+ assert.equal(c(f('unknown',quote),null,ctx(ambiguous)).code,'uncertain_transcript');
+ assert.equal(c(f('unknown',quote),null,ctx(ambiguous)).resolves_patient_fact,false);
+ const patient='Paciente: Não sei se houve febre.';
+ assert.equal(c(f('unknown',patient),null,ctx(patient)).code,'does_not_know');
+});
