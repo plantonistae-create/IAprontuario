@@ -16,11 +16,14 @@ const labels={patient:'Paciente',companion:'Acompanhante',doctor:'Médico',unkno
 const obj=(v,keys)=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));
 function invalid(){throw new Error('LAB_DEIDENTIFIED_CONTRACT_REQUIRED');}
 function checkCase(c){
- if(!obj(c,['schema_version','case_id','source','deidentification_reviewed','fields','phrases','expected_critical','remote_snapshots','medical_review'])||
+ if(!obj(c,['schema_version','case_id','source','deidentification_reviewed','fields','phrases','expected_critical','expected_alerts','forbidden_alerts','remote_snapshots','medical_review'])||
    c.schema_version!==LAB_CONTRACT||!rx.test(c.case_id)||!['synthetic','deidentified'].includes(c.source)||
    c.deidentification_reviewed!==true||!Array.isArray(c.phrases)||c.phrases.length<1||c.phrases.length>40||
    !Array.isArray(c.expected_critical)||c.expected_critical.length>24||
    c.expected_critical.some(x=>typeof x!=='string'||!Object.hasOwn(Engine.concepts,x))||
+   ...['expected_alerts','forbidden_alerts'].map(key=>c[key]===undefined?false:
+     !Array.isArray(c[key])||c[key].length>24||
+       c[key].some(x=>typeof x!=='string'||!Object.hasOwn(Engine.concepts,x)))||
    !obj(c.fields??{},['queixa_principal','hda','antecedentes','alergias','comorbidades','medicacoes','exame_fisico','sinais_vitais']))
    invalid();
  const fields=c.fields??{};
@@ -72,11 +75,16 @@ function normalize({provider,questions,alerts,evidence:proof,version='unknown'})
   uncertainties:(proof||[]).filter(x=>x.state==='unknown'||x.speaker==='unknown').map(x=>({concept:x.concept,source:x.section})),
   evidence:proof||[],audit:[],responses:[]};
 }
-function metric(frame,expected){
+function metric(frame,expected,expectedAlerts=[],forbiddenAlerts=[]){
  const questions=new Set(frame.questions.map(i=>i.concept));
+ const alerts=new Set(frame.alerts);
  return {missing_required_critical:expected.filter(id=>!questions.has(id)),
+   missed_expected_alerts:expectedAlerts.filter(id=>!alerts.has(id)),
+   unexpected_alerts:forbiddenAlerts.filter(id=>alerts.has(id)),
    potential_speaker_misattribution:frame.evidence.filter(e=>
-     e.section==='transcript'&&e.state==='known_present'&&e.speaker!=='patient').length};
+     e.section==='transcript'&&
+       (e.state==='known_present'&&e.speaker!=='patient'||
+        e.state==='known_absent'&&!['patient','doctor'].includes(e.speaker))).length};
 }
 export function replayShadowCase(c){
  const fields=checkCase(c),previous=[],frames=[],duration=[];
@@ -102,14 +110,16 @@ export function replayShadowCase(c){
   const latencyMs=Math.round((performance.now()-t)*1000)/1000;
   duration.push(latencyMs);
   frames.push({phrase_number:frames.length+1,local,core,remote,
-    metrics:{local:metric(local,c.expected_critical),core:metric(core,c.expected_critical)},
+    metrics:{local:metric(local,c.expected_critical,c.expected_alerts,c.forbidden_alerts),core:metric(core,c.expected_critical,c.expected_alerts,c.forbidden_alerts)},
     latency_ms:latencyMs,api_calls:0,paid_cost_usd:0,remote_cost_usd:null});
  }
  const last=frames.at(-1);
  const blocked=frames.some(f=>f.metrics.local.potential_speaker_misattribution>0||
    f.metrics.core.potential_speaker_misattribution>0)||
    last.metrics.local.missing_required_critical.length>0||
-   last.metrics.core.missing_required_critical.length>0;
+   last.metrics.core.missing_required_critical.length>0||
+   [last.metrics.local,last.metrics.core].some(m=>m.missed_expected_alerts.length||
+     m.unexpected_alerts.length);
  const sorted=duration.slice().sort((a,b)=>a-b),p=q=>sorted[Math.min(sorted.length-1,Math.ceil(q*sorted.length)-1)];
  return {schema_version:LAB_CONTRACT,case_id:c.case_id,mode:'shadow_offline',
    frames,summary:{case_count:1,phrase_count:frames.length,case_review:c.medical_review?.reviewer_verdict??'not_reviewed',
@@ -117,6 +127,10 @@ export function replayShadowCase(c){
    local_and_core_api_calls:0,remote_billing_usd:null,latency_p50_ms:p(.5),latency_p95_ms:p(.95),
    missed_critical_last_frame:Math.max(last.metrics.local.missing_required_critical.length,
       last.metrics.core.missing_required_critical.length),
+   missed_expected_alerts_local:last.metrics.local.missed_expected_alerts.length,
+   missed_expected_alerts_core:last.metrics.core.missed_expected_alerts.length,
+   unexpected_alerts_local:last.metrics.local.unexpected_alerts.length,
+   unexpected_alerts_core:last.metrics.core.unexpected_alerts.length,
    speaker_attribution_risk_frames:frames.filter(f=>f.metrics.local.potential_speaker_misattribution||
      f.metrics.core.potential_speaker_misattribution).length,
    status:blocked?'BLOCKED_CLINICAL_REVIEW_REQUIRED':'SYNTHETIC_PASSED_NOT_CLINICALLY_VALIDATED'}};

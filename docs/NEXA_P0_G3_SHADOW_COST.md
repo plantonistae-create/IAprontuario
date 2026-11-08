@@ -1,0 +1,9 @@
+# G3 — Core shadow e custos: análise offline, sem faturamento inferido
+
+- **Core shadow:** `replayShadowCase()` continua executando o motor local e o Core apenas offline, frase a frase. O contrato aceita agora rubricas opcionais `expected_alerts` e `forbidden_alerts`. Alertas esperados ausentes ou alertas explicitamente proibidos bloqueiam o laboratório, mesmo quando uma revisão clínica é marcada como aprovada. O Core ainda não produz alertas equivalentes ao motor; falhas aparecem como bloqueio, nunca como aprovação silenciosa. Testes só usam diálogos sintéticos de médico/paciente/acompanhante, casos de contradição, fala duplicada e desconhecimento. Nenhuma chamada remota.
+
+- **Custos:** `labs/nexa-cost/aggregate-reconciliation.mjs` aceita apenas dados agregados por janela e capacidade. Separa Radar, transcrição em tempo real/final, documentação e assistência; p50/p95 vêm somente de histograma agregado fornecido, não do tempo de execução deste teste. Verifica igualdade entre valores **declarados** e uma fatura total **declarada**; `official_billing_verified_by_connector` continua falso. Não recebe IDs, registros, logs de solicitação, transcrições ou áudio. Não atribui economia causal ao NEXA. Exemplo de `$ / consulta` é observacional e requer total de consultas, cobertura de capacidades e valores completos. O custo real continua **não comprovado** até conciliar a fatura oficial com volumes e mix comparáveis.
+
+- **Go/no-go:** não conectar ao provedor, não usar dados reais, não mexer no motor clínico nem no frontend, não ligar quotas via Edge. O SQL é somente lab em PostgreSQL descartável. O alvo de redução semanal é uma meta, não um resultado medido.
+
+- **Rollback:** reverter merge de código de laboratório, se necessário; funções Supabase e dados reais intocados.
