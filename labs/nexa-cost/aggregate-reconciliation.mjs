@@ -29,6 +29,8 @@ export function reconcileAggregateCost(input){
   !plain(input.period)||Object.keys(input.period).sort().join(',')!=='end_utc,start_utc'||
   !/^\d{4}-\d\d-\d\dT\d\d:\d\d:00Z$/.test(input.period.start_utc)||
   !/^\d{4}-\d\d-\d\dT\d\d:\d\d:00Z$/.test(input.period.end_utc)||
+  !Number.isFinite(Date.parse(input.period.start_utc))||
+  !Number.isFinite(Date.parse(input.period.end_utc))||
   !(Date.parse(input.period.end_utc)>Date.parse(input.period.start_utc))||
   !Number.isSafeInteger(input.completed_consultations)||input.completed_consultations<0||
   input.completed_consultations>10000000||!Array.isArray(input.capabilities)||
@@ -66,7 +68,7 @@ export function reconcileAggregateCost(input){
  const bill=input.provider_bill_total_usd;
  if(!(bill===undefined||bill===null||validDecimal(bill)))throw Error('AGGREGATE_BILL_INVALID');
  const covered=Object.values(byCategory).every(c=>c.cost_coverage_complete);
- const remaining=bill===undefined||bill===null?null:round(bill-declared);
+ const remaining=bill===undefined||bill===null||!covered?null:round(bill-declared);
  const tolerance=.00001;
  const reconciled=bill!==undefined&&bill!==null&&covered&&Math.abs(remaining)<=tolerance;
  const perConsultation=input.completed_consultations&&covered?round(declared/input.completed_consultations):null;
