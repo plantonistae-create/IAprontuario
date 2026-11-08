@@ -1,16 +1,28 @@
 -- INERT REVIEW CANDIDATE. DO NOT APPLY TO HOSTED SUPABASE.
--- Requires migration review + tenant membership bootstrap + serializable tests.
+-- Requires migration review, authenticated caller and independent admin authority.
 -- No existing table, function, JWT policy, Edge version, or secret is modified.
 begin;
 create schema if not exists nexa_quota;
 revoke all on schema nexa_quota from public, anon, authenticated;
 grant usage on schema nexa_quota to service_role;
 
+-- Only a trusted administrator/bootstrap may insert approvers. No web/API grants.
+create table nexa_quota.tenant_admin_approvers (
+  tenant_id uuid not null,
+  admin_user_id uuid not null,
+  active boolean not null default false,
+  primary key(tenant_id,admin_user_id)
+);
+alter table nexa_quota.tenant_admin_approvers enable row level security;
+
 create table nexa_quota.tenant_memberships (
   user_id uuid primary key,
   tenant_id uuid not null,
   active boolean not null default false,
-  authorized_at timestamptz
+  authorized_by uuid not null,
+  authorized_at timestamptz not null,
+  foreign key(tenant_id,authorized_by)
+    references nexa_quota.tenant_admin_approvers(tenant_id,admin_user_id)
 );
 create index on nexa_quota.tenant_memberships (tenant_id, user_id) where active;
 alter table nexa_quota.tenant_memberships enable row level security;
@@ -41,6 +53,8 @@ create index on nexa_quota.radar_reservations(tenant_id, encounter_id, created_a
 alter table nexa_quota.radar_reservations enable row level security;
 
 revoke all on all tables in schema nexa_quota from public, anon, authenticated;
+-- SELECT ... FOR SHARE requires column UPDATE, but INSERT and DELETE stay disallowed.
+grant select, update (active) on nexa_quota.tenant_admin_approvers to service_role;
 grant select on nexa_quota.tenant_memberships to service_role;
 -- PostgreSQL SELECT ... FOR SHARE also requires an UPDATE privilege.
 -- Limit it to the active flag; do not give INSERT/DELETE or tenant reassignment.
@@ -81,8 +95,11 @@ begin
 
   -- The row lock makes tenant membership revocation orderable with admissions.
   perform 1 from nexa_quota.tenant_memberships m
-    where m.user_id=p_user_id and m.tenant_id=p_tenant_id and m.active=true
-    for share;
+    join nexa_quota.tenant_admin_approvers a
+      on a.tenant_id=m.tenant_id and a.admin_user_id=m.authorized_by
+    where m.user_id=p_user_id and m.tenant_id=p_tenant_id
+      and m.active=true and a.active=true
+    for share of m,a;
   if not found then return jsonb_build_object('allowed',false,'reason','TENANT_NOT_VERIFIED'); end if;
 
   perform 1 from public.profiles p where p.id=p_user_id and p.clinical_access=true;
