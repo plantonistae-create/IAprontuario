@@ -200,7 +200,7 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.match(source,/Copie o texto clínico antes de fechar/);
  assert.ok(!source.includes('event.detail.fields'),'failure event must not display clinical content');
  assert.match(html,/nexa-hotfix\.js\?v=20261107-radar-silent-focus-p0/);
- assert.match(worker,/nexa-v18-15-0-20261107-radar-silent-focus-p0/);
+ assert.match(worker,/nexa-v18-15-0-20261107-clinical-ledger-p0/);
  assert.match(worker,/nexa-hotfix\.js\?v=20261107-radar-silent-focus-p0/);
  assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
 });
