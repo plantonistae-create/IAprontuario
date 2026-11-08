@@ -43,7 +43,7 @@
     if(fact.conflict)code='contradictory';
     else if(confirmed)code='confirmed_by_physician';
     else if(record?.action==='not_applicable'&&!['known_present','known_absent'].includes(factState))code='not_applicable';
-    else if(uncertain&&source==='transcript')code='does_not_know';
+    else if(uncertain&&source==='transcript'&&(speaker==='patient'||speaker==='companion'))code='does_not_know';
     else if(source==='transcript'&&speaker==='companion')
       code=denial?'denied_by_companion':'reported_by_companion';
     else if(source==='transcript'&&speaker==='patient'&&factState==='known_absent')code='denied_by_patient';
