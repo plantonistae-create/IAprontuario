@@ -8,6 +8,7 @@ on:
       - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
       - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
+      - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
       - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
+      - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
 
 permissions:
@@ -77,3 +79,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/crash-boundary.G7-LAB-ONLY.sql
       - name: Validate crash windows, terminal unknown outcomes and tenant revocation
         run: node --test tests/nexa-g7-postgres-crash.integration.mjs
+      - name: Install TEST-ONLY session-operator authority with synthetic local login credentials
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/session-operator.G8-LAB-ONLY.sql
+      - name: Prove real DB login binding, cross-tenant denial, spoof protection and stale reconciliation
+        run: node --test tests/nexa-g8-postgres-session-operator.integration.mjs
