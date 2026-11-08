@@ -7,3 +7,4 @@
 - **Go/no-go:** não conectar ao provedor, não usar dados reais, não mexer no motor clínico nem no frontend, não ligar quotas via Edge. O SQL é somente lab em PostgreSQL descartável. O alvo de redução semanal é uma meta, não um resultado medido.
 
 - **Rollback:** reverter merge de código de laboratório, se necessário; funções Supabase e dados reais intocados.
+**Percentis:** os histogramas agregados das modalidades de transcrição são combinados por contagem, nunca pela média de p95. Se alguma modalidade não tiver histograma, os percentis da categoria são `null`.

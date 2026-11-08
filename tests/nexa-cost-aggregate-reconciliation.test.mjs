@@ -56,3 +56,17 @@ test('zero consultations gives no per-attendance cost; no measured savings claim
  assert.equal(r.declared_cost_per_completed_consultation_usd,null);
  assert.equal(r.causal_savings_attributable_to_nexa_usd,null);
 });
+
+test('transcription category quantiles combine real-time and final counts, not two p95 values',()=>{
+ const c=base();c.capabilities[1].latency_histogram=[{upper_ms:1000,count:40}];
+ c.capabilities[2].latency_histogram=[{upper_ms:4000,count:8}];
+ const r=reconcile(c);
+ assert.equal(r.categories.transcription.latency_p50_ms,1000);
+ assert.equal(r.categories.transcription.latency_p95_ms,4000);
+});
+test('incomplete per-modality histograms mean category p50/p95 is unknown',()=>{
+ const c=base();c.capabilities[1].latency_histogram=[{upper_ms:1000,count:40}];
+ const r=reconcile(c);
+ assert.equal(r.categories.transcription.latency_p50_ms,null);
+ assert.equal(r.categories.transcription.latency_p95_ms,null);
+});

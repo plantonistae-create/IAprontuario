@@ -43,8 +43,8 @@ export function reconcileAggregateCost(input){
      !(row.declared_cost_usd===null||validDecimal(row.declared_cost_usd)))
     throw Error('AGGREGATE_CAPABILITY_INVALID');
   used.add(row.capability);
-  const cat=COST_CATEGORIES[row.capability],out=byCategory[cat]??={requests:0,declared_cost_usd:0,cost_coverage_complete:true,latency_p50_ms:null,latency_p95_ms:null};
-  out.requests+=row.request_count;requests+=row.request_count;
+  const cat=COST_CATEGORIES[row.capability],out=byCategory[cat]??={requests:0,declared_cost_usd:0,cost_coverage_complete:true,capability_count:0,histograms:[]};
+  out.capability_count++;out.requests+=row.request_count;requests+=row.request_count;
   if(row.declared_cost_usd===null)out.cost_coverage_complete=false;
   else {out.declared_cost_usd+=row.declared_cost_usd;declared+=row.declared_cost_usd;}
   const hist=row.latency_histogram;
@@ -59,9 +59,8 @@ export function reconcileAggregateCost(input){
     total+=b.count;prev=b.upper_ms;
    }
    if(total!==row.request_count)throw Error('AGGREGATE_HISTOGRAM_COUNT_MISMATCH');
-   // Per-capability quantiles are descriptive, never merged by averaging p95s.
-   out.latency_p50_ms=quantile(hist,.50);
-   out.latency_p95_ms=quantile(hist,.95);
+   // Category quantiles require complete aggregate histograms from every modality.
+   out.histograms.push(hist);
   }
  }
  const bill=input.provider_bill_total_usd;
@@ -75,8 +74,17 @@ export function reconcileAggregateCost(input){
   schema_version:'nexa-cost-aggregate-report-v1',
   counts:{requests,completed_consultations:input.completed_consultations},
   categories:Object.fromEntries(Object.entries(byCategory).map(([k,v])=>
-   [k,{requests:v.requests,declared_cost_usd:v.cost_coverage_complete?round(v.declared_cost_usd):null,
-    latency_p50_ms:v.latency_p50_ms,latency_p95_ms:v.latency_p95_ms}])),
+   [k,(()=>{
+    const complete=v.histograms.length===v.capability_count;
+    const counts=new Map();
+    if(complete)for(const hist of v.histograms)for(const row of hist)
+      counts.set(row.upper_ms,(counts.get(row.upper_ms)||0)+row.count);
+    const combined=[...counts].sort((a,b)=>a[0]-b[0]).map(([upper_ms,count])=>({upper_ms,count}));
+    return {requests:v.requests,
+     declared_cost_usd:v.cost_coverage_complete?round(v.declared_cost_usd):null,
+     latency_p50_ms:complete?quantile(combined,.50):null,
+     latency_p95_ms:complete?quantile(combined,.95):null};
+   })()])),
   declared_observational_total_usd:covered?round(declared):null,
   declared_cost_per_completed_consultation_usd:perConsultation,
   provider_bill_difference_usd:remaining,
