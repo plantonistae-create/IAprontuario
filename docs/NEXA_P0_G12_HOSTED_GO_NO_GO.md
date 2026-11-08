@@ -105,6 +105,24 @@ além de histórico auditável dos workflows de `push` e GitHub Pages
 referentes ao SHA exato. Sem esses itens, não alegar economia causal
 nem implantação concluída.
 
+## Atualizações externas que afetam futuros preflights
+
+A documentação vigente distingue `getUser` (consulta a sessão junto ao
+Auth server) de `getClaims` (verifica assinatura e claims JWT).
+`getSession` isolado não garante validação de identidade do usuário
+em ambiente servidor. Nenhuma dessas funções, sozinha, substitui o
+vínculo administrativo e tenant no banco.
+
+A changelog de 04/11/2026 informa mudanças importantes no Supabase
+CLI v3: operações agora visam a stack local por padrão e ações
+hospedadas requerem confirmação. **Nenhuma atualização de CLI foi
+feita** neste lote. Há também aviso de retirada de ciphers TLS 1.2
+legados a partir de 10/11/2026, a avaliar apenas se surgirem falhas
+de clientes antigos; não é motivo para alterar produção agora.
+
+- https://supabase.com/changelog?types=breaking-change
+- https://supabase.com/changelog/cbc-tls-ciphers-deprecated
+
 ## Artefato e regras de publicação
 
 `labs/nexa-release/g12-observed-metadata.REVIEW-ONLY.json` registra
