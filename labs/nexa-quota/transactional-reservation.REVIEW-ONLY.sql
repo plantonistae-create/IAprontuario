@@ -42,6 +42,9 @@ alter table nexa_quota.radar_reservations enable row level security;
 
 revoke all on all tables in schema nexa_quota from public, anon, authenticated;
 grant select on nexa_quota.tenant_memberships to service_role;
+-- PostgreSQL SELECT ... FOR SHARE also requires an UPDATE privilege.
+-- Limit it to the active flag; do not give INSERT/DELETE or tenant reassignment.
+grant update (active) on nexa_quota.tenant_memberships to service_role;
 grant select, update on nexa_quota.tenant_limits to service_role;
 grant select, insert on nexa_quota.radar_reservations to service_role;
 
