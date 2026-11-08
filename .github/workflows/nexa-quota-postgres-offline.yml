@@ -7,12 +7,16 @@ on:
       - 'tests/nexa-quota-postgres.integration.mjs'
       - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
       - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
+      - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
   push:
     branches: [main]
     paths:
       - 'labs/nexa-quota/**'
       - 'tests/nexa-quota-postgres.integration.mjs'
+      - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
+      - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
+      - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
 
 permissions:
@@ -69,3 +73,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/reconcile-stale.G6-LAB-ONLY.sql
       - name: Prove stale UNKNOWN reconciliation, revoked authority and concurrent races
         run: node --test tests/nexa-g6-postgres-reconciliation.integration.mjs
+      - name: Apply G7 read-only crash-boundary inspector to disposable database
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/crash-boundary.G7-LAB-ONLY.sql
+      - name: Validate crash windows, terminal unknown outcomes and tenant revocation
+        run: node --test tests/nexa-g7-postgres-crash.integration.mjs
