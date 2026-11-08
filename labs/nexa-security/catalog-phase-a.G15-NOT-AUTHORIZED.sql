@@ -2,8 +2,8 @@
 -- Do not run this on a hosted database without a NEW, EXPLICIT authorization.
 -- Generic public PostgreSQL catalog names ONLY: NO project-specific RPC IDs,
 -- no real ACL results, no function bodies, no data-table reads, no PHI.
--- Phase A: review the first two read-only SELECT statements in a PRIVATE
--- authorized session. Operator MUST inspect output only in private storage.
+-- Phase A1 ONLY: one read-only count SELECT in a PRIVATE authorized session.
+-- Operator MUST inspect output only in private storage. Never run A2 in this session.
 -- Postgres transaction mode is read-only, but it is NOT an authorization.
 BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout = '10s';
