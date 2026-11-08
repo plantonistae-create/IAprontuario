@@ -59,12 +59,15 @@ export function createIntegratedOfflineRecoveryG11({publicKey,clock,lookupAuthor
     principal:c.db_principal,requestId});}
   catch{return stop('CRASH_OR_RECEIPT_READ_UNAVAILABLE');}
   if(!plain(receipt)||!trustedStatus.has(receipt.status)||
-    receipt.automatic_paid_retry!==false||
-    receipt.official_provider_bill_verified!==false||
-    receipt.provider_no_charge_proven!==false)
+    receipt.automatic_paid_retry!==false)
    return stop('RECEIPT_OUTCOME_UNTRUSTED');
+  // Denial responses intentionally reveal no billing fields. Treat them
+  // as STOP before requiring billing flags from a visible claim.
   if(['AUTHORITY_NOT_VERIFIED','NO_VISIBLE_DISPATCH'].includes(receipt.status))
    return stop('RECEIPT_NOT_VISIBLE');
+  if(receipt.official_provider_bill_verified!==false||
+     receipt.provider_no_charge_proven!==false)
+   return stop('RECEIPT_OUTCOME_UNTRUSTED');
   return Object.freeze({route:'HUMAN_REVIEW_REQUIRED',
    outcome:receipt.status,automatic_paid_retry:false,
    official_invoice_verified:false,clinical_go:false,
