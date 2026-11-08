@@ -8,9 +8,9 @@ export function auditSyntheticShadowCohort(cases){
  // distort the cohort denominator. Reject instead of silently deduplicating.
  const caseIds=new Set();
  for(const entry of cases){
-  if(typeof entry.case_id!=='string'||!entry.case_id.trim()||caseIds.has(entry.case_id.trim()))
+  if(typeof entry.case_id!=='string'||!entry.case_id.trim()||caseIds.has(entry.case_id.trim().toLowerCase()))
    throw Error('SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID');
-  caseIds.add(entry.case_id.trim());
+  caseIds.add(entry.case_id.trim().toLowerCase());
  }
  let phraseCount=0,blocked=0,critical=0,alerts=0,speaker=0;
  for(const entry of cases){
