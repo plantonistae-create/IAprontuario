@@ -5,6 +5,7 @@ on:
     paths:
       - 'labs/nexa-quota/**'
       - 'tests/nexa-quota-postgres.integration.mjs'
+      - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
   push:
     branches: [main]
@@ -59,3 +60,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/postgres-seed.LAB-ONLY.sql
       - name: Prove row locks, RLS boundaries, concurrent caps, idempotency and rollback
         run: node --test tests/nexa-quota-postgres.integration.mjs
+      - name: Add G5 claim ledger to the same throwaway PostgreSQL only
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/dispatch-claim.G5-LAB-ONLY.sql
+      - name: Prove exactly-once dispatch claim and terminal unknown results
+        run: node --test tests/nexa-g5-postgres-dispatch.integration.mjs
