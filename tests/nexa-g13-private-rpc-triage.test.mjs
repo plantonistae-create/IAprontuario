@@ -73,6 +73,8 @@ test('rejects raw names, bodies, access tokens, patient fields and unauthenticat
  assert.throws(()=>triage(s),/G13_PRIVATE_SCHEMA_INVALID/);
 });
 test('rejects invalid role, duplicate role record and SQL/identifier instead of opaque reference',()=>{
+ const noDefiner=record();noDefiner.security_definer=false;
+ assert.throws(()=>triage(inventory(noDefiner)),/G13_PRIVATE_ROW_INVALID/);
  const wrong=record();wrong.effective_role='service_role';
  assert.throws(()=>triage(inventory(wrong)),/G13_PRIVATE_ROW_INVALID/);
  const id=record('public.secret_admin_func','anon');
