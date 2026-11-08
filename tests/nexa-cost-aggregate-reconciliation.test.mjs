@@ -77,3 +77,16 @@ test('prototype names are not valid billing capabilities',()=>{
   assert.throws(()=>reconcile(c),/AGGREGATE_CAPABILITY_INVALID/);
  }
 });
+
+test('partial cost coverage must not report a misleading provider-bill difference',()=>{
+ const c=base();c.capabilities[0].declared_cost_usd=null;
+ const r=reconcile(c);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.totals_match_declared_invoice,false);
+});
+test('invalid calendar date or unparseable timestamps are rejected',()=>{
+ for(const date of ['2026-13-01T00:00:00Z','2026-99-01T00:00:00Z']){
+  const c=base();c.period.start_utc=date;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
+ }
+});
