@@ -56,3 +56,12 @@ test('derived provenance never replaces facts or becomes a persisted second ledg
  assert.equal(api.state.evidenceStates.fever.resolves_patient_fact,false);
  assert.ok(!JSON.stringify(api.snapshot()).includes('evidenceStates'));api.reset();
 });
+
+test('short utterance must not claim attribution from a longer unrelated evidence quote',()=>{
+ const transcript='Paciente: Sim.\nMédico: Você confirma?';
+ const quote='Paciente informou Sim. e descreveu outros sintomas';
+ assert.equal(s({section:'transcript',quote},transcript),'unknown');
+ const result=c(f('known_present',quote),null,ctx(transcript));
+ assert.equal(result.code,'uncertain_transcript');
+ assert.equal(result.resolves_patient_fact,false);
+});
