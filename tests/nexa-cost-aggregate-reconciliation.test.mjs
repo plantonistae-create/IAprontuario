@@ -99,3 +99,9 @@ test('aggregate request totals reject unsafe integer overflow across capabilitie
  const x=base();x.capabilities[0].latency_histogram[0].count=Number.MAX_SAFE_INTEGER;
  assert.throws(()=>reconcile(x),/AGGREGATE_HISTOGRAM_INVALID|AGGREGATE_HISTOGRAM_COUNT_MISMATCH/);
 });
+
+test('declared cost total above contract monetary ceiling fails closed',()=>{
+ const c=base();
+ for(const row of c.capabilities)row.declared_cost_usd=500000;
+ assert.throws(()=>reconcile(c),/AGGREGATE_COST_TOTAL_INVALID/);
+});
