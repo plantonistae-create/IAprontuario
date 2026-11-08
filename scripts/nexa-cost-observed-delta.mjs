@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 const MODALITIES=new Set(['text','audio','realtime','other']);
 const MARKER='OPENAI_OFFICIAL_BILLING_EXPORT_DECLARED';
 const utc = s => typeof s==='string' && /^\d{4}-\d{2}-\d{2}T00:00:00Z$/.test(s) &&
-  Number.isFinite(Date.parse(s)) && new Date(s).toISOString()===s;
+  Number.isFinite(Date.parse(s)) && new Date(s).toISOString().replace('.000Z','Z')===s;
 const usd = micros => Math.round(micros)/1e6;
 const reject=(code)=>{throw new Error(code);};
 function requireObject(input,keys){
