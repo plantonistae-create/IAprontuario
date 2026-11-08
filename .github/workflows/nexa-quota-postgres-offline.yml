@@ -10,6 +10,7 @@ on:
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
       - 'tests/nexa-g9-postgres-receipt.integration.mjs'
+      - 'tests/nexa-g10-postgres-durable.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
       - 'tests/nexa-g9-postgres-receipt.integration.mjs'
+      - 'tests/nexa-g10-postgres-durable.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
 
 permissions:
@@ -89,3 +91,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/receipt-ledger.G9-LAB-ONLY.sql
       - name: Verify signed mock receipts, durable uniqueness and terminal UNKNOWN non-retry
         run: node --test tests/nexa-g9-postgres-receipt.integration.mjs
+      - name: Apply G10 persistent nonce and revocation laboratory ONLY in throwaway DB
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/durable-nonce.G10-LAB-ONLY.sql
+      - name: Verify durable nonce, epoch rotation, tenant isolation and crash receipt review
+        run: node --test tests/nexa-g10-postgres-durable.integration.mjs
