@@ -116,3 +116,10 @@ test('invalid limits, fresh claim and terminal confirmed response never re-open 
  assert.equal((await reclaim(T1,'a')).closed_unknown_count,0);
  assert.equal(await state(3007),'confirmed_response');
 });
+
+test('legacy G6 RPC can no longer accept a forged p_admin_user_id through service_role',async()=>{
+ await reset();await fixture(3008);
+ await assert.rejects(rpc('reconcile_stale_radar_claims',[T1,U,60,100],'service_role'),/permission denied/i);
+ assert.equal(await state(3008),'claimed');
+ assert.equal((await reclaim(T1,'a')).closed_unknown_count,1);
+});
