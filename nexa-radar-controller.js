@@ -50,7 +50,7 @@
         const old=alertJournal.get(id);
         if(old)old.status='active';
         else if(alertJournal.size<80)alertJournal.set(id,{id,concept:String(item.concept||'').slice(0,65),status:'active',firstSeen:new Date().toISOString(),reason:'',
-          evidence:(Array.isArray(item.evidence)?item.evidence:[]).slice(0,2).filter(e=>e&&typeof e.quote==='string').map(e=>({quote:e.quote.slice(0,240),section:String(e.section||'').slice(0,50)}))});
+          kind:'finding',evidence:(Array.isArray(item.evidence)?item.evidence:[]).slice(0,2).filter(e=>e&&typeof e.quote==='string').map(e=>({quote:e.quote.slice(0,240),section:String(e.section||'').slice(0,50)}))});
       }
       for(const item of alertJournal.values())if(item.status==='active'&&!active.has(item.id))item.status='pending';
       return [...alertJournal.values()].filter(item=>item.status==='pending').map(item=>({...item}));
@@ -132,12 +132,23 @@
     function respond(id,value,action='answer'){
       const item=state.items.find(i=>i.id===id);if(!item)return false;
       const core=['comorbidities','allergies','medicines'].includes(item.concept);
-      if(action!=='answer'&&(core||item.redFlag||item.priority==='critical'||item.category==='contradiction'))return false;
+      if(action!=='answer'&&(core||item.category==='contradiction'))return false;
       if(item.category==='contradiction'&&(action!=='answer'||String(value||'').trim().length<12||
         /^(?:sim|não|nao|não sei|nao sei)$/i.test(String(value).trim())))throw new Error('Informe retificação médica explícita, com justificativa.');
       const before=adapter.context(),beforeLedger=structuredClone(ledger),beforeFields=structuredClone(before.fields||{});
       const result=E.answer(before,ledger,item,value,action);
       ledger=result.ledger;
+      if(action!=='answer'&&(item.redFlag||item.priority==='critical')){
+        // Status-only acknowledgement is not evidence: preserve safety review.
+        const safetyId='finding:'+item.concept;
+        if(!alertJournal.has(safetyId)&&alertJournal.size<80){
+          alertJournal.set(safetyId,{id:safetyId,concept:item.concept,status:'pending',
+            firstSeen:new Date().toISOString(),reason:'',kind:'critical_question',
+            evidence:(item.evidence||[]).slice(0,2)
+              .filter(e=>e&&typeof e.quote==='string')
+              .map(e=>({quote:e.quote.slice(0,240),section:String(e.section||'').slice(0,50)}))});
+        }
+      }
       undoEntry={owner,encounter,id,beforeLedger,beforeFields,afterKey:remoteKey(result.context)};
       logAction(id,action==='answer'?'medical_response':action);
       // A status-only acknowledgement must not create a duplicate remote call.
@@ -176,7 +187,7 @@
       }
       for(const e of Array.isArray(saved.alertJournal)?saved.alertJournal.slice(0,80):[]){
         if(!validId(e?.id)||!validId(e?.concept)||!['active','pending','reviewed'].includes(e.status))continue;
-        alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):'',evidence:Array.isArray(e.evidence)?e.evidence.slice(0,2).filter(x=>x&&typeof x.quote==='string'&&typeof x.section==='string').map(x=>({quote:x.quote.slice(0,240),section:x.section.slice(0,50)})):[]});
+        alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):'',kind:e.kind==='critical_question'?'critical_question':'finding',evidence:Array.isArray(e.evidence)?e.evidence.slice(0,2).filter(x=>x&&typeof x.quote==='string'&&typeof x.section==='string').map(x=>({quote:x.quote.slice(0,240),section:x.section.slice(0,50)})):[]});
       }
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
@@ -266,7 +277,7 @@
       setHtml('ngFindings',state.alerts.length?state.alerts.map(a=>`<article class="ng-finding"><span class="ng-priority">Achado identificado</span><h4>${esc(E.concepts[a.concept].label)}</h4>${evidenceHtml(a.evidence)}<p>${esc(a.reason)}</p>${a.related?.length?`<button type="button" data-question="${esc(a.related[0])}">Ver perguntas relacionadas</button>`:''}</article>`).join(''):`<p class="ng-muted">${!state.hasContext||stale||state.error?'Dados insuficientes ou análise indisponível para avaliar alertas.':'Nenhum achado de alerta identificado nos dados disponíveis. Isso não determina o destino.'}</p>`);
       const gaps=state.items.filter(i=>i.redFlag||i.priority==='critical'||i.status==='confirm');
       setHtml('ngRiskGaps',gaps.length?`<div class="ng-risk-gaps"><h4>Ainda precisa ser esclarecido</h4>${gaps.slice(0,5).map(i=>`<div><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button> <small>${states[i.status]||states.to_ask}</small></div>`).join('')}</div>`:'');
-      setHtml('ngReviewAlerts',(state.reviewAlerts||[]).map(a=>`<div class="ng-review-alert" data-review-alert-row="${esc(a.id)}"><strong>${esc(E.concepts[a.concept]?.label||a.concept)} — alerta anteriormente identificado</strong><p>Não será encerrado automaticamente. O médico deve documentar a reavaliação.</p><details><summary>Evidência original</summary>${evidenceHtml(a.evidence)}</details><textarea aria-label="Justificativa da revisão do alerta" placeholder="Motivo da reavaliação médica (mínimo 12 caracteres)"></textarea><button type="button" data-review-alert="${esc(a.id)}">Confirmar revisão</button></div>`).join(''));
+      setHtml('ngReviewAlerts',(state.reviewAlerts||[]).map(a=>`<div class="ng-review-alert" data-review-alert-row="${esc(a.id)}"><strong>${esc(E.concepts[a.concept]?.label||a.concept)} — ${a.kind==='critical_question'?'pendência crítica marcada por status':'alerta anteriormente identificado'}</strong><p>Não será encerrado automaticamente. O médico deve documentar a reavaliação.</p><details><summary>Evidência original</summary>${evidenceHtml(a.evidence)}</details><textarea aria-label="Justificativa da revisão do alerta" placeholder="Motivo da reavaliação médica (mínimo 12 caracteres)"></textarea><button type="button" data-review-alert="${esc(a.id)}">Confirmar revisão</button></div>`).join(''));
       disposition(state);
     }
     api.subscribe(render);

@@ -42,12 +42,16 @@ test('audit remains scoped to authenticated owner; reload cannot resurrect undo'
  assert.deepEqual(f.api.snapshot().ledger,{});
  f.api.reset();
 });
-test('critical risk is not dismissed as mere visual status',()=>{
+test('critical status action stays visible as review-required safety item',()=>{
  const f=fixture({hda:'Cefaleia.'});
  const item=f.api.state.items.find(i=>i.priority==='critical');
  assert.ok(item);
- assert.equal(f.api.respond(item.id,'Dispensar','dismissed'),false);
- assert.ok(f.api.state.items.some(i=>i.id===item.id));f.api.reset();
+ assert.equal(f.api.respond(item.id,'Já avaliado','evaluated'),true);
+ assert.equal(f.api.state.reviewAlerts.some(a=>a.id==='finding:'+item.concept),true);
+ assert.equal(f.api.state.dispositionCaution,true);
+ assert.equal(f.api.reviewAlert('finding:'+item.concept,'OK'),false);
+ assert.equal(f.api.reviewAlert('finding:'+item.concept,'Reavaliado pelo médico, mantendo julgamento clínico.'),true);
+ f.api.reset();
 });
 test('prior alert cannot disappear without medical review justification',()=>{
  const f=fixture({hda:'Cefaleia.',exame_fisico:'Rigidez de nuca presente.'}),api=f.api;
