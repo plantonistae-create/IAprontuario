@@ -50,7 +50,8 @@ function signedOperator({nonce=fresh(),tenant_id=T,operator_id=U,db_principal=A,
 }
 async function lookupAuthority({tenantId,operatorId}){
  const q="select b.principal_role||','||b.tenant_id::text||','||b.admin_user_id::text||','||"+
- "e.key_epoch||','||b.active||','||a.active||','||e.active from nexa_quota.operator_role_bindings b "+
+ "e.key_epoch||','||case when b.active then '1' else '0' end||','||"+
+ "case when a.active then '1' else '0' end||','||case when e.active then '1' else '0' end from nexa_quota.operator_role_bindings b "+
  "join nexa_quota.tenant_admin_approvers a on a.tenant_id=b.tenant_id and a.admin_user_id=b.admin_user_id "+
  "join nexa_quota.operator_credential_epochs_g10 e on e.principal_role=b.principal_role and e.tenant_id=b.tenant_id "+
  "where b.tenant_id="+escape(tenantId)+" and b.admin_user_id="+escape(operatorId)+";";
@@ -58,7 +59,7 @@ async function lookupAuthority({tenantId,operatorId}){
  const [principal,tenant,user,epoch,membership,approver,credential]=row.split(',');
  return {source:'disposable_private_registry',operator_id:user,tenant_id:tenant,
   db_principal:principal,key_epoch:Number(epoch),
-  active:membership==='t'&&credential==='t',approver_active:approver==='t'};
+  active:membership==='1'&&credential==='1',approver_active:approver==='1'};
 }
 function harness(overrides={}){
  let nonceCalls=0,inspections=0;
