@@ -1,7 +1,7 @@
 // G7 offline synthetic cohort + aggregate observability review, never a live gate.
 import {evaluateOfflineReleaseEvidence} from './nexa-g6-offline-release-guard.mjs';
 import {compareDeclaredObservabilityCoverage} from '../labs/nexa-cost/observability-coverage.G7-LAB-ONLY.mjs';
-const keys=['after','before','candidateObservability','syntheticCases','baselineObservability'];
+const keys=['after','baselineObservability','before','candidateObservability','syntheticCases'];
 export function evaluateOfflineEvidenceIntegrity(input){
  if(!input||typeof input!=='object'||Array.isArray(input)||
     Object.keys(input).sort().join(',')!==keys.slice().sort().join(','))
