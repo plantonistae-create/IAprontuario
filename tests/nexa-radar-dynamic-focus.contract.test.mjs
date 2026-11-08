@@ -35,7 +35,7 @@ assert.match(style,/:focus-visible/);
 assert.match(style,/body\[data-contextual-radar\] #realtimeRadarCard/);
 assert.match(loader,/nexa-radar-ps-mode-v18\.14\.js[\s\S]*nexa-radar-dynamic-focus-v18\.16\.js/);
 assert.equal((loader.match(/nexa-radar-dynamic-focus-v18\.16\.js/g)||[]).length,1);
-assert.match(index,/nexa-radar-dynamic-focus-v18\.16\.css\?v=20261025-ui1/);
+assert.match(index,/nexa-radar-dynamic-focus-v18\.16\.css\?v=20261107-radar-silent-focus-p0/);
 assert.match(index,/nexa-hotfix\.js\?v=\d{8}-[a-z0-9-]+/);
 assert.match(worker,/nexa-v18-15-0-[a-z0-9-]+/);
 assert.match(worker,/nexa-hotfix\.js\?v=\d{8}-[a-z0-9-]+/);
