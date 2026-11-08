@@ -34,7 +34,7 @@ function ensureInventory(value){
  const seen=new Set();
  for(const row of value.rows){
   if(!exact(row,rowKeys)||typeof row.private_ref!=='string'||
-     !/^R-[0-9]{3,6}$/.test(row.private_ref)||typeof row.security_definer!=='boolean'||
+     !/^R-[0-9]{3,6}$/.test(row.private_ref)||row.security_definer!==true||
      !Object.entries(allowed).every(([k,values])=>values.includes(row[k])))
    throw Error('G13_PRIVATE_ROW_INVALID');
   const key=row.private_ref+'@'+row.effective_role;
