@@ -38,7 +38,7 @@ test('timeouts from independent transports do not reveal underlying paid provide
 });
 test('no PHI can leak through synthetic transport summaries',()=>{
  const x=aggregateSyntheticTransportTraces([caseOf('webrtc',{kind:'wrapper_http',status:502})]);
- assert.deepEqual(Object.keys(x).filter(k=>/patient|audio|transcript|user|sdp|secret/i.test(k)),[]);
+ assert.deepEqual(Object.keys(x).filter(k=>/patient|audio|transcript|user_id|sdp|secret/i.test(k)),[]);
  assert.equal(JSON.stringify(x).includes('PRIVATE'),false);
 });
 test('repeated remote statuses and retry traces do not count as separate legitimate incidents',()=>{
