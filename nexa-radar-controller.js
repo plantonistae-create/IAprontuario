@@ -34,6 +34,27 @@
   function create(adapter){
     let remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};let ledger={},state=E.analyze({}),revision=0,controller=null,timer=null,aiTimer=null,aiItems=[],observations=[],lastKey='',lastContext=null,owner='',encounter=crypto.randomUUID(),error='',expanded=false,aiKey='',busy=false,transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;
     let questionTraceTruncated=false;const listeners=new Set(),questionTrace=new Map();
+    // Clinician-owned, encounter-bound action history. No separate clinical datastore.
+    const clinicalAudit=[];let undoEntry=null;const alertJournal=new Map();
+    const validId=x=>typeof x==='string'&&/^(?:conflict:|finding:)?[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(x);
+    function logAction(id,action){
+      clinicalAudit.push({seq:(clinicalAudit.at(-1)?.seq||0)+1,id,action,at:new Date().toISOString()});
+      if(clinicalAudit.length>80)clinicalAudit.shift();
+    }
+    function reconcileAlerts(alerts){
+      const active=new Set();
+      for(const item of alerts||[]){
+        const id=String(item?.id||'');
+        if(!validId(id))continue;
+        active.add(id);
+        const old=alertJournal.get(id);
+        if(old)old.status='active';
+        else if(alertJournal.size<80)alertJournal.set(id,{id,concept:String(item.concept||'').slice(0,65),status:'active',firstSeen:new Date().toISOString(),reason:''});
+      }
+      for(const item of alertJournal.values())if(item.status==='active'&&!active.has(item.id))item.status='pending';
+      return [...alertJournal.values()].filter(item=>item.status==='pending').map(item=>({...item}));
+    }
+
     function traceQuestions(items){
       for(const item of Array.isArray(items)?items:[]){
         const id=String(item?.id||''),concept=String(item?.concept||'');
@@ -44,7 +65,7 @@
           status:String(item.status||'to_ask'),redFlag:item.redFlag===true,category:String(item.category||'')});
       }
     }
-    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionTraceTruncated};}
+    function snapshot(){return {version:1,owner,encounter,ledger:structuredClone(ledger),questionTrace:[...questionTrace.values()].map(x=>({...x})),questionTraceTruncated,clinicalAudit:clinicalAudit.map(x=>({...x})),alertJournal:[...alertJournal.values()].map(x=>({...x}))};}
     // A streaming transcript usually grows monotonically. Retain one in-flight
     // analysis when new completed utterances only append text, then refresh it.
     // Changing clinical fields, owner, or encounter still invalidates immediately.
@@ -64,7 +85,13 @@
         if(!(busy&&appendOnly(lastContext,context)))invalidate();
         lastKey=key;lastContext=JSON.parse(JSON.stringify(context));aiKey='';
       }
-      state=E.analyze(context,ledger,aiItems,observations);state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
+      state=E.analyze(context,ledger,aiItems,observations);
+      state.reviewAlerts=reconcileAlerts(state.alerts);
+      state.alertJournal=[...alertJournal.values()].map(x=>({...x}));
+      state.dispositionCaution=state.dispositionCaution||state.reviewAlerts.length>0;
+      state.clinicalAudit=clinicalAudit.map(x=>({...x}));
+      state.undoAvailable=!!undoEntry&&undoEntry.owner===owner&&undoEntry.encounter===encounter&&undoEntry.afterKey===key;
+      state.ledger=structuredClone(ledger);state.error=error;state.busy=busy;state.transcriptStatus=transcriptStatus;state.transcriptIncomplete=transcriptIncomplete;state.revision=revision;state.encounter=encounter;state.radarMeta={...remoteMeta};
       traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
       publish();
       if(remote&&(force||aiKey!==key)&&state.hasContext&&!busy){
@@ -103,20 +130,53 @@
     }
     function respond(id,value,action='answer'){
       const item=state.items.find(i=>i.id===id);if(!item)return false;
-      if(action!=='answer'&&['comorbidities','allergies','medicines'].includes(item.concept))return false; // require documentation
-      const before=adapter.context(),result=E.answer(before,ledger,item,value,action);
+      const core=['comorbidities','allergies','medicines'].includes(item.concept);
+      if(action!=='answer'&&(core||item.redFlag||item.priority==='critical'||item.category==='contradiction'))return false;
+      if(item.category==='contradiction'&&(action!=='answer'||String(value||'').trim().length<12||
+        /^(?:sim|não|nao|não sei|nao sei)$/i.test(String(value).trim())))throw new Error('Informe retificação médica explícita, com justificativa.');
+      const before=adapter.context(),beforeLedger=structuredClone(ledger),beforeFields=structuredClone(before.fields||{});
+      const result=E.answer(before,ledger,item,value,action);
       ledger=result.ledger;
-      // Marking a question evaluated/dismissed changes only the local audit
-      // ledger, not patient evidence. Keep any useful in-flight analysis and
-      // avoid an additional provider call with identical clinical content.
-      // Explicit answers and every changed clinical field still reanalyze.
+      undoEntry={owner,encounter,id,beforeLedger,beforeFields,afterKey:remoteKey(result.context)};
+      logAction(id,action==='answer'?'medical_response':action);
+      // A status-only acknowledgement must not create a duplicate remote call.
       if(action!=='answer'&&remoteKey(before)===remoteKey(result.context)){
         recalculate();adapter.persist?.();return true;
       }
       invalidate();aiItems=[];observations=[];adapter.apply(result.context.fields);lastKey='';recalculate({remote:true});adapter.persist?.();return true;
     }
-    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
+    function undoLast(){
+      const entry=undoEntry;
+      if(!entry||entry.owner!==owner||entry.encounter!==encounter)return false;
+      // Fail closed if any clinical field/transcript changed after the response:
+      // never overwrite newer user edits, ASR evidence, or another encounter.
+      if(remoteKey(adapter.context())!==entry.afterKey){undoEntry=null;recalculate();return false;}
+      const now=adapter.context(),changed=remoteKey({fields:now.fields})!==remoteKey({fields:entry.beforeFields});
+      ledger=structuredClone(entry.beforeLedger);
+      undoEntry=null;logAction(entry.id,'undo');
+      invalidate();aiItems=[];observations=[];
+      if(changed)adapter.apply(structuredClone(entry.beforeFields));
+      lastKey='';recalculate({remote:changed});adapter.persist?.();
+      return true;
+    }
+    function reviewAlert(id,reason){
+      const entry=alertJournal.get(id),text=String(reason||'').trim();
+      if(!entry||entry.status!=='pending'||text.length<12||text.length>240)return false;
+      entry.status='reviewed';entry.reason=text;
+      logAction(entry.id,'alert_reviewed');
+      recalculate();adapter.persist?.();return true;
+    }
+    function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();clinicalAudit.length=0;alertJournal.clear();undoEntry=null;questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
+      for(const e of Array.isArray(saved.clinicalAudit)?saved.clinicalAudit.slice(-80):[]){
+        if(!validId(e?.id)||!['medical_response','evaluated','dismissed','not_applicable','undo','alert_reviewed'].includes(e?.action)||
+           !Number.isSafeInteger(e?.seq)||e.seq<1||typeof e?.at!=='string'||!/^\d{4}-\d\d-\d\dT/.test(e.at))continue;
+        clinicalAudit.push({id:e.id,action:e.action,seq:e.seq,at:e.at.slice(0,32)});
+      }
+      for(const e of Array.isArray(saved.alertJournal)?saved.alertJournal.slice(0,80):[]){
+        if(!validId(e?.id)||!validId(e?.concept)||!['active','pending','reviewed'].includes(e.status))continue;
+        alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):''});
+      }
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
         const id=String(x?.id||''),concept=String(x?.concept||'');
@@ -127,7 +187,7 @@
       }}recalculate();}
     function setOwner(user){if(owner!==user)reset(user);}
     function schedule(){clearTimeout(timer);timer=setTimeout(()=>recalculate({remote:true}),150);}
-    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
+    return {get state(){return state;},snapshot,restore,reset,setOwner,recalculate,respond,undoLast,reviewAlert,schedule,analyzeRemote,setTranscriptStatus(value){if(['unavailable','stale'].includes(value))transcriptIncomplete=true;if(value==='structured'){transcriptIncomplete=false;value='stopped';}const next=value==='live'&&transcriptIncomplete?'stale':value;if(next!==transcriptStatus){transcriptStatus=next;recalculate();}},subscribe:fn=>listeners.add(fn),get expanded(){return expanded;},toggle(){expanded=!expanded;publish();}};
   }
   function mount(adapter){
     const api=create(adapter),q=id=>document.getElementById(id);
