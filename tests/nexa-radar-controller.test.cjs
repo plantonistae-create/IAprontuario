@@ -83,3 +83,11 @@ test('restored reviewed alerts without a documented reason are not trusted',()=>
  assert.equal(api.snapshot().alertJournal.some(x=>x.id==='finding:dyspnea'&&x.status==='reviewed'),false);
  api.reset();
 });
+
+test('restored alert journal ignores fabricated concepts absent from the clinical engine',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.alertJournal=[{id:'finding:fiction',concept:'fiction',status:'pending',reason:''}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().alertJournal.some(x=>x.concept==='fiction'),false);
+ api.reset();
+});
