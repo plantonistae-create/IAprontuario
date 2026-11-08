@@ -23,9 +23,10 @@ const logins={[A]:'synthetic-g8-t1-only',[B]:'synthetic-g8-t2-only'};
 async function sql(query,actor='postgres'){
  const env={...process.env};
  if(actor===A||actor===B){env.PGUSER=actor;env.PGPASSWORD=logins[actor];}
- else if(actor!=='postgres')throw Error('STOP_BAD_TEST_LOGIN');
+ else if(!['postgres','service_role'].includes(actor))throw Error('STOP_BAD_TEST_LOGIN');
+ const command=actor==='service_role'?'set role service_role; '+query:query;
  const {stdout}=await exec('psql',['-X','-q','-A','-t','-v','ON_ERROR_STOP=1',
-  '-c',query],{env,timeout:20000,maxBuffer:150000});
+  '-c',command],{env,timeout:20000,maxBuffer:150000});
  return stdout.trim();
 }
 const escape=x=>"'"+String(x).replaceAll("'","''")+"'";
@@ -38,9 +39,9 @@ async function reset(){
  await sql('truncate nexa_quota.synthetic_receipt_evidence_g9,nexa_quota.consumed_nonces_g10,nexa_quota.radar_dispatch_claims,nexa_quota.radar_reservations;');
 }
 async function claimFixture(n){
- assert.equal((await rpc('reserve_radar_call',[U,T,E,R(n),100,50],'postgres')).reason,'RESERVED');
- assert.equal((await rpc('claim_radar_dispatch',[U,T,E,R(n)],'postgres')).reason,'CLAIMED_ONCE');
- assert.equal((await rpc('record_radar_dispatch_outcome',[U,T,R(n),'outcome_unknown'],'postgres')).reason,'RECORDED');
+ assert.equal((await rpc('reserve_radar_call',[U,T,E,R(n),100,50],'service_role')).reason,'RESERVED');
+ assert.equal((await rpc('claim_radar_dispatch',[U,T,E,R(n)],'service_role')).reason,'CLAIMED_ONCE');
+ assert.equal((await rpc('record_radar_dispatch_outcome',[U,T,R(n),'outcome_unknown'],'service_role')).reason,'RECORDED');
 }
 function signedOperator({nonce=fresh(),tenant_id=T,operator_id=U,db_principal=A,key_epoch=1,expires_at=now()+75}={}){
  const claims={typ:'nexa-g11-offline-operator',issuer:'disposable-independent-auth-fixture',
