@@ -70,3 +70,10 @@ test('incomplete per-modality histograms mean category p50/p95 is unknown',()=>{
  assert.equal(r.categories.transcription.latency_p50_ms,null);
  assert.equal(r.categories.transcription.latency_p95_ms,null);
 });
+
+test('prototype names are not valid billing capabilities',()=>{
+ for(const capability of ['__proto__','constructor','toString','hasOwnProperty']){
+  const c=base();c.capabilities[0].capability=capability;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CAPABILITY_INVALID/);
+ }
+});
