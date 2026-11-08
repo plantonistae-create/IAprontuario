@@ -90,3 +90,12 @@ test('invalid calendar date or unparseable timestamps are rejected',()=>{
   assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
  }
 });
+
+test('aggregate request totals reject unsafe integer overflow across capabilities',()=>{
+ const c=base();
+ for(const row of c.capabilities){row.request_count=1e9;delete row.latency_histogram;}
+ // 4e9 remains safe and valid; per-capability guard prevents larger values.
+ assert.equal(reconcile(c).counts.requests,4e9);
+ const x=base();x.capabilities[0].latency_histogram[0].count=Number.MAX_SAFE_INTEGER;
+ assert.throws(()=>reconcile(x),/AGGREGATE_HISTOGRAM_INVALID|AGGREGATE_HISTOGRAM_COUNT_MISMATCH/);
+});
