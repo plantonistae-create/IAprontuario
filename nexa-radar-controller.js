@@ -49,7 +49,8 @@
         active.add(id);
         const old=alertJournal.get(id);
         if(old)old.status='active';
-        else if(alertJournal.size<80)alertJournal.set(id,{id,concept:String(item.concept||'').slice(0,65),status:'active',firstSeen:new Date().toISOString(),reason:''});
+        else if(alertJournal.size<80)alertJournal.set(id,{id,concept:String(item.concept||'').slice(0,65),status:'active',firstSeen:new Date().toISOString(),reason:'',
+          evidence:(Array.isArray(item.evidence)?item.evidence:[]).slice(0,2).filter(e=>e&&typeof e.quote==='string').map(e=>({quote:e.quote.slice(0,240),section:String(e.section||'').slice(0,50)}))});
       }
       for(const item of alertJournal.values())if(item.status==='active'&&!active.has(item.id))item.status='pending';
       return [...alertJournal.values()].filter(item=>item.status==='pending').map(item=>({...item}));
@@ -175,7 +176,7 @@
       }
       for(const e of Array.isArray(saved.alertJournal)?saved.alertJournal.slice(0,80):[]){
         if(!validId(e?.id)||!validId(e?.concept)||!['active','pending','reviewed'].includes(e.status))continue;
-        alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):''});
+        alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):'',evidence:Array.isArray(e.evidence)?e.evidence.slice(0,2).filter(x=>x&&typeof x.quote==='string'&&typeof x.section==='string').map(x=>({quote:x.quote.slice(0,240),section:x.section.slice(0,50)})):[]});
       }
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
@@ -198,16 +199,25 @@
     card.innerHTML=`<div id="nfRadarHead"><div><strong>RADAR CLÍNICO</strong><small>Perguntas e alertas que acompanham a consulta.</small></div><span id="radarLiveText" role="status">Aguardando informações</span></div>
       <div id="nexaContextualStatus" aria-live="polite"></div><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
       <div class="ng-layout"><div class="ng-main"><nav id="nfRadarTabs" role="tablist" aria-label="Radar clínico">
-      <button type="button" id="ngQuestionsTab" role="tab" aria-controls="ngQuestionsPanel" aria-selected="true" tabindex="0">Perguntas da consulta</button><button type="button" id="ngRisksTab" role="tab" aria-controls="ngRisksPanel" aria-selected="false" tabindex="-1">Riscos e alertas</button></nav>
+      <button type="button" id="ngQuestionsTab" role="tab" aria-controls="ngQuestionsPanel" aria-selected="true" tabindex="0">Perguntas</button><button type="button" id="ngRisksTab" role="tab" aria-controls="ngRisksPanel" aria-selected="false" tabindex="-1">Alertas</button></nav>
       <section id="ngQuestionsPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngQuestionsTab"><h4>Próximas perguntas</h4><p class="ng-muted">Ordenadas por prioridade</p><div id="radarQuestions"></div><button type="button" id="nexaRadarMore" hidden></button><p class="ng-conversation">As respostas são reconhecidas na conversa.</p></section>
-      <section id="ngRisksPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngRisksTab" hidden><h4>O que exige atenção</h4><div id="ngFindings"></div><div id="ngRiskGaps"></div><p class="ng-muted">Informação ausente não confirma nem exclui um sinal de alarme.</p></section></div>
-      <aside class="ng-side"><section class="ng-panel"><h4 class="ng-green" id="ngClarifiedTitle">✓ Esclarecidas (0)</h4><div id="ngClarified"></div></section><section class="ng-panel ng-confirm"><h4 id="ngConfirmTitle">A confirmar (0)</h4><div id="ngConfirm"></div></section>
+      <section id="ngRisksPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngRisksTab" hidden><h4>O que exige atenção</h4><div id="ngFindings"></div><div id="ngRiskGaps"></div><div id="ngReviewAlerts" aria-live="polite"></div><p class="ng-muted">Informação ausente não confirma nem exclui um sinal de alarme.</p></section></div>
+      <aside class="ng-side"><section class="ng-panel"><h4 class="ng-green" id="ngClarifiedTitle">✓ Esclarecidas (0)</h4><div id="ngClarified"></div><div class="ng-clinical-audit"><strong>Histórico essencial de ações</strong><div id="ngAuditTrail"></div><button type="button" id="ngUndoLast" disabled>Desfazer última ação clínica</button></div></section><section class="ng-panel ng-confirm"><h4 id="ngConfirmTitle">A confirmar (0)</h4><div id="ngConfirm"></div></section>
       <section class="ng-panel" id="ngDisposition"><h4>▥ Gravidade e possível destino</h4><p id="ngSeverity"></p><strong id="ngDestination"></strong><p id="ngDestinationReason" class="ng-muted"></p><div class="ng-destinations"><span data-destination="alta">Alta</span><span data-destination="reavaliacao">Reavaliação</span><span data-destination="internacao">Internação</span></div><p id="ngPhysician" class="ng-muted"></p></section><p class="ng-muted">A decisão final é médica.</p></aside></div><div id="radarMeta" hidden></div><div id="radarAlerts" hidden></div>`;
     let tab='questions';
     function selectTab(value){tab=value;for(const name of ['questions','risks']){const title=name==='questions'?'Questions':'Risks',selected=tab===name;q('ng'+title+'Tab').setAttribute('aria-selected',String(selected));q('ng'+title+'Tab').tabIndex=selected?0:-1;q('ng'+title+'Panel').hidden=!selected;}}
     const setText=(id,value)=>{const el=q(id);if(el&&el.textContent!==value)el.textContent=value;};
     const setHtml=(id,value)=>{const el=q(id);if(el&&el.dataset.rendered!==value){el.innerHTML=value;el.dataset.rendered=value;}};
-    const evidenceHtml=list=>(list||[]).slice(-3).map(e=>`<blockquote>${e.questionQuote?`<span>${esc(e.questionQuote)}</span> `:''}“${esc(e.quote)}”<cite>${e.section==='transcript'?'Conversa':esc(e.section.replaceAll('_',' '))}${e.temporal&&e.temporal!=='current'?' · '+({recent:'recente',prior:'prévio',resolved:'resolvido'}[e.temporal]||e.temporal):''}</cite></blockquote>`).join('');
+    function evidenceOrigin(e){
+        if(e?.section!=='transcript')return 'Registro clínico · falante não atribuído';
+        const quote=String(e.quote||'').trim(),turns=String(adapter.context()?.transcript||'').split(/\r?\n/);
+        const lines=turns.filter(l=>quote.length>=3&&l.includes(quote));
+        if(lines.length!==1)return 'Conversa · falante não confirmado';
+        const match=lines[0].match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):\s*/i);
+        if(!match)return 'Conversa · falante não confirmado';
+        return 'Conversa · '+match[1];
+      }
+      const evidenceHtml=list=>(list||[]).slice(-3).filter(e=>e&&typeof e.quote==='string').map(e=>`<blockquote>${e.questionQuote?`<span>${esc(e.questionQuote)}</span> `:''}“${esc(e.quote)}”<cite>${esc(evidenceOrigin(e))}${e.interpretation==='ai'?' · interpretação da IA, revisar':''}${e.temporal&&e.temporal!=='current'?' · '+esc(({recent:'recente',prior:'prévio',resolved:'resolvido'}[e.temporal]||e.temporal)):''} · confiança não aferida</cite></blockquote>`).join('');
     function rowHtml(i){
       const core=['comorbidities','allergies','medicines'].includes(i.concept);
       const choices=core?'<button type="button" data-request-detail="1">Sim — descrever</button><button type="button" data-value="Não">Não</button>':
@@ -240,7 +250,8 @@
       const pending=state.items.filter(i=>i.status!=='confirm').length,confirm=state.confirm||[],clarified=state.clarified||[];
       setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
-      setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} achado(s) de alerta identificado(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:'');
+      setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} alerta(s) ativo(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:
+         state.reviewAlerts?.length?`<div class="ng-review-banner">⚠ ${state.reviewAlerts.length} alerta(s) anterior(es) aguardando revisão médica <button type="button" data-tab="risks">Revisar</button></div>`:'');
       const stale=state.transcriptIncomplete||['unavailable','stale'].includes(state.transcriptStatus);
       setHtml('ngAnalysisStatus',state.error||stale?`<p class="ng-error">${esc(state.error||'Há trechos da conversa sem análise. Os dados podem estar desatualizados; revise a transcrição final.')} <button type="button" id="nexaRadarRetry">Tentar novamente</button></p>`:'');
       const visible=api.expanded?state.items:state.items.slice(0,5);updateRows(visible);
@@ -249,16 +260,21 @@
       setText('ngClarifiedTitle',`✓ Esclarecidas (${clarified.length})`);
       setHtml('ngClarified',clarified.length?clarified.map(i=>`<details class="ng-evidence-row"><summary><span>${esc(i.label)}</span><span>${i.state==='known_absent'?'Negado':'Informado'}${i.temporal==='resolved'?' · resolvido':i.temporal==='prior'?' · prévio':''}${state.alerts.some(a=>a.concept===i.id)?' · Alerta':''}</span></summary>${evidenceHtml(i.evidence)}</details>`).join(''):'<p class="ng-muted">Os esclarecimentos aparecerão conforme a conversa evolui.</p>');
       setText('ngConfirmTitle',`A confirmar (${confirm.length})`);
-      setHtml('ngConfirm',confirm.length?confirm.map(i=>`<div class="ng-confirm-row"><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button><span>${i.category==='contradiction'?'Informações conflitantes.':'Resposta ambígua ou não compreendida.'}</span></div>`).join(''):'<p class="ng-muted">Nenhum ponto a confirmar identificado.</p>');
+      setHtml('ngConfirm',confirm.length?confirm.map(i=>`<div class="ng-confirm-row"><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button><span>${i.category==='contradiction'?'Contradição: exige retificação e confirmação médica.':'Resposta incerta: não resolve a pendência.'}</span>${i.evidence?.length?`<details class="ng-evidence-context"><summary>Evidências e origem</summary>${evidenceHtml(i.evidence)}</details>`:''}</div>`).join(''):'<p class="ng-muted">Nenhum ponto a confirmar identificado.</p>');
+      setHtml('ngAuditTrail',(state.clinicalAudit||[]).slice(-4).reverse().map(a=>`<div class="ng-audit-event">${esc(E.concepts[a.id.replace(/^conflict:/,'').replace(/^finding:/,'')]?.label||'Dado clínico')} · ${esc(({medical_response:'registrado pelo médico',undo:'ação desfeita',alert_reviewed:'alerta revisado',evaluated:'avaliado',dismissed:'dispensado',not_applicable:'não aplicável'}[a.action]||'ação registrada'))}</div>`).join('')||'<small>Sem ações manuais nesta consulta.</small>');
+      q('ngUndoLast').disabled=!state.undoAvailable;
       setHtml('ngFindings',state.alerts.length?state.alerts.map(a=>`<article class="ng-finding"><span class="ng-priority">Achado identificado</span><h4>${esc(E.concepts[a.concept].label)}</h4>${evidenceHtml(a.evidence)}<p>${esc(a.reason)}</p>${a.related?.length?`<button type="button" data-question="${esc(a.related[0])}">Ver perguntas relacionadas</button>`:''}</article>`).join(''):`<p class="ng-muted">${!state.hasContext||stale||state.error?'Dados insuficientes ou análise indisponível para avaliar alertas.':'Nenhum achado de alerta identificado nos dados disponíveis. Isso não determina o destino.'}</p>`);
       const gaps=state.items.filter(i=>i.redFlag||i.priority==='critical'||i.status==='confirm');
       setHtml('ngRiskGaps',gaps.length?`<div class="ng-risk-gaps"><h4>Ainda precisa ser esclarecido</h4>${gaps.slice(0,5).map(i=>`<div><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button> <small>${states[i.status]||states.to_ask}</small></div>`).join('')}</div>`:'');
+      setHtml('ngReviewAlerts',(state.reviewAlerts||[]).map(a=>`<div class="ng-review-alert" data-review-alert-row="${esc(a.id)}"><strong>${esc(E.concepts[a.concept]?.label||a.concept)} — alerta anteriormente identificado</strong><p>Não será encerrado automaticamente. O médico deve documentar a reavaliação.</p><details><summary>Evidência original</summary>${evidenceHtml(a.evidence)}</details><textarea aria-label="Justificativa da revisão do alerta" placeholder="Motivo da reavaliação médica (mínimo 12 caracteres)"></textarea><button type="button" data-review-alert="${esc(a.id)}">Confirmar revisão</button></div>`).join(''));
       disposition(state);
     }
     api.subscribe(render);
     card.addEventListener('click',event=>{
       const btn=event.target.closest('button');if(!btn)return;
       if(btn.id==='ngQuestionsTab'||btn.id==='ngRisksTab')return selectTab(btn.id==='ngQuestionsTab'?'questions':'risks');
+      if(btn.id==='ngUndoLast'){if(!api.undoLast())setText('ngAnalysisStatus','Desfazer bloqueado: há novo conteúdo clínico ou não existe ação reversível.');return;}
+      if(btn.dataset.reviewAlert){const row=btn.closest('[data-review-alert-row]');if(!row||!api.reviewAlert(btn.dataset.reviewAlert,row.querySelector('textarea')?.value))setText('ngAnalysisStatus','Justificativa médica insuficiente ou alerta ainda ativo.');return;}
       if(btn.dataset.tab)return selectTab(btn.dataset.tab);
       if(btn.dataset.question){selectTab('questions');if(!api.expanded&&api.state.items.findIndex(i=>i.id===btn.dataset.question)>=5)api.toggle();const row=[...card.querySelectorAll('[data-item]')].find(el=>el.dataset.item===btn.dataset.question);if(row){row.tabIndex=-1;row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'});}return;}
       if(btn.id==='nexaRadarMore')return api.toggle();if(btn.id==='nexaRadarRetry'){adapter.retryTranscript?.();return api.analyzeRemote();}

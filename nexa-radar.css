@@ -60,3 +60,16 @@ body[data-contextual-radar] #realtimeRadarCard{padding:20px!important}
 @media(max-width:560px){body[data-contextual-radar] #realtimeRadarCard{padding:12px!important}#realtimeRadarCard #nfRadarHead strong{font-size:21px}#realtimeRadarCard .ng-side{grid-template-columns:1fr}#realtimeRadarCard #nfRadarTabs button{font-size:11px;padding:7px}#realtimeRadarCard .ng-panel{padding:10px}#realtimeRadarCard #nexaContextualStatus{gap:10px}}
 
 body[data-contextual-radar] #nexaStageHost .nexa-stage-view[data-stage="radar"]>[data-moved-consent="1"]{display:none!important}
+
+/* Clinical correction affordances; scoped, consistent with NEXA navy/cyan. */
+#realtimeRadarCard .ng-clinical-audit{border-top:1px solid var(--nf-line,#dbe4ec);margin-top:12px;padding-top:10px;display:grid;gap:8px;font-size:11px;color:var(--nf-muted,#51657d)}
+#realtimeRadarCard .ng-clinical-audit strong{color:var(--nf-text,#19354c)}
+#realtimeRadarCard .ng-audit-event{padding:5px 0;border-bottom:1px solid var(--nf-line,#dbe4ec)}
+#realtimeRadarCard #ngUndoLast{border:1px solid #3a94a9;border-radius:8px;padding:8px 10px;background:transparent;color:var(--nf-text,#19354c)}
+#realtimeRadarCard #ngUndoLast:disabled{opacity:.48}
+#realtimeRadarCard .ng-confirm-row{grid-template-columns:1fr 1fr}
+#realtimeRadarCard .ng-evidence-context{grid-column:1/-1;border-top:1px solid var(--nf-line,#dbe4ec);padding-top:6px}
+#realtimeRadarCard .ng-review-banner{background:#fff5e6;color:#805913;border:1px solid #e5cb94;border-radius:7px;padding:10px;margin-bottom:12px;display:flex;gap:10px;align-items:center}
+#realtimeRadarCard .ng-review-alert{background:var(--nf-card2,#f5f9fb);border:1px solid #d2b46a;border-left:3px solid #c79024;border-radius:9px;margin:10px 0;padding:12px;display:grid;gap:9px;font-size:12px}
+#realtimeRadarCard .ng-review-alert textarea{min-height:64px;width:100%;border:1px solid var(--nf-line,#dbe4ec);border-radius:8px;color:var(--nf-text,#18334c);background:var(--nf-card,#fff);padding:8px}
+#realtimeRadarCard .ng-review-alert button{justify-self:start}
