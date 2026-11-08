@@ -103,3 +103,28 @@ test('cross-tenant concurrent use of one request UUID denies one without leaking
  assert.deepEqual(results.map(x=>x.reason).sort(),['IDEMPOTENCY_CONFLICT','RESERVED']);
  assert.equal(await sql('select count(*) from nexa_quota.radar_reservations;'),'1');
 });
+
+test('administrative approver is a privileged, revocable tenant authority',async()=>{
+ await wipe();
+ // The service role cannot forge the approval link or insert a new approver.
+ await assert.rejects(sql("insert into nexa_quota.tenant_admin_approvers(tenant_id,admin_user_id,active) values('"+T1+"','"+B+"',true);",'service_role'),/permission denied/i);
+ await assert.rejects(sql("update nexa_quota.tenant_memberships set authorized_by='"+B+"' where user_id='"+A+"';",'service_role'),/permission denied/i);
+ await assert.rejects(sql("update nexa_quota.tenant_memberships set authorized_by='"+B+"' where user_id='"+A+"';"),/foreign key constraint/i);
+ // Revoking the approver disables membership even while its own active=true.
+ await sql("update nexa_quota.tenant_admin_approvers set active=false where tenant_id='"+T1+"';");
+ try{
+  assert.equal((await admit({id:request(701)})).reason,'TENANT_NOT_VERIFIED');
+  assert.equal(await sql("select count(*) from nexa_quota.radar_reservations;"),'0');
+  // Cross-tenant capacity is unaffected.
+  assert.equal((await admit({user:D,tenant:T2,encounter:ED,id:request(702)})).reason,'RESERVED');
+ }finally{
+  await sql("update nexa_quota.tenant_admin_approvers set active=true where tenant_id='"+T1+"';");
+ }
+ assert.equal((await admit({id:request(703)})).reason,'RESERVED');
+});
+test('admin registry, tenant membership and quota reservations stay private to service_role',async()=>{
+ for(const role of ['anon','authenticated']){
+  for(const table of ['tenant_admin_approvers','tenant_memberships','tenant_limits','radar_reservations'])
+   await assert.rejects(sql('select * from nexa_quota.'+table+';',role),/permission denied/i);
+ }
+});
