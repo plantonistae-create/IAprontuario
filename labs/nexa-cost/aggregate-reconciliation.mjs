@@ -37,7 +37,7 @@ export function reconcileAggregateCost(input){
  const byCategory={},used=new Set();let declared=0,requests=0;
  for(const row of input.capabilities){
   checkKeys(row,allowedRow);
-  if(!(row.capability in COST_CATEGORIES)||used.has(row.capability)||
+  if(!Object.hasOwn(COST_CATEGORIES,row.capability)||used.has(row.capability)||
      !Number.isSafeInteger(row.request_count)||row.request_count<0||
      row.request_count>1e9||
      !(row.declared_cost_usd===null||validDecimal(row.declared_cost_usd)))
