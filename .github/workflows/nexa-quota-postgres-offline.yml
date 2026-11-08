@@ -9,6 +9,7 @@ on:
       - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
+      - 'tests/nexa-g9-postgres-receipt.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
       - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - 'tests/nexa-g8-postgres-session-operator.integration.mjs'
+      - 'tests/nexa-g9-postgres-receipt.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
 
 permissions:
@@ -83,3 +85,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/session-operator.G8-LAB-ONLY.sql
       - name: Prove real DB login binding, cross-tenant denial, spoof protection and stale reconciliation
         run: node --test tests/nexa-g8-postgres-session-operator.integration.mjs
+      - name: Create private immutable G9 mock receipt ledger ONLY in disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/receipt-ledger.G9-LAB-ONLY.sql
+      - name: Verify signed mock receipts, durable uniqueness and terminal UNKNOWN non-retry
+        run: node --test tests/nexa-g9-postgres-receipt.integration.mjs
