@@ -75,3 +75,20 @@ test('non-append edits still cancel stale AI requests',async()=>{
   await pending;
   api.reset();
 });
+
+test('duplicate or delayed completed transcription cannot rewrite an accepted final turn',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ b.ingest({type:'input_audio_buffer.committed',item_id:'turn-1'});
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',transcript:'Paciente: Nega febre.'}),true);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',transcript:'Paciente: Tem febre.'}),false);
+ assert.equal(b.text,'Paciente: Nega febre.');
+ b.clear();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',transcript:'Paciente: Tem febre.'}),true);
+ assert.equal(b.text,'Paciente: Tem febre.');
+});
+test('empty completion does not lock a later valid completed transcription',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:''}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Paciente: Não sei.'}),true);
+ assert.equal(b.text,'Paciente: Não sei.');
+});
