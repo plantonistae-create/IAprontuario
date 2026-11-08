@@ -6,6 +6,59 @@
   const labels={critical:'Essencial agora',high:'Importante',moderate:'Complementar',low:'Complementar'};
   const states={to_ask:'A perguntar',asked:'Perguntada · aguardando resposta',confirm:'A confirmar'};
   const cats={history:'História',red_flags:'Sinais de alarme',exam:'Exame físico',vitals:'Sinais vitais',risk:'Antecedentes / riscos',medications:'Medicações',contradiction:'Contradição',differential:'Diferencial'};
+
+  // Presentation-only evidence classification; never changes the clinical facts.
+  const evidenceLabels=Object.freeze({
+    not_asked:'Não perguntado',awaiting_response:'Perguntado e aguardando resposta',
+    does_not_know:'Não sabe',denied_by_patient:'Negado pelo paciente',
+    denied_by_companion:'Negado pelo acompanhante',reported_by_patient:'Informado pelo paciente',
+    reported_by_companion:'Informado pelo acompanhante',confirmed_by_physician:'Confirmado pelo médico',
+    not_applicable:'Não aplicável',contradictory:'Contraditório',
+    uncertain_transcript:'Transcrição incerta',
+    documented_unattributed:'Informado no registro · origem não atribuída'
+  });
+  function evidenceSpeaker(ev,transcript){
+    if(ev?.section!=='transcript'||typeof ev.quote!=='string'||ev.quote.trim().length<3)return 'unknown';
+    const quote=ev.quote.trim();
+    const matches=String(transcript||'').split(/\r?\n/).filter(line=>{
+      const m=line.match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):\s*(.*)$/i);
+      if(!m)return false;
+      const speech=m[2].trim();
+      return line.includes(quote)||(speech.length>=3&&(speech.includes(quote)||quote.includes(speech)));
+    });
+    if(matches.length!==1)return 'unknown';
+    const role=matches[0].match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):/i)?.[1]?.toLowerCase();
+    return role==='paciente'?'patient':role==='acompanhante'?'companion':role?'doctor':'unknown';
+  }
+  function classifyEvidence(fact={},record=null,context={},incomplete=false){
+    const ev=fact.currentEvidence||fact.evidence?.at(-1)||null;
+    const speaker=evidenceSpeaker(ev,context.transcript),source=ev?.section||'none';
+    const quote=String(ev?.quote||''),factState=fact.state||'not_asked';
+    const uncertain=/\b(?:não sei|nao sei|não lembro|nao lembro|não sabe|nao sabe|talvez|acho que|não entendi|nao entendi)\b/i.test(quote);
+    const denial=/\b(?:nega|negou|negado|não tem|nao tem|sem|nunca|não houve|nao houve|não apresenta|nao apresenta)\b/i.test(quote);
+    const confirmed=record?.action==='answer'&&typeof record.documented==='string'&&!!record.documented&&
+      typeof context.fields?.[record.section]==='string'&&context.fields[record.section].includes(record.documented)&&
+      ['known_present','known_absent'].includes(factState);
+    let code='not_asked';
+    if(fact.conflict)code='contradictory';
+    else if(confirmed)code='confirmed_by_physician';
+    else if(record?.action==='not_applicable'&&!['known_present','known_absent'].includes(factState))code='not_applicable';
+    else if(uncertain&&source==='transcript')code='does_not_know';
+    else if(source==='transcript'&&speaker==='companion')
+      code=denial?'denied_by_companion':'reported_by_companion';
+    else if(source==='transcript'&&speaker==='patient'&&factState==='known_absent')code='denied_by_patient';
+    else if(source==='transcript'&&speaker==='patient'&&factState==='known_present')code='reported_by_patient';
+    else if(source==='transcript'&&(factState!=='not_asked'||ev))code='uncertain_transcript';
+    else if(['known_present','known_absent'].includes(factState))code='documented_unattributed';
+    else if(fact.asked||record?.action==='evaluated')code='awaiting_response';
+    else if(factState==='unknown')code=source==='transcript'?'uncertain_transcript':'not_asked';
+    if(incomplete&&source==='transcript'&&!['contradictory','confirmed_by_physician','does_not_know'].includes(code))
+      code='uncertain_transcript';
+    return {code,label:evidenceLabels[code],speaker,source,confidence:'not_measured',
+      clinical_fact_state:factState,requires_physician_review:['contradictory','uncertain_transcript',
+        'documented_unattributed','reported_by_companion','denied_by_companion'].includes(code),
+      resolves_patient_fact:['denied_by_patient','reported_by_patient','confirmed_by_physician'].includes(code)};
+  }
   // Generated suggestions and discharge text are not patient evidence for Radar.
   function clinicalContext(fields,transcript,cid){
     const clinicalFields={...fields};
@@ -89,6 +142,10 @@
       state=E.analyze(context,ledger,aiItems,observations);
       const previousAlerts=JSON.stringify([...alertJournal.values()].map(a=>[a.id,a.status]));
       state.reviewAlerts=reconcileAlerts(state.alerts);
+      // Derived labels are not copied into snapshots or submitted to AI.
+      state.evidenceStates=Object.fromEntries(Object.entries(state.facts||{}).map(([id,f])=>
+        [id,classifyEvidence(f,ledger[id]||ledger['conflict:'+id]||null,context,transcriptIncomplete)]));
+      state.transcriptQuality=transcriptIncomplete?'incomplete':transcriptStatus==='live'?'provisional':'not_measured';
       const alertTransition=previousAlerts!==JSON.stringify([...alertJournal.values()].map(a=>[a.id,a.status]));
       state.alertJournal=[...alertJournal.values()].map(x=>({...x}));
       state.dispositionCaution=state.dispositionCaution||state.reviewAlerts.length>0;
@@ -222,13 +279,13 @@
     document.body.dataset.contextualRadar='1';
     const card=q('realtimeRadarCard');
     if(!card)return api;
-    card.innerHTML=`<div id="nfRadarHead"><div><strong>RADAR CLÍNICO</strong><small>Perguntas e alertas que acompanham a consulta.</small></div><span id="radarLiveText" role="status">Aguardando informações</span></div>
+    card.innerHTML=`<div id="nfRadarHead"><div><strong>RADAR CLÍNICO</strong><small>Perguntas e alertas que acompanham a consulta.</small></div><span id="radarLiveText" role="status">Aguardando informações</span><span id="ngTranscriptQuality" class="ng-transcript-quality" aria-label="Qualidade da transcrição"></span></div>
       <div id="nexaContextualStatus" aria-live="polite"></div><div id="ngAlertBanner"></div><div id="ngAnalysisStatus" role="status"></div>
       <div class="ng-layout"><div class="ng-main"><nav id="nfRadarTabs" role="tablist" aria-label="Radar clínico">
       <button type="button" id="ngQuestionsTab" role="tab" aria-controls="ngQuestionsPanel" aria-selected="true" tabindex="0">Perguntas</button><button type="button" id="ngRisksTab" role="tab" aria-controls="ngRisksPanel" aria-selected="false" tabindex="-1">Alertas</button></nav>
       <section id="ngQuestionsPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngQuestionsTab"><h4>Próximas perguntas</h4><p class="ng-muted">Ordenadas por prioridade</p><div id="radarQuestions"></div><button type="button" id="nexaRadarMore" hidden></button><p class="ng-conversation">As respostas são reconhecidas na conversa.</p></section>
       <section id="ngRisksPanel" class="ng-panel" role="tabpanel" aria-labelledby="ngRisksTab" hidden><h4>O que exige atenção</h4><div id="ngFindings"></div><div id="ngRiskGaps"></div><div id="ngReviewAlerts" aria-live="polite"></div><p class="ng-muted">Informação ausente não confirma nem exclui um sinal de alarme.</p></section></div>
-      <aside class="ng-side"><section class="ng-panel"><h4 class="ng-green" id="ngClarifiedTitle">✓ Esclarecidas (0)</h4><div id="ngClarified"></div><div class="ng-clinical-audit"><strong>Histórico essencial de ações</strong><div id="ngAuditTrail"></div><button type="button" id="ngUndoLast" disabled>Desfazer última ação clínica</button></div></section><section class="ng-panel ng-confirm"><h4 id="ngConfirmTitle">A confirmar (0)</h4><div id="ngConfirm"></div></section>
+      <aside class="ng-side"><section class="ng-panel"><h4 class="ng-cyan" id="ngClarifiedTitle">Informações registradas (0)</h4><div id="ngClarified"></div><div class="ng-clinical-audit"><strong>Histórico essencial de ações</strong><div id="ngAuditTrail"></div><button type="button" id="ngUndoLast" disabled>Desfazer última ação clínica</button></div></section><section class="ng-panel ng-confirm"><h4 id="ngConfirmTitle">A confirmar (0)</h4><div id="ngConfirm"></div></section>
       <section class="ng-panel" id="ngDisposition"><h4>▥ Gravidade e possível destino</h4><p id="ngSeverity"></p><strong id="ngDestination"></strong><p id="ngDestinationReason" class="ng-muted"></p><div class="ng-destinations"><span data-destination="alta">Alta</span><span data-destination="reavaliacao">Reavaliação</span><span data-destination="internacao">Internação</span></div><p id="ngPhysician" class="ng-muted"></p></section><p class="ng-muted">A decisão final é médica.</p></aside></div><div id="radarMeta" hidden></div><div id="radarAlerts" hidden></div>`;
     let tab='questions';
     function selectTab(value){tab=value;for(const name of ['questions','risks']){const title=name==='questions'?'Questions':'Risks',selected=tab===name;q('ng'+title+'Tab').setAttribute('aria-selected',String(selected));q('ng'+title+'Tab').tabIndex=selected?0:-1;q('ng'+title+'Panel').hidden=!selected;}}
@@ -246,10 +303,11 @@
       const evidenceHtml=list=>(list||[]).slice(-3).filter(e=>e&&typeof e.quote==='string').map(e=>`<blockquote>${e.questionQuote?`<span>${esc(e.questionQuote)}</span> `:''}“${esc(e.quote)}”<cite>${esc(evidenceOrigin(e))}${e.interpretation==='ai'?' · interpretação da IA, revisar':''}${e.temporal&&e.temporal!=='current'?' · '+esc(({recent:'recente',prior:'prévio',resolved:'resolvido'}[e.temporal]||e.temporal)):''} · confiança não aferida</cite></blockquote>`).join('');
     function rowHtml(i){
       const core=['comorbidities','allergies','medicines'].includes(i.concept);
+      const provenance=api.state.evidenceStates?.[i.concept]||classifyEvidence();
       const choices=core?'<button type="button" data-request-detail="1">Sim — descrever</button><button type="button" data-value="Não">Não</button>':
         i.answerType==='boolean'?'<button type="button" data-value="Sim">Sim</button><button type="button" data-value="Não">Não</button>':'';
       const optional=core?'':'<button type="button" data-action="not_applicable">Não se aplica</button><button type="button" data-action="evaluated">Já avaliado</button><button type="button" data-action="dismissed">Dispensar</button>';
-      return `<div class="ng-row-head"><span class="ng-priority">${labels[i.priority]}</span><span class="ng-state" data-status="${i.status}">${states[i.status]||states.to_ask}</span></div><div class="ng-question">${esc(i.question)}</div><div class="ng-reason">${esc(cats[i.category]||'História')}</div><details class="ng-context"><summary>Ver motivo${i.evidence?.length?' e contexto':''}</summary><p>${esc(i.reason)}</p>${evidenceHtml(i.evidence)}${i.askedEvidence?evidenceHtml([i.askedEvidence]):''}</details><details class="ng-manual"><summary>Registrar esclarecimento manual</summary><div class="ng-actions">${choices}<button type="button" data-value="Não sabe informar">Não sabe informar</button>${optional}</div><textarea class="ng-answer" aria-label="${esc(i.question)}" data-answer="${esc(i.id)}" placeholder="${core?'Se sim, descreva a informação confirmada pelo médico':'Esclarecimento confirmado pelo médico'}"></textarea><button type="button" data-save="1">Registrar resposta</button></details>`;
+      return `<div class="ng-row-head"><span class="ng-priority">${labels[i.priority]}</span><span class="ng-state" data-status="${i.status}">${states[i.status]||states.to_ask}</span><span class="ng-evidence-status" data-evidence-state="${esc(provenance.code)}">${esc(provenance.label)}</span></div><div class="ng-question">${esc(i.question)}</div><div class="ng-reason">${esc(cats[i.category]||'História')}</div><details class="ng-context"><summary>Ver motivo${i.evidence?.length?' e contexto':''}</summary><p>${esc(i.reason)}</p>${evidenceHtml(i.evidence)}${i.askedEvidence?evidenceHtml([i.askedEvidence]):''}</details><details class="ng-manual"><summary>Registrar esclarecimento manual</summary><div class="ng-actions">${choices}<button type="button" data-value="Não sabe informar">Não sabe informar</button>${optional}</div><textarea class="ng-answer" aria-label="${esc(i.question)}" data-answer="${esc(i.id)}" placeholder="${core?'Se sim, descreva a informação confirmada pelo médico':'Esclarecimento confirmado pelo médico'}"></textarea><button type="button" data-save="1">Registrar resposta</button></details>`;
     }
     function updateRows(items){
       const host=q('radarQuestions'),ids=new Set(items.map(i=>i.id));
@@ -274,7 +332,9 @@
     }
     function render(state){
       const pending=state.items.filter(i=>i.status!=='confirm').length,confirm=state.confirm||[],clarified=state.clarified||[];
-      setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-green">● ${clarified.length} esclarecidas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
+      setHtml('nexaContextualStatus',`<span class="ng-orange">● ${pending} pendentes</span><span class="ng-red">● ${confirm.length} a confirmar</span><span class="ng-cyan">● ${clarified.length} informadas</span>${state.alerts.length?`<span class="ng-red">● ${state.alerts.length} alerta(s)</span>`:''}`);
+      setText('ngTranscriptQuality',state.transcriptQuality==='incomplete'?'Trecho perdido · revisão necessária':state.transcriptQuality==='provisional'?'Transcrição provisória · confiança não aferida':'');
+      q('ngTranscriptQuality').dataset.quality=state.transcriptQuality||'not_measured';
       setText('radarLiveText',state.busy?'Analisando contexto…':({connecting:'Conectando acompanhamento…',live:'Acompanhando a conversa',paused:'Consulta pausada',unavailable:'Acompanhamento indisponível',stale:'Acompanhamento desatualizado',stopped:'Gravação encerrada'}[state.transcriptStatus]||'Aguardando informações'));
       setHtml('ngAlertBanner',state.alerts.length?`<div class="ng-alert-banner">⚠ ${state.alerts.length} alerta(s) ativo(s) <button type="button" data-tab="risks">Ver alertas</button></div>`:
          state.reviewAlerts?.length?`<div class="ng-review-banner">⚠ ${state.reviewAlerts.length} alerta(s) anterior(es) aguardando revisão médica <button type="button" data-tab="risks">Revisar</button></div>`:'');
@@ -283,8 +343,8 @@
       const visible=api.expanded?state.items:state.items.slice(0,5);updateRows(visible);
       if(!state.items.length)setHtml('radarQuestions',`<p class="ng-muted">${!state.hasContext?'Aguardando informações clínicas.':state.error||stale?'Análise incompleta; não é possível afirmar ausência de lacunas.':'Sem lacunas clínicas relevantes identificadas no momento.'}</p>`);else delete q('radarQuestions').dataset.rendered;
       q('nexaRadarMore').hidden=state.items.length<=5;setText('nexaRadarMore',api.expanded?'Mostrar menos':`Ver outras ${state.items.length-5} sugestões`);
-      setText('ngClarifiedTitle',`✓ Esclarecidas (${clarified.length})`);
-      setHtml('ngClarified',clarified.length?clarified.map(i=>`<details class="ng-evidence-row"><summary><span>${esc(i.label)}</span><span>${i.state==='known_absent'?'Negado':'Informado'}${i.temporal==='resolved'?' · resolvido':i.temporal==='prior'?' · prévio':''}${state.alerts.some(a=>a.concept===i.id)?' · Alerta':''}</span></summary>${evidenceHtml(i.evidence)}</details>`).join(''):'<p class="ng-muted">Os esclarecimentos aparecerão conforme a conversa evolui.</p>');
+      setText('ngClarifiedTitle',`Informações registradas (${clarified.length})`);
+      setHtml('ngClarified',clarified.length?clarified.map(i=>`<details class="ng-evidence-row"><summary><span>${esc(i.label)}</span><span data-evidence-state="${esc(state.evidenceStates?.[i.id]?.code||'not_asked')}">${esc(state.evidenceStates?.[i.id]?.label||'Informado · origem não atribuída')}${i.temporal==='resolved'?' · resolvido':i.temporal==='prior'?' · prévio':''}${state.alerts.some(a=>a.concept===i.id)?' · Alerta':''}</span></summary>${evidenceHtml(i.evidence)}</details>`).join(''):'<p class="ng-muted">Os esclarecimentos aparecerão conforme a conversa evolui.</p>');
       setText('ngConfirmTitle',`A confirmar (${confirm.length})`);
       setHtml('ngConfirm',confirm.length?confirm.map(i=>`<div class="ng-confirm-row"><button type="button" data-question="${esc(i.id)}">${esc(E.concepts[i.concept].label)}</button><span>${i.category==='contradiction'?'Contradição: exige retificação e confirmação médica.':'Resposta incerta: não resolve a pendência.'}</span>${i.evidence?.length?`<details class="ng-evidence-context"><summary>Evidências e origem</summary>${evidenceHtml(i.evidence)}</details>`:''}</div>`).join(''):'<p class="ng-muted">Nenhum ponto a confirmar identificado.</p>');
       setHtml('ngAuditTrail',(state.clinicalAudit||[]).slice(-4).reverse().map(a=>`<div class="ng-audit-event">${esc(E.concepts[a.id.replace(/^conflict:/,'').replace(/^finding:/,'')]?.label||'Dado clínico')} · ${esc(({medical_response:'registrado pelo médico',undo:'ação desfeita',alert_reviewed:'alerta revisado',evaluated:'avaliado',dismissed:'dispensado',not_applicable:'não aplicável'}[a.action]||'ação registrada'))}</div>`).join('')||'<small>Sem ações manuais nesta consulta.</small>');
@@ -327,5 +387,5 @@
       clear(){turns.clear();sequence=0;}
     };
   }
-  root.NexaRadarController={create,mount,createTranscriptBuffer,clinicalContext,remoteState};
+  root.NexaRadarController={create,mount,createTranscriptBuffer,clinicalContext,remoteState,classifyEvidence,evidenceSpeaker,evidenceLabels};
 })(globalThis);

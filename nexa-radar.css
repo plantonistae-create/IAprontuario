@@ -73,3 +73,19 @@ body[data-contextual-radar] #nexaStageHost .nexa-stage-view[data-stage="radar"]>
 #realtimeRadarCard .ng-review-alert{background:var(--nf-card2,#f5f9fb);border:1px solid #d2b46a;border-left:3px solid #c79024;border-radius:9px;margin:10px 0;padding:12px;display:grid;gap:9px;font-size:12px}
 #realtimeRadarCard .ng-review-alert textarea{min-height:64px;width:100%;border:1px solid var(--nf-line,#dbe4ec);border-radius:8px;color:var(--nf-text,#18334c);background:var(--nf-card,#fff);padding:8px}
 #realtimeRadarCard .ng-review-alert button{justify-self:start}
+
+/* Clinical provenance: blue/cyan for reported, amber for uncertain, green only manual confirmation. */
+#realtimeRadarCard .ng-cyan{color:#118a9f}
+#realtimeRadarCard .ng-evidence-status{font-size:10px;line-height:1.35;color:#087f96;background:rgba(18,141,171,.08);padding:4px 7px;border-radius:9px}
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="confirmed_by_physician"],
+#realtimeRadarCard [data-evidence-state="confirmed_by_physician"]{color:#13734f}
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="contradictory"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="uncertain_transcript"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="does_not_know"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="documented_unattributed"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="denied_by_companion"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="reported_by_companion"]{color:#9c6815;background:rgba(214,157,50,.13)}
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="not_applicable"],
+#realtimeRadarCard .ng-evidence-status[data-evidence-state="not_asked"]{color:var(--nf-muted,#687d95);background:rgba(122,143,158,.10)}
+#realtimeRadarCard .ng-transcript-quality{font-size:10px;color:var(--nf-muted,#71849a);margin-inline-start:6px}
+#realtimeRadarCard .ng-transcript-quality[data-quality="incomplete"]{color:#996411}
