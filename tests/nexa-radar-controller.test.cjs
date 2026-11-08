@@ -92,3 +92,11 @@ test('empty completion does not lock a later valid completed transcription',()=>
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Paciente: Não sei.'}),true);
  assert.equal(b.text,'Paciente: Não sei.');
 });
+
+test('delivery event_id alone cannot create a phantom transcript turn',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',event_id:'event-only',transcript:'Paciente: Não.'}),false);
+ assert.equal(b.text,'');
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',event_id:'delivery-1',transcript:'Paciente: Não.'}),true);
+ assert.equal(b.text,'Paciente: Não.');
+});
