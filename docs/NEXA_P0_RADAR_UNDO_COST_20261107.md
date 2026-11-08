@@ -1,0 +1,8 @@
+# NEXA P0 — Médico confirma, desfaz e revisa alertas
+Checkpoint 2026-11-07, HEAD base bede79a.
+- O Radar mantém evidência e origem apenas quando a transcrição tem marcação explícita e correspondência única; caso contrário, a origem é **não confirmada**. Confiança não aferida nunca vira dado confirmado.
+- O ledger clínico registra ações auditáveis, escopadas ao usuário e atendimento já existentes. O desfazer da última ação não substitui novas edições nem novos trechos de transcrição; não pode ser reativado após restaurar a sessão. Reversão integral do campo anterior só quando o contexto pós-ação corresponde exatamente.
+- Contradições exigem texto de retificação médica com no mínimo 12 caracteres, sem resolução automática. Alertas que saem do motor continuam pendentes em amarelo até justificativa documentada por médico; alerta reidentificado volta a ativo, em vermelho. Estado e auditoria persistem apenas dentro do snapshot já existente, sem nova tabela.
+- `supabase/functions/realtime-radar/admission-gate.mjs` é um **laboratório offline**, não importado pela Edge hospedada. Simula contadores por usuário, tenant e atendimento com chaves SHA-256 opacas e dispensa status/visual. Não é rate limit distribuído, não reduz comprovadamente fatura.
+- Para deploy de limites reais, falta obter tenant sob RLS, contador transacional compartilhado, controles concorrentes/TTL e métricas de preço/caso do provedor. Não ativar uma limitação baseada apenas em memória de isolate.
+- Gates: CI integral, autenticação, E2E, isolamento, rollback conhecido. Sem alterar realtime-call v6/JWT/RLS. Rollback: reverter este commit/merge no GitHub Pages e manter banco Supabase inalterado.
