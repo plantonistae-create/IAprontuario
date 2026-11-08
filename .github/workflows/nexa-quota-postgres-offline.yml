@@ -1,0 +1,61 @@
+name: NEXA P0 PostgreSQL Quota — Offline
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'labs/nexa-quota/**'
+      - 'tests/nexa-quota-postgres.integration.mjs'
+      - '.github/workflows/nexa-quota-postgres-offline.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'labs/nexa-quota/**'
+      - 'tests/nexa-quota-postgres.integration.mjs'
+      - '.github/workflows/nexa-quota-postgres-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-transaction-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NEXA_QUOTA_LAB: '1'
+      PGHOST: '127.0.0.1'
+      PGPORT: '5432'
+      PGUSER: 'postgres'
+      PGDATABASE: 'nexa_quota_lab'
+      PGPASSWORD: 'synthetic-local-postgres-only'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexa_quota_lab
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-local-postgres-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexa_quota_lab"
+          --health-interval 10s --health-timeout 5s --health-retries 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure local PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+      - name: Create disposable synthetic roles, profile and encounter fixtures
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/postgres-fixture.LAB-ONLY.sql
+      - name: Apply candidate schema ONLY to this throwaway PostgreSQL container
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/transactional-reservation.REVIEW-ONLY.sql
+      - name: Seed synthetic memberships, limits and encounters
+        run: psql -X -v ON_ERROR_STOP=1 -f labs/nexa-quota/postgres-seed.LAB-ONLY.sql
+      - name: Prove row locks, RLS boundaries, concurrent caps, idempotency and rollback
+        run: node --test tests/nexa-quota-postgres.integration.mjs
