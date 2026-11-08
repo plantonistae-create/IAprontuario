@@ -1,4 +1,4 @@
-const CACHE_NAME="nexa-v18-15-0-20261107-clinical-ledger-p0";
+const CACHE_NAME="nexa-v18-15-0-20261107-evidence-contract-p0";
 const HOTFIX_URL="./nexa-hotfix.js?v=20261107-radar-silent-focus-p0";
 const INDEX_URL="./index.html";
 

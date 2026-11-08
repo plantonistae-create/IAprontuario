@@ -1,0 +1,58 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+global.NexaRadarEngine=require('../nexa-radar-engine');require('../nexa-radar-controller');
+const {classifyEvidence:c,evidenceSpeaker:s,evidenceLabels:labels}=NexaRadarController;
+const f=(state,quote,section='transcript')=>({state,conflict:false,evidence:quote?[{state,quote,section}]:[],currentEvidence:quote?{state,quote,section}:null});
+const ctx=(transcript,fields={})=>({transcript,fields});
+test('eleven explicit states and safe unattributed record label exist',()=>{
+ for(const id of ['not_asked','awaiting_response','does_not_know','denied_by_patient','denied_by_companion',
+ 'reported_by_patient','reported_by_companion','confirmed_by_physician','not_applicable','contradictory','uncertain_transcript'])
+ assert.ok(labels[id],id);
+ assert.equal(Object.keys(labels).length,12);
+});
+test('silence, questions and clinician speech never become patient denials',()=>{
+ assert.equal(c(f('not_asked'),null,ctx('')).code,'not_asked');
+ assert.equal(c({...f('not_asked'),asked:{quote:'Médico: Febre?'}},null,ctx('Médico: Febre?')).code,'awaiting_response');
+ assert.equal(c(f('unknown','Médico: Febre?'),null,ctx('Médico: Febre?')).resolves_patient_fact,false);
+});
+test('patient statements are distinguished from companion statements, without reclassifying patient facts',()=>{
+ assert.equal(c(f('known_absent','Paciente: Nega febre.'),null,ctx('Paciente: Nega febre.')).code,'denied_by_patient');
+ assert.equal(c(f('known_present','Paciente: Apresenta febre.'),null,ctx('Paciente: Apresenta febre.')).code,'reported_by_patient');
+ const den=c(f('unknown','Acompanhante: Nega febre.'),null,ctx('Acompanhante: Nega febre.'));
+ assert.equal(den.code,'denied_by_companion');assert.equal(den.resolves_patient_fact,false);
+ assert.equal(c(f('unknown','Acompanhante: Relata febre.'),null,ctx('Acompanhante: Relata febre.')).code,'reported_by_companion');
+});
+test('duplicated speech has unknown attribution and no false certainty',()=>{
+ const transcript='Paciente: Nega febre.\nAcompanhante: Nega febre.';
+ assert.equal(s({section:'transcript',quote:'Nega febre.'},transcript),'unknown');
+ const d=c(f('known_absent','Nega febre.'),null,ctx(transcript));
+ assert.equal(d.code,'uncertain_transcript');assert.equal(d.confidence,'not_measured');
+});
+test('explicit unknown does not become denial',()=>{
+ const u=c(f('unknown','Paciente: Não sei informar.'),null,ctx('Paciente: Não sei informar.'));
+ assert.equal(u.code,'does_not_know');assert.equal(u.resolves_patient_fact,false);
+});
+test('contradiction outranks manual confirmation; unresolved transcript remains uncertain',()=>{
+ const doc={action:'answer',documented:'Febre: presente.',section:'hda'};
+ assert.equal(c({...f('known_present','Paciente: Febre.'),conflict:true},doc,ctx('Paciente: Febre.',{hda:'Febre: presente.'})).code,'contradictory');
+ assert.equal(c(f('known_present','Relatou febre.'),null,ctx('Relatou febre.'),true).code,'uncertain_transcript');
+});
+test('only current explicit manual response is physician-confirmed',()=>{
+ const doc={action:'answer',documented:'Febre: negado.',section:'hda'};
+ assert.equal(c(f('known_absent','Febre: negado.','hda'),doc,ctx('',{hda:'Febre: negado.'})).code,'confirmed_by_physician');
+ assert.equal(c(f('known_absent','Febre: negado.','hda'),null,ctx('',{hda:'Febre: negado.'})).code,'documented_unattributed');
+ assert.equal(c(f('known_absent','Febre: negado.','hda'),doc,ctx('',{hda:'Mudou.'})).code,'documented_unattributed');
+});
+test('not applicable is not allowed to conceal a present finding',()=>{
+ assert.equal(c(f('not_asked'),{action:'not_applicable'},ctx('')).code,'not_applicable');
+ assert.notEqual(c(f('known_present','Paciente: Febre.'),{action:'not_applicable'},ctx('Paciente: Febre.')).code,'not_applicable');
+});
+test('derived provenance never replaces facts or becomes a persisted second ledger',()=>{
+ let data={fields:{hda:'Cefaleia.'},transcript:'Médico: Teve febre?'};
+ const api=NexaRadarController.create({context:()=>data,publish(){},analyze:async()=>({items:[],observations:[]})});
+ api.setOwner('synthetic-owner');api.recalculate();
+ assert.equal(api.state.facts.fever.state,'not_asked');
+ assert.ok(api.state.evidenceStates.fever);
+ assert.equal(api.state.evidenceStates.fever.resolves_patient_fact,false);
+ assert.ok(!JSON.stringify(api.snapshot()).includes('evidenceStates'));api.reset();
+});
