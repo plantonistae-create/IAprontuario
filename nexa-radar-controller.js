@@ -98,10 +98,14 @@
       traceQuestions(state.items);state.questionTrace=[...questionTrace.values()];state.questionTraceTruncated=questionTraceTruncated;
       publish();
       if(alertTransition&&owner&&typeof adapter.persist==='function'){
-        // Save the existing owner-scoped snapshot when an ASR-only alert
-        // appears/disappears; no new remote inference or clinical field change.
-        // The live consultation's durable storage adapter owns CAS/RLS checks.
-        void Promise.resolve().then(()=>adapter.persist('radar_alert_transition')).catch(()=>{
+        // Guard asynchronous saves by both authenticated owner and encounter.
+        // A pending microtask from a prior session must never persist its state
+        // after account/consultation switching.
+        const persistOwner=owner,persistEncounter=encounter;
+        void Promise.resolve().then(()=>{
+          if(owner!==persistOwner||encounter!==persistEncounter)return;
+          return adapter.persist('radar_alert_transition');
+        }).catch(()=>{
           error='Histórico de alertas não confirmado em armazenamento. Revise antes de encerrar.';
           state.error=error;publish();
         });
