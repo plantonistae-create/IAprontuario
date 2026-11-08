@@ -72,3 +72,10 @@ test('all synthetic receipt outcomes leave live admission and billing unresolved
   assert.equal(r.clinical_result_verified,false);
  }
 });
+
+test('16 overlapping offline receipt reviews coalesce to one lookup',async()=>{
+ const x=harness();
+ const results=await Promise.all(Array.from({length:16},()=>x.review(R)));
+ assert.ok(results.every(r=>r===results[0]));
+ assert.deepEqual(x.counts(),{claimReads:1,receiptReads:1});
+});
