@@ -75,3 +75,11 @@ test('non-append edits still cancel stale AI requests',async()=>{
   await pending;
   api.reset();
 });
+
+test('restored reviewed alerts without a documented reason are not trusted',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.alertJournal=[{id:'finding:dyspnea',concept:'dyspnea',status:'reviewed',reason:''}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().alertJournal.some(x=>x.id==='finding:dyspnea'&&x.status==='reviewed'),false);
+ api.reset();
+});
