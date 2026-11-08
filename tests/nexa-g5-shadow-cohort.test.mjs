@@ -43,3 +43,8 @@ test('whitespace variants of the same synthetic case identifier are duplicates',
  const a=make(),b=make();b.case_id=' '+a.case_id+' ';
  assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
 });
+
+test('case-insensitive aliases cannot double-count synthetic fixtures',()=>{
+ const a=make(),b=make();b.case_id=a.case_id.toUpperCase();
+ assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+});
