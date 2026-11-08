@@ -100,3 +100,12 @@ test('delivery event_id alone cannot create a phantom transcript turn',()=>{
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',event_id:'delivery-1',transcript:'Paciente: Não.'}),true);
  assert.equal(b.text,'Paciente: Não.');
 });
+
+test('unknown event types cannot reserve audio ordering slots',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.delta',item_id:'a',delta:'incompleto'}),false);
+ assert.equal(b.ingest({type:'input_audio_buffer.committed',item_id:'b'}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'b',transcript:'Paciente: Sim.'}),true);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Médico: Pergunta?'}),true);
+ assert.equal(b.text,'Paciente: Sim.\nMédico: Pergunta?');
+});
