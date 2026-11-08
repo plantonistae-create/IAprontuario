@@ -38,3 +38,8 @@ test('duplicate or missing synthetic case IDs cannot inflate the cohort denomina
  b.case_id='synthetic-distinct';
  assert.equal(audit([a,b]).synthetic_cases,2);
 });
+
+test('whitespace variants of the same synthetic case identifier are duplicates',()=>{
+ const a=make(),b=make();b.case_id=' '+a.case_id+' ';
+ assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+});
