@@ -47,6 +47,7 @@ export function reconcileAggregateCost(input){
   used.add(row.capability);
   const cat=COST_CATEGORIES[row.capability],out=byCategory[cat]??={requests:0,declared_cost_usd:0,cost_coverage_complete:true,capability_count:0,histograms:[]};
   out.capability_count++;out.requests+=row.request_count;requests+=row.request_count;
+  if(!Number.isSafeInteger(out.requests)||!Number.isSafeInteger(requests))throw Error('AGGREGATE_COUNT_OVERFLOW');
   if(row.declared_cost_usd===null)out.cost_coverage_complete=false;
   else {out.declared_cost_usd+=row.declared_cost_usd;declared+=row.declared_cost_usd;}
   const hist=row.latency_histogram;
@@ -59,6 +60,7 @@ export function reconcileAggregateCost(input){
        !Number.isSafeInteger(b.upper_ms)||b.upper_ms<0||b.upper_ms<=prev)
       throw Error('AGGREGATE_HISTOGRAM_INVALID');
     total+=b.count;prev=b.upper_ms;
+    if(!Number.isSafeInteger(total))throw Error('AGGREGATE_HISTOGRAM_INVALID');
    }
    if(total!==row.request_count)throw Error('AGGREGATE_HISTOGRAM_COUNT_MISMATCH');
    // Category quantiles require complete aggregate histograms from every modality.
