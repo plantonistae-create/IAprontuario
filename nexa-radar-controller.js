@@ -381,7 +381,11 @@
         const id=event.item_id||event.item?.id||event.event_id;if(!id)return false;
         if(!turns.has(id))turns.set(id,{order:sequence++,text:''});
         if(event.type!=='conversation.item.input_audio_transcription.completed')return false;
-        const turn=turns.get(id),text=String(event.transcript||'').trim();if(turn.text===text)return false;turn.text=text;return true;
+        const turn=turns.get(id),text=String(event.transcript||'').trim();
+        // Completed turns are immutable: duplicate or delayed events must not
+        // overwrite an already accepted final transcript with different text.
+        if(turn.completed||!text)return false;
+        turn.text=text;turn.completed=true;return true;
       },
       get text(){return [...turns.values()].sort((a,b)=>a.order-b.order).map(t=>t.text).filter(Boolean).join('\n');},
       clear(){turns.clear();sequence=0;}
