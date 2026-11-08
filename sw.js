@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-v18-15-0-status-only-cost-20261107";
-const HOTFIX_URL="./nexa-hotfix.js?v=20261107-status-only-cost";
+const CACHE_NAME="nexa-v18-15-0-20261107-radar-silent-focus-p0";
+const HOTFIX_URL="./nexa-hotfix.js?v=20261107-radar-silent-focus-p0";
 const INDEX_URL="./index.html";
 
 async function injectHotfix(response){

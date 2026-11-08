@@ -57,33 +57,22 @@ async function chromiumFlow(browser,port,viewport){
   // New dynamic focus remains present in both PS and Complete, without overwriting clinical facts.
   await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160&&document.querySelector('#nexaRadarDynamic18160 .nexa-focus-shell18160'));
   assert.equal(await page.locator('#nexaFocusHistory18160 .nexa-focus-history-row18160').count(),3);
-  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter]').count(),3);
+  // The silent-focus design intentionally removed three redundant category filters.
+  // Keep the essential history, alert navigation and invariant that display
+  // changes NEVER mutate clinical facts, answers or the audit ledger.
+  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter]').count(),0);
   assert.match(await page.locator('#nexaFocusHistoryCount18160').innerText(),/^[0-3]\/3$/);
-  const beforeFilter=await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger}));
-  // During initial case recovery the panel can rerender one more time,
-  // replacing its transient filter state before the next animation frame.
-  for(let attempt=0;attempt<3;attempt++){
-    await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').click();
-    try{
-      await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160?.getFilter?.()==='context'&&
-        document.querySelector('#nexaRadarDynamic18160 [data-focus-filter="context"]')?.getAttribute('aria-pressed')==='true',null,{timeout:900});
-      break;
-    }catch(error){if(attempt===2)throw error}
-  }
-  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="context"]').getAttribute('aria-pressed'),'true');
-  // The encounter can finish restoring on slower mobile browsers while
-  // the reviewer changes tabs. Retry once if that lifecycle reset the filter.
-  for(let attempt=0;attempt<3;attempt++){
-    await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').click();
-    try{
-      await page.waitForFunction(()=>window.nexaRadarDynamicFocus18160?.getFilter?.()==='safety'&&
-        document.querySelector('#nexaRadarDynamic18160 [data-focus-filter="safety"]')?.getAttribute('aria-pressed')==='true',null,{timeout:900});
-      break;
-    }catch(error){if(attempt===2)throw error}
-  }
-  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-filter="safety"]').getAttribute('aria-pressed'),'true');
-  await page.locator('#nexaRadarDynamic18160 [data-focus-filter="now"]').click();
-  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
+  assert.ok(await page.locator('#nexaFocusQuestions18160 [data-focus-item]').count()<=1);
+  assert.equal(await page.locator('#ngQuestionsTab').count(),1);
+  assert.equal(await page.locator('#ngRisksTab').count(),1);
+  assert.equal(await page.locator('#nexaRadarDynamic18160 [data-focus-alert]').count(),1);
+  const beforeFocusRender=await page.evaluate(()=>JSON.stringify({
+    facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger
+  }));
+  await page.evaluate(()=>window.nexaRadarDynamicFocus18160.render());
+  assert.equal(await page.evaluate(()=>JSON.stringify({
+    facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger
+  })),beforeFocusRender);
   await assertNoOverflow(page,'dynamic Radar '+viewport.width);
 
   const jump=page.locator('#nexaFocusQuestions18160 [data-focus-item]').first();
@@ -100,7 +89,7 @@ async function chromiumFlow(browser,port,viewport){
   assert.equal(await page.locator('#nexaRadarModeComplete18131').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('#ngRisksTab').getAttribute('aria-selected'),'true');
   await page.locator('#nexaRadarModePs18131').click();
-  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFilter);
+  assert.equal(await page.evaluate(()=>JSON.stringify({facts:window.nexaRadar.state.facts,ledger:window.nexaRadar.snapshot().ledger})),beforeFocusRender);
 
 
 
