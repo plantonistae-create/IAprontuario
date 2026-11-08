@@ -9,6 +9,7 @@ export const COST_CATEGORIES=Object.freeze({
 });
 const allowedTop=new Set(['schema_version','period','completed_consultations','capabilities','provider_bill_total_usd']);
 const allowedRow=new Set(['capability','request_count','declared_cost_usd','latency_histogram']);
+// Round to micro-dollars without silently overflowing intermediate arithmetic.
 const round=n=>Math.round((n+Number.EPSILON)*1e6)/1e6;
 const validDecimal=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1000000;
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&
@@ -67,6 +68,7 @@ export function reconcileAggregateCost(input){
    out.histograms.push(hist);
   }
  }
+ if(!Number.isFinite(declared)||declared>1000000)throw Error('AGGREGATE_COST_TOTAL_INVALID');
  const bill=input.provider_bill_total_usd;
  if(!(bill===undefined||bill===null||validDecimal(bill)))throw Error('AGGREGATE_BILL_INVALID');
  const covered=Object.values(byCategory).every(c=>c.cost_coverage_complete);
