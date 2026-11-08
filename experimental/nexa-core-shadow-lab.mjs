@@ -21,9 +21,9 @@ function checkCase(c){
    c.deidentification_reviewed!==true||!Array.isArray(c.phrases)||c.phrases.length<1||c.phrases.length>40||
    !Array.isArray(c.expected_critical)||c.expected_critical.length>24||
    c.expected_critical.some(x=>typeof x!=='string'||!Object.hasOwn(Engine.concepts,x))||
-   ...['expected_alerts','forbidden_alerts'].map(key=>c[key]===undefined?false:
-     !Array.isArray(c[key])||c[key].length>24||
-       c[key].some(x=>typeof x!=='string'||!Object.hasOwn(Engine.concepts,x)))||
+   ['expected_alerts','forbidden_alerts'].some(key=>c[key]!==undefined&&
+     (!Array.isArray(c[key])||c[key].length>24||
+       c[key].some(x=>typeof x!=='string'||!Object.hasOwn(Engine.concepts,x))))||
    !obj(c.fields??{},['queixa_principal','hda','antecedentes','alergias','comorbidades','medicacoes','exame_fisico','sinais_vitais']))
    invalid();
  const fields=c.fields??{};
