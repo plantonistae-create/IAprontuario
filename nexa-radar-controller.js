@@ -258,7 +258,7 @@
         clinicalAudit.push({id:e.id,action:e.action,seq:e.seq,at:e.at.slice(0,32)});
       }
       for(const e of Array.isArray(saved.alertJournal)?saved.alertJournal.slice(0,80):[]){
-        if(!validId(e?.id)||!validId(e?.concept)||!E.concepts[e.concept]||!['active','pending','reviewed'].includes(e.status)||
+        if(!validId(e?.id)||!validId(e?.concept)||!Object.hasOwn(E.concepts,e.concept)||!['active','pending','reviewed'].includes(e.status)||
           (e.status==='reviewed'&&(typeof e.reason!=='string'||e.reason.trim().length<12)))continue;
         alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):'',kind:e.kind==='critical_question'?'critical_question':'finding',evidence:Array.isArray(e.evidence)?e.evidence.slice(0,2).filter(x=>x&&typeof x.quote==='string'&&typeof x.section==='string').map(x=>({quote:x.quote.slice(0,240),section:x.section.slice(0,50)})):[]});
       }
