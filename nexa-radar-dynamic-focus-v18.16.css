@@ -36,7 +36,7 @@ body[data-contextual-radar] #realtimeRadarCard #nexaRadarDynamic18160{
 #realtimeRadarCard #nexaRadarDynamic18160[data-unavailable="1"] .nexa-focus-identity18160 h3 i{background:#bf8120;box-shadow:0 0 0 4px rgba(191,129,32,.13)}
 #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-alert18160{
  border:1px solid #e9c9ce!important;border-radius:11px!important;
- background:#fff5f6!important;color:#a83146!important;
+ background:var(--rf-subtle)!important;color:var(--rf-text)!important;
  padding:9px 12px!important;min-height:41px!important;
  display:flex;align-items:center;gap:9px;flex:0 0 auto;font-size:11px!important;font-weight:800
 }
@@ -86,7 +86,7 @@ body[data-contextual-radar] #realtimeRadarCard #nexaRadarDynamic18160{
 }
 #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-question18160[data-priority="critical"],
 #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-question18160[data-status="confirm"]{
- border-left-color:#c84657!important;background:rgba(197,65,82,.035)!important
+ border-left-color:#c58b22!important;background:rgba(197,139,34,.045)!important
 }
 #realtimeRadarCard .nexa-focus-index18160{font-size:12px;font-weight:800;color:#188a98;font-variant-numeric:tabular-nums}
 #realtimeRadarCard .nexa-focus-copy18160{display:grid;gap:4px;min-width:0}
@@ -109,9 +109,9 @@ body[data-contextual-radar] #realtimeRadarCard #nexaRadarDynamic18160{
  border-radius:10px;background:var(--rf-bg);font-size:11px;font-weight:750
 }
 #realtimeRadarCard .nexa-focus-dot18160{width:8px;height:8px;border-radius:50%;background:#dda14b}
-#realtimeRadarCard .nexa-focus-history-row18160[data-state="documented"] .nexa-focus-dot18160{background:#16a47a}
-#realtimeRadarCard .nexa-focus-history-row18160[data-state="confirm"] .nexa-focus-dot18160{background:#cd5262}
-#realtimeRadarCard .nexa-focus-history-done18160{color:#108063;font-size:10px;font-weight:800;white-space:nowrap}
+#realtimeRadarCard .nexa-focus-history-row18160[data-state="documented"] .nexa-focus-dot18160{background:#148c95}
+#realtimeRadarCard .nexa-focus-history-row18160[data-state="confirm"] .nexa-focus-dot18160{background:#c58b22}
+#realtimeRadarCard .nexa-focus-history-done18160{color:#148c95;font-size:10px;font-weight:800;white-space:nowrap}
 #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-history-action18160{
  background:#fff5e8!important;border:1px solid #ead5b2!important;
  color:#9a641c!important;border-radius:8px!important;padding:7px 9px!important;
@@ -150,3 +150,7 @@ html[data-theme="dark"] #realtimeRadarCard #nexaRadarDynamic18160 .nexa-focus-fl
 @media(prefers-reduced-motion:reduce){
  #realtimeRadarCard #nexaRadarDynamic18160 *,#realtimeRadarCard #nexaRadarDynamic18160 *::before{transition:none!important;animation:none!important}
 }
+
+#realtimeRadarCard #nexaRadarDynamic18160[data-alerts="1"] .nexa-focus-alert18160{border-color:#e9c9ce!important;background:#fff5f6!important;color:#a83146!important}
+#realtimeRadarCard .nexa-focus-silent18160{margin:0 0 10px;font-size:10px;line-height:1.45;color:var(--rf-muted)}
+html[data-theme="dark"] #realtimeRadarCard #nexaRadarDynamic18160[data-alerts="0"] .nexa-focus-alert18160{background:var(--rf-subtle)!important;color:var(--rf-text)!important;border-color:var(--rf-border)!important}

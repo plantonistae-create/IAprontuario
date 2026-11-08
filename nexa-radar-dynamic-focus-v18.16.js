@@ -12,7 +12,7 @@ const CORE=Object.freeze([
  {id:'medicines',label:'Medicamentos contínuos'}
 ]);
 const PRIORITY={critical:'Crítica',high:'Importante',moderate:'Complementar',low:'Complementar'};
-let filter='now',signature='',encounter='';
+let signature='',encounter='',pinnedQuestion='';
 function state(){const s=window.nexaRadar?.state||window.radarState;return s&&Array.isArray(s.items)?s:null;}
 function domain(i){return i.status==='confirm'||i.priority==='critical'||i.redFlag?'safety':CORE.some(c=>c.id===i.concept)?'history':'context';}
 function model(s){
@@ -46,10 +46,8 @@ function shell(){
  '<header class="nexa-focus-header18160"><div class="nexa-focus-identity18160"><span>RADAR / FOCO CLÍNICO</span><h3>Investigação em tempo real <i aria-hidden="true"></i></h3><p id="nexaRadarFocusStatus18160" role="status"></p></div>'+
  '<button type="button" class="nexa-focus-alert18160" data-focus-alert="1" aria-label="Abrir riscos e alertas">Riscos e alertas <b id="nexaFocusAlertCount18160">0</b></button></header>'+
  '<div class="nexa-focus-grid18160"><section class="nexa-focus-questions18160" aria-label="Trilha de investigação">'+
- '<div class="nexa-focus-title18160"><div><strong>Próximas perguntas</strong><small>Ordenadas pelo Radar conforme o contexto</small></div><span id="nexaFocusPending18160" class="nexa-focus-counter18160"></span></div>'+
- '<div class="nexa-focus-filters18160" role="group" aria-label="Exibir perguntas por categoria">'+
- '<button type="button" data-focus-filter="now">Agora</button><button type="button" data-focus-filter="context">Contexto</button>'+
- '<button type="button" data-focus-filter="safety">Segurança</button></div>'+
+ '<div class="nexa-focus-title18160"><div><strong>Pergunta prioritária</strong><small>Foco estável até a resposta; risco crítico pode interromper</small></div><span id="nexaFocusPending18160" class="nexa-focus-counter18160"></span></div>'+
+ '<p class="nexa-focus-silent18160">Outras perguntas ficam em Perguntas; riscos ativos permanecem em Alertas.</p>'+
  '<div id="nexaFocusQuestions18160" class="nexa-focus-list18160"></div>'+
  '<p class="nexa-focus-caution18160">A prioridade auxilia a anamnese; não substitui avaliação ou decisão médica.</p></section>'+
  '<section class="nexa-focus-history18160" aria-label="Histórico clínico essencial"><div class="nexa-focus-title18160"><div><strong>Histórico essencial</strong>'+
@@ -57,24 +55,20 @@ function shell(){
  '<div id="nexaFocusHistory18160" class="nexa-focus-history-list18160"></div></section></div></section>';
 }
 function chosen(m){
- // An already spoken question is awaiting its answer, not another suggestion.
- const unasked=items=>items.filter(i=>i.status!=='asked');
- if(filter==='safety')return unasked(m.safety).slice(0,4);
- if(filter==='context')return unasked(m.context).slice(0,4);
- // Universal chart history belongs to the side panel, not to the live
- // decision-focused "Agora" queue. No repeated dismissals of low-value items.
- const sorted=unasked([...m.safety,...m.context]);
- return sorted.filter((x,n)=>sorted.findIndex(i=>i.id===x.id)===n).slice(0,3);
+ // Somente apresentação: mantém pergunta até resposta, sem tocar no prontuário.
+ const all=[...m.safety,...m.context].filter((x,i,a)=>x?.id&&a.findIndex(y=>y.id===x.id)===i);
+ const urgent=i=>i.category==='contradiction'||i.priority==='critical'||i.redFlag===true;
+ const pinned=all.find(i=>i.id===pinnedQuestion),risk=all.find(urgent);
+ if(risk&&(!pinned||!urgent(pinned)))pinnedQuestion=risk.id;
+ else if(!pinned)pinnedQuestion=all.find(i=>i.status!=='asked')?.id||'';
+ const selected=all.find(i=>i.id===pinnedQuestion);
+ return selected?[selected]:[];
 }
 function questionsMarkup(m){
  const list=chosen(m);
- if(!list.length)return '<p class="nexa-focus-empty18160">'+esc(
-  filter==='safety'?'Nenhuma pendência crítica ou contraditória identificada neste momento.':
-  filter==='context'?'Nenhuma pergunta contextual em aberto no momento.':
-  !m.s?.hasContext?'As perguntas aparecerão conforme o registro clínico evoluir.':
-  'Nenhuma pergunta adicional sugerida nesta etapa.')+'</p>';
+ if(!list.length)return '<p class="nexa-focus-empty18160">'+esc(!m.s?.hasContext?'As perguntas aparecerão conforme o registro clínico evoluir.':'Nenhuma pergunta adicional sugerida. Pendências essenciais continuam visíveis.')+'</p>';
  return list.map((i,n)=>{
-  const label=i.status==='confirm'?'Confirmar resposta':(PRIORITY[i.priority]||'Revisar');
+  const label=i.status==='asked'?'Aguardando resposta':i.status==='confirm'?'Confirmar resposta':(PRIORITY[i.priority]||'Revisar');
   return '<button type="button" class="nexa-focus-question18160" data-focus-item="'+esc(i.id)+'" data-priority="'+esc(i.priority)+'" data-status="'+esc(i.status)+'">'+
    '<span class="nexa-focus-index18160">'+String(n+1).padStart(2,'0')+'</span>'+
    '<span class="nexa-focus-copy18160"><strong>'+esc(i.question)+'</strong>'+
@@ -83,8 +77,8 @@ function questionsMarkup(m){
 }
 function historyMarkup(m){
  return m.core.map(c=>{
-  const known=c.status==='documented',label=known?'Registrado':c.status==='confirm'?'Confirmar':c.status==='asked'?'Aguardando resposta':'Pendente';
-  const statusEl=known?'<span class="nexa-focus-history-done18160">✓ Registrado</span>':
+  const known=c.status==='documented',label=known?'Informado':c.status==='confirm'?'Confirmar':c.status==='asked'?'Aguardando resposta':'Pendente';
+  const statusEl=known?'<span class="nexa-focus-history-done18160">Informado</span>':
     '<button type="button" data-focus-item="'+esc(c.item?.id||'')+'" class="nexa-focus-history-action18160"'+
     (c.item?'':' disabled')+'>'+esc(label)+' <span aria-hidden="true">↗</span></button>';
   return '<div class="nexa-focus-history-row18160" data-concept="'+c.id+'" data-state="'+c.status+'">'+
@@ -94,8 +88,8 @@ function historyMarkup(m){
 function render(){
  if(!mount())return false;
  const s=state()||{},m=model(s),root=$('nexaRadarDynamic18160'),current=String(s.encounter||'');
- if(current!==encounter){encounter=current;filter='now';signature='';}
- const next=JSON.stringify([encounter,filter,m.items.map(i=>[i.id,i.question,i.reason,i.priority,i.status]),
+ if(current!==encounter){encounter=current;pinnedQuestion='';signature='';}
+ const next=JSON.stringify([encounter,pinnedQuestion,m.items.map(i=>[i.id,i.question,i.reason,i.priority,i.status]),
   m.core.map(c=>c.status),m.alerts.length,s.busy,s.error,s.transcriptStatus,s.transcriptIncomplete,s.hasContext]);
  if(next===signature)return true;
  if(!root.querySelector('.nexa-focus-shell18160'))root.innerHTML=shell();
@@ -105,7 +99,6 @@ function render(){
  root.querySelector('#nexaFocusHistoryCount18160').textContent=m.core.filter(c=>c.status==='documented').length+'/3';
  root.querySelector('#nexaFocusQuestions18160').innerHTML=questionsMarkup(m);
  root.querySelector('#nexaFocusHistory18160').innerHTML=historyMarkup(m);
- for(const b of root.querySelectorAll('[data-focus-filter]'))b.setAttribute('aria-pressed',String(b.dataset.focusFilter===filter));
  root.dataset.unavailable=m.unavailable?'1':'0';
  root.dataset.alerts=m.alerts.length?'1':'0';
  signature=next;return true;
@@ -128,7 +121,6 @@ function goToQuestion(id){
 function click(event){
  if(!event.target.closest?.('#nexaRadarDynamic18160'))return;
  const btn=event.target.closest?.('button');if(!btn||btn.disabled)return;
- if(btn.dataset.focusFilter){filter=btn.dataset.focusFilter;signature='';render();return;}
  if(btn.dataset.focusAlert){
   window.nexaRadarPsMode18131?.setMode?.('complete');
   const details=$('nexaRadarFullDetails');if(details)details.open=true;
@@ -145,5 +137,5 @@ function boot(){
  render();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.nexaRadarDynamicFocus18160={mount,render,goToQuestion,getFilter:()=>filter};
+window.nexaRadarDynamicFocus18160={mount,render,goToQuestion,getPinnedQuestion:()=>pinnedQuestion};
 })();
