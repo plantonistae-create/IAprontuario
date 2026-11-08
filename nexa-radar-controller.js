@@ -24,7 +24,7 @@
       const m=line.match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):\s*(.*)$/i);
       if(!m)return false;
       const speech=m[2].trim();
-      return line.includes(quote)||(speech.length>=3&&(speech.includes(quote)||quote.includes(speech)));
+      return line.includes(quote)||(quote.length>=3&&speech.includes(quote));
     });
     if(matches.length!==1)return 'unknown';
     const role=matches[0].match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):/i)?.[1]?.toLowerCase();
