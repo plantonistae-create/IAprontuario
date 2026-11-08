@@ -14,6 +14,9 @@ on:
     paths:
       - 'labs/nexa-quota/**'
       - 'tests/nexa-quota-postgres.integration.mjs'
+      - 'tests/nexa-g5-postgres-dispatch.integration.mjs'
+      - 'tests/nexa-g6-postgres-reconciliation.integration.mjs'
+      - 'tests/nexa-g7-postgres-crash.integration.mjs'
       - '.github/workflows/nexa-quota-postgres-offline.yml'
 
 permissions:
