@@ -29,3 +29,12 @@ test('a non-synthetic or unreviewed case cannot enter the offline aggregate',()=
   assert.throws(()=>audit([c]),/SYNTHETIC_COHORT_REQUIRED/);
  }
 });
+
+test('duplicate or missing synthetic case IDs cannot inflate the cohort denominator',()=>{
+ const a=make(),b=make();
+ assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+ delete b.case_id;
+ assert.throws(()=>audit([b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+ b.case_id='synthetic-distinct';
+ assert.equal(audit([a,b]).synthetic_cases,2);
+});
