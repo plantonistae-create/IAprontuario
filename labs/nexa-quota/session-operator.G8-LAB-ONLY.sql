@@ -15,6 +15,12 @@ begin
 end
 $do$;
 
+-- G6's legacy service_role RPC trusts a caller-supplied p_admin_user_id.
+-- Explicitly DISABLE that entrypoint in this G8 laboratory. The original
+-- G6 tests run before G8, so earlier gates remain meaningful.
+revoke execute on function nexa_quota.reconcile_stale_radar_claims(uuid,uuid,integer,integer)
+ from service_role;
+
 create table nexa_quota.operator_role_bindings (
  principal_role text primary key check(length(principal_role) between 4 and 63),
  tenant_id uuid not null,
