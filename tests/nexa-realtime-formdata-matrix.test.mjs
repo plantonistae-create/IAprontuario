@@ -78,8 +78,8 @@ test('reference curl-style multipart is also a possible text field with SDP MIME
   const fake='Content-Disposition: form-data; name="sdp"\r\nContent-Type: application/sdp\r\n\r\n'+OFFER;
   assert.match(fake,/name="sdp"\r\nContent-Type: application\/sdp/);
   assert.doesNotMatch(fake,/filename=/);
-  assert.equal(src.candidate.includes('new Blob('),src.hosted.includes('new Blob('),
-    'fallback audio Blob is preserved; this is not a runtime comparison');
+  assert.equal(src.hosted.split('new Blob(').length-1,2);
+  assert.equal(src.candidate.split('new Blob(').length-1,0);
 });
 test('no real request, secret, invoice or patient payload is required by fixture',async()=>{
   const a=await inspect('candidate');
