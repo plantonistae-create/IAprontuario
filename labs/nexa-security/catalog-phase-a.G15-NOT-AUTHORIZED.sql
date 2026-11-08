@@ -23,42 +23,11 @@ WHERE n.nspname = 'public'
     OR pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE')
   );
 
--- A2: ONLY public SECURITY DEFINER routines grantable to either Data API role.
--- Do not send results to public issues, PRs, CI logs or user-facing output.
--- This shows metadata, NOT actual PostgREST reachability or safe authorisation.
-SELECT
-  n.nspname AS routine_schema,
-  p.proname AS routine_name_private_only,
-  pg_catalog.pg_get_function_identity_arguments(p.oid) AS identity_arguments_private_only,
-  CASE
-    WHEN p.prokind = 'p' THEN 'procedure'
-    WHEN p.prorettype = 'pg_catalog.trigger'::pg_catalog.regtype THEN 'trigger_function'
-    ELSE 'function_or_other'
-  END AS routine_class,
-  pg_catalog.pg_get_userbyid(p.proowner) AS owner_private_only,
-  r.rolsuper AS owner_superuser,
-  r.rolbypassrls AS owner_bypasses_rls,
-  p.prosecdef AS security_definer,
-  p.proconfig::text AS routine_config_private_only,
-  p.proacl::text AS raw_acl_private_only,
-  p.proacl IS NULL AS default_function_acl,
-  pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_effective_execute,
-  pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_effective_execute,
-  pg_catalog.has_schema_privilege('anon', n.oid, 'USAGE') AS anon_schema_usage,
-  pg_catalog.has_schema_privilege('authenticated', n.oid, 'USAGE') AS authenticated_schema_usage
-FROM pg_catalog.pg_proc AS p
-JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
-JOIN pg_catalog.pg_roles AS r ON r.oid = p.proowner
-WHERE n.nspname = 'public'
-  AND p.prosecdef
-  AND (
-    pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE')
-    OR pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE')
-  )
-ORDER BY n.nspname, p.proname, p.oid
-LIMIT 250;
+-- G16.3 SAFETY CORRECTION: THIS FILE NOW CONTAINS A1 ONLY.
+-- A2 moved into separate catalog-phase-a2.G16-NOT-AUTHORIZED.sql.
+-- STOP after A1. Do not execute A2 unless separately approved and the
+-- private A1 result passes phase-a-count-gate.G16-REVIEW-ONLY.mjs.
+-- A1 output is not evidence of tenant auth, privileged reachability, or GO.
 
 ROLLBACK;
--- No pg_get_functiondef, pg_depend, auth.users, app table, logs,
--- DDL, DML, application RPC invocation, transactions with write access,
--- GRANT/REVOKE, RLS changes or provider calls.
+-- No A2 included here. Not authorized to execute any hosted SQL.

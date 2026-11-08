@@ -5,6 +5,15 @@
 **duas consultas de catálogo read-only**, sem executá-las nem revelar resultados.
 **Estado final deste documento: STOP / NO-GO hospedado.**
 
+> **ATUALIZAÇÃO DE SEGURANÇA G16.3:** A1 e A2 foram separados fisicamente.
+> O arquivo `catalog-phase-a.G15-NOT-AUTHORIZED.sql` contém agora SOMENTE A1.
+> A2 está em `catalog-phase-a2.G16-NOT-AUTHORIZED.sql` e exige análise de
+> A1 e autorização própria antes de execução. Consulte
+> `docs/NEXA_P0_G16_PHASE_A_HARD_STOP.md` para o procedimento atual.
+> A descrição histórica abaixo NÃO autoriza executar ambas numa única sessão.
+
+
+
 ## A. Primeiro desbloqueio: aprovação específica e separada
 
 O pedido G15 **não concede autorização para SQL hosted**, nem leitura.
