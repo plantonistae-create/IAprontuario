@@ -4,6 +4,14 @@ export function auditSyntheticShadowCohort(cases){
  if(!Array.isArray(cases)||cases.length<1||cases.length>24||
   cases.some(c=>c?.schema_version!==LAB_CONTRACT||c.source!=='synthetic'||
     c.deidentification_reviewed!==true))throw Error('SYNTHETIC_COHORT_REQUIRED');
+ // Duplicate fixture IDs would count the same synthetic case repeatedly and
+ // distort the cohort denominator. Reject instead of silently deduplicating.
+ const caseIds=new Set();
+ for(const entry of cases){
+  if(typeof entry.case_id!=='string'||!entry.case_id.trim()||caseIds.has(entry.case_id))
+   throw Error('SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID');
+  caseIds.add(entry.case_id);
+ }
  let phraseCount=0,blocked=0,critical=0,alerts=0,speaker=0;
  for(const entry of cases){
   const result=replayShadowCase(entry),s=result.summary;
