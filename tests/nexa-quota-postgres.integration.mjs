@@ -92,3 +92,14 @@ test('transaction rollback removes an unused reservation and subsequent retry ca
  assert.equal((await admit({id})).reason,'RESERVED');
  assert.equal(await sql('select count(*) from nexa_quota.radar_reservations;'),'1');
 });
+
+test('cross-tenant concurrent use of one request UUID denies one without leaking SQL uniqueness error',async()=>{
+ await wipe();
+ const id=request(500);
+ const results=await Promise.all([
+   admit({user:A,tenant:T1,encounter:EA,id,input:100,output:50}),
+   admit({user:D,tenant:T2,encounter:ED,id,input:100,output:50})
+ ]);
+ assert.deepEqual(results.map(x=>x.reason).sort(),['IDEMPOTENCY_CONFLICT','RESERVED']);
+ assert.equal(await sql('select count(*) from nexa_quota.radar_reservations;'),'1');
+});

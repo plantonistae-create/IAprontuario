@@ -133,11 +133,14 @@ begin
     return jsonb_build_object('allowed',false,'reason','BUDGET_EXCEEDED');
   end if;
 
+  -- Requests sharing an ID across distinct tenant row locks can race.
+  -- ON CONFLICT prevents a global-UUID collision from escaping as SQL 23505.
   insert into nexa_quota.radar_reservations(
     request_id,tenant_id,user_id,encounter_id,reserved_input_tokens,reserved_output_tokens
   ) values(
     p_request_id,p_tenant_id,p_user_id,p_encounter_id,p_input_tokens,p_output_tokens
-  );
+  ) on conflict (request_id) do nothing;
+  if not found then return jsonb_build_object('allowed',false,'reason','IDEMPOTENCY_CONFLICT'); end if;
   return jsonb_build_object('allowed',true,'reason','RESERVED');
 end;
 $$;
