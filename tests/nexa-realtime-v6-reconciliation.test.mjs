@@ -37,7 +37,7 @@ test('JWT, clinical access, fallback, timeout and upstream observability are byt
     assert.ok(candidate.includes(token), 'candidate missing '+token);
   }
   assert.equal((candidate.match(/AbortSignal\.timeout\(18000\)/g)??[]).length,
-    (hosted.match(/AbortSignal\\.timeout\\(18000\\)/g)??[]).length);
+    (hosted.match(/AbortSignal\.timeout\(18000\)/g)??[]).length);
   assert.ok(!candidate.includes('emitUsage("realtime.transcription"'),
     'do not silently insert Git-only usage code into hosted v6');
 });
