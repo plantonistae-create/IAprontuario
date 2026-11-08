@@ -11,7 +11,8 @@ test('private RLS schema, caller restrictions and invoker privileges are explici
  'revoke execute on function','from public, anon, authenticated','grant execute on function',
  'to service_role','for share','c.user_id=p_user_id and c.encounter_id=p_encounter_id'])
  assert.ok(sql.includes(marker),marker);
- assert.doesNotMatch(sql,/security definer|raw_user_meta_data|user_metadata/i);
+ const executable=sql.replace(/^\s*--.*$/gm,'');
+ assert.doesNotMatch(executable,/security definer|raw_user_meta_data|user_metadata/i);
  assert.ok(sql.startsWith('-- INERT REVIEW CANDIDATE.'));
 });
 test('all tenant reservations are locked before checking aggregate ceilings',()=>{
