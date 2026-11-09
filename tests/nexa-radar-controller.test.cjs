@@ -109,3 +109,10 @@ test('unknown event types cannot reserve audio ordering slots',()=>{
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Médico: Pergunta?'}),true);
  assert.equal(b.text,'Paciente: Sim.\nMédico: Pergunta?');
 });
+
+test('audio item IDs are canonicalized before turn deduplication',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:' item-1 ',transcript:'Primeira fala.'}),true);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'item-1',transcript:'Texto duplicado.'}),false);
+ assert.equal(b.text,'Primeira fala.');
+});
