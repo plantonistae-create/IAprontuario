@@ -72,3 +72,12 @@ test('synthetic case ID boundary accepts 65 characters and rejects 66',()=>{
  const rejected=make();rejected.case_id='x'.repeat(66);
  assert.throws(()=>audit([rejected]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
 });
+
+test('critical misses never promote shadow cohort to live use',()=>{
+ const c=make();c.expected_critical=['sudden'];
+ const r=audit([c]);
+ assert.equal(r.core_promotable_to_live,false);
+ assert.equal(r.clinical_safety_validated,false);
+ assert.equal(r.paid_provider_calls,0);
+ assert.equal(r.critical_misses_require_manual_review,r.missed_critical_last_frame_count>0);
+});
