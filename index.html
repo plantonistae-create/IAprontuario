@@ -3765,8 +3765,15 @@ function handleRealtimeEvent(evt,revision=radarTransportRevision){
     realtimeTranscript=radarTranscriptBuffer.text;realtimeTranscriptDelta='';radarTransportStatus(sessionPaused?'paused':'live');radarAnalyze(false);
   }
 }
-async function startRealtimeRadar(mediaStream){
-  const revision=++radarTransportRevision;radarTranscriptBuffer.clear(revision);radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
+async function startRealtimeRadar(mediaStream,{preserveTranscript=false}={}){
+  const revision=++radarTransportRevision;
+  if(preserveTranscript){
+    if(!radarTranscriptBuffer.rotate(revision)){radarTransportStatus('unavailable');return;}
+  }else{
+    // New recording: never inherit a previous consultation's transcript.
+    radarTranscriptBuffer.clear(revision);realtimeTranscript='';realtimeTranscriptDelta='';
+  }
+  radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
   const current=()=>revision===radarTransportRevision&&recording;
   try{
     if(!current()||!$('consent').checked)return;
@@ -3908,7 +3915,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
     window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
     nexaScrollToProcessCta();
   };
-  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
+  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';startRealtimeRadar(stream);radarAnalyze(false);
   timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
   $('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';
   $('status').textContent='Gravando consulta…';
@@ -5385,7 +5392,7 @@ const vitalField=document.createElement('div');vitalField.className='field';vita
   apply:fields=>{for(const [key,value] of Object.entries(fields)){const el=ta(key);if(el&&el.value!==value){el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))}}},
   publish:state=>{radarState=state;window.radarState=state;window.dispatchEvent(new CustomEvent('nexa:radar-state',{detail:{state,reason:'context'}}));},
   persist:nexaPersistSession,
-  retryTranscript:()=>{if(recording&&stream){stopRealtimeRadar({wipe:false});void startRealtimeRadar(stream);}},
+  retryTranscript:()=>{if(recording&&stream){stopRealtimeRadar({wipe:false});void startRealtimeRadar(stream,{preserveTranscript:true});}},
   analyze:async(context,signal)=>{const headers=await sessionHeaders();if(signal.aborted)throw new DOMException('Aborted','AbortError');const r=await fetch(SUPABASE_URL+APP_CONFIG.realtimeRadarPath,{method:'POST',headers,signal,body:JSON.stringify({transcript:context.transcript,clinical_context:context.fields,radar_contract:1,previous_state:NexaRadarController.remoteState(window.nexaRadar?.snapshot()),app_version:APP_CONFIG.appVersion})});if(!r.ok)throw new Error('Radar indisponível');return r.json();}
 });
 window.nexaRadar.setOwner(currentProf?.id||'');
