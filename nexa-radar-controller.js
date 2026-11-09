@@ -251,7 +251,9 @@
       recalculate();adapter.persist?.();return true;
     }
     function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();clinicalAudit.length=0;alertJournal.clear();undoEntry=null;questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
-    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger&&typeof saved.ledger==='object'&&!Array.isArray(saved.ledger)?saved.ledger:{};
+    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger&&Object.getPrototypeOf(saved.ledger)===Object.prototype?
+        Object.fromEntries(Object.entries(saved.ledger).filter(([key,value])=>
+          Object.hasOwn(E.concepts,key.replace(/^conflict:/,''))&&value&&typeof value==='object'&&!Array.isArray(value))):{};
       encounter=typeof saved.encounter==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(saved.encounter)?saved.encounter:encounter;
       for(const e of Array.isArray(saved.clinicalAudit)?saved.clinicalAudit.slice(-80):[]){
         if(!validId(e?.id)||!['medical_response','evaluated','dismissed','not_applicable','undo','alert_reviewed'].includes(e?.action)||
