@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {checkInventory,parseSourceFieldSets,mapSyntheticFieldNames,gitBlobSha,REPO_ROOT,PINNED_SOURCES,literalKeys} from './source-inventory.G61-LAB-ONLY.mjs';
+import {checkInventory,parseSourceFieldSets,mapSyntheticFieldNames,gitBlobSha,REPO_ROOT,PINNED_SOURCES,LOADED_RUNTIME_PINS,literalKeys} from './source-inventory.G61-LAB-ONLY.mjs';
 import {FIELDS,SECTIONS,canonicalEnvelope,ENVELOPE_SCHEMA} from './authority-model.G60-LAB-ONLY.mjs';
 
 test('G61 static source baseline is byte-for-byte pinned on 19 critical sources',()=>{
@@ -18,6 +18,8 @@ test('G61 source inventory identifies mapped fields without declaring clinical c
  assert.equal(r.staticSourceIntegrity,'PASS');
  assert.equal(r.staticFieldMappings,'PASS');
  assert.equal(r.resetAuthorized,false);
+ assert.equal(r.sourceCount,51);
+ assert.equal(r.runtimePinnedCount,32);
  assert.equal(r.manifestSections,12);
  assert.equal(r.manifestFields,14);
  assert.equal(r.formFields.length,12);
@@ -94,4 +96,25 @@ test('never represent the static inventory as authoritative version attestation'
  assert.notEqual(r.status,'APPROVED');assert.equal(r.resetAuthorized,false);
  assert.ok(r.unreviewedRuntimeModules.length>0);
  assert.ok(r.auditMissingFields.length>0);
+});
+
+test('all 32 additional loader modules have pinned byte integrity (not semantic attestation)',()=>{
+ assert.equal(Object.keys(LOADED_RUNTIME_PINS).length,32);
+ for(const [file,[sha]] of Object.entries(LOADED_RUNTIME_PINS)){
+  assert.equal(gitBlobSha(fs.readFileSync(path.join(REPO_ROOT,file))),sha,file);
+ }
+ const report=checkInventory();
+ assert.equal(report.runtimePinnedCount,32);
+ assert.ok(report.runtimeModuleCount>=45);
+ assert.equal(report.unreviewedRuntimeModules.length,32,'pinned source != reviewed clinical semantics');
+});
+test('changes in any runtime-loaded module also trigger STOP even if outside 19 critical sources',()=>{
+ for(const file of Object.keys(LOADED_RUNTIME_PINS)){
+  const src=fs.readFileSync(path.join(REPO_ROOT,file),'utf8');
+  const result=checkInventory({overrides:{[file]:src+'\n// synthetic future code modification'}});
+  assert.equal(result.status,'STOP',file);
+  assert.equal(result.code,'SOURCE_CHANGED_NEEDS_REVIEW',file);
+  assert.equal(result.source,file);
+  assert.equal(result.resetAuthorized,false);
+ }
 });
