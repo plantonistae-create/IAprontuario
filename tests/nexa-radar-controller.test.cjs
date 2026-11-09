@@ -124,3 +124,20 @@ test('non-text completion payloads cannot become fabricated transcript content',
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'item-1',transcript:'Paciente: Sem febre.'}),true);
  assert.equal(b.text,'Paciente: Sem febre.');
 });
+
+test('transcript buffer reset isolates a later synthetic consultation after reconnection',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ b.ingest({type:'input_audio_buffer.committed',item_id:'shared-turn'});
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'shared-turn',transcript:'Consulta anterior.'}),true);
+ b.clear();
+ assert.equal(b.text,'');
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'shared-turn',transcript:'Nova consulta.'}),true);
+ assert.equal(b.text,'Nova consulta.');
+});
+test('out-of-order completion and duplicate commit cannot rewrite an accepted turn',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-A',transcript:'Texto final.'}),true);
+ assert.equal(b.ingest({type:'input_audio_buffer.committed',item_id:'turn-A'}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-A',transcript:'Texto atrasado.'}),false);
+ assert.equal(b.text,'Texto final.');
+});
