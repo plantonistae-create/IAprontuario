@@ -12,6 +12,8 @@ export function decideOfflineTransportFallback(trace,options){
   !obj(options)||Object.keys(options).some(k=>!['localReady','confirmedUserCancellation'].includes(k))||
   typeof options.localReady!=='boolean'||typeof options.confirmedUserCancellation!=='boolean')
   throw Error('TRANSPORT_POLICY_INVALID');
+ if(!Object.hasOwn(options,'localReady')||!Object.hasOwn(options,'confirmedUserCancellation'))
+  throw Error('TRANSPORT_POLICY_INVALID');
  if(options.confirmedUserCancellation&&trace.outcome!=='CANCELLED_BY_USER')
   throw Error('CANCELLATION_PROVENANCE_CONFLICT');
  // An unverified cancellation is not permission to restart a paid operation.
