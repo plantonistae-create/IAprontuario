@@ -204,20 +204,20 @@ test('history restore with dynamic clinical fields or omitted section fails',()=
 });
 test('consent missing or withdrawn fails processing',()=>{
  const f=source();
- applied(f,'transcript_chunk',{itemId:'a1',text:'Fala sintética',speakerId:'s1',role:'doctor'});
+ applied(f,'transcript_chunk',{itemId:'turn-1',text:'Fala sintética',speakerId:'speaker-1',role:'doctor'});
  rejected(f,'finish_processing',{provider:'fake',model:'test',durationMs:1},'PROCESS_PRECONDITION_FAILED');
  applied(f,'consent_update',{granted:false,withdrawn:true,recordedAt:'2026-11-09T15:15Z',scope:'lab-scope'});
  rejected(f,'finish_processing',{provider:'fake',model:'test',durationMs:1},'PROCESS_PRECONDITION_FAILED');
 });
 test('duplicate transcript item inside one consultation is rejected, no text leaked',()=>{
  const f=source();consent(f);
- applied(f,'transcript_chunk',{itemId:'repeat',text:'Trecho sintético',speakerId:'s1',role:'doctor'});
- rejected(f,'transcript_chunk',{itemId:'repeat',text:'Duplicado',speakerId:'s1',role:'doctor'},'TRANSCRIPT_ITEM_REPLAY');
+ applied(f,'transcript_chunk',{itemId:'repeat',text:'Trecho sintético',speakerId:'speaker-1',role:'doctor'});
+ rejected(f,'transcript_chunk',{itemId:'repeat',text:'Duplicado',speakerId:'speaker-1',role:'doctor'},'TRANSCRIPT_ITEM_REPLAY');
  assert.equal(f.visibleTranscript(),'');
 });
 test('unapproved transcript metadata cannot enter state',()=>{
  const f=source();
- rejected(f,'transcript_chunk',{itemId:'x',text:'texto',speakerId:'s1',role:'doctor',confidence:0.99},'EVENT_PAYLOAD_INVALID');
+ rejected(f,'transcript_chunk',{itemId:'x',text:'texto',speakerId:'speaker-1',role:'doctor',confidence:0.99},'EVENT_PAYLOAD_INVALID');
 });
 test('checkpoint requires completed processing and matching source sync version',()=>{
  const f=source();consent(f);finish(f);
@@ -240,7 +240,7 @@ test('audit refuses wrong source version and does not change snapshot',()=>{
 });
 test('audit must not happen with an unprocessed audio buffer',()=>{
  const f=source();consent(f);
- applied(f,'transcript_chunk',{itemId:'a1',text:'Fala ainda pendente.',speakerId:'s1',role:'doctor'});
+ applied(f,'transcript_chunk',{itemId:'turn-1',text:'Fala ainda pendente.',speakerId:'speaker-1',role:'doctor'});
  rejected(f,'audit_lock',{expectedSourceVersion:6,caseId:'audit-a',auditVersion:2,lockedAt:'2026-11-09T15:21Z'},'AUDIT_CHECKPOINT_OR_VERSION_MISMATCH');
 });
 test('replay of clinical mutation after audited locked is retained as pending addendum and STOP',()=>{
