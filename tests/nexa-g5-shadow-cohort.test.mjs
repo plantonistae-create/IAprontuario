@@ -58,3 +58,10 @@ test('oversized synthetic case identifiers fail before shadow replay',()=>{
  const c=make();c.case_id='x'.repeat(129);
  assert.throws(()=>audit([c]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
 });
+
+test('synthetic cohort rejects malformed case IDs before shadow replay',()=>{
+ for(const case_id of [' a','A-case','case with spaces','case@host','x'.repeat(65)]){
+  const c=make();c.case_id=case_id;
+  assert.throws(()=>audit([c]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+ }
+});
