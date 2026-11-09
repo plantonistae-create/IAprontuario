@@ -24,7 +24,7 @@
       const m=line.match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):\s*(.*)$/i);
       if(!m)return false;
       const speech=m[2].trim();
-      return line.includes(quote)||(speech.length>=3&&(speech.includes(quote)||quote.includes(speech)));
+      return line.includes(quote)||(quote.length>=3&&speech.includes(quote));
     });
     if(matches.length!==1)return 'unknown';
     const role=matches[0].match(/^\s*(Médico|Médica|Profissional|Paciente|Acompanhante):/i)?.[1]?.toLowerCase();
@@ -34,7 +34,7 @@
     const ev=fact.currentEvidence||fact.evidence?.at(-1)||null;
     const speaker=evidenceSpeaker(ev,context.transcript),source=ev?.section||'none';
     const quote=String(ev?.quote||''),factState=fact.state||'not_asked';
-    const uncertain=/\b(?:não sei|nao sei|não lembro|nao lembro|não sabe|nao sabe|talvez|acho que|não entendi|nao entendi)\b/i.test(quote);
+    const uncertain=/\b(?:não sei|nao sei|não lembro|nao lembro|não sabe|nao sabe|talvez|acho que|não entendi|nao entendi|sem certeza|não tenho certeza|nao tenho certeza|não consigo afirmar|nao consigo afirmar|não recordo|nao recordo)\b/i.test(quote);
     const denial=/\b(?:nega|negou|negado|não tem|nao tem|sem|nunca|não houve|nao houve|não apresenta|nao apresenta)\b/i.test(quote);
     const confirmed=record?.action==='answer'&&typeof record.documented==='string'&&!!record.documented&&
       typeof context.fields?.[record.section]==='string'&&context.fields[record.section].includes(record.documented)&&
@@ -43,7 +43,7 @@
     if(fact.conflict)code='contradictory';
     else if(confirmed)code='confirmed_by_physician';
     else if(record?.action==='not_applicable'&&!['known_present','known_absent'].includes(factState))code='not_applicable';
-    else if(uncertain&&source==='transcript')code='does_not_know';
+    else if(uncertain&&source==='transcript'&&(speaker==='patient'||speaker==='companion'))code='does_not_know';
     else if(source==='transcript'&&speaker==='companion')
       code=denial?'denied_by_companion':'reported_by_companion';
     else if(source==='transcript'&&speaker==='patient'&&factState==='known_absent')code='denied_by_patient';
@@ -251,20 +251,26 @@
       recalculate();adapter.persist?.();return true;
     }
     function reset(user=owner){invalidate();clearTimeout(timer);questionTrace.clear();clinicalAudit.length=0;alertJournal.clear();undoEntry=null;questionTraceTruncated=false;remoteMeta={provider:'unknown',model_version:'unknown',evidence_version:'unknown',prompt_version:'unknown'};ledger={};aiItems=[];observations=[];lastKey='';lastContext=null;aiKey='';error='';transcriptStatus='idle',transcriptIncomplete=false,lastRequestAt=0;owner=user;encounter=crypto.randomUUID();expanded=false;lastRequestAt=0;state=E.analyze({});publish();}
-    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger||{};encounter=saved.encounter||encounter;
+    function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger&&Object.getPrototypeOf(saved.ledger)===Object.prototype?
+        Object.fromEntries(Object.entries(saved.ledger).slice(-80).filter(([key,value])=>
+          (key.startsWith('conflict:')?Object.hasOwn(E.concepts,key.slice(9)):Object.hasOwn(E.concepts,key))&&
+          value&&Object.getPrototypeOf(value)===Object.prototype&&
+          ['answer','evaluated','dismissed','not_applicable'].includes(value.action))):{};
+      encounter=typeof saved.encounter==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(saved.encounter)?saved.encounter:encounter;
       for(const e of Array.isArray(saved.clinicalAudit)?saved.clinicalAudit.slice(-80):[]){
         if(!validId(e?.id)||!['medical_response','evaluated','dismissed','not_applicable','undo','alert_reviewed'].includes(e?.action)||
            !Number.isSafeInteger(e?.seq)||e.seq<1||typeof e?.at!=='string'||!/^\d{4}-\d\d-\d\dT/.test(e.at))continue;
         clinicalAudit.push({id:e.id,action:e.action,seq:e.seq,at:e.at.slice(0,32)});
       }
       for(const e of Array.isArray(saved.alertJournal)?saved.alertJournal.slice(0,80):[]){
-        if(!validId(e?.id)||!validId(e?.concept)||!['active','pending','reviewed'].includes(e.status))continue;
+        if(!validId(e?.id)||!validId(e?.concept)||!Object.hasOwn(E.concepts,e.concept)||!['active','pending','reviewed'].includes(e.status)||
+          (e.status==='reviewed'&&(typeof e.reason!=='string'||e.reason.trim().length<12)))continue;
         alertJournal.set(e.id,{id:e.id,concept:e.concept,status:e.status,firstSeen:String(e.firstSeen||'').slice(0,32),reason:typeof e.reason==='string'?e.reason.slice(0,240):'',kind:e.kind==='critical_question'?'critical_question':'finding',evidence:Array.isArray(e.evidence)?e.evidence.slice(0,2).filter(x=>x&&typeof x.quote==='string'&&typeof x.section==='string').map(x=>({quote:x.quote.slice(0,240),section:x.section.slice(0,50)})):[]});
       }
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
         const id=String(x?.id||''),concept=String(x?.concept||'');
-        if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;
+        if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!Object.hasOwn(E.concepts,concept)||questionTrace.has(id))continue;
         questionTrace.set(id,{id,concept,question:String(x.question||'').slice(0,360),
           reason:String(x.reason||'').slice(0,360),priority:String(x.priority||'moderate'),
           status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});

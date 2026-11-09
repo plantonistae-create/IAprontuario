@@ -75,3 +75,85 @@ test('non-append edits still cancel stale AI requests',async()=>{
   await pending;
   api.reset();
 });
+
+test('restored reviewed alerts without a documented reason are not trusted',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.alertJournal=[{id:'finding:dyspnea',concept:'dyspnea',status:'reviewed',reason:''}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().alertJournal.some(x=>x.id==='finding:dyspnea'&&x.status==='reviewed'),false);
+ api.reset();
+});
+
+test('restored alert journal ignores fabricated concepts absent from the clinical engine',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.alertJournal=[{id:'finding:fiction',concept:'fiction',status:'pending',reason:''}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().alertJournal.some(x=>x.concept==='fiction'),false);
+ api.reset();
+});
+
+test('restored question trace excludes inherited prototype names as clinical concepts',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.questionTrace=[{id:'toString',concept:'toString',question:'invalid',status:'to_ask'}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().questionTrace.some(x=>x.concept==='toString'),false);
+ api.reset();
+});
+
+test('malformed persisted encounter identifier cannot override isolated encounter',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.encounter='cross-encounter-injection';
+ api.restore(saved,'a');
+ assert.notEqual(api.snapshot().encounter,'cross-encounter-injection');
+ api.reset();
+});
+
+test('malformed 36-character encounter token cannot masquerade as UUID',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.encounter='------------------------------------';
+ api.restore(saved,'a');
+ assert.notEqual(api.snapshot().encounter,saved.encounter);
+ api.reset();
+});
+
+test('restored ledger excludes fabricated concepts and inherited prototype entries',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={fiction:{action:'answer',value:'Sim'},toString:{action:'answer',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'fiction'),false);
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'toString'),false);
+ api.reset();
+});
+
+test('unknown restored ledger actions cannot suppress clinical questions',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'fabricated',evidenceKey:'[]',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'dyspnea'),false);
+ api.reset();
+});
+
+test('restored ledger is isolated by physician owner',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'answer',value:'Não',section:'hda',documented:'Dispneia: negado.'}};
+ api.restore(saved,'another-physician');
+ assert.deepEqual(api.snapshot().ledger,{});
+ assert.equal(api.snapshot().owner,'another-physician');
+ api.reset();
+});
+test('restored ledger discards unsupported action while retaining a valid clinical response',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'answer',value:'Não',section:'hda'},allergies:{action:'unverified',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().ledger.dyspnea.action,'answer');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'allergies'),false);
+ api.reset();
+});
+
+test('restored ledger rejects arrays, null prototypes and nested conflict prefixes',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:[],allergies:Object.assign(Object.create(null),{action:'answer',value:'Sim'}),'conflict:conflict:dyspnea':{action:'answer',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.deepEqual(api.snapshot().ledger,{});
+ api.reset();
+});
