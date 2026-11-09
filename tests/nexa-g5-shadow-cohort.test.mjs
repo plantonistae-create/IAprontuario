@@ -65,3 +65,10 @@ test('synthetic cohort rejects malformed case IDs before shadow replay',()=>{
   assert.throws(()=>audit([c]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
  }
 });
+
+test('synthetic case ID boundary accepts 65 characters and rejects 66',()=>{
+ const accepted=make();accepted.case_id='x'.repeat(65);
+ assert.equal(audit([accepted]).synthetic_cases,1);
+ const rejected=make();rejected.case_id='x'.repeat(66);
+ assert.throws(()=>audit([rejected]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+});
