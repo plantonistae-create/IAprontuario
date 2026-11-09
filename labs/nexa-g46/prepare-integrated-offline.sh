@@ -58,15 +58,19 @@ fi
  echo "integrated_tree=$(git rev-parse HEAD^{tree})"
  echo "node=$(node --version)"
  echo "git=$(git --version)"
- echo "network_mode=proxy_denied_best_effort_NOT_FIREWALL_PROVEN"
+ echo "network_mode=linux_unshare_net_required_before_tests"
  echo "status=INTEGRATED_NOT_BROWSER_HOMOLOGATED"
 } > "$root/manifest.txt"
-echo 'Executing selected local synthetic suites (no npm install; fail closed)'
-node --test tests/nexa-radar-controller.test.cjs tests/nexa-radar-provenance-state.test.cjs tests/nexa-g7-webrtc-fallback-policy.test.mjs tests/nexa-g5-shadow-cohort.test.mjs tests/nexa-cost-aggregate-reconciliation.test.mjs > "$root/tests.log" 2>&1 || {
+if ! command -v unshare >/dev/null || ! unshare --net -- true >/dev/null 2>&1; then
+ echo 'STOP: verified network namespace unavailable; tests NOT RUN (proxy settings alone are insufficient)'
+ exit 6
+fi
+echo 'Executing selected local synthetic suites in isolated network namespace (no npm install)'
+unshare --net -- node --test tests/nexa-radar-controller.test.cjs tests/nexa-radar-provenance-state.test.cjs tests/nexa-g7-webrtc-fallback-policy.test.mjs tests/nexa-g5-shadow-cohort.test.mjs tests/nexa-cost-aggregate-reconciliation.test.mjs > "$root/tests.log" 2>&1 || {
  tail -n 80 "$root/tests.log"
  echo 'STOP: synthetic test failure; no GO'
  exit 5
 }
-echo 'Synthetic suites PASS. Browser tests and network-denial firewall NOT verified.'
+echo 'Synthetic suites PASS under Linux network namespace. Browser tests NOT executed.'
 echo "Evidence: $root/manifest.txt, $root/tests.log, $root/changed-paths.txt"
 echo 'Do not deploy, merge or use clinical data. Separate authorization required for physical homologation.'
