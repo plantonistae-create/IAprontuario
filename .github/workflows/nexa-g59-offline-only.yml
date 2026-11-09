@@ -1,4 +1,4 @@
-name: NEXA G59 Audit Receipt (Offline Only)
+name: NEXA G59-G60 Audit Receipt (Offline Only)
 
 on:
   pull_request:
@@ -24,5 +24,7 @@ jobs:
         run: |
           node --check labs/nexa-audit-attestation/receipt-verifier.G59-LAB-ONLY.mjs
           node --check labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
+          node --check labs/nexa-audit-attestation/authority-model.G60-LAB-ONLY.mjs
+          node --check labs/nexa-audit-attestation/authority-model.G60.test.mjs
       - name: Offline synthetic verification only — no staging, SQL, API or dependencies
-        run: node --test labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
+        run: node --test labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs labs/nexa-audit-attestation/authority-model.G60.test.mjs
