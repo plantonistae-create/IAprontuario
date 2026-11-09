@@ -254,7 +254,7 @@
     function restore(saved,user){reset(user);if(saved?.version===1&&saved.owner===user&&user){ledger=saved.ledger&&Object.getPrototypeOf(saved.ledger)===Object.prototype?
         Object.fromEntries(Object.entries(saved.ledger).filter(([key,value])=>
           Object.hasOwn(E.concepts,key.replace(/^conflict:/,''))&&value&&typeof value==='object'&&!Array.isArray(value)&&
-          ['answer','evaluated','dismissed','not_applicable'].includes(value.action)))):{};
+          ['answer','evaluated','dismissed','not_applicable'].includes(value.action))):{};
       encounter=typeof saved.encounter==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(saved.encounter)?saved.encounter:encounter;
       for(const e of Array.isArray(saved.clinicalAudit)?saved.clinicalAudit.slice(-80):[]){
         if(!validId(e?.id)||!['medical_response','evaluated','dismissed','not_applicable','undo','alert_reviewed'].includes(e?.action)||
