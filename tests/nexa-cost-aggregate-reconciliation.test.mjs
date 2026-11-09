@@ -129,3 +129,18 @@ test('leap day is accepted only in leap years',()=>{
  const invalid=base();invalid.period.start_utc='2027-02-29T00:00:00Z';
  assert.throws(()=>reconcile(invalid),/AGGREGATE_CONTRACT_INVALID/);
 });
+
+test('missing provider invoice never verifies billing or invents causal savings',()=>{
+ const c=base();delete c.provider_bill_total_usd;
+ const r=reconcile(c);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.totals_match_declared_invoice,false);
+ assert.equal(r.official_billing_verified_by_connector,false);
+ assert.equal(r.causal_savings_attributable_to_nexa_usd,null);
+});
+test('zero completed consultations never produces a fabricated unit cost',()=>{
+ const c=base();c.completed_consultations=0;
+ const r=reconcile(c);
+ assert.equal(r.declared_cost_per_completed_consultation_usd,null);
+ assert.equal(r.counts.completed_consultations,0);
+});
