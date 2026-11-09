@@ -1,0 +1,28 @@
+name: NEXA G59 Audit Receipt (Offline Only)
+
+on:
+  pull_request:
+    branches:
+      - review/g59-offline-only-20261109
+    paths:
+      - 'labs/nexa-audit-attestation/**'
+
+permissions:
+  contents: read
+
+jobs:
+  g59-synthetic-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline source and tests syntax
+        run: |
+          node --check labs/nexa-audit-attestation/receipt-verifier.G59-LAB-ONLY.mjs
+          node --check labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
+      - name: Offline synthetic verification only — no staging, SQL, API or dependencies
+        run: node --test labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
