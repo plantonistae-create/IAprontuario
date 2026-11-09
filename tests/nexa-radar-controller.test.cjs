@@ -183,3 +183,32 @@ test('browser realtime event wiring binds buffer ingestion to transport revision
  assert.match(html,/if\(wipe\)\{radarTranscriptBuffer\.clear\(null\)/);
  assert.match(html,/nexaShowMedicationReview\(payload\.medication_review\);radarTranscriptBuffer\.clear\(null\)/);
 });
+
+test('offline lifecycle matrix: reconnect, stale events, timeout, cancellation and final-only transcript',async()=>{
+ const {decideOfflineTransportFallback:policy}=await import('../labs/nexa-webrtc/fallback-policy.G7-LAB-ONLY.mjs');
+ const b=NexaRadarController.createTranscriptBuffer(1);
+ let visibleTranscript='',recording=true,revision=1;
+ const deliver=(event,epoch)=>recording&&epoch===revision&&b.ingest(event,epoch);
+ const done=(id,text)=>({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript:text});
+ assert.equal(deliver({type:'input_audio_buffer.committed',item_id:'a'},1),false);
+ assert.equal(deliver(done('a','Primeiro turno sintético.'),1),true);
+ assert.equal(deliver(done('a','Duplicado.'),1),false);
+ assert.equal(visibleTranscript,''); // no transcript panel while recording
+ revision=2;b.clear(revision); // reconnect: invalidate callbacks from prior transport
+ assert.equal(deliver(done('late','Antigo.'),1),false);
+ assert.equal(deliver(done('new','Novo turno sintético.'),2),true);
+ assert.equal(b.text,'Novo turno sintético.');
+ const flags={localReady:true,confirmedUserCancellation:false};
+ const timeout=policy({phase:'webrtc',outcome:'TIMEOUT_BEFORE_HTTP_STATUS'},flags);
+ assert.equal(timeout.route,'LOCAL_REVIEW_REQUIRED');
+ assert.equal(timeout.automatic_paid_retry,false);
+ const cancel=policy({phase:'webrtc',outcome:'CANCELLED_BY_USER'},flags);
+ assert.equal(cancel.route,'STOP_CANCELLATION_PROVENANCE_UNVERIFIED');
+ assert.equal(cancel.automatic_paid_retry,false);
+ recording=false;revision++;visibleTranscript=b.text; // final-only display
+ assert.equal(deliver(done('after-stop','Descartar.'),2),false);
+ assert.equal(visibleTranscript,'Novo turno sintético.');
+ b.clear(null);
+ assert.equal(b.ingest(done('after-wipe','Descartar.'),revision),false);
+ assert.equal(b.text,'');
+});
