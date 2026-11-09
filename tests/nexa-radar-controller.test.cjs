@@ -151,3 +151,13 @@ test('transcription ignores duplicate empty completions and preserves committed 
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'first',transcript:'Primeira fala.'}),true);
  assert.equal(b.text,'Primeira fala.\nSegunda fala.');
 });
+
+test('session-tagged transcript buffer rejects late callbacks after consultation rotation',()=>{
+ const b=NexaRadarController.createTranscriptBuffer('consultation-A');
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-1',transcript:'Primeira consulta.'},'consultation-A'),true);
+ b.clear('consultation-B');
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-2',transcript:'Evento atrasado.'},'consultation-A'),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-3',transcript:'Sem sessão.'}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-4',transcript:'Segunda consulta.'},'consultation-B'),true);
+ assert.equal(b.text,'Segunda consulta.');
+});
