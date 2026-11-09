@@ -301,7 +301,7 @@ test('stale local version and unknown medical field are not absorbed in an audit
 });
 test('pipeline history has no raw clinical text and never contains reset permission',()=>{
  const f=validLocked(),snap=f.snapshot();
- assert.equal(snap.trace.length,5); // consent, 2 fragments, finish, checkpoint, audit -> actually 6
+ assert.equal(snap.trace.length,6); // consent, two fragments, processing, checkpoint, audit
  assert.ok(snap.trace.every(row=>row.resetAuthorized===false));
  assert.ok(snap.trace.every(row=>!('text' in row)));
  assert.equal(snap.resetAuthorized,false);
