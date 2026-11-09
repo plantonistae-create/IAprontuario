@@ -50,3 +50,14 @@ test('fallback policy rejects inherited transport status and non-plain option re
  const legitimate=trace([event('timeout')]);
  assert.throws(()=>policy(legitimate,Object.assign(Object.create(null),{localReady:true,confirmedUserCancellation:false})),/TRANSPORT_POLICY_INVALID/);
 });
+
+test('unverified cancellation cannot silently trigger local fallback or paid retry',()=>{
+ const cancelled=trace([event('cancel_by_user')]);
+ for(const localReady of [true,false]){
+  const r=fallback(cancelled,localReady,false);
+  assert.equal(r.route,'STOP_CANCELLATION_PROVENANCE_UNVERIFIED');
+  assert.equal(r.human_review_required,true);
+  assert.equal(r.automatic_paid_retry,false);
+  assert.equal(r.no_charge_verified,false);
+ }
+});
