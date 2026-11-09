@@ -115,3 +115,12 @@ test('malformed 36-character encounter token cannot masquerade as UUID',()=>{
  assert.notEqual(api.snapshot().encounter,saved.encounter);
  api.reset();
 });
+
+test('restored ledger excludes fabricated concepts and inherited prototype entries',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={fiction:{action:'answer',value:'Sim'},toString:{action:'answer',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'fiction'),false);
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'toString'),false);
+ api.reset();
+});
