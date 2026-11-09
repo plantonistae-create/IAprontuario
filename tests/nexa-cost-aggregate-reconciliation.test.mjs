@@ -105,3 +105,10 @@ test('declared cost total above contract monetary ceiling fails closed',()=>{
  for(const row of c.capabilities)row.declared_cost_usd=500000;
  assert.throws(()=>reconcile(c),/AGGREGATE_COST_TOTAL_INVALID/);
 });
+
+test('calendar rollover dates are not silently normalized by Date.parse',()=>{
+ for(const date of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z']){
+  const c=base();c.period.start_utc=date;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
+ }
+});
