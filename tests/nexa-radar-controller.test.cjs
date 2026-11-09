@@ -149,3 +149,11 @@ test('restored ledger discards unsupported action while retaining a valid clinic
  assert.equal(Object.hasOwn(api.snapshot().ledger,'allergies'),false);
  api.reset();
 });
+
+test('restored ledger rejects arrays, null prototypes and nested conflict prefixes',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:[],allergies:Object.assign(Object.create(null),{action:'answer',value:'Sim'}),'conflict:conflict:dyspnea':{action:'answer',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.deepEqual(api.snapshot().ledger,{});
+ api.reset();
+});
