@@ -386,7 +386,7 @@
         if(!['input_audio_buffer.committed','conversation.item.input_audio_transcription.completed'].includes(event.type))return false;
         if(!turns.has(id))turns.set(id,{order:sequence++,text:''});
         if(event.type!=='conversation.item.input_audio_transcription.completed')return false;
-        const turn=turns.get(id),text=String(event.transcript||'').trim();
+        const turn=turns.get(id),text=typeof event.transcript==='string'?event.transcript.trim():'';
         // Completed turns are immutable: duplicate or delayed events must not
         // overwrite an already accepted final transcript with different text.
         if(turn.completed||!text)return false;
