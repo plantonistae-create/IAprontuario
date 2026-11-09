@@ -14,6 +14,7 @@ PR161=33e8f58c5bacc6687d81e54731effc56a93a4b44
 [[ ${NEXA_G46_OFFLINE_ACK:-} == YES ]] || { echo 'STOP: set NEXA_G46_OFFLINE_ACK=YES after inspecting this script'; exit 2; }
 [[ $# == 1 && -d $1 ]] || { echo 'Usage: NEXA_G46_OFFLINE_ACK=YES bash prepare-integrated-offline.sh /path/to/verified-local-repository'; exit 2; }
 cd "$1"
+source_repo=$(pwd -P)
 [[ $(git rev-parse --is-inside-work-tree) == true ]] || exit 2
 [[ -z $(git status --porcelain) ]] || { echo 'STOP: local repository has uncommitted changes'; exit 2; }
 for sha in "$MAIN" "$PR158" "$PR159" "$PR160" "$PR161"; do
@@ -24,17 +25,17 @@ done
 root=$(mktemp -d "${TMPDIR:-/tmp}/nexa-g46.XXXXXXXX")
 worktree="$root/candidate"
 cleanup() {
- git -C "$1" worktree remove --force "$worktree" >/dev/null 2>&1 || true
+ git -C "$source_repo" worktree remove --force "$worktree" >/dev/null 2>&1 || true
+ echo "G46: disposable worktree removed; evidence (if generated) at $root"
 }
-trap 'echo "G46 STOP/EXIT: disposable worktree at $worktree; no production mutation"' EXIT
+trap cleanup EXIT
 git worktree add --detach "$worktree" "$MAIN" >/dev/null
 cd "$worktree"
-git -c user.name='NEXA Synthetic Lab' -c user.email='offline.invalid@example.invalid' config rerere.enabled false
 # Exact deterministic order. Stop on conflicts; never auto-resolve clinical or transcription code.
 for entry in "158:$PR158" "159:$PR159" "160:$PR160" "161:$PR161"; do
  number=${entry%%:*}; sha=${entry#*:}
  echo "Integrating PR #$number at $sha"
- if ! git -c user.name='NEXA Synthetic Lab' -c user.email='offline.invalid@example.invalid' merge --no-ff --no-edit "$sha"; then
+ if ! git -c user.name='NEXA Synthetic Lab' -c user.email='offline.invalid@example.invalid' -c rerere.enabled=false merge --no-ff --no-edit "$sha"; then
   git status --short
   echo "STOP: merge conflict on PR #$number; review manually, do not accept ours/theirs blindly"
   exit 3
