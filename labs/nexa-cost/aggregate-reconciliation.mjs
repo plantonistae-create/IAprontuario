@@ -32,6 +32,8 @@ export function reconcileAggregateCost(input){
   !/^\d{4}-\d\d-\d\dT\d\d:\d\d:00Z$/.test(input.period.end_utc)||
   !Number.isFinite(Date.parse(input.period.start_utc))||
   !Number.isFinite(Date.parse(input.period.end_utc))||
+  new Date(input.period.start_utc).toISOString().replace('.000Z','Z')!==input.period.start_utc||
+  new Date(input.period.end_utc).toISOString().replace('.000Z','Z')!==input.period.end_utc||
   !(Date.parse(input.period.end_utc)>Date.parse(input.period.start_utc))||
   !Number.isSafeInteger(input.completed_consultations)||input.completed_consultations<0||
   input.completed_consultations>10000000||!Array.isArray(input.capabilities)||
