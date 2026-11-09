@@ -4,6 +4,14 @@ export function auditSyntheticShadowCohort(cases){
  if(!Array.isArray(cases)||cases.length<1||cases.length>24||
   cases.some(c=>c?.schema_version!==LAB_CONTRACT||c.source!=='synthetic'||
     c.deidentification_reviewed!==true))throw Error('SYNTHETIC_COHORT_REQUIRED');
+ // Duplicate fixture IDs would count the same synthetic case repeatedly and
+ // distort the cohort denominator. Reject instead of silently deduplicating.
+ const caseIds=new Set();
+ for(const entry of cases){
+  if(typeof entry.case_id!=='string'||!entry.case_id.trim()||entry.case_id.length>128||!/^[a-z][a-z0-9_-]{2,64}$/.test(entry.case_id)||caseIds.has(entry.case_id.trim().normalize('NFKC').toLowerCase()))
+   throw Error('SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID');
+  caseIds.add(entry.case_id.trim().normalize('NFKC').toLowerCase());
+ }
  let phraseCount=0,blocked=0,critical=0,alerts=0,speaker=0;
  for(const entry of cases){
   const result=replayShadowCase(entry),s=result.summary;
@@ -20,6 +28,8 @@ export function auditSyntheticShadowCohort(cases){
   schema_version:'nexa-g5-shadow-cohort-aggregate-v1',
   synthetic_cases:cases.length,synthetic_phrases:phraseCount,
   review_blocked_cases:blocked,missed_critical_last_frame_count:critical,
+  cases_with_review_block:blocked,
+  critical_misses_require_manual_review:critical>0,
   expected_or_forbidden_alert_disagreements:alerts,
   speaker_risk_frames:speaker,
   core_promotable_to_live:false,
