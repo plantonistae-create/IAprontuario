@@ -70,3 +70,91 @@ test('incomplete per-modality histograms mean category p50/p95 is unknown',()=>{
  assert.equal(r.categories.transcription.latency_p50_ms,null);
  assert.equal(r.categories.transcription.latency_p95_ms,null);
 });
+
+test('prototype names are not valid billing capabilities',()=>{
+ for(const capability of ['__proto__','constructor','toString','hasOwnProperty']){
+  const c=base();c.capabilities[0].capability=capability;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CAPABILITY_INVALID/);
+ }
+});
+
+test('partial cost coverage must not report a misleading provider-bill difference',()=>{
+ const c=base();c.capabilities[0].declared_cost_usd=null;
+ const r=reconcile(c);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.totals_match_declared_invoice,false);
+});
+test('invalid calendar date or unparseable timestamps are rejected',()=>{
+ for(const date of ['2026-13-01T00:00:00Z','2026-99-01T00:00:00Z']){
+  const c=base();c.period.start_utc=date;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
+ }
+});
+
+test('aggregate request totals reject unsafe integer overflow across capabilities',()=>{
+ const c=base();
+ for(const row of c.capabilities){row.request_count=1e9;delete row.latency_histogram;}
+ // 4e9 remains safe and valid; per-capability guard prevents larger values.
+ assert.equal(reconcile(c).counts.requests,4e9);
+ const x=base();x.capabilities[0].latency_histogram[0].count=Number.MAX_SAFE_INTEGER;
+ assert.throws(()=>reconcile(x),/AGGREGATE_HISTOGRAM_INVALID|AGGREGATE_HISTOGRAM_COUNT_MISMATCH/);
+});
+
+test('declared cost total above contract monetary ceiling fails closed',()=>{
+ const c=base();
+ for(const row of c.capabilities)row.declared_cost_usd=500000;
+ assert.throws(()=>reconcile(c),/AGGREGATE_COST_TOTAL_INVALID/);
+});
+
+test('calendar rollover dates are not silently normalized by Date.parse',()=>{
+ for(const date of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z']){
+  const c=base();c.period.start_utc=date;
+  assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
+ }
+});
+
+test('a bill matching only known categories cannot pass reconciliation with missing coverage',()=>{
+ const c=base();
+ c.capabilities[1].declared_cost_usd=null;
+ c.provider_bill_total_usd=5.5;
+ const r=reconcile(c);
+ assert.equal(r.totals_match_declared_invoice,false);
+ assert.equal(r.declared_observational_total_usd,null);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.causal_savings_attributable_to_nexa_usd,null);
+});
+test('leap day is accepted only in leap years',()=>{
+ const valid=base();valid.period.start_utc='2028-02-29T00:00:00Z';valid.period.end_utc='2028-03-01T00:00:00Z';
+ assert.equal(reconcile(valid).counts.requests,168);
+ const invalid=base();invalid.period.start_utc='2027-02-29T00:00:00Z';
+ assert.throws(()=>reconcile(invalid),/AGGREGATE_CONTRACT_INVALID/);
+});
+
+test('missing provider invoice never verifies billing or invents causal savings',()=>{
+ const c=base();delete c.provider_bill_total_usd;
+ const r=reconcile(c);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.totals_match_declared_invoice,false);
+ assert.equal(r.official_billing_verified_by_connector,false);
+ assert.equal(r.causal_savings_attributable_to_nexa_usd,null);
+});
+test('zero completed consultations never produces a fabricated unit cost',()=>{
+ const c=base();c.completed_consultations=0;
+ const r=reconcile(c);
+ assert.equal(r.declared_cost_per_completed_consultation_usd,null);
+ assert.equal(r.counts.completed_consultations,0);
+});
+
+test('coverage report distinguishes absent modality from observed zero cost',()=>{
+ const c=base();
+ const r=reconcile(c);
+ assert.deepEqual(r.missing_declared_capabilities,['clinical.assistance']);
+ assert.equal(r.declared_capability_count,4);
+ assert.equal(r.complete_capability_coverage,false);
+ c.capabilities.push({capability:'clinical.assistance',request_count:0,declared_cost_usd:0});
+ const all=reconcile(c);
+ assert.deepEqual(all.missing_declared_capabilities,[]);
+ assert.equal(all.declared_capability_count,5);
+ assert.equal(all.complete_capability_coverage,false);
+ assert.equal(all.official_billing_verified_by_connector,false);
+});
