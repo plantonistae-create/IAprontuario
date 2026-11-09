@@ -124,3 +124,11 @@ test('restored ledger excludes fabricated concepts and inherited prototype entri
  assert.equal(Object.hasOwn(api.snapshot().ledger,'toString'),false);
  api.reset();
 });
+
+test('unknown restored ledger actions cannot suppress clinical questions',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'fabricated',evidenceKey:'[]',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'dyspnea'),false);
+ api.reset();
+});
