@@ -91,3 +91,11 @@ test('restored alert journal ignores fabricated concepts absent from the clinica
  assert.equal(api.snapshot().alertJournal.some(x=>x.concept==='fiction'),false);
  api.reset();
 });
+
+test('restored question trace excludes inherited prototype names as clinical concepts',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.questionTrace=[{id:'toString',concept:'toString',question:'invalid',status:'to_ask'}];
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().questionTrace.some(x=>x.concept==='toString'),false);
+ api.reset();
+});
