@@ -19,15 +19,15 @@
 
 ## Verificação G61
 
-- `source-inventory.G61-LAB-ONLY.mjs` fixa o Git blob SHA de **19 arquivos críticos** do checkpoint main. Qualquer alteração de conteúdo nesses arquivos produz `STOP / SOURCE_CHANGED_NEEDS_REVIEW`.
+- `source-inventory.G61-LAB-ONLY.mjs` fixa o Git blob SHA de **19 arquivos críticos**, além dos **32 módulos adicionais carregados** pelo frontend (51 arquivos ao todo) do checkpoint main. Qualquer alteração de conteúdo nesses arquivos produz `STOP / SOURCE_CHANGED_NEEDS_REVIEW`.
 - O inventário extrai os arrays literais de campos do formulário, o array da outbox e as chaves adicionais do autosave. Exige igualdade dos 12 campos index/outbox e união com os 14 campos do manifesto G60.
 - Os testes inserem fontes alteradas, nomes dinâmicos inesperados, campo de medicação desconhecido, novo campo UI, arquivo ausente e seção clínica adicional. Cada tentativa deve falhar fechada.
-- O inventário também descobre os módulos incluídos pelo loader `nexa-hotfix.js` e as dependências externas do `index.html`. Módulos não mapeados continuam explicitamente listados como risco de cobertura, nunca implicitamente aceitos.
+- O inventário também descobre os módulos incluídos pelo loader `nexa-hotfix.js` e as dependências externas do `index.html`. Os módulos carregados ficam todos vinculados por SHA e qualquer mudança obriga revisão. Os **32 módulos adicionais** ainda estão classificados como semanticamente não auditados (integridade de código não é cobertura dos dados).
 - O resultado positivo do **contrato estático** continua `BLOCKED / DYNAMIC_CLINICAL_SCOPE_AND_PRODUCTION_AUTHORITY_UNPROVEN`, não aprovação de reset.
 
 ## Limites da prova
 
-Esta é uma fotografia estática de 19 arquivos, **não um inventário exaustivo e autoritativo de todas as fontes**. O código pode criar campos dinamicamente, receber payloads adicionais de funções hospedadas ou usar módulos do loader ainda sem revisão completa. SHA de código não prova equivalência entre conteúdo clínico persistido e conteúdo médico auditado. Nenhum hash de prontuário verdadeiro foi calculado ou publicado.
+Esta é uma fotografia estática de 51 arquivos, **não um inventário exaustivo e autoritativo de todas as fontes**. O código pode criar campos dinamicamente, receber payloads adicionais de funções hospedadas ou usar módulos do loader ainda sem revisão completa. SHA de código não prova equivalência entre conteúdo clínico persistido e conteúdo médico auditado. Nenhum hash de prontuário verdadeiro foi calculado ou publicado.
 
 **Próximos gates:** mapear todos os módulos executados pelo loader, observar eventos/campos com fixtures sintéticas em navegador isolado, comprovar correspondência de todo o estado clínico ao envelope e criar um contrato transacional de versão auditada em ambiente descartável com autorização separada. Até isso, **STOP** para `nexa-audit-outbox-v18.9.19.js`, reset pós-`locked`, merge/deploy.
 
