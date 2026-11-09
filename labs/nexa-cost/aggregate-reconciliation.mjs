@@ -81,6 +81,9 @@ export function reconcileAggregateCost(input){
  return Object.freeze({
   schema_version:'nexa-cost-aggregate-report-v1',
   counts:{requests,completed_consultations:input.completed_consultations},
+  // Missing declared modalities are a coverage gap, never a zero-cost observation.
+  missing_declared_capabilities:Object.keys(COST_CATEGORIES).filter(key=>!used.has(key)),
+  declared_capability_count:used.size,
   categories:Object.fromEntries(Object.entries(byCategory).map(([k,v])=>
    [k,(()=>{
     const complete=v.histograms.length===v.capability_count;
