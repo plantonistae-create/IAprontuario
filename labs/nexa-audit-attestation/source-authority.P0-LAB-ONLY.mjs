@@ -68,7 +68,7 @@ export function assessSourceAuthority({
      capabilities.auditSubmit!==true)return stop('CAPABILITY_OR_TENANT_DENIED');
   if(!id(requestedEncounterId)||!Number.isSafeInteger(requestedVersion)||requestedVersion<1)
     return stop('SOURCE_REQUEST_INVALID');
-  if(!obj(source))return stop('AUTHORITATIVE_SOURCE_MISSING');
+  if(!obj(source)||!id(source.encounter_id))return stop('AUTHORITATIVE_SOURCE_MISSING');
   if(source.encounter_id!==requestedEncounterId)return stop('SOURCE_ID_MISMATCH');
   if(!id(source.user_id)||!id(source.tenant_id)||
      source.user_id!==actor.userId||source.tenant_id!==actor.tenantId)
