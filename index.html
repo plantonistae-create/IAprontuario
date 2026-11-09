@@ -3761,12 +3761,12 @@ function handleRealtimeEvent(evt,revision=radarTransportRevision){
   if(revision!==radarTransportRevision||!recording)return;
   let d;try{d=JSON.parse(evt.data)}catch{return;}
   if(d.type==='error'||d.type==='conversation.item.input_audio_transcription.failed'){radarTransportStatus('unavailable');return;}
-  if(['input_audio_buffer.committed','conversation.item.created','conversation.item.input_audio_transcription.completed'].includes(d.type)&&radarTranscriptBuffer.ingest(d)){
+  if(['input_audio_buffer.committed','conversation.item.created','conversation.item.input_audio_transcription.completed'].includes(d.type)&&radarTranscriptBuffer.ingest(d,revision)){
     realtimeTranscript=radarTranscriptBuffer.text;realtimeTranscriptDelta='';radarTransportStatus(sessionPaused?'paused':'live');radarAnalyze(false);
   }
 }
 async function startRealtimeRadar(mediaStream){
-  const revision=++radarTransportRevision;radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
+  const revision=++radarTransportRevision;radarTranscriptBuffer.clear(revision);radarTransportAbort?.abort();radarTransportAbort=new AbortController();const signal=radarTransportAbort.signal;
   const current=()=>revision===radarTransportRevision&&recording;
   try{
     if(!current()||!$('consent').checked)return;
@@ -3830,7 +3830,7 @@ function stopRealtimeRadar({wipe=true}={}){
   try{if(radarChunkRecorder&&radarChunkRecorder.state!=='inactive')radarChunkRecorder.stop();}catch{}radarChunkRecorder=null;
   clearInterval(radarTimer);radarTimer=null;
   if(realtimeDc){realtimeDc.onmessage=null;realtimeDc.onclose=null;}try{realtimeDc?.close();realtimePc?.close();}catch{}realtimeDc=null;realtimePc=null;
-  if(wipe){radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0;}
+  if(wipe){radarTranscriptBuffer.clear(null);realtimeTranscript='';realtimeTranscriptDelta='';radarLastChars=0;}
   radarTransportStatus('stopped');
 }
 
@@ -4049,7 +4049,7 @@ async function processAudio(){
     if(epoch!==clinicalEpoch)return;
     const parsed=normalizeOutput(payload.fields||payload),current=collect();for(const [key,value] of Object.entries(current)){if(value!==prior[key])parsed[key]=value;}
     activeHistoryId=null;for(const entry of Object.values(window.nexaRadar?.snapshot().ledger||{})){if(entry.documented&&!NexaRadarEngine.norm(parsed[entry.section]).includes(NexaRadarEngine.norm(entry.documented)))parsed[entry.section]=[parsed[entry.section],entry.documented].filter(Boolean).join(' ');}
-    fill(parsed);nexaShowMedicationReview(payload.medication_review);radarTranscriptBuffer.clear();realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
+    fill(parsed);nexaShowMedicationReview(payload.medication_review);radarTranscriptBuffer.clear(null);realtimeTranscript='';realtimeTranscriptDelta='';window.nexaRadar?.setTranscriptStatus('structured');window.nexaRadar?.recalculate({remote:true});
     lastProcessedMeta={consentRecordedAt,provider:payload.provider||null,model:payload.model||null,stages:payload.stages||[],pipelineVersion:payload.pipeline_version||null,appVersion:APP_CONFIG.appVersion,originalNexaFields:structuredClone(parsed),medication_review:payload.medication_review||null,speaker_attribution:payload.speaker_attribution||null,speaker_diarization_fallback:autoSpeakerFallback,processing_duration_ms:Math.round(performance.now()-startedProcessingAt),speaker_identification_duration_ms:speakerIdentificationMs};
     initHypothesisReview(parsed.hipotese_diagnostica||'');
     // Programmatic fill(parsed) does not emit input events. Explicitly persist
