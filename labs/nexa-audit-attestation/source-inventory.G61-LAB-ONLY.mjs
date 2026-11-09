@@ -28,6 +28,41 @@ export const PINNED_SOURCES=Object.freeze({
   'supabase/functions/submit-audit-case/index.ts':['7ae2e5f62e6015847db48f39afb8df91f8667725','audit-server-contract'],
   'supabase/functions/submit-audit-case/audit-contract.mjs':['8972264c61d92ba48b2a31b0bcafc79674f9cfe4','audit-payload'],
 });
+export const LOADED_RUNTIME_PINS=Object.freeze({
+  'nexa-admin-users-slots-functional-guard-v18.9.18.js':['fe38f05016df9ba6aa750de906b743f95e6c5fa4','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-audit-functional-guard-v18.9.16.js':['274226b44241e10ea640fba71cb25340c5aa4790','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-audit-supabase-compat-v18.9.16.js':['0787b72809567d108027bf14675980b0cd58c890','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-audit-ui-integrity-v18.9.16.js':['edf24d37cbb330b8df9af73a1ad0cb0ed093603b','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-auditor-exact-v18.9.js':['2ddf8eacc01ca1159c8d2dc756f6dea3b71910f1','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-auditor-panel-queue-v18.9.2.js':['478ebfbda7c74a0d4040e25ad0eb7dc7d7aadaea','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-auth-session-v1.js':['1c78c4e50baa2ee1b18fb08bd85b0324788e6e5c','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-conduct-state-guard-v18.9.13.js':['9f5d9cf60050737d0fb6efbad67dfdf4ebc0303c','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-core-audit-learning-v2.js':['d5dcabc9c106968e16f6e240fc4cb11c66264170','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-destination-advisory-guard-v18.9.14.js':['7f3b0e13aaa0d43c2500a8d88973aeb33ef26d67','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-encounter-conflicts-v18.10.2.js':['e736086a44d0ef5cd2d3efefb8acf0599d8922ed','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-final-ui-v18.js':['0aefc128abed8eba636199ba04e56aeefff0f0b3','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-history-recovery-v1.js':['071740f98ac6e6a37a977bf55930f312af4ec5fe','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-history-style-audit-v18.9.7.js':['8091c136dea2ce3d35abe8f9594a1dac72bc9136','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-hotfix-v1.js':['ede746b740e1f176b85f8f86bdb1054f808948be','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-layout-static-v18.6.5.js':['090a31fa1e72275c67c82942702a92a4908f6bc5','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-medical-layout-state-v18.9.3.js':['212c31e55ff2be09d037ffeafa8284c35a22974a','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-mobile-flow-v18.8.1.js':['cfdd5bb1b8d0abc9f1eae7395a49814cc22e6223','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-mobile-shell-v18.6.7.js':['a37a6b8fe0b4e44f90a5cbfbda95b68495e085ef','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-password-onboarding-v1.js':['37c6cfd28573650d7dcba17328d51198ad5e0496','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-protocol-functional-guard-v18.9.17.js':['5247edfa8996a54e1a42221ad36090af5f49186d','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-protocol-library-v18.10.1.js':['576c6c9438c1ea63f46462cd360ea5846dfe21fc','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-radar-dynamic-focus-v18.16.js':['f20c95ed4983b56fd5a1dbf5f9ca764e94ac5650','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-radar-ps-mode-v18.14.js':['31e7d3db17a7cbdf3bf0c80c8302cd3fd77f85d3','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-radar-stable-state-v18.9.4.js':['eea24e65b2fc1c42c729190744336355f1cc8580','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-radar-visual-flow-v18.13.js':['758d1be19c91da54ba542834b9e933bfb572a89b','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-record-draft-history-v18.6.6.js':['9786896c1d9c7c07438753f8f389c0d0400ffdfa','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-recorder-layout-v18.12.4.js':['d947e72f4473f871050596cdc0b6bbe264b0e0a9','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-recording-timer-state-v18.9.8.js':['04a6442a3024bcfd828f825f2ec429e793d41be6','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-sic-documentation-rule-v18.9.8.js':['b5d8d98c03187e254e297eb00df25320c66e896b','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-summary-state-guard-v18.9.10.js':['5480de8a7be88baca1cc6c3c5262bf01997cc37b','runtime-loader-pinned; semantic clinical review pending'],
+  'nexa-ui-v3.js':['21c4d56ab94297a972e458cad68706bca12e9827','runtime-loader-pinned; semantic clinical review pending'],
+});
+
 const LIMIT=1024*1024;
 const ORDERED=x=>[...new Set(x)].sort();
 const STOP=(code,detail={})=>Object.freeze({status:'STOP',code,...detail,resetAuthorized:false});
@@ -72,7 +107,7 @@ function requireMarkers(sources){
 export function checkInventory({root=REPO_ROOT,overrides={}}={}){
   try{
     const sources={};
-    for(const [file,[expectedSha]] of Object.entries(PINNED_SOURCES)){
+    for(const [file,[expectedSha]] of Object.entries({...PINNED_SOURCES,...LOADED_RUNTIME_PINS})){
       const filename=path.join(root,file);
       const bytes=Object.hasOwn(overrides,file)?Buffer.from(overrides[file],'utf8'):fs.readFileSync(filename);
       if(bytes.length>LIMIT) return STOP('SOURCE_FILE_OVERSIZE',{source:file});
@@ -88,15 +123,18 @@ export function checkInventory({root=REPO_ROOT,overrides={}}={}){
     const loader=ORDERED([...sources['nexa-hotfix.js'].matchAll(/\.\/(nexa-[\w.-]+\.js)\?v=/g)].map(x=>x[1]));
     const mainScripts=ORDERED([...sources['index.html'].matchAll(/<script\b[^>]*src=["']([^"']+)/g)].map(x=>x[1]));
     const runtimeModules=ORDERED([...loader,...mainScripts.filter(s=>s.startsWith('./')).map(s=>s.slice(2).split('?')[0])]);
-    const mapped=Object.keys(PINNED_SOURCES);
-    const unreviewedRuntimeModules=runtimeModules.filter(m=>!mapped.includes(m));
+    const mapped=Object.keys({...PINNED_SOURCES,...LOADED_RUNTIME_PINS});
+    const unreviewedRuntimeModules=runtimeModules.filter(m=>!Object.hasOwn(PINNED_SOURCES,m));
+    const unpinnedRuntimeModules=runtimeModules.filter(m=>!mapped.includes(m));
+    if(unpinnedRuntimeModules.length)return STOP('UNPINNED_RUNTIME_MODULE',{unpinnedRuntimeModules});
     const externalScripts=mainScripts.filter(s=>/^https?:\/\//.test(s));
     const auditMissing=sets.autosaveKnown.filter(k=>!sets.auditKeys.includes(k));
     return Object.freeze({
       status:'BLOCKED',
       code:'DYNAMIC_CLINICAL_SCOPE_AND_PRODUCTION_AUTHORITY_UNPROVEN',
       staticSourceIntegrity:'PASS',staticFieldMappings:'PASS',
-      sourceCount:Object.keys(PINNED_SOURCES).length,
+      sourceCount:Object.keys(PINNED_SOURCES).length+Object.keys(LOADED_RUNTIME_PINS).length,
+      runtimePinnedCount:Object.keys(LOADED_RUNTIME_PINS).length,
       runtimeModuleCount:runtimeModules.length,
       manifestSections:SECTIONS.length,manifestFields:FIELDS.length,
       formFields:sets.form,auditFields:sets.auditKeys,autosaveKnownFields:sets.autosaveKnown,
