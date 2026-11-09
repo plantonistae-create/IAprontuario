@@ -268,8 +268,9 @@ export function createSyntheticClinicalFlow({actor,encounterId,sourceVersion=6,i
  return Object.freeze({
   dispatch:apply,verify,
   requestReset:()=>stop('RESET_NOT_AUTHORIZED_IN_LAB'),
-  visibleTranscript:()=>state.phase==='processed'||state.phase==='saved'||state.phase==='audited'?
-    state.sections.transcription.finalText:'', // only for synthetic post-processing; never mid-recording
+  visibleTranscript:()=>state.sections.transcription.status==='processed'&&
+    state.sections.transcription.visibleOnlyAfterProcess===true?
+    state.sections.transcription.finalText:'', // synthetic post-processing only
   snapshot:()=>clone({state,trace,resetAuthorized:false}),
   get auditedDigest(){return state.auditSnapshot?.digest||null}
  });
