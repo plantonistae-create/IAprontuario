@@ -28,6 +28,8 @@ export function auditSyntheticShadowCohort(cases){
   schema_version:'nexa-g5-shadow-cohort-aggregate-v1',
   synthetic_cases:cases.length,synthetic_phrases:phraseCount,
   review_blocked_cases:blocked,missed_critical_last_frame_count:critical,
+  cases_with_review_block:blocked,
+  critical_misses_require_manual_review:critical>0,
   expected_or_forbidden_alert_disagreements:alerts,
   speaker_risk_frames:speaker,
   core_promotable_to_live:false,
