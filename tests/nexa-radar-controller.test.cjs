@@ -132,3 +132,20 @@ test('unknown restored ledger actions cannot suppress clinical questions',()=>{
  assert.equal(Object.hasOwn(api.snapshot().ledger,'dyspnea'),false);
  api.reset();
 });
+
+test('restored ledger is isolated by physician owner',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'answer',value:'Não',section:'hda',documented:'Dispneia: negado.'}};
+ api.restore(saved,'another-physician');
+ assert.deepEqual(api.snapshot().ledger,{});
+ assert.equal(api.snapshot().owner,'another-physician');
+ api.reset();
+});
+test('restored ledger discards unsupported action while retaining a valid clinical response',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.ledger={dyspnea:{action:'answer',value:'Não',section:'hda'},allergies:{action:'unverified',value:'Sim'}};
+ api.restore(saved,'a');
+ assert.equal(api.snapshot().ledger.dyspnea.action,'answer');
+ assert.equal(Object.hasOwn(api.snapshot().ledger,'allergies'),false);
+ api.reset();
+});
