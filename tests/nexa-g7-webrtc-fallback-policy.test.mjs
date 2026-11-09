@@ -43,3 +43,10 @@ test('metadata policy refuses inappropriate argument shapes',()=>{
  assert.throws(()=>policy(t,{localReady:true,confirmedUserCancellation:false,transcript:'PHI'}),/TRANSPORT_POLICY_INVALID/);
  assert.throws(()=>policy({phase:'webrtc',outcome:'INVENTED'},{localReady:true,confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
 });
+
+test('fallback policy rejects inherited transport status and non-plain option records',()=>{
+ const forged=Object.create({outcome:'TIMEOUT_BEFORE_HTTP_STATUS',phase:'webrtc'});
+ assert.throws(()=>policy(forged,{localReady:true,confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
+ const legitimate=trace([event('timeout')]);
+ assert.throws(()=>policy(legitimate,Object.assign(Object.create(null),{localReady:true,confirmedUserCancellation:false})),/TRANSPORT_POLICY_INVALID/);
+});
