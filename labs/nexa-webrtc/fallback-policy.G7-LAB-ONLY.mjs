@@ -6,14 +6,22 @@ const outcomes=new Set([
  'NETWORK_OR_UNKNOWN_ERROR_BEFORE_STATUS','WRAPPER_ERROR_NO_UPSTREAM_EVIDENCE',
  'NO_DIAGNOSTIC_EVIDENCE'
 ]);
-const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;
 export function decideOfflineTransportFallback(trace,options){
- if(!obj(trace)||!outcomes.has(trace.outcome)||!['webrtc','chunk'].includes(trace.phase)||
+ if(!obj(trace)||!Object.hasOwn(trace,'outcome')||!Object.hasOwn(trace,'phase')||!outcomes.has(trace.outcome)||!['webrtc','chunk'].includes(trace.phase)||
   !obj(options)||Object.keys(options).some(k=>!['localReady','confirmedUserCancellation'].includes(k))||
   typeof options.localReady!=='boolean'||typeof options.confirmedUserCancellation!=='boolean')
   throw Error('TRANSPORT_POLICY_INVALID');
+ if(!Object.hasOwn(options,'localReady')||!Object.hasOwn(options,'confirmedUserCancellation'))
+  throw Error('TRANSPORT_POLICY_INVALID');
  if(options.confirmedUserCancellation&&trace.outcome!=='CANCELLED_BY_USER')
   throw Error('CANCELLATION_PROVENANCE_CONFLICT');
+ // An unverified cancellation is not permission to restart a paid operation.
+ // Its origin must be reviewed before choosing any fallback route.
+ if(trace.outcome==='CANCELLED_BY_USER'&&!options.confirmedUserCancellation)
+  return Object.freeze({route:'STOP_CANCELLATION_PROVENANCE_UNVERIFIED',human_review_required:true,
+   automatic_paid_retry:false,provider_charge_verified:false,clinical_safety_verified:false,
+   no_charge_verified:false,root_cause_verified:false});
  let route,review;
  if(trace.outcome==='UPSTREAM_HTTP_SUCCESS'){
   route='REMOTE_HTTP_RECEIVED_CLINICAL_RESULT_UNVERIFIED';review=true;

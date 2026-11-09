@@ -43,3 +43,28 @@ test('metadata policy refuses inappropriate argument shapes',()=>{
  assert.throws(()=>policy(t,{localReady:true,confirmedUserCancellation:false,transcript:'PHI'}),/TRANSPORT_POLICY_INVALID/);
  assert.throws(()=>policy({phase:'webrtc',outcome:'INVENTED'},{localReady:true,confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
 });
+
+test('fallback policy rejects inherited transport status and non-plain option records',()=>{
+ const forged=Object.create({outcome:'TIMEOUT_BEFORE_HTTP_STATUS',phase:'webrtc'});
+ assert.throws(()=>policy(forged,{localReady:true,confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
+ const legitimate=trace([event('timeout')]);
+ assert.throws(()=>policy(legitimate,Object.assign(Object.create(null),{localReady:true,confirmedUserCancellation:false})),/TRANSPORT_POLICY_INVALID/);
+});
+
+test('unverified cancellation cannot silently trigger local fallback or paid retry',()=>{
+ const cancelled=trace([event('cancel_by_user')]);
+ for(const localReady of [true,false]){
+  const r=fallback(cancelled,localReady,false);
+  assert.equal(r.route,'STOP_CANCELLATION_PROVENANCE_UNVERIFIED');
+  assert.equal(r.human_review_required,true);
+  assert.equal(r.automatic_paid_retry,false);
+  assert.equal(r.no_charge_verified,false);
+ }
+});
+
+test('missing own fallback flags cannot inherit implicit policy defaults',()=>{
+ const timeout=trace([event('timeout')]);
+ assert.throws(()=>policy(timeout,{localReady:true}),/TRANSPORT_POLICY_INVALID/);
+ assert.throws(()=>policy(timeout,{confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
+ assert.throws(()=>policy(timeout,{localReady:true,confirmedUserCancellation:false,...{unknown:true}}),/TRANSPORT_POLICY_INVALID/);
+});
