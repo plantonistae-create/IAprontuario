@@ -265,7 +265,7 @@
       questionTraceTruncated=saved.questionTraceTruncated===true||Array.isArray(saved.questionTrace)&&saved.questionTrace.length>150;
       for(const x of Array.isArray(saved.questionTrace)?saved.questionTrace.slice(0,150):[]){
         const id=String(x?.id||''),concept=String(x?.concept||'');
-        if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!E.concepts[concept]||questionTrace.has(id))continue;
+        if(!/^(?:conflict:)?[a-z][A-Za-z0-9_]{0,63}$/.test(id)||!Object.hasOwn(E.concepts,concept)||questionTrace.has(id))continue;
         questionTrace.set(id,{id,concept,question:String(x.question||'').slice(0,360),
           reason:String(x.reason||'').slice(0,360),priority:String(x.priority||'moderate'),
           status:String(x.status||'to_ask'),redFlag:x.redFlag===true,category:String(x.category||'')});
