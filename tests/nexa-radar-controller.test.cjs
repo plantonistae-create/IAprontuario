@@ -161,3 +161,17 @@ test('session-tagged transcript buffer rejects late callbacks after consultation
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-4',transcript:'Segunda consulta.'},'consultation-B'),true);
  assert.equal(b.text,'Segunda consulta.');
 });
+
+test('legacy untagged transcript buffer remains compatible across clear',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'Antes.'}),true);
+ b.clear();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'b',transcript:'Depois.'}),true);
+ assert.equal(b.text,'Depois.');
+});
+test('tagged transcript buffer rejects events after explicit session invalidation',()=>{
+ const b=NexaRadarController.createTranscriptBuffer('active');
+ b.clear(null);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'stale',transcript:'Ignorar.'},'active'),false);
+ assert.equal(b.text,'');
+});
