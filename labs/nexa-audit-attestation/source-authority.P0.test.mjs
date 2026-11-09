@@ -179,7 +179,7 @@ test('unsafe circular/getter payload fails closed without emitting clinical data
  const f=fixture();f.source.processing_meta.circular=f.source.processing_meta;
  fails(f,'CLINICAL_SOURCE_SCOPE_UNVERIFIED');
  const g=fixture();Object.defineProperty(g.source.fields,'hda',{enumerable:true,get(){throw Error('getter')}});
- fails(g,'SOURCE_AUTHORITY_EVALUATION_FAILED');
+ fails(g,'CLINICAL_SOURCE_SCOPE_UNVERIFIED');
 });
 test('untrusted or malformed requested source identity cannot authorize anything',()=>{
  for(const bad of [
