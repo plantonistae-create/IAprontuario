@@ -107,3 +107,11 @@ test('malformed persisted encounter identifier cannot override isolated encounte
  assert.notEqual(api.snapshot().encounter,'cross-encounter-injection');
  api.reset();
 });
+
+test('malformed 36-character encounter token cannot masquerade as UUID',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.encounter='------------------------------------';
+ api.restore(saved,'a');
+ assert.notEqual(api.snapshot().encounter,saved.encounter);
+ api.reset();
+});
