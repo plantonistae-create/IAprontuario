@@ -14,6 +14,12 @@ export function decideOfflineTransportFallback(trace,options){
   throw Error('TRANSPORT_POLICY_INVALID');
  if(options.confirmedUserCancellation&&trace.outcome!=='CANCELLED_BY_USER')
   throw Error('CANCELLATION_PROVENANCE_CONFLICT');
+ // An unverified cancellation is not permission to restart a paid operation.
+ // Its origin must be reviewed before choosing any fallback route.
+ if(trace.outcome==='CANCELLED_BY_USER'&&!options.confirmedUserCancellation)
+  return Object.freeze({route:'STOP_CANCELLATION_PROVENANCE_UNVERIFIED',human_review_required:true,
+   automatic_paid_retry:false,provider_charge_verified:false,clinical_safety_verified:false,
+   no_charge_verified:false,root_cause_verified:false});
  let route,review;
  if(trace.outcome==='UPSTREAM_HTTP_SUCCESS'){
   route='REMOTE_HTTP_RECEIVED_CLINICAL_RESULT_UNVERIFIED';review=true;
