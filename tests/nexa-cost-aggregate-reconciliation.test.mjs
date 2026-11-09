@@ -112,3 +112,20 @@ test('calendar rollover dates are not silently normalized by Date.parse',()=>{
   assert.throws(()=>reconcile(c),/AGGREGATE_CONTRACT_INVALID/);
  }
 });
+
+test('a bill matching only known categories cannot pass reconciliation with missing coverage',()=>{
+ const c=base();
+ c.capabilities[1].declared_cost_usd=null;
+ c.provider_bill_total_usd=5.5;
+ const r=reconcile(c);
+ assert.equal(r.totals_match_declared_invoice,false);
+ assert.equal(r.declared_observational_total_usd,null);
+ assert.equal(r.provider_bill_difference_usd,null);
+ assert.equal(r.causal_savings_attributable_to_nexa_usd,null);
+});
+test('leap day is accepted only in leap years',()=>{
+ const valid=base();valid.period.start_utc='2028-02-29T00:00:00Z';valid.period.end_utc='2028-03-01T00:00:00Z';
+ assert.equal(reconcile(valid).counts.requests,168);
+ const invalid=base();invalid.period.start_utc='2027-02-29T00:00:00Z';
+ assert.throws(()=>reconcile(invalid),/AGGREGATE_CONTRACT_INVALID/);
+});
