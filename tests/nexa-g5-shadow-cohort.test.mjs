@@ -48,3 +48,8 @@ test('case-insensitive aliases cannot double-count synthetic fixtures',()=>{
  const a=make(),b=make();b.case_id=a.case_id.toUpperCase();
  assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
 });
+
+test('unicode compatibility aliases cannot double-count synthetic case IDs',()=>{
+ const a=make(),b=make();b.case_id=a.case_id.replace('synthetic','ｓｙｎｔｈｅｔｉｃ');
+ assert.throws(()=>audit([a,b]),/SYNTHETIC_COHORT_DUPLICATE_OR_MISSING_CASE_ID/);
+});
