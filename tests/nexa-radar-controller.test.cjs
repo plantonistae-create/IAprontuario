@@ -175,3 +175,11 @@ test('tagged transcript buffer rejects events after explicit session invalidatio
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'stale',transcript:'Ignorar.'},'active'),false);
  assert.equal(b.text,'');
 });
+
+test('browser realtime event wiring binds buffer ingestion to transport revision and invalidates on wipe',()=>{
+ const fs=require('node:fs');const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ assert.match(html,/radarTranscriptBuffer\.ingest\(d,revision\)/);
+ assert.match(html,/const revision=\+\+radarTransportRevision;radarTranscriptBuffer\.clear\(revision\)/);
+ assert.match(html,/if\(wipe\)\{radarTranscriptBuffer\.clear\(null\)/);
+ assert.match(html,/nexaShowMedicationReview\(payload\.medication_review\);radarTranscriptBuffer\.clear\(null\)/);
+});
