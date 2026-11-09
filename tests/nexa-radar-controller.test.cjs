@@ -141,3 +141,13 @@ test('out-of-order completion and duplicate commit cannot rewrite an accepted tu
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'turn-A',transcript:'Texto atrasado.'}),false);
  assert.equal(b.text,'Texto final.');
 });
+
+test('transcription ignores duplicate empty completions and preserves committed order',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'input_audio_buffer.committed',item_id:'first'}),false);
+ assert.equal(b.ingest({type:'input_audio_buffer.committed',item_id:'second'}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'second',transcript:'Segunda fala.'}),true);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'first',transcript:'  '}),false);
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'first',transcript:'Primeira fala.'}),true);
+ assert.equal(b.text,'Primeira fala.\nSegunda fala.');
+});
