@@ -179,7 +179,10 @@ test('tagged transcript buffer rejects events after explicit session invalidatio
 test('browser realtime event wiring binds buffer ingestion to transport revision and invalidates on wipe',()=>{
  const fs=require('node:fs');const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
  assert.match(html,/radarTranscriptBuffer\.ingest\(d,revision\)/);
- assert.match(html,/const revision=\+\+radarTransportRevision;radarTranscriptBuffer\.clear\(revision\)/);
+ assert.match(html,/async function startRealtimeRadar\(mediaStream,\{preserveTranscript=false\}=\{\}\)/);
+ assert.match(html,/if\(preserveTranscript\)\{\s*if\(!radarTranscriptBuffer\.rotate\(revision\)\)/);
+ assert.match(html,/radarTranscriptBuffer\.clear\(revision\);realtimeTranscript='';realtimeTranscriptDelta=''/);
+ assert.match(html,/retryTranscript:\(\)=>\{if\(recording&&stream\)\{stopRealtimeRadar\(\{wipe:false\}\);void startRealtimeRadar\(stream,\{preserveTranscript:true\}\)/);
  assert.match(html,/if\(wipe\)\{radarTranscriptBuffer\.clear\(null\)/);
  assert.match(html,/nexaShowMedicationReview\(payload\.medication_review\);radarTranscriptBuffer\.clear\(null\)/);
 });
@@ -211,4 +214,61 @@ test('offline lifecycle matrix: reconnect, stale events, timeout, cancellation a
  b.clear(null);
  assert.equal(b.ingest(done('after-wipe','Descartar.'),revision),false);
  assert.equal(b.text,'');
+});
+
+test('G53 within-consultation WebRTC retry preserves earlier completed text and isolates duplicate IDs',()=>{
+ const b=NexaRadarController.createTranscriptBuffer(101);
+ const committed=id=>({type:'input_audio_buffer.committed',item_id:id});
+ const completed=(id,transcript)=>({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript});
+ assert.equal(b.ingest(committed('repeatable'),101),false);
+ assert.equal(b.ingest(completed('repeatable','Consulta A: primeira fala.'),101),true);
+ assert.equal(b.ingest(committed('unfinished'),101),false);
+ assert.equal(b.rotate(102),true);
+ assert.equal(b.text,'Consulta A: primeira fala.');
+ assert.equal(b.ingest(completed('late','Não inserir fala antiga.'),101),false);
+ assert.equal(b.ingest(completed('unfinished','Evento antigo após a rotação.'),101),false);
+ assert.equal(b.ingest(completed('repeatable','Consulta A: segunda fala.'),102),true);
+ assert.equal(b.ingest(completed('repeatable','Duplicação do transporte atual.'),102),false);
+ assert.equal(b.text,'Consulta A: primeira fala.\\nConsulta A: segunda fala.');
+ assert.equal(b.rotate(103),true);
+ assert.equal(b.ingest(completed('third','Consulta A: terceira fala.'),103),true);
+ assert.equal(b.text,'Consulta A: primeira fala.\\nConsulta A: segunda fala.\\nConsulta A: terceira fala.');
+});
+
+test('G53 explicit new consultation wipes prior turns while previous transport callbacks are rejected',()=>{
+ const b=NexaRadarController.createTranscriptBuffer(22);
+ const completed=(id,transcript)=>({type:'conversation.item.input_audio_transcription.completed',item_id:id,transcript});
+ b.ingest(completed('shared','Consulta antiga.'),22);
+ b.clear(23);
+ assert.equal(b.text,'');
+ assert.equal(b.ingest(completed('shared','Antiga atrasada.'),22),false);
+ assert.equal(b.ingest(completed('shared','Nova consulta.'),23),true);
+ assert.equal(b.text,'Nova consulta.');
+ b.clear(null);
+ assert.equal(b.rotate(24),false,'invalidated buffer must not resume without a new consultation');
+ assert.equal(b.ingest(completed('late','Ignorar.'),23),false);
+ assert.equal(b.text,'');
+});
+
+test('G53 invalid transport rotation never accepts an implicit or inherited session',()=>{
+ const b=NexaRadarController.createTranscriptBuffer('session-A');
+ const completed={type:'conversation.item.input_audio_transcription.completed',item_id:'id',transcript:'Fala válida.'};
+ assert.equal(b.ingest(completed,'session-A'),true);
+ for(const wrong of [null,undefined,0,-1,NaN,{},'', '  ','x'.repeat(129),'session-A']){
+  assert.equal(b.rotate(wrong),false);
+  assert.equal(b.text,'Fala válida.');
+ }
+ assert.equal(b.ingest({...completed,item_id:'missing'},'session-B'),false);
+ assert.equal(b.rotate('session-B'),true);
+ assert.equal(b.ingest({...completed,item_id:'new'},'session-A'),false);
+ assert.equal(b.ingest({...completed,item_id:'new'},'session-B'),true);
+});
+
+test('G53 browser new-recording path is distinct from deliberate retry and does not feed stale text to Radar',()=>{
+ const fs=require('node:fs');
+ const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ assert.match(html,/mediaRecorder\.start\(\);recording=true;seconds=0;\$\('timer'\)\.textContent='00:00';startRealtimeRadar\(stream\);radarAnalyze\(false\)/);
+ assert.match(html,/retryTranscript:\(\)=>\{if\(recording&&stream\)\{stopRealtimeRadar\(\{wipe:false\}\);void startRealtimeRadar\(stream,\{preserveTranscript:true\}\)/);
+ assert.match(html,/if\(wipe\)\{radarTranscriptBuffer\.clear\(null\);realtimeTranscript='';realtimeTranscriptDelta=''/);
+ assert.match(html,/nexaShowMedicationReview\(payload\.medication_review\);radarTranscriptBuffer\.clear\(null\)/);
 });
