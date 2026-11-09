@@ -144,3 +144,17 @@ test('zero completed consultations never produces a fabricated unit cost',()=>{
  assert.equal(r.declared_cost_per_completed_consultation_usd,null);
  assert.equal(r.counts.completed_consultations,0);
 });
+
+test('coverage report distinguishes absent modality from observed zero cost',()=>{
+ const c=base();
+ const r=reconcile(c);
+ assert.deepEqual(r.missing_declared_capabilities,['clinical.assistance']);
+ assert.equal(r.declared_capability_count,4);
+ assert.equal(r.complete_capability_coverage,false);
+ c.capabilities.push({capability:'clinical.assistance',request_count:0,declared_cost_usd:0});
+ const all=reconcile(c);
+ assert.deepEqual(all.missing_declared_capabilities,[]);
+ assert.equal(all.declared_capability_count,5);
+ assert.equal(all.complete_capability_coverage,false);
+ assert.equal(all.official_billing_verified_by_connector,false);
+});
