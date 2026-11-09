@@ -374,10 +374,14 @@
     for(const name of ['nexa:destination-state','nexa:destination-restored','nexa:destination-reset'])root.addEventListener(name,()=>disposition(api.state));
     render(api.state);return api;
   }
-  function createTranscriptBuffer(){
+  function createTranscriptBuffer(initialSessionId){
     const turns=new Map();let sequence=0;
+    // Optional epoch gate for callers that can tag events by consultation.
+    // Legacy callers remain unchanged; tagged callers reject stale callbacks.
+    let sessionId=initialSessionId;
     return {
-      ingest(event){
+      ingest(event,eventSessionId){
+        if(sessionId!==undefined&&(!sessionId||eventSessionId!==sessionId))return false;
         // Event IDs identify delivery notifications, not audio turns. Never use
         // them as fallback turn IDs or unrelated completions may be accepted.
         const rawId=event?.item_id||event?.item?.id;
@@ -393,7 +397,7 @@
         turn.text=text;turn.completed=true;return true;
       },
       get text(){return [...turns.values()].sort((a,b)=>a.order-b.order).map(t=>t.text).filter(Boolean).join('\n');},
-      clear(){turns.clear();sequence=0;}
+      clear(nextSessionId){turns.clear();sequence=0;if(arguments.length)sessionId=nextSessionId;}
     };
   }
   root.NexaRadarController={create,mount,createTranscriptBuffer,clinicalContext,remoteState,classifyEvidence,evidenceSpeaker,evidenceLabels};
