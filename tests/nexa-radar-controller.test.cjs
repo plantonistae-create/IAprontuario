@@ -99,3 +99,11 @@ test('restored question trace excludes inherited prototype names as clinical con
  assert.equal(api.snapshot().questionTrace.some(x=>x.concept==='toString'),false);
  api.reset();
 });
+
+test('malformed persisted encounter identifier cannot override isolated encounter',()=>{
+ const {api}=fixture();const saved=api.snapshot();
+ saved.encounter='cross-encounter-injection';
+ api.restore(saved,'a');
+ assert.notEqual(api.snapshot().encounter,'cross-encounter-injection');
+ api.reset();
+});
