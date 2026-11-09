@@ -380,7 +380,9 @@
       ingest(event){
         // Event IDs identify delivery notifications, not audio turns. Never use
         // them as fallback turn IDs or unrelated completions may be accepted.
-        const id=event?.item_id||event?.item?.id;if(typeof id!=='string'||!id.trim())return false;
+        const rawId=event?.item_id||event?.item?.id;
+        if(typeof rawId!=='string'||!rawId.trim()||rawId.length>256)return false;
+        const id=rawId.trim();
         if(!['input_audio_buffer.committed','conversation.item.input_audio_transcription.completed'].includes(event.type))return false;
         if(!turns.has(id))turns.set(id,{order:sequence++,text:''});
         if(event.type!=='conversation.item.input_audio_transcription.completed')return false;
