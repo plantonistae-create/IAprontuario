@@ -197,10 +197,10 @@ test('offline lifecycle matrix: reconnect, stale events, timeout, cancellation a
  assert.equal(deliver(done('a','Primeiro turno sintético.'),1),true);
  assert.equal(deliver(done('a','Duplicado.'),1),false);
  assert.equal(visibleTranscript,''); // no transcript panel while recording
- revision=2;b.clear(revision); // reconnect: invalidate callbacks from prior transport
+ revision=2;assert.equal(b.rotate(revision),true); // reconnect: retain confirmed turns, reject stale callbacks
  assert.equal(deliver(done('late','Antigo.'),1),false);
  assert.equal(deliver(done('new','Novo turno sintético.'),2),true);
- assert.equal(b.text,'Novo turno sintético.');
+ assert.equal(b.text,'Primeiro turno sintético.\nNovo turno sintético.');
  const flags={localReady:true,confirmedUserCancellation:false};
  const timeout=policy({phase:'webrtc',outcome:'TIMEOUT_BEFORE_HTTP_STATUS'},flags);
  assert.equal(timeout.route,'LOCAL_REVIEW_REQUIRED');
@@ -210,7 +210,7 @@ test('offline lifecycle matrix: reconnect, stale events, timeout, cancellation a
  assert.equal(cancel.automatic_paid_retry,false);
  recording=false;revision++;visibleTranscript=b.text; // final-only display
  assert.equal(deliver(done('after-stop','Descartar.'),2),false);
- assert.equal(visibleTranscript,'Novo turno sintético.');
+ assert.equal(visibleTranscript,'Primeiro turno sintético.\nNovo turno sintético.');
  b.clear(null);
  assert.equal(b.ingest(done('after-wipe','Descartar.'),revision),false);
  assert.equal(b.text,'');
@@ -229,10 +229,10 @@ test('G53 within-consultation WebRTC retry preserves earlier completed text and 
  assert.equal(b.ingest(completed('unfinished','Evento antigo após a rotação.'),101),false);
  assert.equal(b.ingest(completed('repeatable','Consulta A: segunda fala.'),102),true);
  assert.equal(b.ingest(completed('repeatable','Duplicação do transporte atual.'),102),false);
- assert.equal(b.text,'Consulta A: primeira fala.\\nConsulta A: segunda fala.');
+ assert.equal(b.text,'Consulta A: primeira fala.\nConsulta A: segunda fala.');
  assert.equal(b.rotate(103),true);
  assert.equal(b.ingest(completed('third','Consulta A: terceira fala.'),103),true);
- assert.equal(b.text,'Consulta A: primeira fala.\\nConsulta A: segunda fala.\\nConsulta A: terceira fala.');
+ assert.equal(b.text,'Consulta A: primeira fala.\nConsulta A: segunda fala.\nConsulta A: terceira fala.');
 });
 
 test('G53 explicit new consultation wipes prior turns while previous transport callbacks are rejected',()=>{
