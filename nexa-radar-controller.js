@@ -388,15 +388,28 @@
         if(typeof rawId!=='string'||!rawId.trim()||rawId.length>256)return false;
         const id=rawId.trim();
         if(!['input_audio_buffer.committed','conversation.item.input_audio_transcription.completed'].includes(event.type))return false;
-        if(!turns.has(id))turns.set(id,{order:sequence++,text:''});
+        // A new transport can reuse item IDs. Keep turn IDs unique per epoch
+        // while preserving completed turns from the same consultation.
+        const key=sessionId===undefined?id:JSON.stringify([eventSessionId,id]);
+        if(!turns.has(key))turns.set(key,{order:sequence++,text:''});
         if(event.type!=='conversation.item.input_audio_transcription.completed')return false;
-        const turn=turns.get(id),text=typeof event.transcript==='string'?event.transcript.trim():'';
+        const turn=turns.get(key),text=typeof event.transcript==='string'?event.transcript.trim():'';
         // Completed turns are immutable: duplicate or delayed events must not
         // overwrite an already accepted final transcript with different text.
         if(turn.completed||!text)return false;
         turn.text=text;turn.completed=true;return true;
       },
       get text(){return [...turns.values()].sort((a,b)=>a.order-b.order).map(t=>t.text).filter(Boolean).join('\n');},
+      // Only a deliberate transport retry within the SAME consultation may
+      // keep completed utterances. Stale epochs and unfinished turns are dropped.
+      rotate(nextSessionId){
+        const valid=id=>(typeof id==='string'&&id.trim().length>0&&id.length<=128)||
+          (typeof id==='number'&&Number.isSafeInteger(id)&&id>0);
+        if(!valid(sessionId)||!valid(nextSessionId)||nextSessionId===sessionId)return false;
+        for(const [key,turn] of turns)if(!turn.completed)turns.delete(key);
+        sessionId=nextSessionId;return true;
+      },
+      // New consultation, cancellation or final processing must erase all turns.
       clear(nextSessionId){turns.clear();sequence=0;if(arguments.length)sessionId=nextSessionId;}
     };
   }
