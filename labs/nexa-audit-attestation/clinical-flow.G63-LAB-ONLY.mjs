@@ -23,6 +23,9 @@ function envelope(state){
  sections:{...clone(state.sections),fields:mapFields(state)}};
 }
 function shapeCheck(state){
+ if(!obj(state)||!obj(state.sections)||!obj(state.sections.audit_context)||
+   !obj(state.sections.consent)||!obj(state.sections.transcription)||
+   !obj(state.sections.processing_meta))error('UNCATALOGUED_CLINICAL_STATE:INCOMPLETE_SECTION');
  const src=clone(state);
  src.sections.audit_context.reviewStatus='reviewed';
  src.sections.audit_context.lockedAt='synthetic-schema-check';
