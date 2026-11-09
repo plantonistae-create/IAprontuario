@@ -116,3 +116,11 @@ test('audio item IDs are canonicalized before turn deduplication',()=>{
  assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'item-1',transcript:'Texto duplicado.'}),false);
  assert.equal(b.text,'Primeira fala.');
 });
+
+test('non-text completion payloads cannot become fabricated transcript content',()=>{
+ const b=NexaRadarController.createTranscriptBuffer();
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'item-1',transcript:{text:'Objeto inválido'}}),false);
+ assert.equal(b.text,'');
+ assert.equal(b.ingest({type:'conversation.item.input_audio_transcription.completed',item_id:'item-1',transcript:'Paciente: Sem febre.'}),true);
+ assert.equal(b.text,'Paciente: Sem febre.');
+});
