@@ -121,7 +121,7 @@ export function createSyntheticAuthority({privateKey, publicKey, issuer='synthet
   keyId='g60-synthetic-key',clock=()=>Date.now()}={}){
   if(!privateKey||!publicKey||![issuer,audience,keyId].every(nonempty))
     throw Error('SYNTHETIC_KEYS_REQUIRED');
-  const trustedPublicKey=createPublicKey(publicKey);
+  const trustedPublicKey=publicKey?.type==='public'?publicKey:createPublicKey(publicKey);
   if(trustedPublicKey.asymmetricKeyType!=='ed25519')throw Error('INVALID_TEST_KEY');
   const records=new Map(),consumed=new Set();
   function seed(input){
