@@ -1,17 +1,17 @@
-name: NEXA G59 Audit Receipt (Offline Only)
+name: NEXA P0 Audit Origin — Offline Only
 
 on:
   pull_request:
     branches:
       - review/g59-offline-only-20261109
     paths:
-      - 'labs/nexa-audit-attestation/**'
+      - 'labs/nexa-audit-attestation/p0-origin/**'
 
 permissions:
   contents: read
 
 jobs:
-  g59-synthetic-offline:
+  p0-source-origin-offline:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -20,9 +20,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Offline source and tests syntax
+      - name: Verify offline-only syntax
         run: |
-          node --check labs/nexa-audit-attestation/receipt-verifier.G59-LAB-ONLY.mjs
-          node --check labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
-      - name: Offline synthetic verification only — no staging, SQL, API or dependencies
-        run: node --test labs/nexa-audit-attestation/receipt-verifier.G59.test.mjs
+          node --check labs/nexa-audit-attestation/p0-origin/source-contract.P0-LAB-ONLY.mjs
+          node --check labs/nexa-audit-attestation/p0-origin/source-contract.P0.test.mjs
+      - name: Verify synthetic source ownership and transaction contract (no staging or dependencies)
+        run: node --test labs/nexa-audit-attestation/p0-origin/source-contract.P0.test.mjs
