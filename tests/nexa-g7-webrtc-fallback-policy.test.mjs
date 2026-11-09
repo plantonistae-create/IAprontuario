@@ -61,3 +61,10 @@ test('unverified cancellation cannot silently trigger local fallback or paid ret
   assert.equal(r.no_charge_verified,false);
  }
 });
+
+test('missing own fallback flags cannot inherit implicit policy defaults',()=>{
+ const timeout=trace([event('timeout')]);
+ assert.throws(()=>policy(timeout,{localReady:true}),/TRANSPORT_POLICY_INVALID/);
+ assert.throws(()=>policy(timeout,{confirmedUserCancellation:false}),/TRANSPORT_POLICY_INVALID/);
+ assert.throws(()=>policy(timeout,{localReady:true,confirmedUserCancellation:false,...{unknown:true}}),/TRANSPORT_POLICY_INVALID/);
+});
