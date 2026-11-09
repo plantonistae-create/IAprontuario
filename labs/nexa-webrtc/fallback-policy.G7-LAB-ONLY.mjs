@@ -6,9 +6,9 @@ const outcomes=new Set([
  'NETWORK_OR_UNKNOWN_ERROR_BEFORE_STATUS','WRAPPER_ERROR_NO_UPSTREAM_EVIDENCE',
  'NO_DIAGNOSTIC_EVIDENCE'
 ]);
-const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;
 export function decideOfflineTransportFallback(trace,options){
- if(!obj(trace)||!outcomes.has(trace.outcome)||!['webrtc','chunk'].includes(trace.phase)||
+ if(!obj(trace)||!Object.hasOwn(trace,'outcome')||!Object.hasOwn(trace,'phase')||!outcomes.has(trace.outcome)||!['webrtc','chunk'].includes(trace.phase)||
   !obj(options)||Object.keys(options).some(k=>!['localReady','confirmedUserCancellation'].includes(k))||
   typeof options.localReady!=='boolean'||typeof options.confirmedUserCancellation!=='boolean')
   throw Error('TRANSPORT_POLICY_INVALID');
