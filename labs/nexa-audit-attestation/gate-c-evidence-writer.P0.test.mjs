@@ -69,7 +69,7 @@ test('lab writer SQL blocks client inserts, requires explicit server provenance 
    'PHYSICIAN_PATIENT_CONSENT_ATTESTATION','PHYSICIAN_FINAL_REVIEW_ACK',
    'physician_explicit_action','consent_precedes_external_processing',
    'server_sync_ack','server_audio_complete','server_reconciliation_clear',
-   'source_sync_version<>v_event.source_sync_version',
+   'v_source.sync_version<>v_event.source_sync_version',
    'FINAL_REVIEW_VERSION_CONTENT_MISMATCH','CONSENT_EVIDENCE_MISSING',
    'nexa_gate_c_materialize_verified_evidence_lab'])assert.ok(sql.includes(term),term);
  assert.doesNotMatch(sql.split('\n').filter(x=>!x.trimStart().startsWith('--')).join('\n'),
