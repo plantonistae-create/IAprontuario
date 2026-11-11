@@ -1,4 +1,8 @@
-# NEXA P0 — Gate C: preparação de laboratório PostgreSQL (NÃO EXECUTADO)
+# NEXA P0 — Gate C: preparação de laboratório PostgreSQL (histórico)
+
+> **Atualização Gate C — 2026-11-10 (prevalece sobre as premissas datadas abaixo):**
+> O produto usa **autoria individual do médico com acesso clínico ativo**, sem tenant institucional neste momento. A exportação schema-only **privada** foi concluída e revisada (não pedir/publicar dump bruto). O operador reportou PASS em testes PostgreSQL locais **parciais** de RLS/autoria, grants, versão, campo dinâmico, unicidade, rollback e revisão sequencial; esses resultados não equivalem a C01–C10 ponta a ponta, que seguem **PENDENTES**. O consentimento atual cobre IA externa e auditoria segundo confirmação do proprietário, mas falta **checkpoint servidor vinculante de finalidade + conteúdo + sync_version + autoria**, e sua **rechecagem atômica pós-IA**. As afirmações históricas de "tenant obrigatório", "Postgres local indisponível" e "DDL inicial pendente de exportação" **não representam o estado atual**; a cronologia de investigação anterior é mantida abaixo para rastreabilidade. A PR #165 atualiza o laboratório sem permitir escrita privilegiada/reset, SQL hospedado ou deploy.
+
 
 **Issue:** #164. **PR de referência:** #165 Draft (antes deste documento: `229589465e5f79ed79226dd886b215453e8354b5`). **PR #166:** complementar, não mesclar. **main:** `064757d2a39ad4c04c60b0034a8b35756b8eb089`; **G55 local reportado:** árvore `01b41e78`.  
 **Estado:** `BLOCKED_NO_POSTGRES_LOCAL`. No ambiente executor desta análise há Node 22, mas não há `postgres`, `initdb`, `pg_ctl`, `psql`, Docker ou Podman. Nenhum SQL, transação, teste PostgreSQL, rede, staging ou função hospedada foi executado. Não confundir com as CIs sintéticas 18/18 da #165 e 21/21 da #166, que **não foram repetidas**.
