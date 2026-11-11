@@ -33,3 +33,18 @@ O laboratório testa condições sintéticas de autorização, digest, campos di
 Conforme relato do operador, testes PostgreSQL locais PARCIAIS passaram: RLS/autoria, grants, versão, campo dinâmico, unicidade, rollback e revisão sequencial. A evidência completa das duas sessões concorrentes e do fluxo ponta a ponta C01–C10 NÃO foi apresentada nesta PR; portanto NÃO declarar esses casos como aprovados. O próximo bloqueio é implementar/provar o checkpoint servidor e a rechecagem atômica com schema fiel e C01–C10 isolados.
 
 **STOP:** produção, merge, deploy, alterações RLS/ACL, SQL hospedado, chamada paga, reset locked ou qualquer mudança do guard. Preservar main, G55, PRs #158–#161/#163/#166 e Edge hospedadas. Esta Draft é contrato de laboratório apenas.
+
+
+## Gate C.3 — implementação isolada (NÃO APLICADA)
+
+**Arquivos novos:** `gate-c-checkpoint-atomic.P0-CANDIDATE-NOT-APPLIED.sql` e `gate-c-edge-offline.P0-CANDIDATE.mjs`, com testes `gate-c-atomic.P0.test.mjs`. Tudo sob `labs/`, fora de migrations e Edge hospedadas.
+
+- A RPC candidata de checkpoint emite um recibo de fonte, consentimento, revisão médica e versão após calcular SHA-256 no próprio PostgreSQL sobre os campos dinâmicos, processing_meta, protocol_usage e consent_recorded_at. A canonicalização PostgreSQL `pg-jsonb-v1` NÃO é o algoritmo Node `nexa-json-v1` e não se deve misturá-las.
+- A RPC de commit roda *após* IA em transação curta, revalida owner, perfil/slot ativo, recibo, consentimento, revisão, digest, versão e estado de audit_cases. Usa advisory lock por encontro/versão, lock de audit_cases primeiro e depois consultation_history, igual à ordem da revisão. Caso pending idêntico é idempotente e não sobrescrito; divergência e terminal são STOP.
+- O adaptador offline exige autenticação antes e depois da IA, origem exclusiva do checkpoint servidor, valida envelope desidentificado e faz somente UMA chamada ao commit atômico. Rejeita body.fields/core_context e qualquer identidade/tenant vinda do corpo. Falhas não disparam repetição paga nem reset.
+- **O bloqueio proposital permanece:** não existem nesta PR os *writers* autoritativos para registrar o consentimento por finalidade e o ACK da revisão médica; as tabelas de evidência começam vazias. Não retropreencher nem aceitar um boolean do cliente para dispensar essas provas.
+- **Somente candidato SQL local:** não foi executado em PostgreSQL. Não houve consulta ou alteração de SQL hospedado. As mudanças de GRANT/REVOKE do arquivo dizem respeito exclusivamente a novos objetos propostos do laboratório; nenhuma ACL real foi modificada.
+- **Integração não autorizada:** os clientes legados enviam fields/core_context e devem ser adaptados sem perder o contexto clínico. A submissão de produção ainda usa SERVICE_KEY e o fluxo antigo: não recebeu patch.
+- **Testes:** apenas Node sintético de sequenciamento/erros e inspeção estática da candidata SQL. As evidências parciais de banco já aceitas permanecem; C01-C10 fim-a-fim, duas sessões e revisor não foram executados aqui. Gate segue NO-GO.
+
+A promoção futura depende de uma integração segura do evento de consentimento real e da revisão final do médico, validação de autoria/slot e protocolo de privacidade, revisão de grants/owners/search_path, e C01-C10 em PostgreSQL descartável.
