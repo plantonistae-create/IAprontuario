@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  gate-c-atomic-delta-offline:
+  gate-c-evidence-writer-delta-offline:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -20,9 +20,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Gate C candidate syntax (existing #42948229286 not repeated)
+      - name: New evidence writer syntax only - no old suites
         run: |
-          node --check labs/nexa-audit-attestation/gate-c-edge-offline.P0-CANDIDATE.mjs
-          node --check labs/nexa-audit-attestation/gate-c-atomic.P0.test.mjs
-      - name: Focused Gate C delta only - synthetic ports, no network
-        run: node --test labs/nexa-audit-attestation/gate-c-atomic.P0.test.mjs
+          node --check labs/nexa-audit-attestation/gate-c-evidence-writer-offline.P0-CANDIDATE.mjs
+          node --check labs/nexa-audit-attestation/gate-c-evidence-writer.P0.test.mjs
+      - name: Targeted evidence writer tests - fake server events only
+        run: node --test labs/nexa-audit-attestation/gate-c-evidence-writer.P0.test.mjs
+      - name: Bash syntax for local preflight (not executed)
+        run: bash -n labs/nexa-audit-attestation/gate-c-local-preflight.P0.sh

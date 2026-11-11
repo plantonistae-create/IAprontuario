@@ -48,3 +48,16 @@ Conforme relato do operador, testes PostgreSQL locais PARCIAIS passaram: RLS/aut
 - **Testes:** apenas Node sintético de sequenciamento/erros e inspeção estática da candidata SQL. As evidências parciais de banco já aceitas permanecem; C01-C10 fim-a-fim, duas sessões e revisor não foram executados aqui. Gate segue NO-GO.
 
 A promoção futura depende de uma integração segura do evento de consentimento real e da revisão final do médico, validação de autoria/slot e protocolo de privacidade, revisão de grants/owners/search_path, e C01-C10 em PostgreSQL descartável.
+
+
+## Gate C.4 — origem verificada e writer fail-closed (11/11/2026)
+
+**Achado no código real:** `index.html` inclui consentimento no checkbox de gravação e registra `consentRecordedAt` no **cliente** durante `processAudio`. O `saveHistory` e o autosave sincronizam campos e `sync_version`, mas não produzem ACK explícito de que o médico revisou a versão integral. `submitCurrentForAudit` faz `confirm()` no navegador, sem registro transacional desse aceite. `nexa-audit-outbox-v18.9.19.js` captura campos locais e sinaliza `hypothesis_validation.status='reviewed'`, que também **não substitui assinatura/evento durável de revisão**. Portanto nenhum desses sinais gera evento confiável automaticamente. A confirmação do proprietário de que a política atual cobre IA externa/auditoria não equivale a prova técnica existente.
+
+**Materializador novo e NÃO APLICADO:** `gate-c-evidence-materializer.P0-NOT-APPLIED.sql` cria, apenas no laboratório, uma tabela privada de eventos que exigem origem do backend verificado e ação positiva do médico. Sem `INSERT` para `authenticated`, `anon` ou `service_role` nesta tabela. Função `nexa_gate_c_materialize_verified_evidence_lab` só transforma um evento previamente existente em prova de finalidade/consentimento ou revisão da versão. Confere owner, slot, timestamp, digest completo, sincronização confirmada, áudio/reconciliação e idempotência. **Não cria eventos de origem** — o fluxo atual não os produz — e não concede reset/locked.
+
+O adaptador Node `gate-c-evidence-writer-offline.P0-CANDIDATE.mjs` usa somente provider server-only e revalida Auth antes de invocar a RPC; o teste `gate-c-evidence-writer.P0.test.mjs` cobre evento inexistente, falso, ator trocado, SQL erro e ausência de retry. **Não é código publicado ou conectado à interface.** O SQL candidato contém grants somente sobre novas tabelas LAB e não é um contrato de privilégio aprovado: a promoção exige estreitar os direitos de escrita ao materializador, revisar `SECURITY INVOKER`/owner/ACL, e integrar um produtor confiável de eventos que não aceite campos do body como prova. Nenhuma ACL real foi alterada.
+
+**C01–C10:** roteiro `GATE_C_C01_C10_SINGLE_SESSION_NOT_RUN.md` e preflight `gate-c-local-preflight.P0.sh` são somente preparação. Não provaram offline egress. O executor atual não possui PostgreSQL/`psql`; Mac/Codex local é necessário para concorrência real, com duas sessões e revisor. Sem dump bruto em GitHub, chats ou logs. Só aceitar evidências sanitizadas de testes novos; não reexecutar os PASS parciais anteriores.
+
+**STOP permanece** para SQL hosted, paciente real, chamadas pagas, merge/deploy, RLS/ACL reais, `locked`, função Edge em produção ou afirmação de que a autoria e consentimento servidor foram comprovados.
