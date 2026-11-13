@@ -1,0 +1,28 @@
+name: NEXA P0 Safe Audit Submit (Offline Only)
+
+on:
+  pull_request:
+    branches:
+      - feat/nexa-g18-transcript-buffer-final-idempotence-20261108
+    paths:
+      - 'index.html'
+      - 'tests/nexa-p0-audit-submit-guard.offline.test.mjs'
+      - '.github/workflows/nexa-p0-audit-submit-guard-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-submit-safe-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit dispatch guard and existing inline syntax
+        run: |
+          node --check tests/nexa-p0-audit-submit-guard.offline.test.mjs
+          node --test tests/nexa-p0-audit-submit-guard.offline.test.mjs
+          node tests/nexa-inline-syntax.test.mjs
