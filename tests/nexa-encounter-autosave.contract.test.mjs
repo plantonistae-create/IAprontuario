@@ -104,6 +104,7 @@ assert.notEqual(second.encounter_id,first.encounter_id);
 assert.equal(records.size,2);
 const terminal={...(await api.get(first.encounter_id)),encounter_state:'audited',sync_state:'locked'};
 await api.put(terminal);api.setActiveId(first.encounter_id);
+fields.hda='Tentativa sintética de edição posterior ao bloqueio';
 const lockedBefore=structuredClone(await api.get(first.encounter_id));
 await assert.rejects(api.preserve('later',{sync:false}),/LOCKED_ENCOUNTER_IMMUTABLE/,
   'edits after terminal audit must not rewrite the local clinical snapshot');
