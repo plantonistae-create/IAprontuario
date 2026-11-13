@@ -1,0 +1,29 @@
+name: NEXA Gate C Explicit Event Producer (Offline Only)
+
+on:
+  pull_request:
+    branches:
+      - feat/nexa-p0-audit-source-authority-offline-20261109
+    paths:
+      - 'labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs'
+      - 'labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs'
+      - '.github/workflows/nexa-gate-c-event-producer-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  explicit-events-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Targeted syntax (no hosted services)
+        run: |
+          node --check labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs
+          node --check labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
+      - name: Explicit consent and review tests (synthetic only)
+        run: node --test labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
