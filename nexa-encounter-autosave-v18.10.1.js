@@ -357,8 +357,22 @@ async function startNew(reason='new_encounter'){
  // physician's form. Require the form to be cleared before opening a draft.
  if(ownerSwitchRequiresExplicitEncounter&&meaningful(capturedFields))
    throw new Error('OWNER_SWITCH_REQUIRES_CLEAR_FORM');
+ // The canonical reset creates a new ID only after clearing the visible form.
+ // If clearing failed, never copy the previous patient's text into a fresh ID.
+ if(reason==='after_reset'&&meaningful(capturedFields))
+   throw new Error('NEW_ENCOUNTER_REQUIRES_EMPTY_FORM');
  return serializeLocal(async()=>{
  if(!userId||owner()!==userId)return null;
+ const priorId=currentEncounterId();
+ if(priorId){
+  const prior=await store.get(priorId);
+  assertOwnerStill(userId);
+  if(prior&&prior.owner_user_id!==userId)
+   throw new Error('ENCOUNTER_OWNER_MISMATCH');
+  if(prior&&(['audited','discarded'].includes(prior.encounter_state)||
+      prior.sync_state==='locked')&&meaningful(capturedFields))
+   throw new Error('LOCKED_ENCOUNTER_REQUIRES_EMPTY_FORM');
+ }
  const id=uuid();setActiveId(id);
  const rec=await buildLocal(reason,id,capturedFields,userId);if(!rec)return null;
  assertOwnerStill(userId);
