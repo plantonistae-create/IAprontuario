@@ -6,6 +6,8 @@ on:
       - feat/nexa-g18-transcript-buffer-final-idempotence-20261108
     paths:
       - 'index.html'
+      - 'nexa-audit-outbox-v18.9.19.js'
+      - 'tests/nexa-p0-audit-outbox-no-network.offline.test.mjs'
       - 'tests/nexa-p0-audit-submit-guard.offline.test.mjs'
       - '.github/workflows/nexa-p0-audit-submit-guard-offline.yml'
 
@@ -25,4 +27,7 @@ jobs:
         run: |
           node --check tests/nexa-p0-audit-submit-guard.offline.test.mjs
           node --test tests/nexa-p0-audit-submit-guard.offline.test.mjs
+          node --check nexa-audit-outbox-v18.9.19.js
+          node --check tests/nexa-p0-audit-outbox-no-network.offline.test.mjs
+          node --test tests/nexa-p0-audit-outbox-no-network.offline.test.mjs
           node tests/nexa-inline-syntax.test.mjs
