@@ -194,7 +194,19 @@ async function buildLocal(reason='autosave',forcedId='',capturedFields=null,expe
  const previous=await store.get(id);
  assertOwnerStill(expectedOwner); // IndexedDB may have yielded during account change.
  if(previous&&previous.owner_user_id!==userId)throw new Error('ENCOUNTER_OWNER_MISMATCH');
- const fields=capturedFields===null?collectFields():clone(capturedFields),ready=eligible(fields),ts=nowIso();
+ const fields=capturedFields===null?collectFields():clone(capturedFields);
+ // A terminal or server-locked snapshot must remain byte-for-byte immutable
+ // in IndexedDB as well as remotely. The prior implementation regenerated
+ // it from the visible form and silently changed local clinical history.
+ if(previous&&(['audited','discarded'].includes(previous.encounter_state)||
+     previous.sync_state==='locked')){
+  const stored=previous.fields||{},keys=Object.keys(stored);
+  const unchanged=Object.keys(fields).length===keys.length&&
+   keys.every(k=>Object.prototype.hasOwnProperty.call(fields,k)&&fields[k]===stored[k]);
+  if(!unchanged)throw new Error('LOCKED_ENCOUNTER_IMMUTABLE');
+  return previous;
+ }
+ const ready=eligible(fields),ts=nowIso();
  const needsReview=!!previous?.requires_form_refresh&&JSON.stringify(fields)!==JSON.stringify(previous.fields||{});
  const remainsConflict=previous?.sync_state==='conflict'||needsReview;
  const terminal=['audited','discarded'].includes(previous?.encounter_state);
@@ -327,6 +339,9 @@ async function preserve(reason='autosave',{sync=true}={}){
  if(previous?.requires_form_refresh&&!editedAfterReconciliation.has(existingId)&&!['input','change'].includes(reason))return previous;
  const rec=await buildLocal(reason,existingId,fields,capturedOwner);if(!rec)return null;
  assertOwnerStill(capturedOwner);
+ // A no-op checkpoint for an unchanged locked note is not a new write or ACK.
+ if(['audited','discarded'].includes(rec.encounter_state)||
+    rec.sync_state==='locked')return rec;
  await store.put(rec);
  assertOwnerStill(capturedOwner);
  editedAfterReconciliation.delete(rec.encounter_id);
@@ -410,7 +425,7 @@ async function prioritize(){
  assertOwnerStill(userId);
  const rec=await buildLocal('manual_priority','',null,userId);
  if(!rec)return null;
- if(['audited','discarded'].includes(rec.encounter_state)||rec.sync_state==='conflict')return rec;
+ if(['audited','discarded'].includes(rec.encounter_state)||['conflict','locked'].includes(rec.sync_state))return rec;
  rec.audit_priority=Math.max(1,Number(rec.audit_priority||0));
  assertOwnerStill(userId);
  await store.put(rec);assertOwnerStill(userId);
