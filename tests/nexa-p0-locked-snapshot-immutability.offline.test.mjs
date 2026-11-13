@@ -76,3 +76,66 @@ test('unchanged locked preserve returns without writing or announcing save',asyn
  assert.equal(result.local_revision,8);
  assert.equal(dispatched,0);
 });
+
+
+/* A reset must never adopt retained text from a locked note as a new patient. */
+function startFixture({originalState='audited',visible='Texto de consulta bloqueada',priorId=ID}={}){
+ const records=new Map([[ID,item({state:originalState,sync:'locked'})]]);
+ const events=[];let minted=0;
+ const currentFields=()=>({hda:visible});
+ const original=source.slice(source.indexOf('async function startNew('),
+  source.indexOf('async function adoptExisting(',source.indexOf('async function startNew(')));
+ assert.match(original,/NEW_ENCOUNTER_REQUIRES_EMPTY_FORM/);
+ assert.match(original,/LOCKED_ENCOUNTER_REQUIRES_EMPTY_FORM/);
+ const factory=new Function('ensureOwnerScope','owner','collectFields',
+   'ownerSwitchRequiresExplicitEncounter','meaningful','serializeLocal',
+   'currentEncounterId','store','assertOwnerStill','uuid','setActiveId',
+   'buildLocal','navigator','syncOne','window','CustomEvent',
+   original+'\nreturn startNew;');
+ const store={
+  get:async id=>structuredClone(records.get(id)||null),
+  put:async rec=>{records.set(rec.encounter_id,structuredClone(rec));return rec}
+ };
+ let active=priorId;
+ const run=factory(()=>{},()=>USER,currentFields,false,
+   x=>Object.values(x||{}).some(y=>String(y||'').trim()),
+   async callback=>callback(),()=>active,store,who=>assert.equal(who,USER),
+   ()=>'44444444-4444-4444-8444-'+String(++minted).padStart(12,'0'),
+   id=>{active=id},
+   async (_reason,id,fields,actor)=>({encounter_id:id,owner_user_id:actor,
+    fields,encounter_state:'draft',sync_state:'pending'}),
+   {onLine:false},()=>{throw Error('REMOTE_SYNC_NOT_ALLOWED')},
+   {dispatchEvent:x=>events.push(x)},
+   class{constructor(name,opts){this.type=name;this.detail=opts?.detail}});
+ return {run,records,events,get minted(){return minted},get active(){return active}};
+}
+
+test('failed reset cannot duplicate previous patient text into new encounter',async()=>{
+ const f=startFixture();
+ const before=structuredClone(f.records.get(ID));
+ await assert.rejects(f.run('after_reset'),/NEW_ENCOUNTER_REQUIRES_EMPTY_FORM/);
+ assert.equal(f.minted,0);
+ assert.equal(f.records.size,1);
+ assert.deepEqual(f.records.get(ID),before);
+ assert.equal(f.active,ID);
+ assert.equal(f.events.length,0);
+});
+test('manual new encounter from locked visible note requires clearing first',async()=>{
+ const f=startFixture();
+ await assert.rejects(f.run('new_encounter'),/LOCKED_ENCOUNTER_REQUIRES_EMPTY_FORM/);
+ assert.equal(f.minted,0);
+ assert.equal(f.records.size,1);
+ assert.equal(f.events.length,0);
+});
+test('blank canonical reset can create a fresh empty draft safely',async()=>{
+ const f=startFixture({visible:''});
+ const previous=structuredClone(f.records.get(ID));
+ const started=await f.run('after_reset');
+ assert.equal(f.minted,1);
+ assert.notEqual(started.encounter_id,ID);
+ assert.deepEqual(started.fields,{hda:''});
+ assert.equal(started.owner_user_id,USER);
+ assert.deepEqual(f.records.get(ID),previous);
+ assert.equal(f.records.size,2);
+ assert.equal(f.events.length,1);
+});
