@@ -23,16 +23,20 @@ const stop=code=>Object.freeze({
 
 /*
  * All adapters described here MUST be SERVER-OWNED and executed under
- * genuinely verified actor/tenant identity with privileged DB reads.
+ * genuinely verified actor identity and owner-only clinical access; never
+ * from an invented institutional tenant claim. Privileged DB reads are not
+ * implemented by this offline candidate.
  * A caller can inject mocks in offline tests, but a successful mock result
  * is NEVER authorization for an external AI request or audit-case write.
  *
  * Minimal future database boundary (NOT implemented here):
- * - source ownership and institutional membership at same source row;
+ * - source ownership and active clinical slot on the same source row;
+ * - product authorization currently is individual physician/owner-only;
+ *   institutional tenant membership is NOT an established product or DB gate;
  * - immutable consent before external AI start;
  * - final physician acknowledgement after server sync ACK, exact version
  *   and canonical digest, with no later edits or unresolved conflict;
- * - compare event source/owner/tenant/version/digest atomically with current
+ * - compare event source/owner/sync_version/digest atomically with current
  *   source under locks, narrow writer grant, idempotent receipt and rollback.
  */
 export async function inspectAuditDispatchCandidate({
@@ -45,8 +49,8 @@ export async function inspectAuditDispatchCandidate({
    return stop('TRUSTED_BACKEND_PROVIDERS_MISSING');
   // Only routing identity may be supplied by a caller; no clinical contents,
   // audit priority, consent booleans, timestamps or review claims.
-  if(!exact(request,['encounterId','snapshotVersion'])||
-     !UUID.test(request.encounterId||'')||!ver(request.snapshotVersion))
+  if(!exact(request,['encounterId','expectedSyncVersion'])||
+     !UUID.test(request.encounterId||'')||!ver(request.expectedSyncVersion))
    return stop('CLIENT_AUDIT_PAYLOAD_FORBIDDEN');
 
   const actor=await identity.getUser();
@@ -61,16 +65,18 @@ export async function inspectAuditDispatchCandidate({
      row.clinicalAccessVerified!==true||
      row.activeSlotVerified!==true)
    return stop('SOURCE_OWNERSHIP_NOT_VERIFIED');
-  // NEXA's institutional tenant assignment is not established in current
-  // schema. Missing authoritative membership is always an explicit STOP.
-  if(!UUID.test(row.tenantId||'')||
-     row.tenantMembershipVerified!==true||
-     !same(row.tenantId,actor.tenantId))
-   return stop('TENANT_AUTHORITY_NOT_VERIFIED');
+  // Owner-only product decision: neither user metadata nor source mocks may
+  // fabricate tenant authority. A future tenant scope needs separate approval
+  // and schema evidence; reject unexpected tenant assertions even in LAB.
+  if(own(actor,'tenantId')||own(row,'tenantId')||
+     own(row,'tenantMembershipVerified'))
+   return stop('INSTITUTIONAL_TENANT_ASSERTION_UNSUPPORTED');
 
   if(row.encounterState!=='ready_for_audit'||
-     !ver(row.syncVersion)||!ver(row.snapshotVersion)||
-     row.snapshotVersion!==request.snapshotVersion||
+     !ver(row.syncVersion)||row.syncVersion!==request.expectedSyncVersion||
+     // `snapshot_version` belongs to audit_cases/checkpoint candidate as TEXT;
+     // this label is server policy, not a consultation_history column.
+     row.snapshotVersion!=='final-v1'||
      !DIGEST.test(row.serverDigest||'')||
      row.digestCanonicalization!=='pg-jsonb-v1'||
      row.serverSyncAck!==true||
@@ -81,7 +87,7 @@ export async function inspectAuditDispatchCandidate({
    return stop('SOURCE_READY_VERSION_DIGEST_NOT_VERIFIED');
 
   const events=await evidence.readImmutableEventsForSource({
-   actorId:actor.id,tenantId:row.tenantId,
+   actorId:actor.id,
    sourceRowId:row.sourceRowId,
    encounterId:row.encounterId
   });
@@ -90,7 +96,6 @@ export async function inspectAuditDispatchCandidate({
   if(!plain(consent)||consent.kind!==CONSENT||
      consent.serverCommittedVerified!==true||
      !same(consent.actorId,actor.id)||
-     !same(consent.tenantId,row.tenantId)||
      !same(consent.sourceRowId,row.sourceRowId)||
      consent.explicitPhysicianActionVerified!==true||
      consent.patientScopeAttested!==true||
@@ -103,7 +108,6 @@ export async function inspectAuditDispatchCandidate({
   if(!plain(review)||review.kind!==REVIEW||
      review.serverCommittedVerified!==true||
      !same(review.actorId,actor.id)||
-     !same(review.tenantId,row.tenantId)||
      !same(review.sourceRowId,row.sourceRowId)||
      review.explicitPhysicianActionVerified!==true||
      review.afterServerSyncAckVerified!==true||
@@ -114,9 +118,8 @@ export async function inspectAuditDispatchCandidate({
      typeof review.serverRecordedAt!=='string')
    return stop('FINAL_PHYSICIAN_ACK_NOT_VERIFIED');
   const actorAgain=await identity.getUser();
-  if(!same(actorAgain?.id,actor.id)||
-     !same(actorAgain?.tenantId,row.tenantId))
-   return stop('ACTOR_OR_TENANT_CHANGED');
+  if(!same(actorAgain?.id,actor.id))
+   return stop('ACTOR_CHANGED');
 
   // Even if all mocks return "verified", no server row locks, privilege,
   // durable event chain or atomic idempotent audit admission were proven.
