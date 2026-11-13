@@ -5,19 +5,18 @@ import {inspectAuditDispatchCandidate} from './audit-dispatch-preflight.P0-NOT-D
 
 const ACTOR='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const TENANT='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const SOURCE='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const HASH='sha256:'+'c'.repeat(64);
 const CONSENT='PHYSICIAN_PATIENT_CONSENT_ATTESTATION';
 const REVIEW='PHYSICIAN_FINAL_REVIEW_ACK';
 const clone=x=>structuredClone(x);
 function fixture(){
- const state={checks:[],commits:0},actor={id:ACTOR,tenantId:TENANT};
+ const state={checks:[],commits:0},actor={id:ACTOR};
  const row={
   ownerUserId:ACTOR,encounterId:SOURCE,sourceRowId:'synthetic-row',
-  tenantId:TENANT,tenantMembershipVerified:true,clinicalAccessVerified:true,
+  clinicalAccessVerified:true,
   activeSlotVerified:true,encounterState:'ready_for_audit',
-  snapshotVersion:3,syncVersion:9,serverDigest:HASH,
+  snapshotVersion:'final-v1',syncVersion:9,serverDigest:HASH,
   digestCanonicalization:'pg-jsonb-v1',serverSyncAck:true,
   audioCompleteVerified:true,reconciliationClearVerified:true,
   noPendingEditsVerified:true,sourceLockedVerified:false,
@@ -25,17 +24,17 @@ function fixture(){
  };
  const events={
   consent:{kind:CONSENT,serverCommittedVerified:true,actorId:ACTOR,
-   tenantId:TENANT,sourceRowId:'synthetic-row',
+   sourceRowId:'synthetic-row',
    explicitPhysicianActionVerified:true,patientScopeAttested:true,
    externalAiAllowed:true,auditAllowed:true,beforeAnyExternalAiVerified:true,
    serverRecordedAt:'2026-11-13T19:00:00Z',policyVersion:'patient-policy-v1'},
   finalReview:{kind:REVIEW,serverCommittedVerified:true,actorId:ACTOR,
-   tenantId:TENANT,sourceRowId:'synthetic-row',
+   sourceRowId:'synthetic-row',
    explicitPhysicianActionVerified:true,afterServerSyncAckVerified:true,
-   noEditsAfterReviewVerified:true,sourceVersion:9,snapshotVersion:3,
+   noEditsAfterReviewVerified:true,sourceVersion:9,snapshotVersion:'final-v1',
    canonicalDigest:HASH,serverRecordedAt:'2026-11-13T19:05:00Z'}
  };
- const request={encounterId:SOURCE,snapshotVersion:3};
+ const request={encounterId:SOURCE,expectedSyncVersion:9};
  const identity={getUser:async()=>{state.checks.push('auth');return clone(actor)}};
  const source={loadVerifiedForActor:async p=>{
   state.checks.push('source');assert.equal(p.actorId,ACTOR);
@@ -59,7 +58,7 @@ async function reject(f,code){
  assert.equal(f.state.commits,0);
 }
 test('requires all server-side adapters',async()=>{
- const r=await run({request:{encounterId:SOURCE,snapshotVersion:3}});
+ const r=await run({request:{encounterId:SOURCE,expectedSyncVersion:9}});
  assert.equal(r.code,'TRUSTED_BACKEND_PROVIDERS_MISSING');
 });
 test('rejects source null without falling back to client fields',async()=>{
@@ -87,13 +86,13 @@ test('rejects unverified active clinical slot',async()=>{
  const f=fixture();f.row.activeSlotVerified=false;
  await reject(f,'SOURCE_OWNERSHIP_NOT_VERIFIED');
 });
-test('requires institutional tenant; current hosted mapping remains unavailable',async()=>{
- const f=fixture();delete f.row.tenantId;
- await reject(f,'TENANT_AUTHORITY_NOT_VERIFIED');
+test('owner-only product: rejects invented tenant source claims',async()=>{
+ const f=fixture();f.row.tenantId=OTHER;
+ await reject(f,'INSTITUTIONAL_TENANT_ASSERTION_UNSUPPORTED');
 });
-test('rejects mismatched tenant membership',async()=>{
+test('owner-only product: rejects actor tenant metadata as authority',async()=>{
  const f=fixture();f.actor.tenantId=OTHER;
- await reject(f,'TENANT_AUTHORITY_NOT_VERIFIED');
+ await reject(f,'INSTITUTIONAL_TENANT_ASSERTION_UNSUPPORTED');
 });
 test('rejects not-ready source and unverified server sync',async()=>{
  const f=fixture();f.row.encounterState='draft';
@@ -101,9 +100,17 @@ test('rejects not-ready source and unverified server sync',async()=>{
  const g=fixture();g.row.serverSyncAck=false;
  await reject(g,'SOURCE_READY_VERSION_DIGEST_NOT_VERIFIED');
 });
-test('rejects changed expected snapshot version',async()=>{
- const f=fixture();f.request.snapshotVersion=4;
+test('rejects changed expected sync_version bigint',async()=>{
+ const f=fixture();f.request.expectedSyncVersion=10;
  await reject(f,'SOURCE_READY_VERSION_DIGEST_NOT_VERIFIED');
+});
+test('rejects wrong server-only audit snapshot label',async()=>{
+ const f=fixture();f.row.snapshotVersion=3;
+ await reject(f,'SOURCE_READY_VERSION_DIGEST_NOT_VERIFIED');
+});
+test('rejects a client-provided snapshot label instead of server policy',async()=>{
+ const f=fixture();f.request.snapshotVersion='final-v1';
+ await reject(f,'CLIENT_AUDIT_PAYLOAD_FORBIDDEN');
 });
 test('rejects stale or unverifiable source digest',async()=>{
  const f=fixture();f.row.serverDigest='bad-client-hash';
@@ -117,8 +124,8 @@ test('rejects consent recorded after model processing began',async()=>{
  const f=fixture();f.events.consent.beforeAnyExternalAiVerified=false;
  await reject(f,'EXPLICIT_CONSENT_EVIDENCE_NOT_VERIFIED');
 });
-test('rejects consent originating from another tenant',async()=>{
- const f=fixture();f.events.consent.tenantId=OTHER;
+test('rejects consent bound to a different source row',async()=>{
+ const f=fixture();f.events.consent.sourceRowId='other-row';
  await reject(f,'EXPLICIT_CONSENT_EVIDENCE_NOT_VERIFIED');
 });
 test('rejects review without version-bound server ACK',async()=>{
@@ -137,8 +144,8 @@ test('rejects same encounter with stale review source version',async()=>{
 });
 test('rejects actor change between source evidence and return',async()=>{
  const f=fixture();let count=0;
- f.identity.getUser=async()=>++count===1?clone(f.actor):{id:OTHER,tenantId:TENANT};
- await reject(f,'ACTOR_OR_TENANT_CHANGED');
+ f.identity.getUser=async()=>++count===1?clone(f.actor):{id:OTHER};
+ await reject(f,'ACTOR_CHANGED');
 });
 test('fail closed on server adapter exception',async()=>{
  const f=fixture();f.evidence.readImmutableEventsForSource=async()=>{throw Error('LAB_ONLY')};
