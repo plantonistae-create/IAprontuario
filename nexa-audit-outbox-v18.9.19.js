@@ -66,35 +66,25 @@ function authHeaders(auth){const access=String(auth?.access||'');if(!access)thro
 function backoff(attempt){const base=Math.min(300000,5000*Math.pow(2,Math.max(0,attempt-1))),jitter=Math.floor(Math.random()*Math.min(3000,Math.max(500,base*.15)));return base+jitter}
 function due(item,now=Date.now()){const next=item?.next_attempt_at?new Date(item.next_attempt_at).getTime():0;return!next||next<=now}
 async function sendItem(item){
- if(item?.state==='held_conflict'||heldEncounterIds.has(item?.source_consultation_id))return{sent:false,held:true};
- // The audit endpoint requires a ready, persisted source. Never send a new
- // snapshot while its encounter is only in IndexedDB or still syncing.
- const encounterApi=window.nexaEncounterAutosave18101;
- const source=await encounterApi?.get?.(String(item.source_consultation_id||''));
- if(source&&source.owner_user_id===item.owner_user_id){
-  if(source.sync_state==='conflict'){
-   await holdConflictSnapshot(item);
-   return{sent:false,held:true};
-  }
-  if(source.sync_state!=='synced'||source.encounter_state!=='ready_for_audit'){
-   // The audit must not be abandoned when the source is still in IndexedDB.
-   // Persist a retry deadline so scheduleRetry() can deliver it later.
-   const latest=await store.get(item.idempotency_key);
-   if(latest?.state==='queued'&&latest.owner_user_id===item.owner_user_id&&
-      latest.captured_at===item.captured_at){
-    const attempts=Number(latest.attempt_count||0)+1;
-    const pending={...latest,attempt_count:attempts,last_error:'SOURCE_NOT_SYNCED',
-      next_attempt_at:new Date(Date.now()+backoff(attempts)).toISOString()};
-    await store.put(pending);
-    return{sent:false,pending:true,reason:'SOURCE_NOT_SYNCED',item:pending};
-   }
-   return{sent:false,pending:true,reason:'SOURCE_NOT_SYNCED',item:latest};
-  }
- }
-const auth=await sessionAuth();if(!auth.userId||auth.userId!==String(item.owner_user_id||''))return{skipped:true};const attempt=Number(item.attempt_count||0)+1,start=nowIso();let working={...clone(item),state:'sending',attempt_count:attempt,last_attempt_at:start,last_error:null};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-started',{detail:{idempotency_key:item.idempotency_key,attempt}}));const controller=new AbortController(),timer=setTimeout(()=>controller.abort('audit-timeout'),SEND_TIMEOUT_MS);try{const response=await fetch(auditSubmitUrl(),{method:'POST',headers:authHeaders(auth),body:JSON.stringify(clone(item.payload)),signal:controller.signal}),data=await response.json().catch(()=>({}));const terminal=data?.error==='ALREADY_REVIEWED',idempotent=data?.error==='ALREADY_SUBMITTED';if(!response.ok&&!idempotent&&!terminal)throw new Error(data?.error||`HTTP_${response.status}`);working={...working,state:terminal?'locked':'sent',sent_at:nowIso(),next_attempt_at:null,last_error:null,server_result:terminal?'ALREADY_REVIEWED':idempotent?'ALREADY_SUBMITTED':data?.updated?'updated':'accepted'};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-success',{detail:{idempotency_key:item.idempotency_key,idempotent,locked:terminal,updated:data?.updated===true}}));return{sent:true,locked:terminal,item:working}}catch(error){const message=error?.name==='AbortError'||String(error||'').includes('audit-timeout')?'TIMEOUT':String(error?.message||error||'NETWORK_ERROR'),wait=backoff(attempt);working={...working,state:'queued',last_error:message,next_attempt_at:new Date(Date.now()+wait).toISOString()};await store.put(working);window.dispatchEvent(new CustomEvent('nexa:audit-submission-failed',{detail:{idempotency_key:item.idempotency_key,error:message,attempt}}));return{sent:false,error:message,item:working}}finally{clearTimeout(timer)}}
+ // P0 REVIEW-ONLY: no client state, UI flag, cached receipt or synthetic
+ // attestation may authorize a request to submit-audit-case.
+ // Preserve queued/sending/held records without mutating or erasing them.
+ // Replace this STOP only after a separately verified server-authoritative
+ // consent + final-review + transactional Gate C integration.
+ return{sent:false,pending:true,reason:'GATE_C_NO_GO',item};
+}
 async function recoverStale(items){const t=Date.now();for(const item of items){if(item.state==='sending'&&t-new Date(item.last_attempt_at||0).getTime()>STALE_SENDING_MS)await store.put({...item,state:'queued',last_error:'RECOVERED_STALE_SENDING',next_attempt_at:null})}}
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const auth=currentAuth();if(!auth.userId)return;const times=items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)&&x.next_attempt_at).map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite);if(!times.length)return;const delay=Math.max(500,Math.min(...times)-Date.now());retryTimer=setTimeout(()=>flush('scheduled_retry'),Math.min(delay,300000))}
-async function flush(reason='manual'){if(flushPromise)return flushPromise;flushPromise=(async()=>{const auth=await sessionAuth();if(!auth.userId||!auth.access)return{sent:0,pending:0,reason:'no_session'};let items=await store.all();await recoverStale(items);items=await store.all();let sent=0;for(const item of items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)&&due(x))){const result=await sendItem(item);if(result.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===auth.userId&&!['sent','locked','held_conflict'].includes(x.state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise}
+async function flush(reason='manual'){
+ // Do not mutate outbox retry metadata or send HTTP while Gate C is NO-GO.
+ // Existing audit snapshots stay available for later authorised recovery.
+ const userId=owner();
+ if(!userId)return{sent:0,pending:0,reason:'no_owner'};
+ const items=await store.all();
+ return{sent:0,pending:items.filter(item=>item.owner_user_id===userId&&
+  !['sent','locked','held_conflict'].includes(item.state)).length,
+  reason:'GATE_C_NO_GO'};
+}
 function toast(msg,bad=false){let x=document.getElementById('nexaAuditOutboxToast');if(!x){x=document.createElement('div');x.id='nexaAuditOutboxToast';x.style.cssText='position:fixed;z-index:40000;right:16px;bottom:92px;max-width:440px;padding:10px 12px;border-radius:10px;font:800 11px/1.35 system-ui;box-shadow:0 10px 28px rgba(0,0,0,.2)';document.body.appendChild(x)}x.textContent=msg;x.style.background=bad?'#fff0f1':'#eaf8f4';x.style.color=bad?'#8e2931':'#086f61';clearTimeout(x.__t);x.__t=setTimeout(()=>x.remove(),4200)}
 async function ensureAuditSnapshotBeforeReset(){return preserve('reset_safety_net')}
 // A remote version conflict is not an IndexedDB write failure. Preserve both
@@ -215,7 +205,7 @@ async function beforeReset(el){
   if(autosave?.startNew)await autosave.startNew('after_reset');
   if(conflict)toast('Novo atendimento iniciado. A consulta anterior está preservada e precisa de reconciliação.',true);
   else if(saved&&!serverConfirmed&&autosave?.syncOne)toast('Consulta preservada apenas neste computador. Servidor e auditoria pendentes: Histórico → Recuperar atendimento.',true);
-  else if(snap)toast('Consulta confirmada no servidor e adicionada à fila de auditoria.');
+  else if(snap)toast('Cópia local preservada; envio à auditoria ainda não autorizado.',true);
   else if(saved)toast('Rascunho preservado localmente; ainda sem dados suficientes para auditoria.');
   if(!conflict)void flush('reset');
   void autosave?.flush?.('audit_final_checkpoint');
@@ -227,28 +217,22 @@ async function beforeReset(el){
     'Consulta NÃO foi limpa: '+code+'. Verifique Histórico → Recuperar atendimento.',true);
  }finally{resetting=false}
 }
-async function manual(button){try{await window.nexaEncounterAutosave18101?.prioritize?.();const snap=await preserve('manual_priority');if(!snap)return toast('Não há conteúdo clínico suficiente para priorizar.',true);toast('Caso priorizado para Auditoria.');void flush('manual_priority');if(button){const text=button.textContent;button.textContent='Priorizado ✓';setTimeout(()=>{button.textContent=text},1500)}}catch(error){toast(error?.message||'Falha ao priorizar caso.',true)}}
+async function manual(button){try{
+ await window.nexaEncounterAutosave18101?.prioritize?.();
+ const snap=await preserve('manual_priority');
+ if(!snap)return toast('Não há conteúdo clínico suficiente para priorizar.',true);
+ toast('Caso guardado na fila local. Envio à auditoria bloqueado até validação de segurança.',true);
+ // No flush here: this local priority never represents server approval.
+ if(button){const label=button.textContent;button.textContent='Pendente local';setTimeout(()=>{button.textContent=label},1500)}
+}catch(error){toast('Auditoria pendente. Verifique a preservação local antes de limpar.',true)}}
 async function automaticHandoff(reason='automatic'){try{const autosave=window.nexaEncounterAutosave18101;const fields=collect();if(valid(fields)&&autosave?.preserve){const saved=await autosave.preserve('audit_'+reason,{sync:false});if(saved?.sync_state==='conflict')return{pending:true,reason:'conflict'};}const snap=await preserve(reason);if(!snap)return null;void autosave?.flush?.('audit_'+reason);return await flush(reason)}catch(error){console.warn('NEXA audit automatic handoff pending',reason,error);return null}}
-async function submitRemoteEncounter(row,auth){const source=String(row?.encounter_id||'');if(!source)return{skipped:true};const controller=new AbortController(),timer=setTimeout(()=>controller.abort('audit-reconcile-timeout'),SEND_TIMEOUT_MS);try{const response=await fetch(auditSubmitUrl(),{method:'POST',headers:authHeaders(auth),signal:controller.signal,body:JSON.stringify({source_consultation_id:source,snapshot_version:SNAPSHOT_VERSION,audit_priority:Number(row?.audit_priority||0),core_context:{audit_submission_snapshot:{capture_reason:'remote_reconcile',frontend_version:'18.10.2'}}})}),data=await response.json().catch(()=>({}));if(response.ok||data?.error==='ALREADY_SUBMITTED'||data?.error==='ALREADY_REVIEWED')return{sent:true,idempotent:data?.error==='ALREADY_SUBMITTED',locked:data?.error==='ALREADY_REVIEWED'};return{sent:false,error:data?.error||`HTTP_${response.status}`}}catch(error){return{sent:false,error:error?.name==='AbortError'?'TIMEOUT':String(error?.message||error||'NETWORK_ERROR')}}finally{clearTimeout(timer)}}
+async function submitRemoteEncounter(row,auth){
+ // No remote audit POST is permitted from the browser in this candidate.
+ return{sent:false,skipped:true,reason:'GATE_C_NO_GO'};
+}
 async function reconcileRemoteReady(limit=10){
- const auth=await sessionAuth(),c=client();
- if(!auth.userId||!auth.access||!c?.from)return{processed:0,sent:0,reason:'no_session'};
- const {data,error}=await c.from('consultation_history')
-  .select('encounter_id,audit_priority,updated_at,sync_version')
-  .eq('user_id',auth.userId).eq('encounter_state','ready_for_audit')
-  .order('updated_at',{ascending:false}).limit(Math.max(1,Math.min(20,Number(limit||10))));
- if(error)return{processed:0,sent:0,error:String(error.message||error)};
- let sent=0,failed=0,skipped=0;
- for(const row of data||[]){
-  const id=String(row.encounter_id||'');
-  const key=auth.userId+':'+id+':'+String(row.sync_version??'0');
-  if(remotelyReconciled.has(key)||(remoteRetryAfter.get(key)||0)>Date.now()){skipped++;continue}
-  const r=await submitRemoteEncounter(row,auth);
-  if(r.sent){sent++;remotelyReconciled.set(key,true);remoteRetryAfter.delete(key)}
-  else if(!r.skipped){failed++;remoteRetryAfter.set(key,Date.now()+120000)}
- }
- window.dispatchEvent(new CustomEvent('nexa:audit-remote-reconciled',{detail:{processed:(data||[]).length,sent,failed,skipped}}));
- return{processed:(data||[]).length,sent,failed,skipped};
+ // Explicit STOP: no direct Data API scan or remote POST to submit-audit-case.
+ return{processed:0,sent:0,skipped:0,reason:'GATE_C_NO_GO'};
 }
 function scheduleAutomaticHandoff(reason='stable_encounter'){clearTimeout(autoHandoffTimer);autoHandoffTimer=setTimeout(()=>{void automaticHandoff(reason);void reconcileRemoteReady(10)},1500)}
 const AUTO_TRANSITION='#nexaHomeNav,[data-desk="home"],[data-quick="history"],[data-desk="history"],#navAuditBtn,#navProtocolsBtn,#navAdminBtn,#coreAdminBtn,#logoutBtn';
