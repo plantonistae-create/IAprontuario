@@ -1,0 +1,29 @@
+name: NEXA P0 Locked Snapshot Immutability (Offline Only)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'nexa-encounter-autosave-v18.10.1.js'
+      - 'tests/nexa-encounter-autosave.contract.test.mjs'
+      - 'tests/nexa-p0-locked-snapshot-immutability.offline.test.mjs'
+      - '.github/workflows/nexa-p0-locked-immutability-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  locked-snapshot-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify modified autosave contract only
+        run: |
+          node --check nexa-encounter-autosave-v18.10.1.js
+          node --test tests/nexa-p0-locked-snapshot-immutability.offline.test.mjs
+          node tests/nexa-encounter-autosave.contract.test.mjs
