@@ -104,9 +104,14 @@ assert.notEqual(second.encounter_id,first.encounter_id);
 assert.equal(records.size,2);
 const terminal={...(await api.get(first.encounter_id)),encounter_state:'audited',sync_state:'locked'};
 await api.put(terminal);api.setActiveId(first.encounter_id);
-const after=await api.preserve('later',{sync:false});
+const lockedBefore=structuredClone(await api.get(first.encounter_id));
+await assert.rejects(api.preserve('later',{sync:false}),/LOCKED_ENCOUNTER_IMMUTABLE/,
+  'edits after terminal audit must not rewrite the local clinical snapshot');
+const after=await api.get(first.encounter_id);
 assert.equal(after.encounter_state,'audited');
-assert.equal(after.sync_state,'locked','An audited encounter must remain locked after local edits');
+assert.equal(after.sync_state,'locked');
+assert.deepEqual(after.fields,lockedBefore.fields,'locked clinical content must be unchanged');
+assert.equal(after.local_revision,lockedBefore.local_revision,'locked revision must not advance');
 console.log('NEXA encounter autosave offline, audit, CAS contract: PASS');
 
 
