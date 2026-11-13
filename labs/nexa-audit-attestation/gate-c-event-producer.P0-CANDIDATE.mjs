@@ -109,9 +109,13 @@ export async function produceExplicitGateCEvent({request,auth,source,events}={})
      receipt.committedByTrustedBackend!==true)
     return stop('DURABLE_SERVER_COMMIT_NOT_VERIFIED');
 
+  // A mocked or caller-supplied adapter receipt is NOT independently
+  // verified PostgreSQL durability. Never advertise a recorded audit event.
+  // Production integration must provide separate server-side attestation.
   return Object.freeze({
-   status:'EVENT_RECORDED_LAB_CANDIDATE',kind:request.kind,
-   eventId:receipt.eventId,eventRecorded:true,resetAuthorized:false
+   status:'ADAPTER_RECEIPT_LAB_ONLY',kind:request.kind,
+   eventId:receipt.eventId,eventRecorded:false,
+   durableEventVerified:false,resetAuthorized:false
   });
  }catch{
   return stop('EVENT_PRODUCER_FAIL_CLOSED');
