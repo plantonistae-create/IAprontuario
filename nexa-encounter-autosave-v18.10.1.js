@@ -369,9 +369,15 @@ async function startNew(reason='new_encounter'){
   assertOwnerStill(userId);
   if(prior&&prior.owner_user_id!==userId)
    throw new Error('ENCOUNTER_OWNER_MISMATCH');
-  if(prior&&(['audited','discarded'].includes(prior.encounter_state)||
-      prior.sync_state==='locked')&&meaningful(capturedFields))
+  // An active prior consultation (including an ordinary draft) cannot be
+ // duplicated as a new encounter merely by generating another UUID.
+ if(meaningful(capturedFields)&&priorId){
+  if(!prior)throw new Error('ACTIVE_ENCOUNTER_NOT_RECOVERED');
+  if(['audited','discarded'].includes(prior.encounter_state)||
+     prior.sync_state==='locked')
    throw new Error('LOCKED_ENCOUNTER_REQUIRES_EMPTY_FORM');
+  throw new Error('NEW_ENCOUNTER_REQUIRES_EMPTY_FORM');
+ }
  }
  const id=uuid();setActiveId(id);
  const rec=await buildLocal(reason,id,capturedFields,userId);if(!rec)return null;
