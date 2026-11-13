@@ -2855,36 +2855,27 @@ $('updateHistoryBtn').onclick=saveHistory;
 
 async function sessionHeaders(){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Sessão expirada.');return{Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'}}
 function prettyFields(obj){return Object.entries(obj||{}).filter(([,v])=>String(v||'').trim()).map(([k,v])=>`${labels[k]||k.toUpperCase()}:\n${v}`).join('\n\n')}
+// P0 Draft-only fail-closed guard: do NOT turn a client confirmation into
+// physician final-review evidence, nor send client-owned fields to the
+// legacy submit-audit-case v9. This is not a production release.
 async function submitCurrentForAudit(){
   if(!currentProf?.clinical_access)return show('Seu perfil não possui acesso clínico.',true);
-  const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para enviar à auditoria.',true);if(hypothesisReview.ai)fields.hipotese_ia_original=hypothesisReview.ai;if(hypothesisReview.final)fields.hipotese_medico_final=hypothesisReview.final;if(hypothesisReview.cid)fields.cid_medico_final=hypothesisReview.cid;fields.status_validacao_hipotese=hypothesisReview.status;
-  if(!activeHistoryId){await saveHistory();if(!activeHistoryId)return;}
-  if(!confirm('Enviar esta consulta para desidentificação e auditoria do NEXA Core? O caso será separado da sua identificação antes de aparecer ao revisor.'))return;
-  const btn=$('submitAuditBtn');btn.disabled=true;btn.textContent='Priorizando…';
-  const planForCore=clinicalPlanCache.both||{exams:clinicalPlanCache.exams||null,prescription:clinicalPlanCache.prescription||null};
-  const coreContext={
-    schema_version:'2',
-    case_mode:mode(),
-    hypothesis_validation:{status:hypothesisReview.status||'pending',ai:hypothesisReview.ai||'',final:hypothesisReview.final||'',cid:hypothesisReview.cid||'',source:hypothesisReview.source||''},
-    clinical_plan:planForCore,
-    speaker_attribution:lastProcessedMeta?.speaker_attribution||null,
-    // Only interactions and aggregate counters; never raw speech or answers.
-    radar_feedback:{
-      actions:Object.fromEntries(Object.entries(window.nexaRadar?.snapshot()?.ledger||{})
-        .map(([id,event])=>[id,String(event?.action||'')])
-        .filter(([,action])=>['answer','evaluated','dismissed','not_applicable'].includes(action))),
-      metrics:{
-        suggested:window.nexaRadar?.state?.items?.length||0,
-        covered:window.nexaRadar?.state?.clarified?.length||0,
-        confirm:window.nexaRadar?.state?.confirm?.length||0,
-        alerts:window.nexaRadar?.state?.alerts?.length||0
-      }
-    },
-    radar_learning:{chief_complaint:radarState?.chief_complaint||'',covered:Array.isArray(radarState?.covered)?radarState.covered:[],missing:Array.isArray(radarState?.missing)?radarState.missing:[],questions:Array.isArray(radarState?.questions)?radarState.questions:[],alerts:Array.isArray(radarState?.alerts)?radarState.alerts:[]},
-    provenance:{app_version:APP_CONFIG.appVersion,reviewed_documentation:true,radar_raw_transcript_saved:false,official_source:'final_review'}
-  };
-  try{const r=await fetch(SUPABASE_URL+APP_CONFIG.submitAuditPath,{method:'POST',headers:await sessionHeaders(),body:JSON.stringify({source_consultation_id:activeHistoryId,fields,core_context:coreContext})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error==='ALREADY_SUBMITTED'?'Esta consulta já foi enviada para auditoria.':d.error||'Falha ao enviar para auditoria.');show('Consulta desidentificada enviada à auditoria. Após aprovação/correção, o caso entra automaticamente no conjunto auditado do NEXA Core.');}
-  catch(e){show(e.message,true)}finally{btn.disabled=false;btn.textContent='Priorizar para auditoria'}
+  const fields=collect();
+  if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))
+    return show('Não há documentação clínica para priorizar.',true);
+  // Preserve the clinician's draft locally. A local checkpoint is NOT
+  // verified consent, source sync ACK or physician final-review evidence.
+  const preserve=window.nexaEncounterAutosave18101?.preserve;
+  if(typeof preserve!=='function')
+    return show('Auditoria P0 bloqueada: preservação local indisponível. Salve a consulta e não descarte o rascunho.',true);
+  try{
+    const saved=await preserve('audit_gate_blocked',{sync:false});
+    if(!saved?.encounter_id||saved?.owner_user_id!==currentProf?.id)
+      return show('Auditoria P0 bloqueada: salvamento local não comprovado. Não descarte o rascunho.',true);
+  }catch{
+    return show('Auditoria P0 bloqueada: não foi possível confirmar o salvamento local. Não descarte o rascunho.',true);
+  }
+  show('Auditoria P0 ainda não liberada: falta comprovar consentimento específico para IA externa/auditoria, ACK de revisão médica e fonte autoritativa no servidor. Rascunho local preservado; nenhum caso foi enviado.',true);
 }
 $('submitAuditBtn').onclick=submitCurrentForAudit;
 
