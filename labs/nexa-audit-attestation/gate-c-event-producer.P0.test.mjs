@@ -51,7 +51,9 @@ test('fail closed without backend adapters',async()=>{
 test('consent from explicit physician action, not a checkbox',async()=>{
  const f=fixture();
  const r=await produceExplicitGateCEvent(f);
- assert.equal(r.status,'EVENT_RECORDED_LAB_CANDIDATE');
+ assert.equal(r.status,'ADAPTER_RECEIPT_LAB_ONLY');
+ assert.equal(r.eventRecorded,false);
+ assert.equal(r.durableEventVerified,false);
  assert.equal(r.kind,CONSENT);assert.equal(r.eventId,EVENT);
  assert.equal(r.resetAuthorized,false);assert.equal(f.writes.length,1);
  assert.equal(f.writes[0].enforceBeforeExternalProcessing,true);
@@ -115,7 +117,9 @@ test('refuses review without prior trusted consent evidence',async()=>{
 });
 test('review candidate forwards only verified expected version/digest',async()=>{
  const f=fixture(REVIEW),r=await produceExplicitGateCEvent(f);
- assert.equal(r.status,'EVENT_RECORDED_LAB_CANDIDATE');
+ assert.equal(r.status,'ADAPTER_RECEIPT_LAB_ONLY');
+ assert.equal(r.eventRecorded,false);
+ assert.equal(r.durableEventVerified,false);
  assert.equal(f.writes.length,1);
  assert.equal(f.writes[0].expectedSyncVersion,7);
  assert.equal(f.writes[0].expectedDigest,HASH);
