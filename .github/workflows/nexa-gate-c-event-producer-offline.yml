@@ -7,6 +7,8 @@ on:
     paths:
       - 'labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs'
       - 'labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/audit-dispatch-preflight.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs'
       - '.github/workflows/nexa-gate-c-event-producer-offline.yml'
 
 permissions:
@@ -26,4 +28,8 @@ jobs:
           node --check labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs
           node --check labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
       - name: Explicit consent and review tests (synthetic only)
-        run: node --test labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
+        run: |
+          node --test labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
+          node --check labs/nexa-audit-attestation/audit-dispatch-preflight.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs
+          node --test labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs
