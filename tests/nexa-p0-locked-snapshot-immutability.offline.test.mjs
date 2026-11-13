@@ -79,8 +79,8 @@ test('unchanged locked preserve returns without writing or announcing save',asyn
 
 
 /* A reset must never adopt retained text from a locked note as a new patient. */
-function startFixture({originalState='audited',visible='Texto de consulta bloqueada',priorId=ID}={}){
- const records=new Map([[ID,item({state:originalState,sync:'locked'})]]);
+function startFixture({originalState='audited',originalSync='locked',visible='Texto de consulta bloqueada',priorId=ID}={}){
+ const records=new Map([[ID,item({state:originalState,sync:originalSync})]]);
  const events=[];let minted=0;
  const currentFields=()=>({hda:visible});
  const original=source.slice(source.indexOf('async function startNew('),
@@ -138,4 +138,27 @@ test('blank canonical reset can create a fresh empty draft safely',async()=>{
  assert.deepEqual(f.records.get(ID),previous);
  assert.equal(f.records.size,2);
  assert.equal(f.events.length,1);
+});
+
+
+test('ordinary pending draft cannot be cloned as a new encounter by direct start',async()=>{
+ const f=startFixture({originalState:'draft',originalSync:'pending'});
+ await assert.rejects(f.run('new_encounter'),/NEW_ENCOUNTER_REQUIRES_EMPTY_FORM/);
+ assert.equal(f.minted,0);
+ assert.equal(f.records.size,1);
+ assert.equal(f.active,ID);
+});
+test('unknown existing encounter id with visible clinical text fails closed',async()=>{
+ const UNKNOWN='55555555-5555-4555-8555-555555555555';
+ const f=startFixture({priorId:UNKNOWN});
+ await assert.rejects(f.run('new_encounter'),/ACTIVE_ENCOUNTER_NOT_RECOVERED/);
+ assert.equal(f.minted,0);
+ assert.equal(f.active,UNKNOWN);
+});
+test('fresh encounter without an active id can preserve a new unprocessed note',async()=>{
+ const f=startFixture({priorId:'',visible:'Anamnese sintética de nova consulta'});
+ const started=await f.run('recording_start');
+ assert.notEqual(started.encounter_id,ID);
+ assert.equal(started.fields.hda,'Anamnese sintética de nova consulta');
+ assert.equal(f.records.size,2);
 });
