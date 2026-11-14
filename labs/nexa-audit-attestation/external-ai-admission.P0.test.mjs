@@ -271,3 +271,90 @@ test('bootstrap: repeated requests remain candidate only; no implicit idempotenc
   deny(out);
  }
 });
+
+
+/*
+ * LAB-only sequence model: caller MAY propose a second admission inspection
+ * after owner-bound bootstrap, but neither candidate grants egress. This is
+ * NOT a production dispatcher: it does not invoke a provider or send audio.
+ * Each distinct SDP, fallback chunk and retry uses FRESH adapters/state.
+ * A prior candidate result must never be reused to satisfy a later attempt.
+ */
+test('egress sequence: SDP, fallback chunk and retry require fresh owner + consent reads',async()=>{
+ const state={
+  userId:USER,ownerId:USER,version:1,persisted:true,ack:true,
+  pendingEdits:false,revoked:false,consentVersion:1,sessionStarted:false
+ };
+ const counts={source:0,consent:0,identity:0,externalSend:0};
+ const auth={getUser:async()=>{counts.identity++;return{id:state.userId}}};
+ const source={readOwnerScopedForActor:async()=>{
+  counts.source++;
+  return{
+   sourceRowId:SOURCE,encounterId:ENC,ownerUserId:state.ownerId,
+   syncVersion:state.version,clinicalAccessVerified:true,
+   activeSlotVerified:true,serverPersistedVerified:state.persisted,
+   serverSyncAckVerified:state.ack,ownerBindingVerified:true,
+   serverRowUniquenessVerified:true,noPendingLocalEditsVerified:!state.pendingEdits,
+   sourceLockedVerified:false,externalSessionAlreadyStartedVerified:state.sessionStarted,
+   effectivePolicyVersion:'policy-v1'
+  };
+ }};
+ const consent={readLatestPurposeEvent:async()=>{
+  counts.consent++;
+  return{
+   eventId:EVENT,actorId:USER,encounterId:ENC,sourceRowId:SOURCE,
+   purpose:'realtime_audio',sourceSyncVersion:state.consentVersion,
+   provider:'openai',policyVersion:'policy-v1',
+   serverCommittedVerified:true,explicitActionVerified:true,
+   scopeValidatedVerified:true,revoked:state.revoked,
+   serverSequenceBeforeExternalDispatchVerified:true
+  };
+ }};
+ async function proposedAttempt(route){
+  // Every proposed egress starts with fresh bootstrap; no cached result.
+  const input={route,request:{encounterId:ENC},identity:auth,source};
+  const boot=await inspectPersistedEncounterBootstrapCandidate(input);
+  deny(boot);
+  if(boot.status!=='PERSISTED_ENCOUNTER_BOOTSTRAP_CANDIDATE_ONLY')
+   return{boot,admission:null};
+  const admission=await inspectExternalAiAdmissionCandidate({
+   ...input,configuredProvider:'openai',consent
+  });
+  deny(admission);
+  // Never call any provider, even when both synthetic checks look favorable.
+  if(admission.externalAiAuthorized)counts.externalSend++;
+  return{boot,admission};
+ }
+ let result=await proposedAttempt('realtime-call.webrtc');
+ assert.equal(result.boot.status,'PERSISTED_ENCOUNTER_BOOTSTRAP_CANDIDATE_ONLY');
+ assert.equal(result.admission.status,'ADMISSION_PREFLIGHT_CANDIDATE_ONLY');
+ assert.equal(counts.source,2);assert.equal(counts.consent,1);
+ // A fallback chunk must re-evaluate consent; prior SDP candidate is invalid.
+ state.revoked=true;
+ result=await proposedAttempt('realtime-call.chunk');
+ assert.equal(result.admission.code,'PURPOSE_SPECIFIC_DURABLE_CONSENT_NOT_VERIFIED');
+ assert.equal(counts.source,4);assert.equal(counts.consent,2);
+ // Retry after reconnect cannot reuse SDP candidate if local edits are pending.
+ state.revoked=false;state.pendingEdits=true;state.version=2;
+ result=await proposedAttempt('realtime-call.webrtc');
+ assert.equal(result.boot.code,'BOOTSTRAP_DURABLE_SOURCE_ACK_NOT_VERIFIED');
+ assert.equal(result.admission,null);assert.equal(counts.consent,2);
+ // After edits settle, a stale consent version still fails per attempt.
+ state.pendingEdits=false;
+ result=await proposedAttempt('realtime-call.chunk');
+ assert.equal(result.boot.status,'PERSISTED_ENCOUNTER_BOOTSTRAP_CANDIDATE_ONLY');
+ assert.equal(result.admission.code,'PURPOSE_SPECIFIC_DURABLE_CONSENT_NOT_VERIFIED');
+ assert.equal(counts.consent,3);
+ // New user/owner mismatch or session already started cannot inherit admission.
+ state.ownerId=OTHER;
+ result=await proposedAttempt('realtime-call.webrtc');
+ assert.equal(result.boot.code,'BOOTSTRAP_OWNER_OR_SOURCE_VERSION_NOT_VERIFIED');
+ assert.equal(result.admission,null);
+ state.ownerId=USER;state.sessionStarted=true;
+ result=await proposedAttempt('realtime-call.chunk');
+ assert.equal(result.boot.code,'BOOTSTRAP_DURABLE_SOURCE_ACK_NOT_VERIFIED');
+ assert.equal(result.admission,null);
+ assert.equal(counts.consent,3);
+ assert.equal(counts.source,10);
+ assert.equal(counts.externalSend,0);
+});
