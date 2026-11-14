@@ -86,6 +86,41 @@ create function private.nexa_p0_clinical_digest(
   )::text,'UTF8')),'hex');
 $$;
 
+-- This is a defensive precondition, NOT proof that RLS/ACL/roles are
+-- correctly provisioned. The actual function owner must be checked in a
+-- disposable PostgreSQL session before any migration/deploy authorization.
+-- Current migration executors commonly own tables or have privileged roles,
+-- and MUST NOT silently become the owner of SECURITY DEFINER entrypoints.
+create function private.nexa_p0_assert_restricted_definer()
+returns void language plpgsql security invoker set search_path='' as $$
+declare
+ v_role oid;
+begin
+ select r.oid into v_role from pg_catalog.pg_roles r
+ where r.rolname=pg_catalog.current_user
+   and r.rolsuper is false and r.rolbypassrls is false
+   and r.rolcanlogin is false and r.rolcreaterole is false
+   and r.rolcreatedb is false;
+ if not found then raise exception using errcode='42501',
+   message='NEXA_P0_RESTRICTED_DEFINER_NOT_PROVEN'; end if;
+ -- A table owner can bypass ordinary RLS. Do not let any entrypoint
+ -- authenticate its own access by accidentally executing as table owner.
+ if exists (
+  select 1 from pg_catalog.pg_class c
+  where c.oid in (
+    'public.consultation_history'::pg_catalog.regclass,
+    'private.nexa_p0_source_action_events'::pg_catalog.regclass,
+    'private.nexa_p0_purpose_policy'::pg_catalog.regclass
+  ) and c.relowner=v_role
+ ) then raise exception using errcode='42501',
+   message='NEXA_P0_DEFINER_TABLE_OWNER_BYPASS'; end if;
+end; $$;
+-- Neither a browser JWT role nor a service-role caller may invoke this helper.
+-- The eventual dedicated NOLOGIN function role requires explicit, separately
+-- reviewed local grants and RLS evidence; NONE are applied in this Draft.
+revoke all on function private.nexa_p0_assert_restricted_definer()
+ from public,anon,authenticated,service_role;
+
 -- Intended only for authenticated physician; returns the actual PERSISTED
 -- snapshot for a future UI to display, not a client-assembled "final" claim.
 create function public.nexa_p0_prepare_source_review(p_encounter uuid)
@@ -94,6 +129,7 @@ declare
  v_actor uuid := auth.uid();
  v_source public.consultation_history%rowtype;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null then
   raise exception using errcode='42501',message='PHYSICIAN_SESSION_REQUIRED';
  end if;
@@ -155,6 +191,7 @@ declare
  v_kind text;
  v_event private.nexa_p0_source_action_events%rowtype;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null or p_action_id is null
     or p_explicit_confirmation is distinct from true
     or p_kind is null or p_kind not in ('consent','review') then
@@ -341,6 +378,7 @@ declare
  v_event private.nexa_p0_source_action_events%rowtype;
  v_digest text;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_event_id is null or p_encounter is null
     or p_expected_sync_version is null or p_expected_sync_version<1
     or p_displayed_digest is null
@@ -426,6 +464,7 @@ declare
  v_event private.nexa_p0_source_action_events%rowtype;
  v_verified jsonb;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null or p_action_id is null
     or p_expected_sync_version is null or p_expected_sync_version<1
     or p_displayed_digest is null
@@ -511,6 +550,7 @@ declare
  v_verified jsonb;
  v_count integer;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null
     or p_expected_sync_version is null or p_expected_sync_version<1
     or p_displayed_digest is null
@@ -632,6 +672,7 @@ declare
  v_actor uuid := auth.uid();
  v_list jsonb;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null then raise exception using errcode='42501',
    message='PHYSICIAN_SESSION_REQUIRED'; end if;
  perform 1 from public.profiles p
@@ -695,6 +736,7 @@ declare
  v_target private.nexa_p0_source_action_events%rowtype;
  v_event private.nexa_p0_source_action_events%rowtype;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null or p_consent_event_id is null
    or p_action_id is null or p_explicit_confirmation is distinct from true
  then raise exception using errcode='42501',
@@ -797,6 +839,7 @@ declare
  v_rev private.nexa_p0_source_action_events%rowtype;
  v_target private.nexa_p0_source_action_events%rowtype;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_revoke_event_id is null or
     p_consent_event_id is null or p_encounter is null
  then raise exception using errcode='42501',
@@ -858,6 +901,7 @@ declare
  v_rev private.nexa_p0_source_action_events%rowtype;
  v_verified jsonb;
 begin
+ perform private.nexa_p0_assert_restricted_definer();
  if v_actor is null or p_encounter is null or p_consent_event_id is null
     or p_action_id is null
  then raise exception using errcode='42501',
