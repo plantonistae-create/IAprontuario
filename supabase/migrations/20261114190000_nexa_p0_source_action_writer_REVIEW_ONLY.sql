@@ -190,6 +190,7 @@ begin
  where e.owner_user_id=v_actor and e.client_action_id=p_action_id;
  if found then
   if v_event.event_kind<>v_kind or v_event.encounter_id<>p_encounter
+     or v_event.source_row_id<>v_source.id
      or (p_kind<>'revoke' and
          (v_event.source_sync_version is distinct from p_expected_sync_version
           or v_event.source_digest is distinct from p_displayed_digest))
@@ -198,6 +199,32 @@ begin
      or v_event.policy_version is distinct from p_policy_version
      or v_event.patient_scope_attested is distinct from p_patient_scope_attested
   then raise exception using errcode='23505',message='ACTION_REPLAY_CONFLICT'; end if;
+  -- A replay is NOT renewed consent or a fresh review. It must not turn a
+  -- stale/revoked event into a positive receipt. Always fail closed.
+  if p_kind='review' then
+    raise exception using errcode='42501',
+      message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
+  end if;
+  if p_kind='consent' then
+    if v_event.source_sync_version is distinct from v_source.sync_version
+       or v_event.source_digest is distinct from v_digest
+       or not exists (
+         select 1 from private.nexa_p0_purpose_policy pol
+         where pol.purpose=p_purpose and pol.provider=p_provider
+           and pol.policy_version=p_policy_version
+           and pol.approved_at<=pg_catalog.clock_timestamp()
+           and pol.revoked_at is null
+       ) or exists (
+         select 1 from private.nexa_p0_source_action_events rev
+         where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+           and rev.event_kind='CONSENT_REVOKED'
+           and rev.purpose=p_purpose and rev.provider=p_provider
+           and rev.policy_version=p_policy_version
+           and rev.server_recorded_at>=v_event.server_recorded_at
+       )
+    then raise exception using errcode='42501',
+      message='CONSENT_EVENT_NO_LONGER_CURRENT'; end if;
+  end if;
   return pg_catalog.jsonb_build_object(
    'event_id',v_event.event_id,'kind',v_event.event_kind,
    'server_recorded_at',v_event.server_recorded_at,
