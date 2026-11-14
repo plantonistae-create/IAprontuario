@@ -27,6 +27,11 @@ function response(req: Request, data: unknown, status = 200) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, {status:204, headers:headers(req)});
   if (req.method !== "POST") return response(req,{error:"METHOD_NOT_ALLOWED"},405);
+  // P0: no diarization upstream until authoritative source, purpose-specific
+  // consent, and server verification precede this actual provider ingress.
+  const prospectiveExternalAiGateCNoGo = true;
+  if (prospectiveExternalAiGateCNoGo)
+    return response(req,{error:"P0_PRE_EGRESS_GATE_C_NO_GO",external_ai_authorized:false},423);
   if (req.headers.get("Origin") !== allowed) return response(req,{error:"ORIGIN_FORBIDDEN"},403);
   const token = req.headers.get("Authorization") || "";
   if (!token.startsWith("Bearer ")) return response(req,{error:"UNAUTHORIZED"},401);

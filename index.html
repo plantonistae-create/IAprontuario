@@ -3878,10 +3878,53 @@ function nexaScrollToProcessCta(){
     setTimeout(settle,32);
   });
 }
-const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
+const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function nexaP0PreparePersistedSourceBeforeAudio(epoch){
+  // The browser checkbox means user intent, NEVER verified consent.
+  // Saving a blank owner-bound source is a prerequisite, NOT an AI grant.
+  const autosave=window.nexaEncounterAutosave18101;
+  if(!autosave?.preserve||!autosave?.get||!currentProf?.id){
+    show('Gate C P0: fonte autenticada indisponível. Não foi possível iniciar a gravação.',true);
+    return false;
+  }
+  let local;
+  try{local=await autosave.preserve('p0_pre_first_egress_source',{sync:false})}
+  catch{show('Gate C P0: falha ao preservar fonte local. Gravação não iniciada.',true);return false}
+  if(!local?.encounter_id||local.owner_user_id!==currentProf.id||
+     ['conflict','locked'].includes(local.sync_state)||local.requires_form_refresh){
+    show('Gate C P0: consulta sem origem estável ou com conflito. Gravação bloqueada.',true);
+    return false;
+  }
+  if(epoch!==clinicalEpoch||!$('consent').checked)return false;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session?.access_token||session.user?.id!==currentProf.id)
+      throw Error('SESSION_CHANGED');
+    const response=await fetch(SUPABASE_URL+'/functions/v1/nexa-source-actions',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+session.access_token,
+        apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'prepare_recording',encounterId:local.encounter_id}),
+      cache:'no-store'
+    });
+    // This Draft's Edge rejects every POST with 423. Even if a later
+    // deployment persists a source successfully, DO NOT permit WebRTC,
+    // chunks, Radar or final processing without independent server gates.
+    if(response.status===423){
+      show('Gate C P0: origem pré-IA ainda não habilitada. Nenhum áudio foi enviado.',true);
+      return false;
+    }
+    show('Gate C P0: origem não é consentimento nem autorização de IA. Gravação bloqueada.',true);
+  }catch{
+    show('Gate C P0: bootstrap autenticado não confirmado. Gravação bloqueada.',true);
+  }
+  return false; // Hard STOP independent of server response and client claims.
+}
+async function startRec(){
   if(recording||recordingStarting||!$('consent').checked||!currentProf?.clinical_access)return;
   recordingStarting=true;try{
   const startEpoch=clinicalEpoch;
+  // This STOP precedes getUserMedia, MediaRecorder, Radar and any provider fetch.
+  if(!await nexaP0PreparePersistedSourceBeforeAudio(startEpoch))return;
   stopRecordingTimer();
   discardStoppedRecording=false;
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
