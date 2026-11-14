@@ -164,14 +164,14 @@ const CATALOG_SQL = [
   'BEGIN READ ONLY;',
   "SELECT 'LOC|'||current_database()||'|'||coalesce(inet_server_addr()::text,'SOCKET')||'|'||current_setting('data_directory');",
   "WITH r AS (SELECT oid,rolname,rolsuper,rolbypassrls FROM pg_catalog.pg_roles WHERE rolname IN ('anon','authenticated','service_role')),",
-  " t AS (SELECT pg_catalog.to_regclass(x) AS oid FROM unnest(ARRAY[",
+  " t AS (SELECT pg_catalog.to_regclass(name) AS oid FROM unnest(ARRAY[",
   " 'private.nexa_gate_c_consent_evidence_lab','private.nexa_gate_c_review_evidence_lab',",
   " 'private.nexa_gate_c_checkpoint_lab','private.nexa_gate_c_audit_binding_lab',",
-  " 'private.nexa_gate_c_verified_source_events_lab']) x),",
-  " f AS (SELECT pg_catalog.to_regprocedure(x) AS oid FROM unnest(ARRAY[",
+  " 'private.nexa_gate_c_verified_source_events_lab']) AS items(name)),",
+  " f AS (SELECT pg_catalog.to_regprocedure(name) AS oid FROM unnest(ARRAY[",
   " 'public.nexa_gate_c_checkpoint_candidate(uuid,uuid,bigint)',",
   " 'public.nexa_gate_c_commit_candidate(uuid,uuid,text,jsonb,jsonb)',",
-  " 'public.nexa_gate_c_materialize_verified_evidence_lab(uuid,uuid)']) x)",
+  " 'public.nexa_gate_c_materialize_verified_evidence_lab(uuid,uuid)']) AS items(name))",
   " SELECT 'DENIAL|'||CASE WHEN (SELECT count(*) FROM r)=3 AND",
   " (SELECT count(oid) FROM t)=5 AND (SELECT count(oid) FROM f)=3 AND NOT EXISTS(",
   " SELECT 1 FROM r CROSS JOIN t LEFT JOIN pg_catalog.pg_class c ON c.oid=t.oid",
@@ -207,7 +207,7 @@ function caseFiles(m) {
   const result = new Map();
   for (const c of C_IDS) {
     const members = m.cases[c];
-    if (!members || Object.keys(members).sort().join(',') !== C_ROLES[c].slice().sort().join(',')) {
+    if (!members || Object.keys(members).filter(k => k !== 'barrierProtocol').sort().join(',') !== C_ROLES[c].slice().sort().join(',')) {
       stop('CASE_ROLE_MANIFEST_' + c);
     }
     for (const role of C_ROLES[c]) {
