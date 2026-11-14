@@ -82,15 +82,51 @@ function checkCluster() {
   }
   const cfg = fs.readFileSync(path.join(DATA, 'postgresql.conf'), 'utf8');
   const lines = cfg.split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'));
-  if (!lines.includes("listen_addresses = ''") ||
-      !lines.includes("unix_socket_directories = '" + SOCKET + "'") ||
-      !lines.includes('unix_socket_permissions = 0700') ||
-      lines.some(s => /^(include|include_dir|include_if_exists)\s*=/.test(s))) {
-    stop('CLUSTER_CONFIG_UNVERIFIED');
+  const expected = [
+    "listen_addresses = ''",
+    "unix_socket_directories = '" + SOCKET + "'",
+    'unix_socket_permissions = 0700'
+  ];
+  // Require the exact three active assignments. A later duplicate or a
+  // postgresql.conf include could override a superficially matching value.
+  if (lines.length !== expected.length ||
+      expected.some(item => lines.filter(line => line === item).length !== 1)) {
+    stop('CLUSTER_CONFIG_AMBIGUOUS_OR_OVERRIDDEN');
   }
   const auto = fs.readFileSync(path.join(DATA, 'postgresql.auto.conf'), 'utf8');
   if (auto.split(/\r?\n/).some(s => s.trim() && !s.trim().startsWith('#'))) {
     stop('CLUSTER_CONFIG_OVERRIDE');
+  }
+  // The original initdb cluster was configured for local peer and host
+  // reject. Any auth rule or pg_ident mapping outside this exact baseline
+  // requires its own independent, privileged review, never an implicit GO.
+  for (const name of ['pg_hba.conf', 'pg_ident.conf']) {
+    const f = path.join(DATA, name);
+    let st;
+    try { st = fs.lstatSync(f); } catch { stop('CLUSTER_AUTH_FILE_MISSING'); }
+    if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid() ||
+        (st.mode & 0o022) !== 0) stop('CLUSTER_AUTH_FILE_PROVENANCE');
+  }
+  const hba = fs.readFileSync(path.join(DATA, 'pg_hba.conf'), 'utf8')
+    .split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+  let localCount = 0;
+  let hostCount = 0;
+  for (const rule of hba) {
+    const fields = rule.split(/\s+/);
+    if (fields.length === 4 && fields[0] === 'local' && fields[3] === 'peer') {
+      localCount++;
+    } else if (fields.length === 5 &&
+      ['host', 'hostssl', 'hostnossl'].includes(fields[0]) &&
+      fields[4] === 'reject') {
+      hostCount++;
+    } else {
+      stop('CLUSTER_AUTH_RULE_UNREVIEWED');
+    }
+  }
+  if (localCount < 1 || hostCount < 1) stop('CLUSTER_AUTH_RULES_MISSING');
+  const ident = fs.readFileSync(path.join(DATA, 'pg_ident.conf'), 'utf8');
+  if (ident.split(/\r?\n/).some(s => s.trim() && !s.trim().startsWith('#'))) {
+    stop('PG_IDENT_MAPPING_UNREVIEWED');
   }
 }
 function checkEnv() {
@@ -163,6 +199,8 @@ function validPsql(m) {
 const CATALOG_SQL = [
   'BEGIN READ ONLY;',
   "SELECT 'LOC|'||current_database()||'|'||coalesce(inet_server_addr()::text,'SOCKET')||'|'||current_setting('data_directory');",
+  "SELECT 'CONFIG|'||current_setting('listen_addresses')||'|'||current_setting('unix_socket_directories')||'|'||current_setting('port');",
+  "SELECT 'AUTHFILES|'||current_setting('config_file')||'|'||current_setting('hba_file')||'|'||current_setting('ident_file');",
   "WITH r AS (SELECT oid,rolname,rolsuper,rolbypassrls FROM pg_catalog.pg_roles WHERE rolname IN ('anon','authenticated','service_role')),",
   " t AS (SELECT pg_catalog.to_regclass(name) AS oid FROM unnest(ARRAY[",
   " 'private.nexa_gate_c_consent_evidence_lab','private.nexa_gate_c_review_evidence_lab',",
@@ -193,6 +231,13 @@ function catalog(m, psql) {
   const loc = lines.find(s => s.startsWith('LOC|'));
   if (loc !== 'LOC|' + m.database + '|SOCKET|' + fs.realpathSync(DATA)) {
     stop('CATALOG_SERVER_IDENTITY');
+  }
+  if (!lines.includes('CONFIG||' + SOCKET + '|' + String(m.port)) ||
+      !lines.includes('AUTHFILES|' +
+        path.join(DATA, 'postgresql.conf') + '|' +
+        path.join(DATA, 'pg_hba.conf') + '|' +
+        path.join(DATA, 'pg_ident.conf'))) {
+    stop('CATALOG_EFFECTIVE_CONFIG_NOT_PROVEN');
   }
   if (!lines.includes('DENIAL|PASS_DIRECT_DENIAL_ONLY')) {
     stop('CATALOG_PRIVILEGES_UNSAFE');
