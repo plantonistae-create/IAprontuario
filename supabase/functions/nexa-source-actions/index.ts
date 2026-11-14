@@ -46,9 +46,15 @@ type RpcRequest = {
 };
 
 function decodeRequest(body: unknown):
+  { kind: "bootstrap"; encounter: string } |
   { kind: "prepare"; encounter: string } |
   { kind: "record"; params: RpcRequest } | null {
   if (!plain(body) || !validId(body.encounterId)) return null;
+  if (body.action === "prepare_recording") {
+    // Never accept clinical fields, timestamps, policy claims or an actor ID.
+    if (!exact(body, ["action", "encounterId"])) return null;
+    return { kind: "bootstrap", encounter: body.encounterId };
+  }
   if (body.action === "prepare_review") {
     if (!exact(body, ["action", "encounterId"])) return null;
     return { kind: "prepare", encounter: body.encounterId };
@@ -158,6 +164,77 @@ serve(async req => {
     if (bodyText.length > 2048) return json({ error: "PAYLOAD_TOO_LARGE" }, 413);
     const request = decodeRequest(JSON.parse(bodyText));
     if (!request) return json({ error: "EXPLICIT_ACTION_REQUIRED" }, 400);
+    if (request.kind === "bootstrap") {
+      // P0 SOURCE BOOTSTRAP: this is ONLY a persisted owner-bound row,
+      // NEVER consent, first-egress evidence or an authorization receipt.
+      // The hard STOP above makes this code unreachable in this Draft.
+      const { data: access, error: accessError } =
+        await db.rpc("has_active_clinical_access");
+      if (accessError || access !== true) {
+        return json({ error: "ACTIVE_CLINICAL_ACCESS_REQUIRED" }, 403);
+      }
+      const table = db.from("consultation_history");
+      const readOwned = async () => table
+        .select("id,encounter_id,user_id,sync_version,encounter_state")
+        .eq("encounter_id", request.encounter)
+        .eq("user_id", actor.user.id)
+        .maybeSingle();
+      let { data: source, error: readError } = await readOwned();
+      if (readError) return json({ error: "SOURCE_LOOKUP_FAILED" }, 409);
+      if (!source) {
+        // The existing encounter autosave writes these exact column names.
+        // Do not insert a legacy browser consent timestamp. A blank source is
+        // intentionally distinct from a medically reviewed consultation.
+        const timestamp = new Date().toISOString();
+        const { data: inserted, error: insertError } = await db
+          .from("consultation_history")
+          .insert({
+            id: request.encounter,
+            encounter_id: request.encounter,
+            user_id: actor.user.id,
+            fields: {},
+            status: "draft",
+            encounter_state: "draft",
+            protocol_usage: [],
+            processing_meta: {},
+            consent_recorded_at: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+            last_client_saved_at: timestamp,
+          })
+          .select("id,encounter_id,user_id,sync_version,encounter_state")
+          .single();
+        if (insertError) {
+          if (insertError.code !== "23505") {
+            return json({ error: "SOURCE_BOOTSTRAP_FAILED" }, 409);
+          }
+          // Simultaneous same-encounter bootstrap: re-read via owner-only RLS;
+          // never overwrite, repurpose or disclose another physician's row.
+          const again = await readOwned();
+          if (again.error || !again.data) {
+            return json({ error: "SOURCE_BOOTSTRAP_CONFLICT" }, 409);
+          }
+          source = again.data;
+        } else source = inserted;
+      }
+      if (!source || source.user_id !== actor.user.id ||
+          source.encounter_id !== request.encounter ||
+          source.id !== request.encounter ||
+          source.encounter_state !== "draft" ||
+          !Number.isSafeInteger(Number(source.sync_version)) ||
+          Number(source.sync_version) < 0) {
+        return json({ error: "SOURCE_OWNER_OR_STATE_MISMATCH" }, 409);
+      }
+      return json({
+        status: "OWNER_BOUND_SOURCE_PERSISTED_ONLY",
+        encounter_id: request.encounter,
+        source_sync_version: Number(source.sync_version),
+        source_persisted: true,
+        external_ai_authorized: false,
+        consent_evidence_verified: false,
+        gate_c_verified: false,
+      });
+    }
     if (request.kind === "prepare") {
       const { data, error } = await db.rpc("nexa_p0_prepare_source_review",
         { p_encounter: request.encounter });
