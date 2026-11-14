@@ -269,7 +269,8 @@ async function record(type){
     option.value=e.event_id;revokeSelect.append(option);
    }
    // Selection is not confirmation; an explicit checkbox gesture is required.
-   revokeButton.disabled=revocableEntries.length===0||!revokeCheck.checked;
+   revokeButton.disabled=revocableEntries.length===0||!revokeCheck.checked||
+     pendingAction?.kind==='revoke';
    reconcileButton.disabled=!(pendingAction?.kind==='revoke' &&
      pendingAction.owner===profile.id && UUID.test(pendingAction.id));
    warn(revocableEntries.length?
@@ -305,6 +306,10 @@ async function record(type){
    if(!active||ownerProfile()?.id!==revokeOwner)
     throw Error('O evento mudou. Atualize a lista do servidor.');
    key=revokeOwner+'|'+target.encounter_id+'|revoke|'+target.event_id;
+   // A potentially committed request must be reconciled, never replaced by
+   // a second mutation (even for a different target) with a fresh UUID.
+   if(pendingAction?.kind==='revoke')
+    throw Error('Há uma revogação pendente. Verifique o recibo antes de nova ação.');
    if(!pendingAction||pendingAction.key!==key)
     pendingAction={key,id:crypto.randomUUID(),kind:'revoke',
      owner:revokeOwner,encounterId:target.encounter_id,
@@ -412,7 +417,8 @@ reconcileButton=create('button',{text:'Verificar revogação pendente · somente
 reconcileButton.type='button';reconcileButton.disabled=true;
 reconcileButton.onclick=()=>void reconcileRevocation();
 revokeCheck.onchange=()=>{revokeButton.disabled=
- !revokeCheck.checked||revocableEntries.length===0;};
+ !revokeCheck.checked||revocableEntries.length===0||
+ pendingAction?.kind==='revoke';};
 revokeSelect.onchange=()=>{revokeCheck.checked=false;revokeButton.disabled=true;};
 message=create('p',{text:'Gate C NO-GO. Nenhuma ação foi registrada.'});message.setAttribute('role','status');
 const close=create('button',{text:'Fechar e descartar visualização',cls:'btn ghost'});
