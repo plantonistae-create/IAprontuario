@@ -54,6 +54,7 @@ function fixture({state='draft',sync='pending',visible=INITIAL,
   nowIso:()=> '2026-11-14T15:00:00.000Z',
   processingMeta:reason=>({reason}),lastProcessedMeta:null,
   serializeLocal:async fn=>fn(),
+  editedAfterReconciliation:new Set(),
   store:{
    get:async id=>records.has(id)?copy(records.get(id)):null,
    put:async row=>{
