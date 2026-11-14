@@ -117,6 +117,17 @@ begin
     pg_catalog.pg_has_role(v_role,c.relowner,'MEMBER'))
  ) then raise exception using errcode='42501',
    message='NEXA_P0_DEFINER_TABLE_OWNER_BYPASS'; end if;
+ -- The effective definer must also be subject to RLS on the clinical
+ -- source and on the two private ledgers. Active RLS without approved
+ -- policies still denies access: this is an intentional P0 NO-GO.
+ if pg_catalog.row_security_active(
+      'public.consultation_history'::pg_catalog.regclass) is distinct from true
+    or pg_catalog.row_security_active(
+      'private.nexa_p0_source_action_events'::pg_catalog.regclass) is distinct from true
+    or pg_catalog.row_security_active(
+      'private.nexa_p0_purpose_policy'::pg_catalog.regclass) is distinct from true
+ then raise exception using errcode='42501',
+   message='NEXA_P0_DEFINER_RLS_NOT_PROVEN'; end if;
 end; $$;
 -- Neither a browser JWT role nor a service-role caller may invoke this helper.
 -- The eventual dedicated NOLOGIN function role requires explicit, separately
