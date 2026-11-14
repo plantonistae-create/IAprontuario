@@ -259,7 +259,7 @@ serve(async req => {
             plain(p) && purposes.includes(String(p.purpose)) &&
             providers.includes(String(p.provider)) &&
             typeof p.policyVersion === "string" &&
-            /^[\\w.-]{3,80}$/.test(p.policyVersion))) {
+            /^[\w.-]{3,80}$/.test(p.policyVersion))) {
         return json({ error: "SOURCE_SNAPSHOT_CONTRACT_INVALID" }, 409);
       }
       // This is an owner-bound persisted snapshot, NOT pre-egress authority,
