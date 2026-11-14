@@ -49,6 +49,11 @@ function decodeRequest(body: unknown):
   { kind: "bootstrap"; encounter: string } |
   { kind: "prepare"; encounter: string } |
   { kind: "revocations" } |
+  { kind: "recoverConsent"; params: {
+      p_encounter: string; p_expected_sync_version: number;
+      p_displayed_digest: string; p_purpose: string;
+      p_provider: string; p_policy_version: string;
+    } } |
   { kind: "reconcileConsent"; params: {
       p_encounter: string; p_action_id: string;
       p_expected_sync_version: number; p_displayed_digest: string;
@@ -78,6 +83,29 @@ function decodeRequest(body: unknown):
   if (body.action === "prepare_review") {
     if (!exact(body, ["action", "encounterId"])) return null;
     return { kind: "prepare", encounter: body.encounterId };
+  }
+  // Server-side lookup of existing evidence after client restart. This is
+  // NOT a consent claim and never authorizes another mutation.
+  if (body.action === "recover_current_consent") {
+    if (!exact(body, ["action", "encounterId", "expectedSyncVersion",
+      "displayedDigest", "purpose", "provider", "policyVersion"]) ||
+      !version(body.expectedSyncVersion) ||
+      typeof body.displayedDigest !== "string" ||
+      !DIGEST.test(body.displayedDigest) ||
+      !["realtime_audio", "radar_context", "audio_diarization",
+        "final_documentation", "audit_deidentification"].includes(
+          String(body.purpose)) ||
+      !["openai", "gemini", "nexa-core"].includes(String(body.provider)) ||
+      typeof body.policyVersion !== "string" ||
+      !/^[\w.-]{3,80}$/.test(body.policyVersion)) return null;
+    return { kind: "recoverConsent", params: {
+      p_encounter: body.encounterId,
+      p_expected_sync_version: body.expectedSyncVersion,
+      p_displayed_digest: body.displayedDigest,
+      p_purpose: body.purpose as string,
+      p_provider: body.provider as string,
+      p_policy_version: body.policyVersion,
+    } };
   }
   const common = ["action", "encounterId", "actionId", "confirmation"];
   if (!validId(body.actionId)) return null;
@@ -326,6 +354,54 @@ serve(async req => {
         },
         external_ai_authorized: false, gate_c_verified: false,
       });
+    }
+    if (request.kind === "recoverConsent") {
+      const { data, error } = await db.rpc(
+        "nexa_p0_recover_current_consent", request.params);
+      // Missing evidence cannot prove that an in-flight original write failed.
+      // Do not expose or reconstruct client_action_id unless the DB has
+      // independently verified a CURRENT, owner-bound real ledger row.
+      if (error || !plain(data) ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false) {
+        return json({ error: "CONSENT_RECOVERY_UNCONFIRMED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state === "UNCONFIRMED" &&
+          data.event_present_and_current === false) {
+        return json({ error: "CONSENT_EVIDENCE_NOT_OBSERVED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state !== "OBSERVED_CURRENT" ||
+          data.event_present_and_current !== true ||
+          !validId(data.event_id) || !validId(data.client_action_id) ||
+          data.kind !== "PHYSICIAN_PATIENT_CONSENT_ATTESTATION" ||
+          data.source_sync_version !== request.params.p_expected_sync_version ||
+          data.source_digest !== request.params.p_displayed_digest ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          data.purpose !== request.params.p_purpose ||
+          data.provider !== request.params.p_provider ||
+          data.policy_version !== request.params.p_policy_version ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at))) {
+        return json({ error: "CONSENT_RECOVERY_CONTRACT_INVALID",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "CURRENT_PHYSICIAN_ATTESTATION_EVIDENCE_ONLY",
+        event: {
+          event_id: data.event_id,
+          action_id: data.client_action_id,
+          kind: data.kind,
+          source_sync_version: data.source_sync_version,
+          source_digest: data.source_digest,
+          canonicalization: data.canonicalization,
+          purpose: data.purpose,
+          provider: data.provider,
+          policy_version: data.policy_version,
+          server_recorded_at: data.server_recorded_at,
+          receipt_readback_verified: true,
+        },
+        external_ai_authorized: false, gate_c_verified: false });
     }
     if (request.kind === "reconcileConsent") {
       const { data, error } = await db.rpc(
