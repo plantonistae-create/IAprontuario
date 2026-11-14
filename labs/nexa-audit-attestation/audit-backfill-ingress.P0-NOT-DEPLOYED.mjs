@@ -94,8 +94,8 @@ export async function inspectHistoricalAuditBackfillCandidate({
       row.clinicianAuthorshipVerified!==true||
       row.noPendingEditsVerified!==true||
       row.sourceLockedVerified!==false||
-      !same(row.effectivePolicyVersion,'policy-v1')&&
-         (typeof row.effectivePolicyVersion!=='string'||!row.effectivePolicyVersion))
+      (typeof row.effectivePolicyVersion!=='string'||
+       row.effectivePolicyVersion.length===0))
     return stop('BACKFILL_SOURCE_VERSION_AND_DIGEST_NOT_VERIFIED');
    seen.add(row.sourceRowId);
    const events=await evidence.readImmutableEventsForSource({
