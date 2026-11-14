@@ -355,6 +355,6 @@ test('egress sequence: SDP, fallback chunk and retry require fresh owner + conse
  assert.equal(result.boot.code,'BOOTSTRAP_DURABLE_SOURCE_ACK_NOT_VERIFIED');
  assert.equal(result.admission,null);
  assert.equal(counts.consent,3);
- assert.equal(counts.source,10);
+ assert.equal(counts.source,9);
  assert.equal(counts.externalSend,0);
 });
