@@ -478,7 +478,7 @@ begin
     or v_verified->>'provider' is distinct from p_provider
     or v_verified->>'policy_version' is distinct from p_policy_version
     or v_verified->>'server_recorded_at' is distinct from
-      pg_catalog.to_jsonb(v_event.server_recorded_at)#>>'{}'
+      (pg_catalog.to_jsonb(v_event.server_recorded_at)#>>'{}')
     or v_verified->>'external_ai_authorized' is distinct from 'false'
     or v_verified->>'gate_c_verified' is distinct from 'false'
  then raise exception using errcode='42501',
