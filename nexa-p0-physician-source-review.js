@@ -434,6 +434,78 @@ async function reconcileConsent(){
     String(e?.message||'Releitura indisponível.'));
  }finally{busy=false}
 }
+// Recover an already persisted, current physician attestation after restart.
+// The live server-scoped policy and exact synced version/digest are mandatory.
+// No new physician gesture, client key or patient consent can be fabricated.
+async function recoverCurrentEvidence(){
+ if(busy)return;
+ if(!prepared)await prepare();
+ if(busy||!prepared)return;
+ const generation=viewGeneration;
+ busy=true;
+ try{
+  const start=await verifyStable();
+  if(generation!==viewGeneration||document.hidden)return;
+  if(!policySelect?.value)
+   throw Error('Selecione uma finalidade que o servidor ainda mantém aprovada.');
+  const policy=JSON.parse(policySelect.value);
+  if(!PURPOSES.has(policy.purpose)||!PROVIDERS.has(policy.provider)||
+     typeof policy.policyVersion!=='string'||
+     !/^[\w.-]{3,80}$/.test(policy.policyVersion))
+   throw Error('Finalidade ou versão de política inválida.');
+  const original={
+   owner:start.profile.id,encounterId:start.id,
+   version:prepared.source.source_sync_version,
+   digest:prepared.source.server_digest,
+   ...policy
+  };
+  // This sends only scope IDs and a digest, never fields, transcript or audio.
+  const response=await send({
+    action:'recover_current_consent',encounterId:original.encounterId,
+    expectedSyncVersion:original.version,displayedDigest:original.digest,
+    purpose:original.purpose,provider:original.provider,
+    policyVersion:original.policyVersion
+  });
+  if(generation!==viewGeneration||document.hidden)return;
+  const event=response?.event;
+  if(response.status!=='CURRENT_PHYSICIAN_ATTESTATION_EVIDENCE_ONLY'||
+     event?.receipt_readback_verified!==true||
+     !UUID.test(String(event.action_id||''))||
+     !validPersistedReceipt(event,
+       'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',original.version)||
+     event.source_digest!==original.digest||
+     event.purpose!==original.purpose||event.provider!==original.provider||
+     event.policy_version!==original.policyVersion)
+   throw Error('O servidor não comprovou uma evidência atual desta versão.');
+  const end=await verifyStable();
+  if(generation!==viewGeneration||document.hidden||
+     end.profile.id!==original.owner||end.id!==original.encounterId||
+     ownerProfile()?.id!==original.owner)return;
+  // An unrelated event cannot resolve a distinct pending action. Retain the
+  // ambiguous original key until an exact readback explicitly reconciles it.
+  if(pendingAction?.kind==='consent'){
+   if(pendingAction.id!==event.action_id||
+      pendingAction.owner!==original.owner||
+      pendingAction.encounterId!==original.encounterId||
+      pendingAction.sourceVersion!==original.version||
+      pendingAction.digest!==original.digest||
+      pendingAction.purpose!==original.purpose||
+      pendingAction.provider!==original.provider||
+      pendingAction.policyVersion!==original.policyVersion){
+    warn('Um evento vigente foi encontrado, mas a ação pendente é diferente. Não foi liberada outra gravação.');
+    return;
+   }
+   pendingAction=null;
+  }
+  warn('Registro médico preexistente localizado no servidor (evento '+
+    event.event_id.slice(0,8)+'). Não prova consentimento do paciente, primeira saída ou autorização para IA.');
+ }catch(e){
+  if(generation===viewGeneration&&!document.hidden)
+   warn('Nenhuma evidência vigente confirmada para a versão selecionada. '+
+    'Ausência não comprova falha de gravação nem autoriza repetir a ação. '+
+    String(e?.message||'Consulta de evidências indisponível.'));
+ }finally{busy=false}
+}
 const anchor=q('submitAuditBtn');
 if(!anchor)return;
 const openButton=create('button',{text:'Revisar fonte sincronizada · P0',cls:'btn ghost'});
@@ -448,6 +520,11 @@ const consentReconcileOpen=create('button',{
 consentReconcileOpen.type='button';consentReconcileOpen.style.width='auto';
 consentReconcileOpen.onclick=()=>void reconcileConsent();
 revokeOpen.after(consentReconcileOpen);
+const recoverOpen=create('button',{
+ text:'Consultar registro médico existente · P0',cls:'btn ghost'});
+recoverOpen.type='button';recoverOpen.style.width='auto';
+recoverOpen.onclick=()=>void recoverCurrentEvidence();
+consentReconcileOpen.after(recoverOpen);
 surface=create('section',{cls:'card'});
 surface.id='nexaP0SourceReview';surface.hidden=true;
 surface.setAttribute('aria-label','Revisão médica do snapshot sincronizado');
