@@ -220,6 +220,12 @@ begin
      )
   then raise exception using errcode='42501',message='APPROVED_PURPOSE_POLICY_REQUIRED'; end if;
  elsif p_kind='review' then
+  -- Browser-derived ready_for_audit cannot prove completed audio ingestion,
+  -- sync/reconciliation integrity or absence of post-review edits. Do not mint
+  -- a final physician ACK until separately reviewed server authority exists.
+  -- This DB-side STOP persists even if the Edge HTTP STOP is removed in error.
+  raise exception using errcode='42501',
+    message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
   if p_purpose is not null or p_provider is not null or p_policy_version is not null
      or p_patient_scope_attested is not false
      or v_source.encounter_state<>'ready_for_audit'
