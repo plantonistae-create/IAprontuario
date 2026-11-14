@@ -388,6 +388,91 @@ begin
 end; $$;
 
 
+-- Read-only reconciliation of an ambiguous physician CONSENT write.
+-- Query the original idempotency key, never create another attestation.
+-- A missing row is UNCONFIRMED, NOT proof that a pending write was rolled back.
+-- Every positive answer must also pass the existing live owner/snapshot/policy/
+-- revocation recheck. This does not prove patient consent or pre-egress order.
+create function public.nexa_p0_reconcile_consent_action(
+ p_encounter uuid,p_action_id uuid,p_expected_sync_version bigint,
+ p_displayed_digest text,p_purpose text,p_provider text,
+ p_policy_version text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_event private.nexa_p0_source_action_events%rowtype;
+ v_verified jsonb;
+begin
+ if v_actor is null or p_encounter is null or p_action_id is null
+    or p_expected_sync_version is null or p_expected_sync_version<1
+    or p_displayed_digest is null
+    or p_displayed_digest !~ '^sha256:[0-9a-f]{64}$'
+    or p_purpose is null or p_provider is null or p_policy_version is null
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_IDENTIFIERS_REQUIRED'; end if;
+
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ select * into v_event from private.nexa_p0_source_action_events e
+ where e.owner_user_id=v_actor and e.client_action_id=p_action_id
+ for share;
+ if not found then
+   return pg_catalog.jsonb_build_object(
+    'state','UNCONFIRMED','event_present_and_current',false,
+    'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+ if v_event.event_kind<>'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+    or v_event.encounter_id is distinct from p_encounter
+    or v_event.source_sync_version is distinct from p_expected_sync_version
+    or v_event.source_digest is distinct from p_displayed_digest
+    or v_event.canonicalization<>'pg-jsonb-v1'
+    or v_event.purpose is distinct from p_purpose
+    or v_event.provider is distinct from p_provider
+    or v_event.policy_version is distinct from p_policy_version
+    or v_event.physician_explicit_action is not true
+    or v_event.patient_scope_attested is not true
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_KEY_CONFLICT'; end if;
+
+ -- Reuse the independent, current-source verification. It validates owner,
+ -- clinic access, exact version/digest, policy approval and no revocation.
+ -- Any changed/deleted source or revoked consent is fail-closed, never success.
+ v_verified:=public.nexa_p0_verify_consent_action(
+   v_event.event_id,p_encounter,p_expected_sync_version,p_displayed_digest);
+ if v_verified->>'event_present_and_current' is distinct from 'true'
+    or v_verified->>'event_id' is distinct from v_event.event_id::text
+    or v_verified->>'kind' is distinct from v_event.event_kind
+    or v_verified->>'source_sync_version' is distinct from
+      p_expected_sync_version::text
+    or v_verified->>'source_digest' is distinct from p_displayed_digest
+    or v_verified->>'canonicalization' is distinct from 'pg-jsonb-v1'
+    or v_verified->>'purpose' is distinct from p_purpose
+    or v_verified->>'provider' is distinct from p_provider
+    or v_verified->>'policy_version' is distinct from p_policy_version
+    or v_verified->>'server_recorded_at' is distinct from
+      pg_catalog.to_jsonb(v_event.server_recorded_at)#>>'{}'
+    or v_verified->>'external_ai_authorized' is distinct from 'false'
+    or v_verified->>'gate_c_verified' is distinct from 'false'
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_READBACK_FAILED'; end if;
+
+ return pg_catalog.jsonb_build_object(
+   'state','CONFIRMED','event_present_and_current',true,
+   'event_id',v_event.event_id,'kind',v_event.event_kind,
+   'source_sync_version',v_event.source_sync_version,
+   'source_digest',v_event.source_digest,
+   'canonicalization',v_event.canonicalization,
+   'purpose',v_event.purpose,'provider',v_event.provider,
+   'policy_version',v_event.policy_version,
+   'server_recorded_at',v_event.server_recorded_at,
+   'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
 -- Owner-scoped listing of actionable, IMMUTABLE physician attestations.
 -- Revocation does not depend on current source version, approved policies or
 -- client-generated consent. Deleted sources have no payload to expose here.
@@ -682,6 +767,14 @@ grant execute on function public.nexa_p0_record_source_action(
 revoke all on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
  from public,anon,authenticated,service_role;
 grant execute on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
+ to authenticated;
+
+-- This reconciliation RPC is query-only and is still REVIEW_ONLY.
+revoke all on function public.nexa_p0_reconcile_consent_action(
+ uuid,uuid,bigint,text,text,text,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_reconcile_consent_action(
+ uuid,uuid,bigint,text,text,text,text)
  to authenticated;
 
 -- New functions remain candidate-only, absent from hosted PostgreSQL.
