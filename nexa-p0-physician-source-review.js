@@ -177,7 +177,6 @@ async function record(type){
     '|'+activeSnapshot.server_digest+'|'+type+'|'+policyIdentity;
   if(!pendingAction||pendingAction.key!==actionKey)
    pendingAction={key:actionKey,id:crypto.randomUUID()};
- try{
   if(type==='consent'){
    if(prepared.source.pre_egress_source_verified!==true)
     throw Error('A origem anterior à primeira IA não foi comprovada pelo servidor.');
