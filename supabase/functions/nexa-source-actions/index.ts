@@ -238,10 +238,47 @@ serve(async req => {
     if (request.kind === "prepare") {
       const { data, error } = await db.rpc("nexa_p0_prepare_source_review",
         { p_encounter: request.encounter });
-      if (error || !data) return json({ error: "SOURCE_NOT_VERIFIED" }, 409);
-      // The future UI must show THIS exact server snapshot before ACK.
-      return json({ status: "PERSISTED_SNAPSHOT_FOR_PHYSICIAN_REVIEW",
-        source: data, external_ai_authorized: false, gate_c_verified: false });
+      // Never accept a successful RPC transport as proof of an exact source.
+      // Reject malformed/unexpected DB responses rather than relaying their
+      // arbitrary fields (which may contain clinical data) to the browser.
+      const snapshot = plain(data) ? data.source_snapshot : null;
+      const policies = plain(data) ? data.approved_policies : null;
+      const purposes = ["realtime_audio", "radar_context", "audio_diarization",
+        "final_documentation", "audit_deidentification"];
+      const providers = ["openai", "gemini", "nexa-core"];
+      if (error || !plain(data) || data.encounter_id !== request.encounter ||
+          !version(data.source_sync_version) ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          typeof data.server_digest !== "string" ||
+          !DIGEST.test(data.server_digest) ||
+          !plain(snapshot) || !plain(snapshot.fields) ||
+          !plain(snapshot.processing_meta) ||
+          !Array.isArray(snapshot.protocol_usage) ||
+          !Array.isArray(policies) || policies.length > 100 ||
+          !policies.every((p: unknown) =>
+            plain(p) && purposes.includes(String(p.purpose)) &&
+            providers.includes(String(p.provider)) &&
+            typeof p.policyVersion === "string" &&
+            /^[\\w.-]{3,80}$/.test(p.policyVersion))) {
+        return json({ error: "SOURCE_SNAPSHOT_CONTRACT_INVALID" }, 409);
+      }
+      // This is an owner-bound persisted snapshot, NOT pre-egress authority,
+      // verified patient consent or evidence of completed audio. Keep the
+      // explicit negative capabilities even if an RPC later adds new fields.
+      return json({
+        status: "PERSISTED_SNAPSHOT_FOR_PHYSICIAN_REVIEW",
+        source: {
+          encounter_id: data.encounter_id,
+          source_sync_version: data.source_sync_version,
+          canonicalization: data.canonicalization,
+          server_digest: data.server_digest,
+          source_snapshot: snapshot,
+          approved_policies: policies,
+          pre_egress_source_verified: false,
+          final_review_server_completeness_verified: false,
+        },
+        external_ai_authorized: false, gate_c_verified: false,
+      });
     }
     const { data, error } = await db.rpc("nexa_p0_record_source_action", request.params);
     // A successful HTTP/RPC call is not an event receipt. Require the exact
