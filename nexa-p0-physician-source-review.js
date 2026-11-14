@@ -194,9 +194,10 @@ async function record(type){
    });
    if(generation!==viewGeneration||document.hidden)return;
    if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
+      resp.event?.receipt_readback_verified!==true||
       !validPersistedReceipt(resp.event,'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
         prepared.source.source_sync_version))
-    throw Error('Sem recibo verificável da declaração médica.');
+    throw Error('Declaração sem leitura posterior confirmada no servidor.');
    warn('Declaração médica confirmada pelo servidor para esta versão. ISSO NÃO autoriza processamento externo.');
   }else{
    if(!reviewCheck.checked)throw Error('Confirme a revisão do conteúdo exibido.');
