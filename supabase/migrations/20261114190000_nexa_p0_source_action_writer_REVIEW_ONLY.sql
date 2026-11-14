@@ -109,9 +109,12 @@ begin
   select 1 from pg_catalog.pg_class c
   where c.oid in (
     'public.consultation_history'::pg_catalog.regclass,
+    'public.profiles'::pg_catalog.regclass,
+    'private.clinical_slots'::pg_catalog.regclass,
     'private.nexa_p0_source_action_events'::pg_catalog.regclass,
     'private.nexa_p0_purpose_policy'::pg_catalog.regclass
-  ) and c.relowner=v_role
+  ) and (c.relowner=v_role or
+    pg_catalog.pg_has_role(v_role,c.relowner,'MEMBER'))
  ) then raise exception using errcode='42501',
    message='NEXA_P0_DEFINER_TABLE_OWNER_BYPASS'; end if;
 end; $$;
