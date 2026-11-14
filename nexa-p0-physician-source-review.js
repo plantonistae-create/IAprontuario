@@ -134,10 +134,10 @@ async function prepare(){
    throw Error('A consulta mudou durante a leitura. Atualize a revisão.');
   prepared={source:out.source,revision:start.revision};
   owner=start.profile.id;encounter=start.id;
-  // Never retry a past action against a different snapshot or owner.
-  if(pendingAction&&!pendingAction.key.startsWith(
-     owner+'|'+encounter+'|'+out.source.source_sync_version+'|'+out.source.server_digest+'|'))
-   pendingAction=null;
+  // An indeterminate action remains tied to its ORIGINAL version/owner.
+  // A new snapshot must never discard its key or trigger another write.
+  if(pendingAction?.kind==='consent'||pendingAction?.kind==='revoke')
+   warn('Existe uma ação pendente. Consulte o recibo original antes de nova declaração.');
   // The exact fields and metadata included in the server digest are displayed.
   // No transcription/Radar text is shown while recording.
   preview.textContent=JSON.stringify(out.source.source_snapshot,null,2);
@@ -159,7 +159,8 @@ async function prepare(){
   // The current #172 RPC deliberately does NOT supply a trusted pre-egress
   // certificate. Consent gesture must stay disabled until that exists.
   consentButton.disabled=policySelect.options.length===0||
-    out.source.pre_egress_source_verified!==true;
+     out.source.pre_egress_source_verified!==true||
+     pendingAction?.kind==='consent'||pendingAction?.kind==='revoke';
   warn(out.source.pre_egress_source_verified!==true?
    'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas. Revisão final também aguarda prova de completude no servidor.':
    'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.');
@@ -172,6 +173,10 @@ async function prepare(){
 }
 async function record(type){
  if(busy||!prepared)return;
+ if(pendingAction?.kind==='consent'||pendingAction?.kind==='revoke'){
+  warn('Consulte o recibo original pendente antes de registrar nova declaração.');
+  return;
+ }
  busy=true;
  const generation=viewGeneration;
  consentButton.disabled=true;reviewButton.disabled=true;
@@ -185,15 +190,23 @@ async function record(type){
   const policyIdentity=type==='consent'?policySelect.value:'final-review';
   actionKey=owner+'|'+encounter+'|'+activeSnapshot.source_sync_version+
     '|'+activeSnapshot.server_digest+'|'+type+'|'+policyIdentity;
-  if(!pendingAction||pendingAction.key!==actionKey)
-   pendingAction={key:actionKey,id:crypto.randomUUID()};
   if(type==='consent'){
    if(prepared.source.pre_egress_source_verified!==true)
     throw Error('A origem anterior à primeira IA não foi comprovada pelo servidor.');
    if(!consentCheck.checked||!policySelect.value)throw Error('Declaração médica explícita e finalidade aprovada necessárias.');
    const policy=JSON.parse(policySelect.value);
-   if(!PURPOSES.has(policy.purpose)||!PROVIDERS.has(policy.provider))
+   if(!PURPOSES.has(policy.purpose)||!PROVIDERS.has(policy.provider)||
+      !/^[\w.-]{3,80}$/.test(policy.policyVersion||''))
     throw Error('Finalidade inválida.');
+   pendingAction={
+    kind:'consent',key:actionKey,id:crypto.randomUUID(),
+    owner,encounterId:encounter,
+    sourceVersion:activeSnapshot.source_sync_version,
+    digest:activeSnapshot.server_digest,
+    purpose:policy.purpose,provider:policy.provider,
+    policyVersion:policy.policyVersion
+   };
+   // Once assigned, this id is NEVER silently replaced on ambiguity.
    const resp=await send({
     action:'attest_consent',encounterId:encounter,actionId:pendingAction.id,
     expectedSyncVersion:prepared.source.source_sync_version,
@@ -212,6 +225,7 @@ async function record(type){
    if(prepared.source.final_review_server_completeness_verified!==true)
     throw Error('Revisão final bloqueada: completude não comprovada pelo servidor.');
    if(!reviewCheck.checked)throw Error('Confirme a revisão do conteúdo exibido.');
+   pendingAction={key:actionKey,id:crypto.randomUUID(),kind:'review'};
    const resp=await send({
     action:'ack_final_review',encounterId:encounter,actionId:pendingAction.id,
     expectedSyncVersion:prepared.source.source_sync_version,
@@ -308,8 +322,8 @@ async function record(type){
    key=revokeOwner+'|'+target.encounter_id+'|revoke|'+target.event_id;
    // A potentially committed request must be reconciled, never replaced by
    // a second mutation (even for a different target) with a fresh UUID.
-   if(pendingAction?.kind==='revoke')
-    throw Error('Há uma revogação pendente. Verifique o recibo antes de nova ação.');
+   if(pendingAction?.kind==='revoke'||pendingAction?.kind==='consent')
+    throw Error('Há declaração ou revogação pendente. Consulte seu recibo antes de outra ação.');
    if(!pendingAction||pendingAction.key!==key)
     pendingAction={key,id:crypto.randomUUID(),kind:'revoke',
      owner:revokeOwner,encounterId:target.encounter_id,
@@ -377,6 +391,49 @@ async function record(type){
     !(pendingAction?.kind==='revoke'&&ownerProfile()?.id===pendingAction.owner);
   }
  }
+// Reconcile the EXACT original consent id via a read-only server query.
+// It remains possible after an autosave/version change; stale results fail
+// closed on the server. Never retry the original mutation automatically.
+async function reconcileConsent(){
+ if(busy)return;
+ const saved=pendingAction;
+ clear();
+ const generation=viewGeneration;
+ if(surface)surface.hidden=false;
+ if(saved?.kind!=='consent'){
+  warn('Nenhuma declaração pendente nesta sessão para consultar.');
+  return;
+ }
+ busy=true;
+ try{
+  if(ownerProfile()?.id!==saved.owner||!UUID.test(saved.id)||
+     !UUID.test(saved.encounterId)||!Number.isSafeInteger(saved.sourceVersion)||
+     saved.sourceVersion<1||!DIGEST.test(saved.digest)||
+     !PURPOSES.has(saved.purpose)||!PROVIDERS.has(saved.provider)||
+     typeof saved.policyVersion!=='string'||
+     !/^[\w.-]{3,80}$/.test(saved.policyVersion))
+    throw Error('Identidade ou parâmetros originais não comprovados.');
+  const resp=await send({action:'reconcile_consent',
+   encounterId:saved.encounterId,actionId:saved.id,
+   expectedSyncVersion:saved.sourceVersion,
+   displayedDigest:saved.digest,
+   purpose:saved.purpose,provider:saved.provider,
+   policyVersion:saved.policyVersion});
+  if(generation!==viewGeneration||document.hidden)return;
+  if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
+     resp.event?.receipt_readback_verified!==true||
+     !validPersistedReceipt(resp.event,
+       'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',saved.sourceVersion))
+    throw Error('A declaração original não foi comprovada em releitura.');
+  if(pendingAction?.kind==='consent'&&pendingAction.id===saved.id)
+   pendingAction=null;
+  warn('Declaração original vigente confirmada por releitura. Não autoriza IA externa.');
+ }catch(e){
+  if(generation===viewGeneration&&!document.hidden)
+   warn('Resultado ainda incerto ou não vigente. Nenhuma declaração nova foi enviada. '+
+    String(e?.message||'Releitura indisponível.'));
+ }finally{busy=false}
+}
 const anchor=q('submitAuditBtn');
 if(!anchor)return;
 const openButton=create('button',{text:'Revisar fonte sincronizada · P0',cls:'btn ghost'});
@@ -386,6 +443,11 @@ const revokeOpen=create('button',{text:'Gerenciar revogações registradas · P0
 revokeOpen.type='button';revokeOpen.style.width='auto';
 revokeOpen.onclick=()=>void loadRevocations();
 openButton.after(revokeOpen);
+const consentReconcileOpen=create('button',{
+ text:'Verificar declaração pendente · somente leitura',cls:'btn ghost'});
+consentReconcileOpen.type='button';consentReconcileOpen.style.width='auto';
+consentReconcileOpen.onclick=()=>void reconcileConsent();
+revokeOpen.after(consentReconcileOpen);
 surface=create('section',{cls:'card'});
 surface.id='nexaP0SourceReview';surface.hidden=true;
 surface.setAttribute('aria-label','Revisão médica do snapshot sincronizado');
