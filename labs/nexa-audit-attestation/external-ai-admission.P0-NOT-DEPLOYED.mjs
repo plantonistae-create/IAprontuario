@@ -119,3 +119,75 @@ export async function inspectExternalAiAdmissionCandidate({
   return stop('PRE_PROVIDER_ADMISSION_FAIL_CLOSED');
  }
 }
+
+
+/*
+ * BOOTSTRAP STAGE BEFORE FIRST AUDIO/RADAR EGRESS (LAB ONLY).
+ *
+ * The actual UI startRec() can start realtime after checking a browser checkbox,
+ * without awaiting a persisted, owner-bound consultation: index.html 3881-3911.
+ * Autosave startNew() creates a local row and launches syncOne() without await;
+ * syncOne() skips an empty draft: nexa-encounter-autosave-v18.10.1.js
+ * lines 231-232 and 338-354. No hosted handler is altered by this function.
+ *
+ * This is an additional PRECONDITION to inspectExternalAiAdmissionCandidate,
+ * NOT an alternate admission service and NOT consent. A browser encounter UUID,
+ * IndexedDB copy, fabricated serverAck, or positive mock can never create
+ * durable authority. Any future server implementation must verify source
+ * persistence under genuine owner credentials before first provider egress;
+ * actual DB locks, consent events, revocation and live-session termination
+ * remain separately unproven. The route is server-selected, never client input.
+ */
+export async function inspectPersistedEncounterBootstrapCandidate({
+ route,request,identity,source
+}={}){
+ try{
+  if(!['realtime-call.webrtc','realtime-call.chunk','realtime-radar'].includes(route))
+   return stop('BOOTSTRAP_BACKEND_ROUTE_NOT_SUPPORTED');
+  if(!plain(request)||Object.keys(request).length!==1||
+     !own(request,'encounterId')||!UUID.test(request.encounterId||''))
+   return stop('BOOTSTRAP_REQUEST_ROUTING_ONLY_REQUIRED');
+  if(typeof identity?.getUser!=='function'||
+     typeof source?.readOwnerScopedForActor!=='function')
+   return stop('BOOTSTRAP_TRUSTED_SOURCE_ADAPTER_MISSING');
+  const actor=await identity.getUser();
+  if(!UUID.test(actor?.id||''))return stop('BOOTSTRAP_ACTOR_NOT_AUTHENTICATED');
+  if(own(actor,'tenantId'))return stop('UNSUPPORTED_INSTITUTIONAL_TENANT_CLAIM');
+  const row=await source.readOwnerScopedForActor({
+   actorId:actor.id,encounterId:request.encounterId,route
+  });
+  if(!plain(row)||!UUID.test(row.sourceRowId||'')||
+     !same(row.ownerUserId,actor.id)||
+     !same(row.encounterId,request.encounterId)||
+     !ver(row.syncVersion)||
+     row.clinicalAccessVerified!==true||
+     row.activeSlotVerified!==true)
+   return stop('BOOTSTRAP_OWNER_OR_SOURCE_VERSION_NOT_VERIFIED');
+  if(own(row,'tenantId')||own(row,'tenantMembershipVerified'))
+   return stop('UNSUPPORTED_INSTITUTIONAL_TENANT_CLAIM');
+  if(row.serverPersistedVerified!==true||
+     row.serverSyncAckVerified!==true||
+     row.ownerBindingVerified!==true||
+     row.serverRowUniquenessVerified!==true||
+     row.noPendingLocalEditsVerified!==true||
+     row.sourceLockedVerified!==false||
+     row.externalSessionAlreadyStartedVerified!==false)
+   return stop('BOOTSTRAP_DURABLE_SOURCE_ACK_NOT_VERIFIED');
+  const actorAgain=await identity.getUser();
+  if(!same(actorAgain?.id,actor.id))
+   return stop('BOOTSTRAP_ACTOR_CHANGED_BEFORE_EGRESS');
+  // Only a planning classification. Mock-true flags are NOT DB evidence.
+  // No purpose-specific consent was read, and no external session was started.
+  return Object.freeze({
+   status:'PERSISTED_ENCOUNTER_BOOTSTRAP_CANDIDATE_ONLY',
+   code:'TRUSTED_SOURCE_CONSENT_AND_LIVE_REVOCATION_NOT_PROVEN',
+   route,purpose:PROVIDER_GATE_ROUTES[route].purpose,
+   externalAiAuthorized:false,auditSubmitAuthorized:false,
+   adminWriteAuthorized:false,clinicalPayloadReleased:false,
+   gateCVerified:false,eventDurabilityVerified:false,
+   resetAuthorized:false
+  });
+ }catch{
+  return stop('BOOTSTRAP_FAIL_CLOSED');
+ }
+}
