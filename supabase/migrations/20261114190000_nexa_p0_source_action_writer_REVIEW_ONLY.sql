@@ -139,8 +139,11 @@ begin
   where p.id=v_actor and p.access_status='active'
     and p.clinical_access is true and cs.slot_no between 1 and 5
  ) then raise exception using errcode='42501',message='ACTIVE_SLOT_REQUIRED'; end if;
+ -- Lock the exact owner snapshot while calculating the server digest.
+ -- This holds only through the current DB transaction and does NOT prove
+ -- first external AI egress or patient consent.
  select * into v_source from public.consultation_history s
- where s.encounter_id=p_encounter and s.user_id=v_actor;
+ where s.encounter_id=p_encounter and s.user_id=v_actor for share;
  if not found or v_source.sync_version<1
     or v_source.encounter_state in ('audited','discarded')
     or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
