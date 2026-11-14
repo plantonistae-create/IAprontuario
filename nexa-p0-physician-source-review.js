@@ -144,14 +144,18 @@ async function prepare(){
    o.value=JSON.stringify({purpose:x.purpose,provider:x.provider,policyVersion:x.policyVersion});
    policySelect.append(o);
   }
-  reviewButton.disabled=false;
+  // The DB currently has an unconditional STOP for final medical ACK.
+  // A browser's ready_for_audit flag is never evidence of complete audio.
+  // Do not offer an actionable ACK until an explicitly reviewed server
+  // completeness receipt exists. Preview remains available independently.
+  reviewButton.disabled=out.source.final_review_server_completeness_verified!==true;
   // A saved source/policy is not proof that no prior provider egress occurred.
   // The current #172 RPC deliberately does NOT supply a trusted pre-egress
   // certificate. Consent gesture must stay disabled until that exists.
   consentButton.disabled=policySelect.options.length===0||
     out.source.pre_egress_source_verified!==true;
   warn(out.source.pre_egress_source_verified!==true?
-   'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas.':
+   'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas. Revisão final também aguarda prova de completude no servidor.':
    'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.');
  }catch(e){
   if(generation===viewGeneration){
@@ -199,6 +203,8 @@ async function record(type){
     throw Error('Declaração sem leitura posterior confirmada no servidor.');
    warn('Declaração médica confirmada pelo servidor para esta versão. ISSO NÃO autoriza processamento externo.');
   }else{
+   if(prepared.source.final_review_server_completeness_verified!==true)
+    throw Error('Revisão final bloqueada: completude não comprovada pelo servidor.');
    if(!reviewCheck.checked)throw Error('Confirme a revisão do conteúdo exibido.');
    const resp=await send({
     action:'ack_final_review',encounterId:encounter,actionId:pendingAction.id,
