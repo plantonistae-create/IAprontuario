@@ -14,10 +14,15 @@ const q=id=>document.getElementById(id);
 let prepared=null,owner=null,encounter=null,busy=false;
 let viewGeneration=0,pendingAction=null;
 let surface=null,preview=null,message=null,consentCheck=null,reviewCheck=null,policySelect=null,consentButton=null,reviewButton=null;
+let revokeSelect=null,revokeCheck=null,revokeButton=null,revokeOwner=null,revocableEntries=[];
 
 function clear(reason=''){
   ++viewGeneration;
   prepared=null;owner=null;encounter=null;
+  revokeOwner=null;revocableEntries=[];
+  if(revokeSelect)revokeSelect.replaceChildren();
+  if(revokeCheck)revokeCheck.checked=false;
+  if(revokeButton)revokeButton.disabled=true;
   if(preview)preview.textContent='';
   if(policySelect)policySelect.replaceChildren();
   if(consentCheck)consentCheck.checked=false;
@@ -231,11 +236,105 @@ async function record(type){
   consentButton.disabled=true;reviewButton.disabled=true;
  }
 }
+
+ // A historical attestation may be retracted even after the source changed
+ // or was deleted. Never construct a revocation choice from local storage.
+ async function loadRevocations(){
+  if(busy)return;
+  busy=true;clear();
+  const generation=viewGeneration;
+  if(surface)surface.hidden=false;
+  try{
+   const profile=ownerProfile();
+   if(!profile)throw Error('Sessão clínica ativa necessária.');
+   warn('Lendo exclusivamente os eventos persistidos do servidor…');
+   const out=await send({action:'list_revocable_consents'});
+   if(generation!==viewGeneration||document.hidden)return;
+   if(out.status!=='OWNED_REVOCABLE_EVENTS_ONLY'||!Array.isArray(out.events)||
+      out.events.length>100||
+      out.events.some(e=>!e||!UUID.test(String(e.event_id||''))||
+       !UUID.test(String(e.encounter_id||''))||
+       !PURPOSES.has(e.purpose)||!PROVIDERS.has(e.provider)||
+       typeof e.policy_version!=='string'||!/^[\w.-]{3,80}$/.test(e.policy_version)||
+       !Number.isSafeInteger(e.source_sync_version)||e.source_sync_version<1||
+       !Number.isFinite(Date.parse(e.server_recorded_at))))
+    throw Error('Catálogo de revogação não confirmado pelo servidor.');
+   if(ownerProfile()?.id!==profile.id)
+    throw Error('A sessão médica mudou. Reabra o gerenciamento.');
+   revokeOwner=profile.id;revocableEntries=out.events;
+   for(const e of revocableEntries){
+    const option=create('option',{text:e.purpose+' · '+e.provider+
+      ' · '+e.policy_version+' · consulta '+e.encounter_id.slice(0,8)});
+    option.value=e.event_id;revokeSelect.append(option);
+   }
+   revokeButton.disabled=revocableEntries.length===0;
+   warn(revocableEntries.length?
+    'Selecione uma declaração original e confirme expressamente sua revogação.':
+    'Nenhuma declaração autoritativa revogável encontrada.');
+  }catch(e){
+   if(generation===viewGeneration){
+    clear(String(e?.message||'Não foi possível consultar eventos.'));
+    if(surface&&!document.hidden)surface.hidden=false;
+   }
+  }finally{busy=false}
+ }
+ async function recordRevocation(){
+  if(busy)return;
+  busy=true;
+  const generation=viewGeneration;
+  if(revokeButton)revokeButton.disabled=true;
+  let key=null;
+  try{
+   const profile=ownerProfile();
+   const target=revocableEntries.find(e=>e.event_id===revokeSelect?.value);
+   if(!profile||profile.id!==revokeOwner||!target||!revokeCheck?.checked)
+    throw Error('Selecione o evento original e confirme a revogação.');
+   // Owner and eligibility are rechecked before the mutation. The database
+   // separately locks source/intent and validates exact event identity.
+   const fresh=await send({action:'list_revocable_consents'});
+   if(generation!==viewGeneration||document.hidden)return;
+   const active=fresh.status==='OWNED_REVOCABLE_EVENTS_ONLY'&&
+      Array.isArray(fresh.events)&&
+      fresh.events.some(e=>e.event_id===target.event_id&&
+       e.encounter_id===target.encounter_id&&e.purpose===target.purpose&&
+       e.provider===target.provider&&e.policy_version===target.policy_version);
+   if(!active||ownerProfile()?.id!==revokeOwner)
+    throw Error('O evento mudou. Atualize a lista do servidor.');
+   key=revokeOwner+'|'+target.encounter_id+'|revoke|'+target.event_id;
+   if(!pendingAction||pendingAction.key!==key)
+    pendingAction={key,id:crypto.randomUUID()};
+   const resp=await send({
+    action:'revoke_consent',encounterId:target.encounter_id,
+    targetEventId:target.event_id,actionId:pendingAction.id,
+    confirmation:{physicianRevokesAttestation:true}
+   });
+   if(generation!==viewGeneration||document.hidden)return;
+   if(resp.status!=='SOURCE_REVOCATION_PERSISTED_ONLY'||
+      resp.event?.receipt_readback_verified!==true||
+      resp.event?.target_event_id!==target.event_id||
+      !validPersistedReceipt(resp.event,'CONSENT_REVOKED',target.source_sync_version))
+    throw Error('Revogação sem recibo de releitura confirmado.');
+   if(pendingAction?.key===key)pendingAction=null;
+   revocableEntries=[];revokeSelect.replaceChildren();revokeOwner=null;
+   warn('Revogação confirmada em releitura separada. IA e auditoria continuam bloqueadas.');
+  }catch(e){
+   if(generation===viewGeneration&&!document.hidden)
+    warn(String(e?.message||'Revogação não confirmada.'));
+  }finally{
+   busy=false;
+   if(revokeCheck)revokeCheck.checked=false;
+   if(revokeButton)revokeButton.disabled=true;
+  }
+ }
 const anchor=q('submitAuditBtn');
 if(!anchor)return;
 const openButton=create('button',{text:'Revisar fonte sincronizada · P0',cls:'btn ghost'});
 openButton.type='button';openButton.style.width='auto';openButton.onclick=()=>void prepare();
 anchor.parentElement?.insertBefore(openButton,anchor);
+const revokeOpen=create('button',{text:'Gerenciar revogações registradas · P0',cls:'btn ghost'});
+revokeOpen.type='button';revokeOpen.style.width='auto';
+revokeOpen.onclick=()=>void loadRevocations();
+openButton.after(revokeOpen);
 surface=create('section',{cls:'card'});
 surface.id='nexaP0SourceReview';surface.hidden=true;
 surface.setAttribute('aria-label','Revisão médica do snapshot sincronizado');
@@ -253,10 +352,21 @@ consentButton=create('button',{text:'Registrar declaração explícita',cls:'btn
 consentButton.type='button';consentButton.disabled=true;consentButton.onclick=()=>void record('consent');
 reviewButton=create('button',{text:'Confirmar revisão da versão',cls:'btn ghost'});
 reviewButton.type='button';reviewButton.disabled=true;reviewButton.onclick=()=>void record('review');
+revokeSelect=create('select');
+revokeSelect.setAttribute('aria-label','Declarações revogáveis verificadas pelo servidor');
+revokeSelect.style.maxWidth='100%';
+revokeCheck=create('input');revokeCheck.type='checkbox';
+const revokeLabel=create('label');
+revokeLabel.append(revokeCheck,document.createTextNode(
+ ' Revogo expressamente a declaração selecionada, vinculada ao evento original.'));
+revokeButton=create('button',{text:'Revogar declaração selecionada',cls:'btn ghost'});
+revokeButton.type='button';revokeButton.disabled=true;
+revokeButton.onclick=()=>void recordRevocation();
 message=create('p',{text:'Gate C NO-GO. Nenhuma ação foi registrada.'});message.setAttribute('role','status');
 const close=create('button',{text:'Fechar e descartar visualização',cls:'btn ghost'});
 close.type='button';close.onclick=()=>clear();
-surface.append(heading,note,preview,policySelect,cLabel,consentButton,rLabel,reviewButton,message,close);
+surface.append(heading,note,preview,policySelect,cLabel,consentButton,
+ rLabel,reviewButton,revokeSelect,revokeLabel,revokeButton,message,close);
 anchor.closest('.toolbar')?.after(surface);
 for(const name of ['nexa:encounter-started','nexa:encounter-sync-conflict',
  'nexa:encounter-synced','nexa:consultation-reset','nexa:encounter-locked'])
