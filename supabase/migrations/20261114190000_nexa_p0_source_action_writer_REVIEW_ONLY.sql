@@ -116,9 +116,20 @@ begin
   'source_snapshot',pg_catalog.jsonb_build_object(
    'fields',v_source.fields,'processing_meta',v_source.processing_meta,
    'protocol_usage',v_source.protocol_usage,
-   'consent_recorded_at',v_source.consent_recorded_at)
+   'consent_recorded_at',v_source.consent_recorded_at),
+  -- Trusted policy choices only. Empty table => no selectable purpose/version.
+  -- This is a policy catalog, never per-patient consent or egress admission.
+  'approved_policies',coalesce((
+    select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+     'purpose',pol.purpose,'provider',pol.provider,
+     'policyVersion',pol.policy_version)
+     order by pol.purpose,pol.provider,pol.policy_version)
+    from private.nexa_p0_purpose_policy pol
+    where pol.revoked_at is null
+      and pol.approved_at<=pg_catalog.clock_timestamp()
+  ),'[]'::jsonb)
  );
-end; $$;
+end; $;
 
 -- Atomic writer: actor identity comes ONLY from auth.uid() under an
 -- authenticated Supabase JWT; no p_actor, client status or service_role.
