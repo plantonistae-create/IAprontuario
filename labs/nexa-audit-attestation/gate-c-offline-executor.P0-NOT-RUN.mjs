@@ -219,7 +219,14 @@ function caseFiles(m) {
       if (/^\s*\\/m.test(txt) || /\b(?:COPY\s+.+\s+PROGRAM|dblink|postgres_fdw|ALTER\s+SYSTEM)\b/i.test(txt)) {
         stop('CASE_UNREVIEWED_PSQL_OR_EXTERNAL_OPERATION_' + c);
       }
-      result.set(c + ':' + role, entry.path);
+      if (![0,3].includes(entry.expectedExitCode)) {
+        stop('CASE_EXPECTED_EXIT_NOT_REVIEWED_' + c);
+      }
+      if (entry.expectedExitCode === 3 &&
+          !/^[A-Z0-9]{5}$/.test(entry.expectedSqlstate || '')) {
+        stop('CASE_EXPECTED_SQLSTATE_REQUIRED_' + c);
+      }
+      result.set(c + ':' + role, entry);
     }
   }
   return result;
@@ -246,15 +253,23 @@ async function runCases(m, psql) {
     stop('CASE_SUITE_OR_ACTOR_BOUNDARY_NOT_APPROVED');
   }
   const files = caseFiles(m);
+  if (m.cases.C07.barrierProtocol !== 'REVIEWED_DATABASE_BARRIER' ||
+      m.cases.C08.barrierProtocol !== 'REVIEWED_DATABASE_BARRIER') {
+    stop('CONCURRENCY_BARRIER_NOT_REVIEWED');
+  }
   for (const c of C_IDS) {
     // Two genuinely different psql processes for C07 A/B and C08 A/reviewer.
     // Local identity provider / peer mapping must be independently reviewed.
-    const results = await Promise.all(C_ROLES[c].map(r =>
-      runOne(m, psql, files.get(c + ':' + r), r)));
+    const entries = C_ROLES[c].map(r => files.get(c + ':' + r));
+    const results = await Promise.all(C_ROLES[c].map((r,i) =>
+      runOne(m, psql, entries[i].path, r)));
     const status = results.map((r,i) => C_ROLES[c][i] + ':' +
       String(r.code) + ':' + r.sqlstate).join(',');
     console.log(c + '=EXECUTED_UNADJUDICATED[' + status + ']');
-    if (results.some(x => x.code !== 0)) {
+    const mismatch = results.some((x,i) =>
+      x.code !== entries[i].expectedExitCode ||
+      (x.code === 3 && x.sqlstate !== entries[i].expectedSqlstate));
+    if (mismatch) {
       console.log('STOP_CASE_EXECUTION_' + c);
       console.log('GATE_C=NO_GO_0_OF_19');
       process.exit(2);
