@@ -24,6 +24,7 @@ create table private.nexa_p0_source_action_events (
    ('PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
     'PHYSICIAN_FINAL_REVIEW_ACK','CONSENT_REVOKED')),
  source_row_id text not null,
+ revokes_event_id uuid references private.nexa_p0_source_action_events(event_id),
  encounter_id uuid not null,
  owner_user_id uuid not null,
  source_sync_version bigint not null check (source_sync_version > 0),
@@ -39,13 +40,13 @@ create table private.nexa_p0_source_action_events (
  check (
   (event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
    and purpose is not null and provider is not null and policy_version is not null
-   and patient_scope_attested)
+   and patient_scope_attested and revokes_event_id is null)
   or (event_kind='CONSENT_REVOKED'
    and purpose is not null and provider is not null and policy_version is not null
-   and not patient_scope_attested)
+   and not patient_scope_attested and revokes_event_id is not null)
   or (event_kind='PHYSICIAN_FINAL_REVIEW_ACK'
    and purpose is null and provider is null and policy_version is null
-   and not patient_scope_attested)
+   and not patient_scope_attested and revokes_event_id is null)
  )
 );
 create index nexa_p0_source_events_lookup_idx on private.nexa_p0_source_action_events
@@ -153,7 +154,7 @@ declare
 begin
  if v_actor is null or p_encounter is null or p_action_id is null
     or p_explicit_confirmation is distinct from true
-    or p_kind is null or p_kind not in ('consent','review','revoke') then
+    or p_kind is null or p_kind not in ('consent','review') then
   raise exception using errcode='42501',message='EXPLICIT_AUTHENTICATED_ACTION_REQUIRED';
  end if;
  perform 1 from public.profiles p
@@ -183,6 +184,15 @@ begin
   when 'consent' then 'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
   when 'review' then 'PHYSICIAN_FINAL_REVIEW_ACK'
   else 'CONSENT_REVOKED' end;
+
+ -- Serialize consent issuance with an exact-event revocation for this actor
+ -- and policy scope. Never use a client-provided actor or access key.
+ if p_kind='consent' then
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    v_actor::text||'|'||p_encounter::text||'|'||
+    coalesce(p_purpose,'')||'|'||coalesce(p_provider,'')||'|'||
+    coalesce(p_policy_version,''),0));
+ end if;
 
  -- An idempotency key is a replay handle, NEVER authorization. Changed inputs
  -- or a stale source under the same key are rejected, not silently repurposed.
