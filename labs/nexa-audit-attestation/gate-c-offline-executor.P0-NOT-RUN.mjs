@@ -6,8 +6,8 @@
  *
  * --inventory: local source/cluster provenance only (no SQL)
  * --catalog:  read-only local socket query of effective direct grants
- * --cases:    run operator-supplied, reviewed, pinned SQL case files only;
- *             ALL results remain UNADJUDICATED until independent review.
+ * --cases:    hard STOP before DB access: independent peer/pg_ident
+ *             actor authentication has not been proven.
  *
  * This program CANNOT independently prove physical network isolation,
  * medical consent, server ACK, or production Auth.getUser() identity.
@@ -316,6 +316,12 @@ async function main() {
   const manifestFile = process.argv[3];
   if (!['--inventory','--catalog','--cases'].includes(mode) || !manifestFile) {
     stop('USAGE_INVENTORY_CATALOG_OR_CASES');
+  }
+  if (mode === '--cases') {
+    // Every child psql inherits this process's Unix identity. Passing -U
+    // cannot prove independently authenticated A/B/reviewer principals;
+    // peer/pg_ident mappings have not been independently verified.
+    stop('PEER_PG_IDENT_INDEPENDENT_ACTORS_NOT_PROVEN');
   }
   checkEnv();
   checkCluster();
