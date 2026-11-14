@@ -244,11 +244,38 @@ serve(async req => {
         source: data, external_ai_authorized: false, gate_c_verified: false });
     }
     const { data, error } = await db.rpc("nexa_p0_record_source_action", request.params);
-    if (error || !data?.event_id || data?.authorizes_external_ai !== false) {
-      return json({ error: "SOURCE_ACTION_NOT_RECORDED" }, 409);
+    // A successful HTTP/RPC call is not an event receipt. Require the exact
+    // server event kind, durable id, version and canonicalization even on
+    // idempotent replays. Never forward arbitrary fields returned by an RPC.
+    const expectedKind = request.params.p_kind === "consent"
+      ? "PHYSICIAN_PATIENT_CONSENT_ATTESTATION"
+      : request.params.p_kind === "review"
+      ? "PHYSICIAN_FINAL_REVIEW_ACK" : "CONSENT_REVOKED";
+    const recordedAt = typeof data?.server_recorded_at === "string"
+      ? Date.parse(data.server_recorded_at) : NaN;
+    const expectedVersion = request.params.p_expected_sync_version;
+    if (error || !plain(data) || !validId(data.event_id) ||
+        data.kind !== expectedKind ||
+        !version(data.source_sync_version) ||
+        (expectedVersion !== null && data.source_sync_version !== expectedVersion) ||
+        data.canonicalization !== "pg-jsonb-v1" ||
+        !Number.isFinite(recordedAt) ||
+        data.authorizes_external_ai !== false ||
+        data.gate_c_verified !== false) {
+      return json({ error: "SOURCE_ACTION_RECEIPT_UNVERIFIED" }, 409);
     }
-    return json({ status: "SOURCE_ACTION_PERSISTED_ONLY", event: data,
-      external_ai_authorized: false, gate_c_verified: false });
+    return json({
+      status: "SOURCE_ACTION_PERSISTED_ONLY",
+      event: {
+        event_id: data.event_id,
+        kind: data.kind,
+        source_sync_version: data.source_sync_version,
+        canonicalization: data.canonicalization,
+        server_recorded_at: data.server_recorded_at,
+      },
+      external_ai_authorized: false,
+      gate_c_verified: false,
+    });
   } catch {
     // No clinical content or provider response is logged.
     return json({ error: "SOURCE_ACTION_FAILED_CLOSED" }, 400);
