@@ -12,9 +12,11 @@ const PROVIDERS=new Set(['openai','gemini','nexa-core']);
 const ENDPOINT='/functions/v1/nexa-source-actions';
 const q=id=>document.getElementById(id);
 let prepared=null,owner=null,encounter=null,busy=false;
+let viewGeneration=0,pendingAction=null;
 let surface=null,preview=null,message=null,consentCheck=null,reviewCheck=null,policySelect=null,consentButton=null,reviewButton=null;
 
 function clear(reason=''){
+  ++viewGeneration;
   prepared=null;owner=null;encounter=null;
   if(preview)preview.textContent='';
   if(policySelect)policySelect.replaceChildren();
@@ -106,22 +108,30 @@ async function verifyStable(){
 async function prepare(){
  if(busy)return;
  busy=true;clear();
+ const generation=viewGeneration;
  if(surface)surface.hidden=false;
  if(openButton)openButton.disabled=true;
  try{
   const start=await syncedSource();
+  if(generation!==viewGeneration||document.hidden)return;
   warn('Consultando exclusivamente a versão persistida no servidor…');
   const out=await send({action:'prepare_review',encounterId:start.id});
+  if(generation!==viewGeneration||document.hidden)return;
   if(out?.status!=='PERSISTED_SNAPSHOT_FOR_PHYSICIAN_REVIEW'||
      !snapshotOK(out.source)||out.source.encounter_id!==start.id||
      out.source.source_sync_version!==start.version)
    throw Error('Fonte e versão servidor não conferem. Nenhuma revisão autorizada.');
   const end=await syncedSource();
+  if(generation!==viewGeneration||document.hidden)return;
   if(end.profile.id!==start.profile.id||end.id!==start.id||
      end.version!==start.version||end.revision!==start.revision)
    throw Error('A consulta mudou durante a leitura. Atualize a revisão.');
   prepared={source:out.source,revision:start.revision};
   owner=start.profile.id;encounter=start.id;
+  // Never retry a past action against a different snapshot or owner.
+  if(pendingAction&&!pendingAction.key.startsWith(
+     owner+'|'+encounter+'|'+out.source.source_sync_version+'|'+out.source.server_digest+'|'))
+   pendingAction=null;
   // The exact fields and metadata included in the server digest are displayed.
   // No transcription/Radar text is shown while recording.
   preview.textContent=JSON.stringify(out.source.source_snapshot,null,2);
@@ -144,16 +154,30 @@ async function prepare(){
    'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas.':
    'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.');
  }catch(e){
-  clear(String(e?.message||'Não foi possível abrir a revisão.'));
-  if(surface)surface.hidden=false;
+  if(generation===viewGeneration){
+   clear(String(e?.message||'Não foi possível abrir a revisão.'));
+   if(surface&&!document.hidden)surface.hidden=false;
+  }
  }finally{busy=false;if(openButton)openButton.disabled=false}
 }
 async function record(type){
  if(busy||!prepared)return;
  busy=true;
+ const generation=viewGeneration;
  consentButton.disabled=true;reviewButton.disabled=true;
+ let actionKey=null;
  try{
+  const activeSnapshot=prepared.source;
   await verifyStable();
+  if(generation!==viewGeneration||document.hidden)return;
+  // Reuse the same idempotency key after an ambiguous network outcome on
+  // this exact snapshot and action, never for another owner/version/digest.
+  const policyIdentity=type==='consent'?policySelect.value:'final-review';
+  actionKey=owner+'|'+encounter+'|'+activeSnapshot.source_sync_version+
+    '|'+activeSnapshot.server_digest+'|'+type+'|'+policyIdentity;
+  if(!pendingAction||pendingAction.key!==actionKey)
+   pendingAction={key:actionKey,id:crypto.randomUUID()};
+ try{
   if(type==='consent'){
    if(prepared.source.pre_egress_source_verified!==true)
     throw Error('A origem anterior à primeira IA não foi comprovada pelo servidor.');
@@ -162,12 +186,13 @@ async function record(type){
    if(!PURPOSES.has(policy.purpose)||!PROVIDERS.has(policy.provider))
     throw Error('Finalidade inválida.');
    const resp=await send({
-    action:'attest_consent',encounterId:encounter,actionId:crypto.randomUUID(),
+    action:'attest_consent',encounterId:encounter,actionId:pendingAction.id,
     expectedSyncVersion:prepared.source.source_sync_version,
     displayedDigest:prepared.source.server_digest,
     purpose:policy.purpose,provider:policy.provider,policyVersion:policy.policyVersion,
     confirmation:{physicianAttestsPatientScope:true,explicitlyConfirmsPurpose:true}
    });
+   if(generation!==viewGeneration||document.hidden)return;
    if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
       !validPersistedReceipt(resp.event,'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
         prepared.source.source_sync_version))
@@ -176,20 +201,25 @@ async function record(type){
   }else{
    if(!reviewCheck.checked)throw Error('Confirme a revisão do conteúdo exibido.');
    const resp=await send({
-    action:'ack_final_review',encounterId:encounter,actionId:crypto.randomUUID(),
+    action:'ack_final_review',encounterId:encounter,actionId:pendingAction.id,
     expectedSyncVersion:prepared.source.source_sync_version,
     displayedDigest:prepared.source.server_digest,
     confirmation:{physicianReviewedPersistedSnapshot:true}
    });
+   if(generation!==viewGeneration||document.hidden)return;
    if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
       !validPersistedReceipt(resp.event,'PHYSICIAN_FINAL_REVIEW_ACK',
         prepared.source.source_sync_version))
     throw Error('Sem recibo verificável de revisão médica.');
    warn('Recibo da revisão desta versão confirmado. Auditoria e IA continuam bloqueadas.');
   }
+  if(pendingAction?.key===actionKey)pendingAction=null;
   // A second action must explicitly re-open and re-check the current source.
   prepared=null;preview.textContent='';
- }catch(e){warn(String(e?.message||'Ação não concluída.'))}
+ }catch(e){
+  if(generation===viewGeneration&&!document.hidden)
+   warn(String(e?.message||'Ação não concluída.'));
+ }
  finally{
   busy=false;consentCheck.checked=false;reviewCheck.checked=false;
   consentButton.disabled=true;reviewButton.disabled=true;
@@ -230,7 +260,9 @@ document.querySelector('.panel-right')?.addEventListener('input',event=>{
 });
 window.nexaClinicalSupabase18101?.auth?.onAuthStateChange?.((event)=>{
  // Clear a displayed clinical snapshot on session/account transitions.
- if(event==='SIGNED_OUT'||event==='SIGNED_IN'||event==='USER_UPDATED')clear();
+ if(event==='SIGNED_OUT'||event==='SIGNED_IN'||event==='USER_UPDATED'){
+  pendingAction=null;clear();
+ }
 });
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden)clear();
