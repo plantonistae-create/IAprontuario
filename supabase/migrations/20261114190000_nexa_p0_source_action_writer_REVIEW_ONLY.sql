@@ -205,6 +205,18 @@ begin
     raise exception using errcode='42501',
       message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
   end if;
+  if p_kind='revoke' and exists (
+    -- An old revocation receipt must not imply a later, independent
+    -- physician consent was revoked. A new explicit action is required.
+    select 1 from private.nexa_p0_source_action_events ce
+    where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
+      and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+      and ce.purpose=p_purpose and ce.provider=p_provider
+      and ce.policy_version=p_policy_version
+      and (ce.server_recorded_at,ce.event_id)>
+          (v_event.server_recorded_at,v_event.event_id)
+  ) then raise exception using errcode='42501',
+    message='REVOCATION_REPLAY_SUPERSEDED'; end if;
   if p_kind='consent' then
     if v_event.source_sync_version is distinct from v_source.sync_version
        or v_event.source_digest is distinct from v_digest
