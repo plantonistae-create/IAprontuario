@@ -267,7 +267,8 @@ async function record(type){
       ' · '+e.policy_version+' · consulta '+e.encounter_id.slice(0,8)});
     option.value=e.event_id;revokeSelect.append(option);
    }
-   revokeButton.disabled=revocableEntries.length===0;
+   // Selection is not confirmation; an explicit checkbox gesture is required.
+   revokeButton.disabled=revocableEntries.length===0||!revokeCheck.checked;
    warn(revocableEntries.length?
     'Selecione uma declaração original e confirme expressamente sua revogação.':
     'Nenhuma declaração autoritativa revogável encontrada.');
@@ -362,6 +363,9 @@ revokeLabel.append(revokeCheck,document.createTextNode(
 revokeButton=create('button',{text:'Revogar declaração selecionada',cls:'btn ghost'});
 revokeButton.type='button';revokeButton.disabled=true;
 revokeButton.onclick=()=>void recordRevocation();
+revokeCheck.onchange=()=>{revokeButton.disabled=
+ !revokeCheck.checked||revocableEntries.length===0;};
+revokeSelect.onchange=()=>{revokeCheck.checked=false;revokeButton.disabled=true;};
 message=create('p',{text:'Gate C NO-GO. Nenhuma ação foi registrada.'});message.setAttribute('role','status');
 const close=create('button',{text:'Fechar e descartar visualização',cls:'btn ghost'});
 close.type='button';close.onclick=()=>clear();
