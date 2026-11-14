@@ -49,6 +49,10 @@ function decodeRequest(body: unknown):
   { kind: "bootstrap"; encounter: string } |
   { kind: "prepare"; encounter: string } |
   { kind: "revocations" } |
+  { kind: "reconcile"; params: {
+      p_encounter: string; p_consent_event_id: string;
+      p_action_id: string;
+    } } |
   { kind: "revoke"; params: {
       p_encounter: string; p_consent_event_id: string;
       p_action_id: string; p_explicit_confirmation: true;
@@ -72,6 +76,15 @@ function decodeRequest(body: unknown):
   }
   const common = ["action", "encounterId", "actionId", "confirmation"];
   if (!validId(body.actionId)) return null;
+  if (body.action === "reconcile_revocation") {
+    if (!exact(body, ["action", "encounterId", "actionId", "targetEventId"]) ||
+        !validId(body.targetEventId)) return null;
+    return { kind: "reconcile", params: {
+      p_encounter: body.encounterId,
+      p_consent_event_id: body.targetEventId,
+      p_action_id: body.actionId,
+    } };
+  }
 
   if (body.action === "attest_consent") {
     if (!exact(body, [...common, "expectedSyncVersion", "displayedDigest",
@@ -314,6 +327,44 @@ serve(async req => {
           source_sync_version: e.source_sync_version,
           server_recorded_at: e.server_recorded_at,
         })),
+        external_ai_authorized: false, gate_c_verified: false });
+    }
+    if (request.kind === "reconcile") {
+      // Query the immutable event ledger by the ORIGINAL idempotency key.
+      // No write, no retry and no inference of failure if the row is absent.
+      const { data, error } = await db.rpc("nexa_p0_reconcile_revocation_action",
+        request.params);
+      if (error || !plain(data) ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false) {
+        return json({ error: "REVOCATION_RECONCILIATION_UNCONFIRMED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state === "UNCONFIRMED" &&
+          data.event_present_and_current === false) {
+        return json({ error: "REVOCATION_NOT_OBSERVED_YET",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state !== "CONFIRMED" ||
+          data.event_present_and_current !== true ||
+          !validId(data.event_id) || data.kind !== "CONSENT_REVOKED" ||
+          data.revokes_event_id !== request.params.p_consent_event_id ||
+          !version(data.source_sync_version) ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at))) {
+        return json({ error: "REVOCATION_RECONCILIATION_INVALID",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "SOURCE_REVOCATION_PERSISTED_ONLY",
+        event: {
+          event_id: data.event_id, kind: data.kind,
+          target_event_id: data.revokes_event_id,
+          source_sync_version: data.source_sync_version,
+          canonicalization: data.canonicalization,
+          server_recorded_at: data.server_recorded_at,
+          receipt_readback_verified: true,
+        },
         external_ai_authorized: false, gate_c_verified: false });
     }
     if (request.kind === "revoke") {
