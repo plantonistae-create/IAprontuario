@@ -1,0 +1,31 @@
+name: NEXA P0 Audit and Locked Autosave Integrated (Offline Only)
+on:
+  pull_request:
+    branches:
+      - review/nexa-p0-audit-locked-base-20261114
+    paths:
+      - 'nexa-encounter-autosave-v18.10.1.js'
+      - 'tests/nexa-encounter-autosave.contract.test.mjs'
+      - 'tests/nexa-p0-locked-snapshot-immutability.offline.test.mjs'
+      - 'tests/nexa-p0-audit-locked-integration.offline.test.mjs'
+      - '.github/workflows/nexa-p0-audit-locked-integrated-offline.yml'
+permissions:
+  contents: read
+jobs:
+  audit-locked-cross-pr-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate static syntax and real autosave integration only
+        run: |
+          node --check nexa-encounter-autosave-v18.10.1.js
+          node --check tests/nexa-p0-audit-locked-integration.offline.test.mjs
+          node --test tests/nexa-p0-audit-locked-integration.offline.test.mjs
+          node --test tests/nexa-p0-locked-snapshot-immutability.offline.test.mjs
+          node tests/nexa-encounter-autosave.contract.test.mjs
+          node --test tests/nexa-p0-audit-submit-guard.offline.test.mjs
+          node --test tests/nexa-p0-audit-outbox-no-network.offline.test.mjs
