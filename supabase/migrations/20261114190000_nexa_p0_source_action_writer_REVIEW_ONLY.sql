@@ -19,11 +19,15 @@ create table private.nexa_p0_purpose_policy (
 
 create table private.nexa_p0_source_action_events (
  event_id uuid primary key default pg_catalog.gen_random_uuid(),
+ -- Ordered ledger identity; wall clocks and random UUIDs cannot safely order
+ -- simultaneous actions. Same policy scope uses a transaction advisory lock.
+ event_order bigint generated always as identity unique,
  client_action_id uuid not null,
  event_kind text not null check (event_kind in
    ('PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
     'PHYSICIAN_FINAL_REVIEW_ACK','CONSENT_REVOKED')),
  source_row_id text not null,
+ revokes_event_id uuid references private.nexa_p0_source_action_events(event_id),
  encounter_id uuid not null,
  owner_user_id uuid not null,
  source_sync_version bigint not null check (source_sync_version > 0),
@@ -39,17 +43,17 @@ create table private.nexa_p0_source_action_events (
  check (
   (event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
    and purpose is not null and provider is not null and policy_version is not null
-   and patient_scope_attested)
+   and patient_scope_attested and revokes_event_id is null)
   or (event_kind='CONSENT_REVOKED'
    and purpose is not null and provider is not null and policy_version is not null
-   and not patient_scope_attested)
+   and not patient_scope_attested and revokes_event_id is not null)
   or (event_kind='PHYSICIAN_FINAL_REVIEW_ACK'
    and purpose is null and provider is null and policy_version is null
-   and not patient_scope_attested)
+   and not patient_scope_attested and revokes_event_id is null)
  )
 );
 create index nexa_p0_source_events_lookup_idx on private.nexa_p0_source_action_events
- (encounter_id,owner_user_id,event_kind,purpose,provider,server_recorded_at desc);
+ (encounter_id,owner_user_id,event_kind,purpose,provider,event_order desc);
 
 -- Only owner-controlled, append-only rows. No REST-facing CRUD permission.
 alter table private.nexa_p0_source_action_events enable row level security;
@@ -129,7 +133,7 @@ begin
       and pol.approved_at<=pg_catalog.clock_timestamp()
   ),'[]'::jsonb)
  );
-end; $;
+end; $$;
 
 -- Atomic writer: actor identity comes ONLY from auth.uid() under an
 -- authenticated Supabase JWT; no p_actor, client status or service_role.
@@ -153,7 +157,7 @@ declare
 begin
  if v_actor is null or p_encounter is null or p_action_id is null
     or p_explicit_confirmation is distinct from true
-    or p_kind is null or p_kind not in ('consent','review','revoke') then
+    or p_kind is null or p_kind not in ('consent','review') then
   raise exception using errcode='42501',message='EXPLICIT_AUTHENTICATED_ACTION_REQUIRED';
  end if;
  perform 1 from public.profiles p
@@ -170,7 +174,7 @@ begin
  where s.encounter_id=p_encounter for share;
  if not found or v_source.user_id is distinct from v_actor
     or v_source.sync_version<1
-    or (p_kind<>'revoke' and v_source.encounter_state in ('audited','discarded'))
+    or v_source.encounter_state in ('audited','discarded')
     or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
@@ -181,8 +185,16 @@ begin
   v_source.consent_recorded_at);
  v_kind:=case p_kind
   when 'consent' then 'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
-  when 'review' then 'PHYSICIAN_FINAL_REVIEW_ACK'
-  else 'CONSENT_REVOKED' end;
+  else 'PHYSICIAN_FINAL_REVIEW_ACK' end;
+
+ -- Serialize consent issuance with an exact-event revocation for this actor
+ -- and policy scope. Never use a client-provided actor or access key.
+ if p_kind='consent' then
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    v_actor::text||'|'||p_encounter::text||'|'||
+    coalesce(p_purpose,'')||'|'||coalesce(p_provider,'')||'|'||
+    coalesce(p_policy_version,''),0));
+ end if;
 
  -- An idempotency key is a replay handle, NEVER authorization. Changed inputs
  -- or a stale source under the same key are rejected, not silently repurposed.
@@ -190,17 +202,45 @@ begin
  where e.owner_user_id=v_actor and e.client_action_id=p_action_id;
  if found then
   if v_event.event_kind<>v_kind or v_event.encounter_id<>p_encounter
-     or (p_kind<>'revoke' and
-         (v_event.source_sync_version is distinct from p_expected_sync_version
-          or v_event.source_digest is distinct from p_displayed_digest))
+     or v_event.source_row_id<>v_source.id
+     or v_event.source_sync_version is distinct from p_expected_sync_version
+     or v_event.source_digest is distinct from p_displayed_digest
      or v_event.purpose is distinct from p_purpose
      or v_event.provider is distinct from p_provider
      or v_event.policy_version is distinct from p_policy_version
      or v_event.patient_scope_attested is distinct from p_patient_scope_attested
   then raise exception using errcode='23505',message='ACTION_REPLAY_CONFLICT'; end if;
+  -- A replay is NOT renewed consent or a fresh review. It must not turn a
+  -- stale/revoked event into a positive receipt. Always fail closed.
+  if p_kind='review' then
+    raise exception using errcode='42501',
+      message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
+  end if;
+  if p_kind='consent' then
+    if v_event.source_sync_version is distinct from v_source.sync_version
+       or v_event.source_digest is distinct from v_digest
+       or not exists (
+         select 1 from private.nexa_p0_purpose_policy pol
+         where pol.purpose=p_purpose and pol.provider=p_provider
+           and pol.policy_version=p_policy_version
+           and pol.approved_at<=pg_catalog.clock_timestamp()
+           and pol.revoked_at is null
+       ) or exists (
+         select 1 from private.nexa_p0_source_action_events rev
+         where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+           and rev.event_kind='CONSENT_REVOKED'
+           and rev.purpose=p_purpose and rev.provider=p_provider
+           and rev.policy_version=p_policy_version
+           and rev.event_order>=v_event.event_order
+       )
+    then raise exception using errcode='42501',
+      message='CONSENT_EVENT_NO_LONGER_CURRENT'; end if;
+  end if;
   return pg_catalog.jsonb_build_object(
    'event_id',v_event.event_id,'kind',v_event.event_kind,
    'server_recorded_at',v_event.server_recorded_at,
+   'source_sync_version',v_event.source_sync_version,
+   'canonicalization',v_event.canonicalization,
    'authorizes_external_ai',false,'gate_c_verified',false);
  end if;
 
@@ -218,6 +258,12 @@ begin
      )
   then raise exception using errcode='42501',message='APPROVED_PURPOSE_POLICY_REQUIRED'; end if;
  elsif p_kind='review' then
+  -- Browser-derived ready_for_audit cannot prove completed audio ingestion,
+  -- sync/reconciliation integrity or absence of post-review edits. Do not mint
+  -- a final physician ACK until separately reviewed server authority exists.
+  -- This DB-side STOP persists even if the Edge HTTP STOP is removed in error.
+  raise exception using errcode='42501',
+    message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
   if p_purpose is not null or p_provider is not null or p_policy_version is not null
      or p_patient_scope_attested is not false
      or v_source.encounter_state<>'ready_for_audit'
@@ -233,23 +279,12 @@ begin
          where rev.encounter_id=ce.encounter_id and rev.owner_user_id=v_actor
            and rev.event_kind='CONSENT_REVOKED'
            and rev.purpose=ce.purpose and rev.provider=ce.provider
-           and rev.server_recorded_at>=ce.server_recorded_at
+           and rev.event_order>=ce.event_order
         )
      )
   then raise exception using errcode='42501',message='EXACT_FINAL_REVIEW_OR_CONSENT_REQUIRED'; end if;
  else
-  -- Revocation must remain available even after the snapshot changes.
-  if p_expected_sync_version is not null or p_displayed_digest is not null
-     or p_patient_scope_attested is not false
-     or p_purpose is null or p_provider is null or p_policy_version is null
-     or not exists (
-      select 1 from private.nexa_p0_source_action_events ce
-      where ce.encounter_id=p_encounter and ce.owner_user_id=v_actor
-        and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
-        and ce.purpose=p_purpose and ce.provider=p_provider
-        and ce.policy_version=p_policy_version
-     )
-  then raise exception using errcode='42501',message='CONSENT_TO_REVOKE_NOT_FOUND'; end if;
+  raise exception using errcode='42501',message='EXACT_EVENT_REVOKE_RPC_REQUIRED';
  end if;
 
  insert into private.nexa_p0_source_action_events (
@@ -269,7 +304,456 @@ begin
   'authorizes_external_ai',false,'gate_c_verified',false);
 end; $$;
 
--- Only two new, narrowly scoped public RPCs. Existing JWT/RLS/ACL unchanged.
+-- A second, independent DB transaction can re-read an issued consent event.
+-- It proves ONLY that an owner-bound physician attestation row is still current.
+-- It does NOT prove patient consent independently, first external egress order,
+-- safe RLS/ownership, or any permission to contact an AI provider.
+create function public.nexa_p0_verify_consent_action(
+ p_event_id uuid,p_encounter uuid,p_expected_sync_version bigint,
+ p_displayed_digest text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_source public.consultation_history%rowtype;
+ v_event private.nexa_p0_source_action_events%rowtype;
+ v_digest text;
+begin
+ if v_actor is null or p_event_id is null or p_encounter is null
+    or p_expected_sync_version is null or p_expected_sync_version<1
+    or p_displayed_digest is null
+ then raise exception using errcode='42501',
+   message='AUTHENTICATED_CONSENT_RECEIPT_REQUIRED'; end if;
+
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5
+ for share of p,cs;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ select * into v_source from public.consultation_history s
+ where s.encounter_id=p_encounter and s.user_id=v_actor for share;
+ if not found or v_source.sync_version is distinct from p_expected_sync_version
+    or v_source.encounter_state in ('audited','discarded')
+    or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
+ then raise exception using errcode='42501',
+   message='CURRENT_OWNER_SNAPSHOT_REQUIRED'; end if;
+
+ v_digest:=private.nexa_p0_clinical_digest(
+   v_source.fields,v_source.processing_meta,v_source.protocol_usage,
+   v_source.consent_recorded_at);
+ if v_digest is distinct from p_displayed_digest then
+   raise exception using errcode='42501',
+     message='SOURCE_DIGEST_CHANGED'; end if;
+
+ select * into v_event from private.nexa_p0_source_action_events e
+ where e.event_id=p_event_id and e.owner_user_id=v_actor
+   and e.encounter_id=p_encounter for share;
+ if not found or v_event.source_row_id<>v_source.id
+    or v_event.event_kind<>'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+    or v_event.physician_explicit_action is not true
+    or v_event.patient_scope_attested is not true
+    or v_event.source_sync_version is distinct from v_source.sync_version
+    or v_event.canonicalization<>'pg-jsonb-v1'
+    or v_event.source_digest is distinct from v_digest
+    or not exists (
+      select 1 from private.nexa_p0_purpose_policy pol
+      where pol.purpose=v_event.purpose and pol.provider=v_event.provider
+        and pol.policy_version=v_event.policy_version
+        and pol.revoked_at is null
+        and pol.approved_at<=pg_catalog.clock_timestamp()
+    ) or exists (
+      select 1 from private.nexa_p0_source_action_events rev
+      where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+        and rev.event_kind='CONSENT_REVOKED'
+        and rev.purpose=v_event.purpose and rev.provider=v_event.provider
+        and rev.policy_version=v_event.policy_version
+        and rev.event_order>=v_event.event_order
+    )
+ then raise exception using errcode='42501',
+   message='CONSENT_RECEIPT_NOT_CURRENT'; end if;
+
+ return pg_catalog.jsonb_build_object(
+  'event_id',v_event.event_id,'kind',v_event.event_kind,
+  'source_sync_version',v_event.source_sync_version,
+  'source_digest',v_digest,'canonicalization',v_event.canonicalization,
+  'purpose',v_event.purpose,'provider',v_event.provider,
+  'policy_version',v_event.policy_version,
+  'server_recorded_at',v_event.server_recorded_at,
+  'event_present_and_current',true,
+  'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+
+-- Read-only reconciliation of an ambiguous physician CONSENT write.
+-- Query the original idempotency key, never create another attestation.
+-- A missing row is UNCONFIRMED, NOT proof that a pending write was rolled back.
+-- Every positive answer must also pass the existing live owner/snapshot/policy/
+-- revocation recheck. This does not prove patient consent or pre-egress order.
+create function public.nexa_p0_reconcile_consent_action(
+ p_encounter uuid,p_action_id uuid,p_expected_sync_version bigint,
+ p_displayed_digest text,p_purpose text,p_provider text,
+ p_policy_version text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_event private.nexa_p0_source_action_events%rowtype;
+ v_verified jsonb;
+begin
+ if v_actor is null or p_encounter is null or p_action_id is null
+    or p_expected_sync_version is null or p_expected_sync_version<1
+    or p_displayed_digest is null
+    or p_displayed_digest !~ '^sha256:[0-9a-f]{64}$'
+    or p_purpose is null or p_provider is null or p_policy_version is null
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_IDENTIFIERS_REQUIRED'; end if;
+
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ select * into v_event from private.nexa_p0_source_action_events e
+ where e.owner_user_id=v_actor and e.client_action_id=p_action_id
+ for share;
+ if not found then
+   return pg_catalog.jsonb_build_object(
+    'state','UNCONFIRMED','event_present_and_current',false,
+    'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+ if v_event.event_kind<>'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+    or v_event.encounter_id is distinct from p_encounter
+    or v_event.source_sync_version is distinct from p_expected_sync_version
+    or v_event.source_digest is distinct from p_displayed_digest
+    or v_event.canonicalization<>'pg-jsonb-v1'
+    or v_event.purpose is distinct from p_purpose
+    or v_event.provider is distinct from p_provider
+    or v_event.policy_version is distinct from p_policy_version
+    or v_event.physician_explicit_action is not true
+    or v_event.patient_scope_attested is not true
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_KEY_CONFLICT'; end if;
+
+ -- Reuse the independent, current-source verification. It validates owner,
+ -- clinic access, exact version/digest, policy approval and no revocation.
+ -- Any changed/deleted source or revoked consent is fail-closed, never success.
+ v_verified:=public.nexa_p0_verify_consent_action(
+   v_event.event_id,p_encounter,p_expected_sync_version,p_displayed_digest);
+ if v_verified->>'event_present_and_current' is distinct from 'true'
+    or v_verified->>'event_id' is distinct from v_event.event_id::text
+    or v_verified->>'kind' is distinct from v_event.event_kind
+    or v_verified->>'source_sync_version' is distinct from
+      p_expected_sync_version::text
+    or v_verified->>'source_digest' is distinct from p_displayed_digest
+    or v_verified->>'canonicalization' is distinct from 'pg-jsonb-v1'
+    or v_verified->>'purpose' is distinct from p_purpose
+    or v_verified->>'provider' is distinct from p_provider
+    or v_verified->>'policy_version' is distinct from p_policy_version
+    or v_verified->>'server_recorded_at' is distinct from
+      pg_catalog.to_jsonb(v_event.server_recorded_at)#>>'{}'
+    or v_verified->>'external_ai_authorized' is distinct from 'false'
+    or v_verified->>'gate_c_verified' is distinct from 'false'
+ then raise exception using errcode='42501',
+   message='CONSENT_RECONCILIATION_READBACK_FAILED'; end if;
+
+ return pg_catalog.jsonb_build_object(
+   'state','CONFIRMED','event_present_and_current',true,
+   'event_id',v_event.event_id,'kind',v_event.event_kind,
+   'source_sync_version',v_event.source_sync_version,
+   'source_digest',v_event.source_digest,
+   'canonicalization',v_event.canonicalization,
+   'purpose',v_event.purpose,'provider',v_event.provider,
+   'policy_version',v_event.policy_version,
+   'server_recorded_at',v_event.server_recorded_at,
+   'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+-- Owner-scoped listing of actionable, IMMUTABLE physician attestations.
+-- Revocation does not depend on current source version, approved policies or
+-- client-generated consent. Deleted sources have no payload to expose here.
+create function public.nexa_p0_list_revocable_consents()
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_list jsonb;
+begin
+ if v_actor is null then raise exception using errcode='42501',
+   message='PHYSICIAN_SESSION_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+ with latest as (
+   select distinct on (e.encounter_id,e.purpose,e.provider,e.policy_version)
+     e.event_id,e.encounter_id,e.source_row_id,e.purpose,e.provider,
+     e.policy_version,e.source_sync_version,e.server_recorded_at,e.event_order
+   from private.nexa_p0_source_action_events e
+   where e.owner_user_id=v_actor
+     and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+   order by e.encounter_id,e.purpose,e.provider,e.policy_version,
+     e.event_order desc
+ ), actionable as (
+   select l.* from latest l
+   where not exists (
+     select 1 from public.consultation_history s
+     where s.encounter_id=l.encounter_id
+       and (s.user_id is distinct from v_actor
+         or s.id is distinct from l.source_row_id)
+   ) and not exists (
+     select 1 from private.nexa_p0_source_action_events rev
+     where rev.owner_user_id=v_actor and rev.encounter_id=l.encounter_id
+       and rev.event_kind='CONSENT_REVOKED'
+       and rev.purpose=l.purpose and rev.provider=l.provider
+       and rev.policy_version=l.policy_version
+       and rev.event_order>=l.event_order
+   )
+ )
+ select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+    'event_id',x.event_id,'encounter_id',x.encounter_id,
+    'purpose',x.purpose,'provider',x.provider,
+    'policy_version',x.policy_version,
+    'source_sync_version',x.source_sync_version,
+    'server_recorded_at',x.server_recorded_at
+ ) order by x.event_order desc),'[]'::jsonb)
+ into v_list
+ from (select * from actionable order by event_order desc
+       limit 100) x;
+ return pg_catalog.jsonb_build_object(
+   'events',v_list,'event_origin','OWNED_PERSISTED_PHYSICIAN_ACTION',
+   'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+-- Explicit revocation binds ONE original owner-authored consent event, not a
+-- mutable purpose picked by the browser. Does NOT require source to exist:
+-- a deletion, closed encounter, autosave update or expired policy must never
+-- make historical consent impossible to retract.
+create function public.nexa_p0_revoke_target_event(
+ p_encounter uuid,p_consent_event_id uuid,p_action_id uuid,
+ p_explicit_confirmation boolean
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_source public.consultation_history%rowtype;
+ v_source_found boolean;
+ v_target private.nexa_p0_source_action_events%rowtype;
+ v_event private.nexa_p0_source_action_events%rowtype;
+begin
+ if v_actor is null or p_encounter is null or p_consent_event_id is null
+   or p_action_id is null or p_explicit_confirmation is distinct from true
+ then raise exception using errcode='42501',
+   message='EXPLICIT_REVOCATION_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5
+ for share of p,cs;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ -- Lock source first, exactly as the attestation writer does, to avoid
+ -- inverting lock order under concurrent autosave/consent operations.
+ select * into v_source from public.consultation_history s
+ where s.encounter_id=p_encounter for share;
+ v_source_found:=found;
+ select * into v_target from private.nexa_p0_source_action_events e
+ where e.event_id=p_consent_event_id and e.encounter_id=p_encounter
+   and e.owner_user_id=v_actor
+   and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+ for share;
+ if not found or (v_source_found and (
+   v_source.user_id is distinct from v_actor
+   or v_source.id is distinct from v_target.source_row_id))
+ then raise exception using errcode='42501',
+   message='OWNED_ORIGINAL_CONSENT_REQUIRED'; end if;
+
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+   v_actor::text||'|'||p_encounter::text||'|'||
+   v_target.purpose||'|'||v_target.provider||'|'||
+   v_target.policy_version,0));
+
+ select * into v_event from private.nexa_p0_source_action_events r
+ where r.owner_user_id=v_actor and r.client_action_id=p_action_id;
+ if found then
+   if v_event.event_kind<>'CONSENT_REVOKED'
+      or v_event.encounter_id<>p_encounter
+      or v_event.revokes_event_id is distinct from p_consent_event_id
+   then raise exception using errcode='23505',
+     message='REVOCATION_ACTION_REPLAY_CONFLICT'; end if;
+ else
+   -- The consent target may be retracted only once, and only while it is the
+   -- latest attestation for this exact policy scope. This is not egress auth.
+   if exists (
+     select 1 from private.nexa_p0_source_action_events ce
+     where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
+       and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+       and ce.purpose=v_target.purpose and ce.provider=v_target.provider
+       and ce.policy_version=v_target.policy_version
+       and ce.event_order>v_target.event_order
+   ) or exists (
+     select 1 from private.nexa_p0_source_action_events r
+     where r.owner_user_id=v_actor and r.encounter_id=p_encounter
+       and r.event_kind='CONSENT_REVOKED'
+       and r.purpose=v_target.purpose and r.provider=v_target.provider
+       and r.policy_version=v_target.policy_version
+       and r.event_order>=v_target.event_order
+   ) then raise exception using errcode='42501',
+       message='REVOCATION_TARGET_NOT_ACTIVE'; end if;
+
+   insert into private.nexa_p0_source_action_events(
+     client_action_id,event_kind,source_row_id,revokes_event_id,
+     encounter_id,owner_user_id,source_sync_version,source_digest,
+     canonicalization,purpose,provider,policy_version,
+     physician_explicit_action,patient_scope_attested
+   ) values (
+     p_action_id,'CONSENT_REVOKED',v_target.source_row_id,v_target.event_id,
+     p_encounter,v_actor,v_target.source_sync_version,v_target.source_digest,
+     v_target.canonicalization,v_target.purpose,v_target.provider,
+     v_target.policy_version,true,false
+   ) returning * into v_event;
+ end if;
+
+ if exists (
+   select 1 from private.nexa_p0_source_action_events ce
+   where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
+     and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+     and ce.purpose=v_target.purpose and ce.provider=v_target.provider
+     and ce.policy_version=v_target.policy_version
+     and ce.event_order>v_event.event_order
+ ) then raise exception using errcode='42501',
+     message='REVOCATION_RECEIPT_SUPERSEDED'; end if;
+
+ return pg_catalog.jsonb_build_object(
+   'event_id',v_event.event_id,'kind',v_event.event_kind,
+   'revokes_event_id',v_event.revokes_event_id,
+   'server_recorded_at',v_event.server_recorded_at,
+   'source_sync_version',v_event.source_sync_version,
+   'canonicalization',v_event.canonicalization,
+   'authorizes_external_ai',false,'gate_c_verified',false);
+end; $$;
+
+-- Distinct read-back transaction. No optimistic success on HTTP write alone.
+create function public.nexa_p0_verify_revocation(
+ p_revoke_event_id uuid,p_consent_event_id uuid,p_encounter uuid
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_rev private.nexa_p0_source_action_events%rowtype;
+ v_target private.nexa_p0_source_action_events%rowtype;
+begin
+ if v_actor is null or p_revoke_event_id is null or
+    p_consent_event_id is null or p_encounter is null
+ then raise exception using errcode='42501',
+   message='REVOCATION_READBACK_ID_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+ select * into v_target from private.nexa_p0_source_action_events e
+ where e.event_id=p_consent_event_id and e.owner_user_id=v_actor
+   and e.encounter_id=p_encounter
+   and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION';
+ if not found then raise exception using errcode='42501',
+    message='ORIGINAL_CONSENT_NOT_FOUND'; end if;
+ select * into v_rev from private.nexa_p0_source_action_events r
+ where r.event_id=p_revoke_event_id and r.owner_user_id=v_actor
+   and r.encounter_id=p_encounter
+   and r.event_kind='CONSENT_REVOKED'
+   and r.revokes_event_id=p_consent_event_id;
+ if not found or v_rev.source_row_id is distinct from v_target.source_row_id
+   or v_rev.purpose is distinct from v_target.purpose
+   or v_rev.provider is distinct from v_target.provider
+   or v_rev.policy_version is distinct from v_target.policy_version
+   or exists (
+     select 1 from public.consultation_history s
+     where s.encounter_id=p_encounter
+       and (s.user_id is distinct from v_actor
+         or s.id is distinct from v_target.source_row_id)
+   ) or exists (
+     select 1 from private.nexa_p0_source_action_events ce
+     where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
+       and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+       and ce.purpose=v_target.purpose and ce.provider=v_target.provider
+       and ce.policy_version=v_target.policy_version
+       and ce.event_order>v_rev.event_order
+   )
+ then raise exception using errcode='42501',
+    message='REVOCATION_RECEIPT_NOT_CURRENT'; end if;
+ return pg_catalog.jsonb_build_object(
+   'event_id',v_rev.event_id,'kind',v_rev.event_kind,
+   'revokes_event_id',v_rev.revokes_event_id,
+   'server_recorded_at',v_rev.server_recorded_at,
+   'source_sync_version',v_rev.source_sync_version,
+   'canonicalization',v_rev.canonicalization,
+   'event_present_and_current',true,
+   'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+-- Query an ambiguous network outcome by the ORIGINAL client_action_id.
+-- Missing rows mean UNCONFIRMED, never proof that a concurrent write failed.
+-- No new revocation is generated and no egress authority is granted.
+create function public.nexa_p0_reconcile_revocation_action(
+ p_encounter uuid,p_consent_event_id uuid,p_action_id uuid
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_rev private.nexa_p0_source_action_events%rowtype;
+ v_verified jsonb;
+begin
+ if v_actor is null or p_encounter is null or p_consent_event_id is null
+    or p_action_id is null
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_IDENTIFIERS_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+ select * into v_rev from private.nexa_p0_source_action_events r
+ where r.owner_user_id=v_actor and r.client_action_id=p_action_id
+ for share;
+ if not found then
+  return pg_catalog.jsonb_build_object(
+   'state','UNCONFIRMED','event_present_and_current',false,
+   'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+ if v_rev.event_kind<>'CONSENT_REVOKED' or
+    v_rev.encounter_id is distinct from p_encounter or
+    v_rev.revokes_event_id is distinct from p_consent_event_id
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_KEY_CONFLICT'; end if;
+
+ -- Must pass the same owner-bound independent read-back checks as the write.
+ -- If the event was superseded or the original source changed owners,
+ -- return an error; never treat an old event as current authorization.
+ v_verified:=public.nexa_p0_verify_revocation(
+   v_rev.event_id,p_consent_event_id,p_encounter);
+ if v_verified->>'event_present_and_current' is distinct from 'true'
+    or v_verified->>'event_id' is distinct from v_rev.event_id::text
+    or v_verified->>'revokes_event_id' is distinct from p_consent_event_id::text
+    or v_verified->>'external_ai_authorized' is distinct from 'false'
+    or v_verified->>'gate_c_verified' is distinct from 'false'
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_READBACK_FAILED'; end if;
+ return pg_catalog.jsonb_build_object(
+  'state','CONFIRMED','event_present_and_current',true,
+  'event_id',v_rev.event_id,'revokes_event_id',v_rev.revokes_event_id,
+  'kind',v_rev.event_kind,'source_sync_version',v_rev.source_sync_version,
+  'canonicalization',v_rev.canonicalization,
+  'server_recorded_at',v_rev.server_recorded_at,
+  'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+-- New narrowly scoped candidate RPCs only. No hosted ACL changes.
 revoke all on function public.nexa_p0_prepare_source_review(uuid)
  from public,anon,authenticated,service_role;
 revoke all on function public.nexa_p0_record_source_action(
@@ -279,6 +763,36 @@ grant execute on function public.nexa_p0_prepare_source_review(uuid)
  to authenticated;
 grant execute on function public.nexa_p0_record_source_action(
  text,uuid,uuid,bigint,text,text,text,text,boolean,boolean)
+ to authenticated;
+revoke all on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
+ to authenticated;
+
+-- This reconciliation RPC is query-only and is still REVIEW_ONLY.
+revoke all on function public.nexa_p0_reconcile_consent_action(
+ uuid,uuid,bigint,text,text,text,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_reconcile_consent_action(
+ uuid,uuid,bigint,text,text,text,text)
+ to authenticated;
+
+-- New functions remain candidate-only, absent from hosted PostgreSQL.
+revoke all on function public.nexa_p0_list_revocable_consents()
+ from public,anon,authenticated,service_role;
+revoke all on function public.nexa_p0_revoke_target_event(uuid,uuid,uuid,boolean)
+ from public,anon,authenticated,service_role;
+revoke all on function public.nexa_p0_verify_revocation(uuid,uuid,uuid)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_list_revocable_consents()
+ to authenticated;
+grant execute on function public.nexa_p0_revoke_target_event(uuid,uuid,uuid,boolean)
+ to authenticated;
+grant execute on function public.nexa_p0_verify_revocation(uuid,uuid,uuid)
+ to authenticated;
+revoke all on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid)
  to authenticated;
 
 commit;

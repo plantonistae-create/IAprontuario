@@ -33,7 +33,7 @@ const validId = (x: unknown): x is string => typeof x === "string" && UUID.test(
 const DEPLOYED_SOURCE_ACTION_WRITER_AUTHORIZED = false;
 
 type RpcRequest = {
-  p_kind: "consent" | "review" | "revoke";
+  p_kind: "consent" | "review";
   p_encounter: string;
   p_action_id: string;
   p_expected_sync_version: number | null;
@@ -48,8 +48,28 @@ type RpcRequest = {
 function decodeRequest(body: unknown):
   { kind: "bootstrap"; encounter: string } |
   { kind: "prepare"; encounter: string } |
+  { kind: "revocations" } |
+  { kind: "reconcileConsent"; params: {
+      p_encounter: string; p_action_id: string;
+      p_expected_sync_version: number; p_displayed_digest: string;
+      p_purpose: string; p_provider: string; p_policy_version: string;
+    } } |
+  { kind: "reconcile"; params: {
+      p_encounter: string; p_consent_event_id: string;
+      p_action_id: string;
+    } } |
+  { kind: "revoke"; params: {
+      p_encounter: string; p_consent_event_id: string;
+      p_action_id: string; p_explicit_confirmation: true;
+    } } |
   { kind: "record"; params: RpcRequest } | null {
-  if (!plain(body) || !validId(body.encounterId)) return null;
+  if (!plain(body)) return null;
+  // Enumerate only immutable, server-owned attestations; never from local
+  // policy choices, browser storage or a client-supplied owner identifier.
+  if (body.action === "list_revocable_consents") {
+    return exact(body, ["action"]) ? { kind: "revocations" } : null;
+  }
+  if (!validId(body.encounterId)) return null;
   if (body.action === "prepare_recording") {
     // Never accept clinical fields, timestamps, policy claims or an actor ID.
     if (!exact(body, ["action", "encounterId"])) return null;
@@ -61,6 +81,39 @@ function decodeRequest(body: unknown):
   }
   const common = ["action", "encounterId", "actionId", "confirmation"];
   if (!validId(body.actionId)) return null;
+  if (body.action === "reconcile_revocation") {
+    if (!exact(body, ["action", "encounterId", "actionId", "targetEventId"]) ||
+        !validId(body.targetEventId)) return null;
+    return { kind: "reconcile", params: {
+      p_encounter: body.encounterId,
+      p_consent_event_id: body.targetEventId,
+      p_action_id: body.actionId,
+    } };
+  }
+  if (body.action === "reconcile_consent") {
+    // Read only, exact original client_action_id. A missing row may still
+    // arrive later; absence never authorizes a new automatic write.
+    if (!exact(body, ["action", "encounterId", "actionId",
+        "expectedSyncVersion", "displayedDigest", "purpose",
+        "provider", "policyVersion"]) ||
+        !version(body.expectedSyncVersion) ||
+        typeof body.displayedDigest !== "string" ||
+        !DIGEST.test(body.displayedDigest) ||
+        !["realtime_audio", "radar_context", "audio_diarization",
+          "final_documentation", "audit_deidentification"].includes(
+            String(body.purpose)) ||
+        !["openai", "gemini", "nexa-core"].includes(String(body.provider)) ||
+        typeof body.policyVersion !== "string" ||
+        !/^[\w.-]{3,80}$/.test(body.policyVersion)) return null;
+    return { kind: "reconcileConsent", params: {
+      p_encounter: body.encounterId, p_action_id: body.actionId,
+      p_expected_sync_version: body.expectedSyncVersion,
+      p_displayed_digest: body.displayedDigest,
+      p_purpose: body.purpose as string,
+      p_provider: body.provider as string,
+      p_policy_version: body.policyVersion,
+    } };
+  }
 
   if (body.action === "attest_consent") {
     if (!exact(body, [...common, "expectedSyncVersion", "displayedDigest",
@@ -110,23 +163,17 @@ function decodeRequest(body: unknown):
     };
   }
   if (body.action === "revoke_consent") {
-    if (!exact(body, [...common, "purpose", "provider", "policyVersion"]) ||
-      !["realtime_audio", "radar_context", "audio_diarization",
-        "final_documentation", "audit_deidentification"].includes(String(body.purpose)) ||
-      !["openai", "gemini", "nexa-core"].includes(String(body.provider)) ||
-      typeof body.policyVersion !== "string" ||
-      !/^[\w.-]{3,80}$/.test(body.policyVersion) ||
+    if (!exact(body, [...common, "targetEventId"]) ||
+      !validId(body.targetEventId) ||
       !exact(body.confirmation, ["physicianRevokesAttestation"]) ||
       body.confirmation.physicianRevokesAttestation !== true) return null;
     return {
-      kind: "record",
+      kind: "revoke",
       params: {
-        p_kind: "revoke", p_encounter: body.encounterId,
+        p_encounter: body.encounterId,
+        p_consent_event_id: body.targetEventId,
         p_action_id: body.actionId,
-        p_expected_sync_version: null, p_displayed_digest: null,
-        p_purpose: body.purpose as string, p_provider: body.provider as string,
-        p_policy_version: body.policyVersion,
-        p_explicit_confirmation: true, p_patient_scope_attested: false,
+        p_explicit_confirmation: true,
       },
     };
   }
@@ -238,17 +285,269 @@ serve(async req => {
     if (request.kind === "prepare") {
       const { data, error } = await db.rpc("nexa_p0_prepare_source_review",
         { p_encounter: request.encounter });
-      if (error || !data) return json({ error: "SOURCE_NOT_VERIFIED" }, 409);
-      // The future UI must show THIS exact server snapshot before ACK.
-      return json({ status: "PERSISTED_SNAPSHOT_FOR_PHYSICIAN_REVIEW",
-        source: data, external_ai_authorized: false, gate_c_verified: false });
+      // Never accept a successful RPC transport as proof of an exact source.
+      // Reject malformed/unexpected DB responses rather than relaying their
+      // arbitrary fields (which may contain clinical data) to the browser.
+      const snapshot = plain(data) ? data.source_snapshot : null;
+      const policies = plain(data) ? data.approved_policies : null;
+      const purposes = ["realtime_audio", "radar_context", "audio_diarization",
+        "final_documentation", "audit_deidentification"];
+      const providers = ["openai", "gemini", "nexa-core"];
+      if (error || !plain(data) || data.encounter_id !== request.encounter ||
+          !version(data.source_sync_version) ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          typeof data.server_digest !== "string" ||
+          !DIGEST.test(data.server_digest) ||
+          !plain(snapshot) || !plain(snapshot.fields) ||
+          !plain(snapshot.processing_meta) ||
+          !Array.isArray(snapshot.protocol_usage) ||
+          !Array.isArray(policies) || policies.length > 100 ||
+          !policies.every((p: unknown) =>
+            plain(p) && purposes.includes(String(p.purpose)) &&
+            providers.includes(String(p.provider)) &&
+            typeof p.policyVersion === "string" &&
+            /^[\w.-]{3,80}$/.test(p.policyVersion))) {
+        return json({ error: "SOURCE_SNAPSHOT_CONTRACT_INVALID" }, 409);
+      }
+      // This is an owner-bound persisted snapshot, NOT pre-egress authority,
+      // verified patient consent or evidence of completed audio. Keep the
+      // explicit negative capabilities even if an RPC later adds new fields.
+      return json({
+        status: "PERSISTED_SNAPSHOT_FOR_PHYSICIAN_REVIEW",
+        source: {
+          encounter_id: data.encounter_id,
+          source_sync_version: data.source_sync_version,
+          canonicalization: data.canonicalization,
+          server_digest: data.server_digest,
+          source_snapshot: snapshot,
+          approved_policies: policies,
+          pre_egress_source_verified: false,
+          final_review_server_completeness_verified: false,
+        },
+        external_ai_authorized: false, gate_c_verified: false,
+      });
+    }
+    if (request.kind === "reconcileConsent") {
+      const { data, error } = await db.rpc(
+        "nexa_p0_reconcile_consent_action", request.params);
+      // The row may be absent while the first request is committing. Neither
+      // absence nor a transport error is proof of no write. Never retry here.
+      if (error || !plain(data) ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false) {
+        return json({ error: "CONSENT_RECONCILIATION_UNCONFIRMED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state === "UNCONFIRMED" &&
+          data.event_present_and_current === false) {
+        return json({ error: "CONSENT_NOT_OBSERVED_YET",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state !== "CONFIRMED" ||
+          data.event_present_and_current !== true ||
+          !validId(data.event_id) ||
+          data.kind !== "PHYSICIAN_PATIENT_CONSENT_ATTESTATION" ||
+          data.source_sync_version !== request.params.p_expected_sync_version ||
+          data.source_digest !== request.params.p_displayed_digest ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          data.purpose !== request.params.p_purpose ||
+          data.provider !== request.params.p_provider ||
+          data.policy_version !== request.params.p_policy_version ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at))) {
+        return json({ error: "CONSENT_RECONCILIATION_INVALID",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "SOURCE_ACTION_PERSISTED_ONLY",
+        event: {
+          event_id: data.event_id, kind: data.kind,
+          source_sync_version: data.source_sync_version,
+          canonicalization: data.canonicalization,
+          server_recorded_at: data.server_recorded_at,
+          receipt_readback_verified: true,
+        },
+        external_ai_authorized: false, gate_c_verified: false });
+    }
+    if (request.kind === "revocations") {
+      const { data, error } = await db.rpc("nexa_p0_list_revocable_consents");
+      if (error || !plain(data) ||
+          data.event_origin !== "OWNED_PERSISTED_PHYSICIAN_ACTION" ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false ||
+          !Array.isArray(data.events) || data.events.length > 100 ||
+          !data.events.every((event: unknown) =>
+            plain(event) && validId(event.event_id) &&
+            validId(event.encounter_id) && version(event.source_sync_version) &&
+            typeof event.purpose === "string" &&
+            ["realtime_audio", "radar_context", "audio_diarization",
+              "final_documentation", "audit_deidentification"].includes(event.purpose) &&
+            ["openai", "gemini", "nexa-core"].includes(String(event.provider)) &&
+            typeof event.policy_version === "string" &&
+            /^[\w.-]{3,80}$/.test(event.policy_version) &&
+            typeof event.server_recorded_at === "string" &&
+            Number.isFinite(Date.parse(event.server_recorded_at)))) {
+        return json({ error: "REVOCABLE_EVENT_LIST_UNVERIFIED" }, 409);
+      }
+      // No transcript, personal fields or other doctors' events are returned.
+      return json({ status: "OWNED_REVOCABLE_EVENTS_ONLY",
+        events: data.events.map((e: Record<string, unknown>) => ({
+          event_id: e.event_id, encounter_id: e.encounter_id,
+          purpose: e.purpose, provider: e.provider,
+          policy_version: e.policy_version,
+          source_sync_version: e.source_sync_version,
+          server_recorded_at: e.server_recorded_at,
+        })),
+        external_ai_authorized: false, gate_c_verified: false });
+    }
+    if (request.kind === "reconcile") {
+      // Query the immutable event ledger by the ORIGINAL idempotency key.
+      // No write, no retry and no inference of failure if the row is absent.
+      const { data, error } = await db.rpc("nexa_p0_reconcile_revocation_action",
+        request.params);
+      if (error || !plain(data) ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false) {
+        return json({ error: "REVOCATION_RECONCILIATION_UNCONFIRMED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state === "UNCONFIRMED" &&
+          data.event_present_and_current === false) {
+        return json({ error: "REVOCATION_NOT_OBSERVED_YET",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      if (data.state !== "CONFIRMED" ||
+          data.event_present_and_current !== true ||
+          !validId(data.event_id) || data.kind !== "CONSENT_REVOKED" ||
+          data.revokes_event_id !== request.params.p_consent_event_id ||
+          !version(data.source_sync_version) ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at))) {
+        return json({ error: "REVOCATION_RECONCILIATION_INVALID",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "SOURCE_REVOCATION_PERSISTED_ONLY",
+        event: {
+          event_id: data.event_id, kind: data.kind,
+          target_event_id: data.revokes_event_id,
+          source_sync_version: data.source_sync_version,
+          canonicalization: data.canonicalization,
+          server_recorded_at: data.server_recorded_at,
+          receipt_readback_verified: true,
+        },
+        external_ai_authorized: false, gate_c_verified: false });
+    }
+    if (request.kind === "revoke") {
+      const { data, error } = await db.rpc("nexa_p0_revoke_target_event",
+        request.params);
+      if (error || !plain(data) || !validId(data.event_id) ||
+          data.kind !== "CONSENT_REVOKED" ||
+          data.revokes_event_id !== request.params.p_consent_event_id ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          !version(data.source_sync_version) ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at)) ||
+          data.authorizes_external_ai !== false ||
+          data.gate_c_verified !== false) {
+        // A failed response cannot establish that no event was written.
+        return json({ error: "REVOCATION_RECEIPT_UNVERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      // Read after commit in an independent authenticated RPC transaction.
+      const { data: readback, error: readError } =
+        await db.rpc("nexa_p0_verify_revocation", {
+          p_revoke_event_id: data.event_id,
+          p_consent_event_id: request.params.p_consent_event_id,
+          p_encounter: request.params.p_encounter,
+        });
+      if (readError || !plain(readback) ||
+          readback.event_present_and_current !== true ||
+          readback.event_id !== data.event_id ||
+          readback.revokes_event_id !== request.params.p_consent_event_id ||
+          readback.kind !== "CONSENT_REVOKED" ||
+          readback.source_sync_version !== data.source_sync_version ||
+          readback.canonicalization !== data.canonicalization ||
+          readback.server_recorded_at !== data.server_recorded_at ||
+          readback.external_ai_authorized !== false ||
+          readback.gate_c_verified !== false) {
+        return json({ error: "REVOCATION_READBACK_NOT_VERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "SOURCE_REVOCATION_PERSISTED_ONLY",
+        event: {
+          event_id: data.event_id, kind: data.kind,
+          target_event_id: data.revokes_event_id,
+          source_sync_version: data.source_sync_version,
+          server_recorded_at: data.server_recorded_at,
+          canonicalization: data.canonicalization,
+          receipt_readback_verified: true,
+        }, external_ai_authorized: false, gate_c_verified: false });
     }
     const { data, error } = await db.rpc("nexa_p0_record_source_action", request.params);
-    if (error || !data?.event_id || data?.authorizes_external_ai !== false) {
-      return json({ error: "SOURCE_ACTION_NOT_RECORDED" }, 409);
+    // A successful HTTP/RPC call is not an event receipt. Require the exact
+    // server event kind, durable id, version and canonicalization even on
+    // idempotent replays. Never forward arbitrary fields returned by an RPC.
+    const expectedKind = request.params.p_kind === "consent"
+      ? "PHYSICIAN_PATIENT_CONSENT_ATTESTATION"
+      : "PHYSICIAN_FINAL_REVIEW_ACK";
+    const recordedAt = typeof data?.server_recorded_at === "string"
+      ? Date.parse(data.server_recorded_at) : NaN;
+    const expectedVersion = request.params.p_expected_sync_version;
+    if (error || !plain(data) || !validId(data.event_id) ||
+        data.kind !== expectedKind ||
+        !version(data.source_sync_version) ||
+        (expectedVersion !== null && data.source_sync_version !== expectedVersion) ||
+        data.canonicalization !== "pg-jsonb-v1" ||
+        !Number.isFinite(recordedAt) ||
+        data.authorizes_external_ai !== false ||
+        data.gate_c_verified !== false) {
+      return json({ error: "SOURCE_ACTION_RECEIPT_UNVERIFIED" }, 409);
     }
-    return json({ status: "SOURCE_ACTION_PERSISTED_ONLY", event: data,
-      external_ai_authorized: false, gate_c_verified: false });
+    // Read the consent event back through a distinct authenticated RPC.
+    // A writer receipt alone is insufficient evidence of durable, current
+    // ownership/purpose/version. This check grants NO egress admission.
+    let receiptReadbackVerified = false;
+    if (request.params.p_kind === "consent") {
+      const { data: verified, error: verifyError } = await db.rpc(
+        "nexa_p0_verify_consent_action", {
+          p_event_id: data.event_id,
+          p_encounter: request.params.p_encounter,
+          p_expected_sync_version: request.params.p_expected_sync_version,
+          p_displayed_digest: request.params.p_displayed_digest,
+        });
+      if (verifyError || !plain(verified) ||
+          verified.event_present_and_current !== true ||
+          verified.event_id !== data.event_id ||
+          verified.kind !== expectedKind ||
+          verified.source_sync_version !== expectedVersion ||
+          verified.source_digest !== request.params.p_displayed_digest ||
+          verified.canonicalization !== "pg-jsonb-v1" ||
+          verified.purpose !== request.params.p_purpose ||
+          verified.provider !== request.params.p_provider ||
+          verified.policy_version !== request.params.p_policy_version ||
+          verified.server_recorded_at !== data.server_recorded_at ||
+          verified.external_ai_authorized !== false ||
+          verified.gate_c_verified !== false) {
+        // A failed read-back does not prove the original write rolled back.
+        // Never send a success receipt or repeat a paid external operation.
+        return json({ error: "CONSENT_RECEIPT_READBACK_NOT_VERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      receiptReadbackVerified = true;
+    }
+    return json({
+      status: "SOURCE_ACTION_PERSISTED_ONLY",
+      event: {
+        event_id: data.event_id,
+        kind: data.kind,
+        source_sync_version: data.source_sync_version,
+        canonicalization: data.canonicalization,
+        server_recorded_at: data.server_recorded_at,
+        receipt_readback_verified: receiptReadbackVerified,
+      },
+      external_ai_authorized: false,
+      gate_c_verified: false,
+    });
   } catch {
     // No clinical content or provider response is logged.
     return json({ error: "SOURCE_ACTION_FAILED_CLOSED" }, 400);
