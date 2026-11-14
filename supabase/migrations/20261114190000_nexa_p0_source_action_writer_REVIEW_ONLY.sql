@@ -257,6 +257,29 @@ begin
         and pol.revoked_at is null
      )
   then raise exception using errcode='42501',message='APPROVED_PURPOSE_POLICY_REQUIRED'; end if;
+  -- A lost browser idempotency key must not mint a second active physician
+  -- attestation for the same owner, policy and persisted source version.
+  -- This is checked while a scope transaction advisory lock is held.
+  -- A revoked event does not block a NEW explicit physician declaration.
+  if exists (
+    select 1 from private.nexa_p0_source_action_events ce
+    where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
+      and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+      and ce.source_row_id=v_source.id
+      and ce.source_sync_version=v_source.sync_version
+      and ce.source_digest=v_digest
+      and ce.purpose=p_purpose and ce.provider=p_provider
+      and ce.policy_version=p_policy_version
+      and not exists (
+        select 1 from private.nexa_p0_source_action_events rev
+        where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+          and rev.event_kind='CONSENT_REVOKED'
+          and rev.purpose=ce.purpose and rev.provider=ce.provider
+          and rev.policy_version=ce.policy_version
+          and rev.event_order>=ce.event_order
+      )
+  ) then raise exception using errcode='23505',
+    message='ACTIVE_CONSENT_ALREADY_EXISTS_RECONCILE_REQUIRED'; end if;
  elsif p_kind='review' then
   -- Browser-derived ready_for_audit cannot prove completed audio ingestion,
   -- sync/reconciliation integrity or absence of post-review edits. Do not mint
