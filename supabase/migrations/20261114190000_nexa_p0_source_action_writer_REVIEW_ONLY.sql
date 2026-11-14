@@ -19,6 +19,9 @@ create table private.nexa_p0_purpose_policy (
 
 create table private.nexa_p0_source_action_events (
  event_id uuid primary key default pg_catalog.gen_random_uuid(),
+ -- Ordered ledger identity; wall clocks and random UUIDs cannot safely order
+ -- simultaneous actions. Same policy scope uses a transaction advisory lock.
+ event_order bigint generated always as identity unique,
  client_action_id uuid not null,
  event_kind text not null check (event_kind in
    ('PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
@@ -50,7 +53,7 @@ create table private.nexa_p0_source_action_events (
  )
 );
 create index nexa_p0_source_events_lookup_idx on private.nexa_p0_source_action_events
- (encounter_id,owner_user_id,event_kind,purpose,provider,server_recorded_at desc);
+ (encounter_id,owner_user_id,event_kind,purpose,provider,event_order desc);
 
 -- Only owner-controlled, append-only rows. No REST-facing CRUD permission.
 alter table private.nexa_p0_source_action_events enable row level security;
@@ -228,7 +231,7 @@ begin
            and rev.event_kind='CONSENT_REVOKED'
            and rev.purpose=p_purpose and rev.provider=p_provider
            and rev.policy_version=p_policy_version
-           and rev.server_recorded_at>=v_event.server_recorded_at
+           and rev.event_order>=v_event.event_order
        )
     then raise exception using errcode='42501',
       message='CONSENT_EVENT_NO_LONGER_CURRENT'; end if;
@@ -276,7 +279,7 @@ begin
          where rev.encounter_id=ce.encounter_id and rev.owner_user_id=v_actor
            and rev.event_kind='CONSENT_REVOKED'
            and rev.purpose=ce.purpose and rev.provider=ce.provider
-           and rev.server_recorded_at>=ce.server_recorded_at
+           and rev.event_order>=ce.event_order
         )
      )
   then raise exception using errcode='42501',message='EXACT_FINAL_REVIEW_OR_CONSENT_REQUIRED'; end if;
@@ -368,7 +371,7 @@ begin
         and rev.event_kind='CONSENT_REVOKED'
         and rev.purpose=v_event.purpose and rev.provider=v_event.provider
         and rev.policy_version=v_event.policy_version
-        and rev.server_recorded_at>=v_event.server_recorded_at
+        and rev.event_order>=v_event.event_order
     )
  then raise exception using errcode='42501',
    message='CONSENT_RECEIPT_NOT_CURRENT'; end if;
@@ -405,12 +408,12 @@ begin
  with latest as (
    select distinct on (e.encounter_id,e.purpose,e.provider,e.policy_version)
      e.event_id,e.encounter_id,e.source_row_id,e.purpose,e.provider,
-     e.policy_version,e.source_sync_version,e.server_recorded_at
+     e.policy_version,e.source_sync_version,e.server_recorded_at,e.event_order
    from private.nexa_p0_source_action_events e
    where e.owner_user_id=v_actor
      and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
    order by e.encounter_id,e.purpose,e.provider,e.policy_version,
-     e.server_recorded_at desc,e.event_id desc
+     e.event_order desc
  ), actionable as (
    select l.* from latest l
    where not exists (
@@ -424,8 +427,7 @@ begin
        and rev.event_kind='CONSENT_REVOKED'
        and rev.purpose=l.purpose and rev.provider=l.provider
        and rev.policy_version=l.policy_version
-       and (rev.server_recorded_at,rev.event_id)>=
-         (l.server_recorded_at,l.event_id)
+       and rev.event_order>=l.event_order
    )
  )
  select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
@@ -434,9 +436,9 @@ begin
     'policy_version',x.policy_version,
     'source_sync_version',x.source_sync_version,
     'server_recorded_at',x.server_recorded_at
- ) order by x.server_recorded_at desc,x.event_id desc),'[]'::jsonb)
+ ) order by x.event_order desc),'[]'::jsonb)
  into v_list
- from (select * from actionable order by server_recorded_at desc,event_id desc
+ from (select * from actionable order by event_order desc
        limit 100) x;
  return pg_catalog.jsonb_build_object(
    'events',v_list,'event_origin','OWNED_PERSISTED_PHYSICIAN_ACTION',
@@ -508,16 +510,14 @@ begin
        and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
        and ce.purpose=v_target.purpose and ce.provider=v_target.provider
        and ce.policy_version=v_target.policy_version
-       and (ce.server_recorded_at,ce.event_id)>
-           (v_target.server_recorded_at,v_target.event_id)
+       and ce.event_order>v_target.event_order
    ) or exists (
      select 1 from private.nexa_p0_source_action_events r
      where r.owner_user_id=v_actor and r.encounter_id=p_encounter
        and r.event_kind='CONSENT_REVOKED'
        and r.purpose=v_target.purpose and r.provider=v_target.provider
        and r.policy_version=v_target.policy_version
-       and (r.server_recorded_at,r.event_id)>=
-           (v_target.server_recorded_at,v_target.event_id)
+       and r.event_order>=v_target.event_order
    ) then raise exception using errcode='42501',
        message='REVOCATION_TARGET_NOT_ACTIVE'; end if;
 
@@ -540,8 +540,7 @@ begin
      and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
      and ce.purpose=v_target.purpose and ce.provider=v_target.provider
      and ce.policy_version=v_target.policy_version
-     and (ce.server_recorded_at,ce.event_id)>
-       (v_event.server_recorded_at,v_event.event_id)
+     and ce.event_order>v_event.event_order
  ) then raise exception using errcode='42501',
      message='REVOCATION_RECEIPT_SUPERSEDED'; end if;
 
@@ -599,8 +598,7 @@ begin
        and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
        and ce.purpose=v_target.purpose and ce.provider=v_target.provider
        and ce.policy_version=v_target.policy_version
-       and (ce.server_recorded_at,ce.event_id)>
-         (v_rev.server_recorded_at,v_rev.event_id)
+       and ce.event_order>v_rev.event_order
    )
  then raise exception using errcode='42501',
     message='REVOCATION_RECEIPT_NOT_CURRENT'; end if;
