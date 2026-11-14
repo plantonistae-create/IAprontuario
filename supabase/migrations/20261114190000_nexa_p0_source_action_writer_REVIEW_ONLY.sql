@@ -142,7 +142,7 @@ declare
 begin
  if v_actor is null or p_encounter is null or p_action_id is null
     or p_explicit_confirmation is distinct from true
-    or p_kind not in ('consent','review','revoke') then
+    or p_kind is null or p_kind not in ('consent','review','revoke') then
   raise exception using errcode='42501',message='EXPLICIT_AUTHENTICATED_ACTION_REQUIRED';
  end if;
  perform 1 from public.profiles p
@@ -179,8 +179,9 @@ begin
  where e.owner_user_id=v_actor and e.client_action_id=p_action_id;
  if found then
   if v_event.event_kind<>v_kind or v_event.encounter_id<>p_encounter
-     or v_event.source_sync_version is distinct from p_expected_sync_version
-     or v_event.source_digest is distinct from p_displayed_digest
+     or (p_kind<>'revoke' and
+         (v_event.source_sync_version is distinct from p_expected_sync_version
+          or v_event.source_digest is distinct from p_displayed_digest))
      or v_event.purpose is distinct from p_purpose
      or v_event.provider is distinct from p_provider
      or v_event.policy_version is distinct from p_policy_version
