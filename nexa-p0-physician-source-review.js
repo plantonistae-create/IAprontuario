@@ -122,10 +122,14 @@ async function prepare(){
    policySelect.append(o);
   }
   reviewButton.disabled=false;
-  consentButton.disabled=policySelect.options.length===0;
-  warn(policySelect.options.length?
-   'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.':
-   'Sem política de finalidade aprovada. Consentimento não pode ser registrado.');
+  // A saved source/policy is not proof that no prior provider egress occurred.
+  // The current #172 RPC deliberately does NOT supply a trusted pre-egress
+  // certificate. Consent gesture must stay disabled until that exists.
+  consentButton.disabled=policySelect.options.length===0||
+    out.source.pre_egress_source_verified!==true;
+  warn(out.source.pre_egress_source_verified!==true?
+   'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas.':
+   'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.');
  }catch(e){
   clear(String(e?.message||'Não foi possível abrir a revisão.'));
   if(surface)surface.hidden=false;
@@ -138,6 +142,8 @@ async function record(type){
  try{
   await verifyStable();
   if(type==='consent'){
+   if(prepared.source.pre_egress_source_verified!==true)
+    throw Error('A origem anterior à primeira IA não foi comprovada pelo servidor.');
    if(!consentCheck.checked||!policySelect.value)throw Error('Declaração médica explícita e finalidade aprovada necessárias.');
    const policy=JSON.parse(policySelect.value);
    if(!PURPOSES.has(policy.purpose)||!PROVIDERS.has(policy.provider))
