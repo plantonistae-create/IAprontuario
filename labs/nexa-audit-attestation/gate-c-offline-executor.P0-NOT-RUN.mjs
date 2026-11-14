@@ -212,7 +212,7 @@ const ACTOR_SQL = [
   " pg_catalog.to_regclass('public.audit_cases'),",
   " pg_catalog.to_regclass('private.nexa_gate_c_verified_source_events_lab'),",
   " pg_catalog.to_regclass('private.nexa_gate_c_checkpoint_lab')))",
-  " SELECT 'ACTORS|'||CASE WHEN (SELECT count(*) FROM r)=3",
+  " SELECT 'ACTORS|'||CASE WHEN (SELECT count(*) FROM r)=3 AND (SELECT count(*) FROM protected)=3",
   " AND NOT EXISTS (SELECT 1 FROM r WHERE rolsuper OR rolbypassrls",
   " OR NOT rolcanlogin OR rolcreaterole OR rolcreatedb)",
   " AND NOT EXISTS (SELECT 1 FROM r CROSS JOIN protected p",
