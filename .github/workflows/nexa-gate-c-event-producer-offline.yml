@@ -1,0 +1,51 @@
+name: NEXA Gate C Explicit Event Producer (Offline Only)
+
+on:
+  pull_request:
+    branches:
+      - feat/nexa-p0-audit-source-authority-offline-20261109
+    paths:
+      - 'labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs'
+      - 'labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/audit-dispatch-preflight.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/audit-context-quarantine.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/external-ai-admission.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/audit-backfill-ingress.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/audit-backfill-ingress.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/P0_AUDIT_BACKFILL_ACTION_BOUNDARY_NOT_APPLIED.md'
+      - '.github/workflows/nexa-gate-c-event-producer-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  explicit-events-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Targeted syntax (no hosted services)
+        run: |
+          node --check labs/nexa-audit-attestation/gate-c-event-producer.P0-CANDIDATE.mjs
+          node --check labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
+      - name: Explicit consent and review tests (synthetic only)
+        run: |
+          node --test labs/nexa-audit-attestation/gate-c-event-producer.P0.test.mjs
+          node --check labs/nexa-audit-attestation/audit-dispatch-preflight.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs
+          node --test labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs
+          node --check labs/nexa-audit-attestation/audit-context-quarantine.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs
+          node --test labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs
+          node --check labs/nexa-audit-attestation/external-ai-admission.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs
+          node --test labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs
+          node --check labs/nexa-audit-attestation/audit-backfill-ingress.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/audit-backfill-ingress.P0.test.mjs
+          node --test labs/nexa-audit-attestation/audit-backfill-ingress.P0.test.mjs
