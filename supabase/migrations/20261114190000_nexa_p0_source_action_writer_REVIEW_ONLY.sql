@@ -97,7 +97,7 @@ declare
  v_role oid;
 begin
  select r.oid into v_role from pg_catalog.pg_roles r
- where r.rolname=pg_catalog.current_user
+ where r.rolname=current_user
    and r.rolsuper is false and r.rolbypassrls is false
    and r.rolcanlogin is false and r.rolcreaterole is false
    and r.rolcreatedb is false;
