@@ -14,6 +14,7 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='STOP_NOT_UNIX_SOCKET_LAB';
   END IF;
   IF current_user <> 'nexa_gc_install_lab'
+     OR session_user <> current_user
      OR NOT EXISTS (
        SELECT 1 FROM pg_catalog.pg_roles
        WHERE rolname=current_user AND NOT rolsuper AND NOT rolbypassrls
