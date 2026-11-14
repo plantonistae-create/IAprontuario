@@ -515,6 +515,7 @@ begin
     or p_expected_sync_version is null or p_expected_sync_version<1
     or p_displayed_digest is null
     or p_displayed_digest !~ '^sha256:[0-9a-f]{64}$'
+    or p_purpose is null or p_provider is null
     or p_purpose not in ('realtime_audio','radar_context',
       'audio_diarization','final_documentation','audit_deidentification')
     or p_provider not in ('openai','gemini','nexa-core')
