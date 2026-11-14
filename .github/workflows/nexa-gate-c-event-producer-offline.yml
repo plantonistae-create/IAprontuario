@@ -11,6 +11,8 @@ on:
       - 'labs/nexa-audit-attestation/audit-dispatch-preflight.P0.test.mjs'
       - 'labs/nexa-audit-attestation/audit-context-quarantine.P0-NOT-DEPLOYED.mjs'
       - 'labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs'
+      - 'labs/nexa-audit-attestation/external-ai-admission.P0-NOT-DEPLOYED.mjs'
+      - 'labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs'
       - '.github/workflows/nexa-gate-c-event-producer-offline.yml'
 
 permissions:
@@ -38,3 +40,6 @@ jobs:
           node --check labs/nexa-audit-attestation/audit-context-quarantine.P0-NOT-DEPLOYED.mjs
           node --check labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs
           node --test labs/nexa-audit-attestation/audit-context-quarantine.P0.test.mjs
+          node --check labs/nexa-audit-attestation/external-ai-admission.P0-NOT-DEPLOYED.mjs
+          node --check labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs
+          node --test labs/nexa-audit-attestation/external-ai-admission.P0.test.mjs
