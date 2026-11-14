@@ -33,7 +33,7 @@ const validId = (x: unknown): x is string => typeof x === "string" && UUID.test(
 const DEPLOYED_SOURCE_ACTION_WRITER_AUTHORIZED = false;
 
 type RpcRequest = {
-  p_kind: "consent" | "review" | "revoke";
+  p_kind: "consent" | "review";
   p_encounter: string;
   p_action_id: string;
   p_expected_sync_version: number | null;
@@ -300,7 +300,7 @@ serve(async req => {
               "final_documentation", "audit_deidentification"].includes(event.purpose) &&
             ["openai", "gemini", "nexa-core"].includes(String(event.provider)) &&
             typeof event.policy_version === "string" &&
-            /^[\\w.-]{3,80}$/.test(event.policy_version) &&
+            /^[\w.-]{3,80}$/.test(event.policy_version) &&
             typeof event.server_recorded_at === "string" &&
             Number.isFinite(Date.parse(event.server_recorded_at)))) {
         return json({ error: "REVOCABLE_EVENT_LIST_UNVERIFIED" }, 409);
