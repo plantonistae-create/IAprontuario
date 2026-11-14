@@ -202,6 +202,37 @@ function catalog(m, psql) {
   console.log('GATE_C=NO_GO_0_OF_19');
 }
 
+const ACTOR_SQL = [
+  'BEGIN READ ONLY;',
+  "WITH r AS (SELECT oid,rolname,rolsuper,rolbypassrls,rolcanlogin,",
+  " rolcreaterole,rolcreatedb FROM pg_catalog.pg_roles",
+  " WHERE rolname IN ('nexa_gc_physician_a_lab',",
+  " 'nexa_gc_physician_b_lab','nexa_gc_reviewer_lab')),",
+  " protected AS (SELECT oid,relowner FROM pg_catalog.pg_class WHERE oid IN (",
+  " pg_catalog.to_regclass('public.audit_cases'),",
+  " pg_catalog.to_regclass('private.nexa_gate_c_verified_source_events_lab'),",
+  " pg_catalog.to_regclass('private.nexa_gate_c_checkpoint_lab')))",
+  " SELECT 'ACTORS|'||CASE WHEN (SELECT count(*) FROM r)=3",
+  " AND NOT EXISTS (SELECT 1 FROM r WHERE rolsuper OR rolbypassrls",
+  " OR NOT rolcanlogin OR rolcreaterole OR rolcreatedb)",
+  " AND NOT EXISTS (SELECT 1 FROM r CROSS JOIN protected p",
+  " WHERE r.oid=p.relowner OR pg_catalog.pg_has_role(r.oid,p.relowner,'MEMBER'))",
+  " THEN 'PASS_SYNTHETIC_ROLE_RESTRICTIONS' ELSE 'STOP_UNSAFE_OR_MISSING_ACTORS' END;",
+  'ROLLBACK;'
+].join('\n');
+
+function actorCatalog(m, psql) {
+  const r = spawnSync(psql,
+    psqlArgs(m, os.userInfo().username, ACTOR_SQL, false),
+    { env:cleanEnv(), encoding:'utf8', maxBuffer:65536, timeout:20000 });
+  if (r.error || r.status !== 0 ||
+      !(r.stdout || '').split(/\r?\n/).includes('ACTORS|PASS_SYNTHETIC_ROLE_RESTRICTIONS')) {
+    stop('INDEPENDENT_RESTRICTED_SYNTHETIC_ACTORS_NOT_PROVEN');
+  }
+  console.log('ACTORS=PASS_SYNTHETIC_DB_ROLE_RESTRICTIONS_ONLY');
+  console.log('PRODUCTION_AUTH_BINDING=NOT_PROVEN');
+}
+
 function caseFiles(m) {
   if (!m.cases || typeof m.cases !== 'object') stop('CASE_SUITE_MISSING');
   const result = new Map();
@@ -253,6 +284,7 @@ async function runCases(m, psql) {
     stop('CASE_SUITE_OR_ACTOR_BOUNDARY_NOT_APPROVED');
   }
   const files = caseFiles(m);
+  actorCatalog(m, psql);
   if (m.cases.C07.barrierProtocol !== 'REVIEWED_DATABASE_BARRIER' ||
       m.cases.C08.barrierProtocol !== 'REVIEWED_DATABASE_BARRIER') {
     stop('CONCURRENCY_BARRIER_NOT_REVIEWED');
