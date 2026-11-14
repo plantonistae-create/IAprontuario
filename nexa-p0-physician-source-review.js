@@ -14,7 +14,7 @@ const q=id=>document.getElementById(id);
 let prepared=null,owner=null,encounter=null,busy=false;
 let viewGeneration=0,pendingAction=null;
 let surface=null,preview=null,message=null,consentCheck=null,reviewCheck=null,policySelect=null,consentButton=null,reviewButton=null;
-let revokeSelect=null,revokeCheck=null,revokeButton=null,revokeOwner=null,revocableEntries=[];
+let revokeSelect=null,revokeCheck=null,revokeButton=null,reconcileButton=null,revokeOwner=null,revocableEntries=[];
 
 function clear(reason=''){
   ++viewGeneration;
@@ -23,6 +23,7 @@ function clear(reason=''){
   if(revokeSelect)revokeSelect.replaceChildren();
   if(revokeCheck)revokeCheck.checked=false;
   if(revokeButton)revokeButton.disabled=true;
+  if(reconcileButton)reconcileButton.disabled=true;
   if(preview)preview.textContent='';
   if(policySelect)policySelect.replaceChildren();
   if(consentCheck)consentCheck.checked=false;
@@ -269,6 +270,8 @@ async function record(type){
    }
    // Selection is not confirmation; an explicit checkbox gesture is required.
    revokeButton.disabled=revocableEntries.length===0||!revokeCheck.checked;
+   reconcileButton.disabled=!(pendingAction?.kind==='revoke' &&
+     pendingAction.owner===profile.id && UUID.test(pendingAction.id));
    warn(revocableEntries.length?
     'Selecione uma declaração original e confirme expressamente sua revogação.':
     'Nenhuma declaração autoritativa revogável encontrada.');
@@ -303,7 +306,10 @@ async function record(type){
     throw Error('O evento mudou. Atualize a lista do servidor.');
    key=revokeOwner+'|'+target.encounter_id+'|revoke|'+target.event_id;
    if(!pendingAction||pendingAction.key!==key)
-    pendingAction={key,id:crypto.randomUUID()};
+    pendingAction={key,id:crypto.randomUUID(),kind:'revoke',
+     owner:revokeOwner,encounterId:target.encounter_id,
+     targetEventId:target.event_id,sourceVersion:target.source_sync_version};
+   if(reconcileButton)reconcileButton.disabled=false;
    const resp=await send({
     action:'revoke_consent',encounterId:target.encounter_id,
     targetEventId:target.event_id,actionId:pendingAction.id,
@@ -316,6 +322,7 @@ async function record(type){
       !validPersistedReceipt(resp.event,'CONSENT_REVOKED',target.source_sync_version))
     throw Error('Revogação sem recibo de releitura confirmado.');
    if(pendingAction?.key===key)pendingAction=null;
+   if(reconcileButton)reconcileButton.disabled=true;
    revocableEntries=[];revokeSelect.replaceChildren();revokeOwner=null;
    warn('Revogação confirmada em releitura separada. IA e auditoria continuam bloqueadas.');
   }catch(e){
@@ -325,6 +332,44 @@ async function record(type){
    busy=false;
    if(revokeCheck)revokeCheck.checked=false;
    if(revokeButton)revokeButton.disabled=true;
+  }
+ }
+ // Reconciliation is a separate READ-ONLY request for the exact same
+ // idempotency key. It never retries the mutation or invents a successful ACK.
+ async function reconcileRevocation(){
+  if(busy||pendingAction?.kind!=='revoke')return;
+  const saved=pendingAction;
+  const generation=viewGeneration;
+  busy=true;
+  if(reconcileButton)reconcileButton.disabled=true;
+  try{
+   if(ownerProfile()?.id!==saved.owner||
+      !UUID.test(saved.id)||!UUID.test(saved.encounterId)||
+      !UUID.test(saved.targetEventId)||!Number.isSafeInteger(saved.sourceVersion))
+    throw Error('É necessário estar autenticado como o médico original.');
+   const resp=await send({action:'reconcile_revocation',
+     encounterId:saved.encounterId,targetEventId:saved.targetEventId,
+     actionId:saved.id});
+   if(generation!==viewGeneration||document.hidden)return;
+   if(resp.status!=='SOURCE_REVOCATION_PERSISTED_ONLY'||
+      resp.event?.receipt_readback_verified!==true||
+      resp.event?.target_event_id!==saved.targetEventId||
+      !validPersistedReceipt(resp.event,'CONSENT_REVOKED',saved.sourceVersion))
+    throw Error('O evento ainda não foi confirmado pelo servidor.');
+   if(pendingAction?.id===saved.id)pendingAction=null;
+   revocableEntries=[];
+   if(revokeSelect)revokeSelect.replaceChildren();
+   revokeOwner=null;
+   if(revokeButton)revokeButton.disabled=true;
+   warn('Revogação identificada e confirmada por releitura do evento original. IA e auditoria continuam bloqueadas.');
+  }catch(e){
+   if(generation===viewGeneration&&!document.hidden)
+    warn('Resultado ainda incerto. Nenhuma segunda revogação foi enviada. '+
+      String(e?.message||'Não foi possível reconciliar a ação.'));
+  }finally{
+   busy=false;
+   if(reconcileButton)reconcileButton.disabled=
+    !(pendingAction?.kind==='revoke'&&ownerProfile()?.id===pendingAction.owner);
   }
  }
 const anchor=q('submitAuditBtn');
@@ -363,6 +408,9 @@ revokeLabel.append(revokeCheck,document.createTextNode(
 revokeButton=create('button',{text:'Revogar declaração selecionada',cls:'btn ghost'});
 revokeButton.type='button';revokeButton.disabled=true;
 revokeButton.onclick=()=>void recordRevocation();
+reconcileButton=create('button',{text:'Verificar revogação pendente · somente leitura',cls:'btn ghost'});
+reconcileButton.type='button';reconcileButton.disabled=true;
+reconcileButton.onclick=()=>void reconcileRevocation();
 revokeCheck.onchange=()=>{revokeButton.disabled=
  !revokeCheck.checked||revocableEntries.length===0;};
 revokeSelect.onchange=()=>{revokeCheck.checked=false;revokeButton.disabled=true;};
@@ -370,7 +418,8 @@ message=create('p',{text:'Gate C NO-GO. Nenhuma ação foi registrada.'});messag
 const close=create('button',{text:'Fechar e descartar visualização',cls:'btn ghost'});
 close.type='button';close.onclick=()=>clear();
 surface.append(heading,note,preview,policySelect,cLabel,consentButton,
- rLabel,reviewButton,revokeSelect,revokeLabel,revokeButton,message,close);
+ rLabel,reviewButton,revokeSelect,revokeLabel,revokeButton,
+ reconcileButton,message,close);
 anchor.closest('.toolbar')?.after(surface);
 for(const name of ['nexa:encounter-started','nexa:encounter-sync-conflict',
  'nexa:encounter-synced','nexa:consultation-reset','nexa:encounter-locked'])
