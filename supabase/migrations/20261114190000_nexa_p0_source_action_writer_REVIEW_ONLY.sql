@@ -159,7 +159,7 @@ begin
  where s.encounter_id=p_encounter for share;
  if not found or v_source.user_id is distinct from v_actor
     or v_source.sync_version<1
-    or v_source.encounter_state in ('audited','discarded')
+    or (p_kind<>'revoke' and v_source.encounter_state in ('audited','discarded'))
     or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
