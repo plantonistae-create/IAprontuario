@@ -264,6 +264,38 @@ serve(async req => {
         data.gate_c_verified !== false) {
       return json({ error: "SOURCE_ACTION_RECEIPT_UNVERIFIED" }, 409);
     }
+    // Read the consent event back through a distinct authenticated RPC.
+    // A writer receipt alone is insufficient evidence of durable, current
+    // ownership/purpose/version. This check grants NO egress admission.
+    let receiptReadbackVerified = false;
+    if (request.params.p_kind === "consent") {
+      const { data: verified, error: verifyError } = await db.rpc(
+        "nexa_p0_verify_consent_action", {
+          p_event_id: data.event_id,
+          p_encounter: request.params.p_encounter,
+          p_expected_sync_version: request.params.p_expected_sync_version,
+          p_displayed_digest: request.params.p_displayed_digest,
+        });
+      if (verifyError || !plain(verified) ||
+          verified.event_present_and_current !== true ||
+          verified.event_id !== data.event_id ||
+          verified.kind !== expectedKind ||
+          verified.source_sync_version !== expectedVersion ||
+          verified.source_digest !== request.params.p_displayed_digest ||
+          verified.canonicalization !== "pg-jsonb-v1" ||
+          verified.purpose !== request.params.p_purpose ||
+          verified.provider !== request.params.p_provider ||
+          verified.policy_version !== request.params.p_policy_version ||
+          verified.server_recorded_at !== data.server_recorded_at ||
+          verified.external_ai_authorized !== false ||
+          verified.gate_c_verified !== false) {
+        // A failed read-back does not prove the original write rolled back.
+        // Never send a success receipt or repeat a paid external operation.
+        return json({ error: "CONSENT_RECEIPT_READBACK_NOT_VERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      receiptReadbackVerified = true;
+    }
     return json({
       status: "SOURCE_ACTION_PERSISTED_ONLY",
       event: {
@@ -272,6 +304,7 @@ serve(async req => {
         source_sync_version: data.source_sync_version,
         canonicalization: data.canonicalization,
         server_recorded_at: data.server_recorded_at,
+        receipt_readback_verified: receiptReadbackVerified,
       },
       external_ai_authorized: false,
       gate_c_verified: false,
