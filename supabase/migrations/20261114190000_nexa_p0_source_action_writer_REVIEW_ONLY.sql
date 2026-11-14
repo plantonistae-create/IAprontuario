@@ -614,6 +614,62 @@ begin
    'external_ai_authorized',false,'gate_c_verified',false);
 end; $$;
 
+-- Query an ambiguous network outcome by the ORIGINAL client_action_id.
+-- Missing rows mean UNCONFIRMED, never proof that a concurrent write failed.
+-- No new revocation is generated and no egress authority is granted.
+create function public.nexa_p0_reconcile_revocation_action(
+ p_encounter uuid,p_consent_event_id uuid,p_action_id uuid
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_rev private.nexa_p0_source_action_events%rowtype;
+ v_verified jsonb;
+begin
+ if v_actor is null or p_encounter is null or p_consent_event_id is null
+    or p_action_id is null
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_IDENTIFIERS_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+ select * into v_rev from private.nexa_p0_source_action_events r
+ where r.owner_user_id=v_actor and r.client_action_id=p_action_id
+ for share;
+ if not found then
+  return pg_catalog.jsonb_build_object(
+   'state','UNCONFIRMED','event_present_and_current',false,
+   'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+ if v_rev.event_kind<>'CONSENT_REVOKED' or
+    v_rev.encounter_id is distinct from p_encounter or
+    v_rev.revokes_event_id is distinct from p_consent_event_id
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_KEY_CONFLICT'; end if;
+
+ -- Must pass the same owner-bound independent read-back checks as the write.
+ -- If the event was superseded or the original source changed owners,
+ -- return an error; never treat an old event as current authorization.
+ v_verified:=public.nexa_p0_verify_revocation(
+   v_rev.event_id,p_consent_event_id,p_encounter);
+ if v_verified->>'event_present_and_current' is distinct from 'true'
+    or v_verified->>'event_id' is distinct from v_rev.event_id::text
+    or v_verified->>'revokes_event_id' is distinct from p_consent_event_id::text
+    or v_verified->>'external_ai_authorized' is distinct from 'false'
+    or v_verified->>'gate_c_verified' is distinct from 'false'
+ then raise exception using errcode='42501',
+   message='REVOCATION_RECONCILIATION_READBACK_FAILED'; end if;
+ return pg_catalog.jsonb_build_object(
+  'state','CONFIRMED','event_present_and_current',true,
+  'event_id',v_rev.event_id,'revokes_event_id',v_rev.revokes_event_id,
+  'kind',v_rev.event_kind,'source_sync_version',v_rev.source_sync_version,
+  'canonicalization',v_rev.canonicalization,
+  'server_recorded_at',v_rev.server_recorded_at,
+  'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
 -- New narrowly scoped candidate RPCs only. No hosted ACL changes.
 revoke all on function public.nexa_p0_prepare_source_review(uuid)
  from public,anon,authenticated,service_role;
@@ -642,6 +698,10 @@ grant execute on function public.nexa_p0_list_revocable_consents()
 grant execute on function public.nexa_p0_revoke_target_event(uuid,uuid,uuid,boolean)
  to authenticated;
 grant execute on function public.nexa_p0_verify_revocation(uuid,uuid,uuid)
+ to authenticated;
+revoke all on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid)
  to authenticated;
 
 commit;
