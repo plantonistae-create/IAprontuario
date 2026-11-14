@@ -304,7 +304,90 @@ begin
   'authorizes_external_ai',false,'gate_c_verified',false);
 end; $$;
 
--- Only two new, narrowly scoped public RPCs. Existing JWT/RLS/ACL unchanged.
+-- A second, independent DB transaction can re-read an issued consent event.
+-- It proves ONLY that an owner-bound physician attestation row is still current.
+-- It does NOT prove patient consent independently, first external egress order,
+-- safe RLS/ownership, or any permission to contact an AI provider.
+create function public.nexa_p0_verify_consent_action(
+ p_event_id uuid,p_encounter uuid,p_expected_sync_version bigint,
+ p_displayed_digest text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_source public.consultation_history%rowtype;
+ v_event private.nexa_p0_source_action_events%rowtype;
+ v_digest text;
+begin
+ if v_actor is null or p_event_id is null or p_encounter is null
+    or p_expected_sync_version is null or p_expected_sync_version<1
+    or p_displayed_digest is null
+ then raise exception using errcode='42501',
+   message='AUTHENTICATED_CONSENT_RECEIPT_REQUIRED'; end if;
+
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5
+ for share of p,cs;
+ if not found then raise exception using errcode='42501',
+   message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ select * into v_source from public.consultation_history s
+ where s.encounter_id=p_encounter and s.user_id=v_actor for share;
+ if not found or v_source.sync_version is distinct from p_expected_sync_version
+    or v_source.encounter_state in ('audited','discarded')
+    or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
+ then raise exception using errcode='42501',
+   message='CURRENT_OWNER_SNAPSHOT_REQUIRED'; end if;
+
+ v_digest:=private.nexa_p0_clinical_digest(
+   v_source.fields,v_source.processing_meta,v_source.protocol_usage,
+   v_source.consent_recorded_at);
+ if v_digest is distinct from p_displayed_digest then
+   raise exception using errcode='42501',
+     message='SOURCE_DIGEST_CHANGED'; end if;
+
+ select * into v_event from private.nexa_p0_source_action_events e
+ where e.event_id=p_event_id and e.owner_user_id=v_actor
+   and e.encounter_id=p_encounter for share;
+ if not found or v_event.source_row_id<>v_source.id
+    or v_event.event_kind<>'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+    or v_event.physician_explicit_action is not true
+    or v_event.patient_scope_attested is not true
+    or v_event.source_sync_version is distinct from v_source.sync_version
+    or v_event.canonicalization<>'pg-jsonb-v1'
+    or v_event.source_digest is distinct from v_digest
+    or not exists (
+      select 1 from private.nexa_p0_purpose_policy pol
+      where pol.purpose=v_event.purpose and pol.provider=v_event.provider
+        and pol.policy_version=v_event.policy_version
+        and pol.revoked_at is null
+        and pol.approved_at<=pg_catalog.clock_timestamp()
+    ) or exists (
+      select 1 from private.nexa_p0_source_action_events rev
+      where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+        and rev.event_kind='CONSENT_REVOKED'
+        and rev.purpose=v_event.purpose and rev.provider=v_event.provider
+        and rev.policy_version=v_event.policy_version
+        and rev.server_recorded_at>=v_event.server_recorded_at
+    )
+ then raise exception using errcode='42501',
+   message='CONSENT_RECEIPT_NOT_CURRENT'; end if;
+
+ return pg_catalog.jsonb_build_object(
+  'event_id',v_event.event_id,'kind',v_event.event_kind,
+  'source_sync_version',v_event.source_sync_version,
+  'source_digest',v_digest,'canonicalization',v_event.canonicalization,
+  'purpose',v_event.purpose,'provider',v_event.provider,
+  'policy_version',v_event.policy_version,
+  'server_recorded_at',v_event.server_recorded_at,
+  'event_present_and_current',true,
+  'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+-- New narrowly scoped candidate RPCs only. No hosted ACL changes.
 revoke all on function public.nexa_p0_prepare_source_review(uuid)
  from public,anon,authenticated,service_role;
 revoke all on function public.nexa_p0_record_source_action(
@@ -314,6 +397,10 @@ grant execute on function public.nexa_p0_prepare_source_review(uuid)
  to authenticated;
 grant execute on function public.nexa_p0_record_source_action(
  text,uuid,uuid,bigint,text,text,text,text,boolean,boolean)
+ to authenticated;
+revoke all on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text)
  to authenticated;
 
 commit;
