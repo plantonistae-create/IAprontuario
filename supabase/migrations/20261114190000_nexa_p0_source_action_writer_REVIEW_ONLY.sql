@@ -171,7 +171,7 @@ begin
  where s.encounter_id=p_encounter for share;
  if not found or v_source.user_id is distinct from v_actor
     or v_source.sync_version<1
-    or (p_kind<>'revoke' and v_source.encounter_state in ('audited','discarded'))
+    or v_source.encounter_state in ('audited','discarded')
     or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
     or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
@@ -182,8 +182,7 @@ begin
   v_source.consent_recorded_at);
  v_kind:=case p_kind
   when 'consent' then 'PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
-  when 'review' then 'PHYSICIAN_FINAL_REVIEW_ACK'
-  else 'CONSENT_REVOKED' end;
+  else 'PHYSICIAN_FINAL_REVIEW_ACK' end;
 
  -- Serialize consent issuance with an exact-event revocation for this actor
  -- and policy scope. Never use a client-provided actor or access key.
@@ -201,9 +200,8 @@ begin
  if found then
   if v_event.event_kind<>v_kind or v_event.encounter_id<>p_encounter
      or v_event.source_row_id<>v_source.id
-     or (p_kind<>'revoke' and
-         (v_event.source_sync_version is distinct from p_expected_sync_version
-          or v_event.source_digest is distinct from p_displayed_digest))
+     or v_event.source_sync_version is distinct from p_expected_sync_version
+     or v_event.source_digest is distinct from p_displayed_digest
      or v_event.purpose is distinct from p_purpose
      or v_event.provider is distinct from p_provider
      or v_event.policy_version is distinct from p_policy_version
@@ -215,18 +213,6 @@ begin
     raise exception using errcode='42501',
       message='FINAL_REVIEW_SERVER_COMPLETENESS_NOT_PROVEN';
   end if;
-  if p_kind='revoke' and exists (
-    -- An old revocation receipt must not imply a later, independent
-    -- physician consent was revoked. A new explicit action is required.
-    select 1 from private.nexa_p0_source_action_events ce
-    where ce.owner_user_id=v_actor and ce.encounter_id=p_encounter
-      and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
-      and ce.purpose=p_purpose and ce.provider=p_provider
-      and ce.policy_version=p_policy_version
-      and (ce.server_recorded_at,ce.event_id)>
-          (v_event.server_recorded_at,v_event.event_id)
-  ) then raise exception using errcode='42501',
-    message='REVOCATION_REPLAY_SUPERSEDED'; end if;
   if p_kind='consent' then
     if v_event.source_sync_version is distinct from v_source.sync_version
        or v_event.source_digest is distinct from v_digest
@@ -295,18 +281,7 @@ begin
      )
   then raise exception using errcode='42501',message='EXACT_FINAL_REVIEW_OR_CONSENT_REQUIRED'; end if;
  else
-  -- Revocation must remain available even after the snapshot changes.
-  if p_expected_sync_version is not null or p_displayed_digest is not null
-     or p_patient_scope_attested is not false
-     or p_purpose is null or p_provider is null or p_policy_version is null
-     or not exists (
-      select 1 from private.nexa_p0_source_action_events ce
-      where ce.encounter_id=p_encounter and ce.owner_user_id=v_actor
-        and ce.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
-        and ce.purpose=p_purpose and ce.provider=p_provider
-        and ce.policy_version=p_policy_version
-     )
-  then raise exception using errcode='42501',message='CONSENT_TO_REVOKE_NOT_FOUND'; end if;
+  raise exception using errcode='42501',message='EXACT_EVENT_REVOKE_RPC_REQUIRED';
  end if;
 
  insert into private.nexa_p0_source_action_events (
