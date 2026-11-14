@@ -200,7 +200,9 @@ anchor.closest('.toolbar')?.after(surface);
 for(const name of ['nexa:encounter-started','nexa:encounter-sync-conflict',
  'nexa:encounter-synced','nexa:consultation-reset','nexa:encounter-locked'])
  window.addEventListener(name,()=>clear());
-document.querySelector('.panel-right')?.addEventListener('input',()=>clear());
+document.querySelector('.panel-right')?.addEventListener('input',event=>{
+ if(!surface?.contains(event.target))clear();
+});
 window.nexaClinicalSupabase18101?.auth?.onAuthStateChange?.((event)=>{
  if(event==='SIGNED_OUT')clear();
 });
