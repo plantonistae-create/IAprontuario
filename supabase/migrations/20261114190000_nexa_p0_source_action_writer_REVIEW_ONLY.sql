@@ -496,6 +496,132 @@ begin
    'external_ai_authorized',false,'gate_c_verified',false);
 end; $$;
 
+-- Recover an EXISTING physician attestation after client state loss.
+-- A browser-supplied scope is only a filter, never proof of consent or
+-- permission for AI egress. A missing row is inconclusive about in-flight
+-- writes. Do not mint events, keys, legal consent or dispatch receipts.
+create function public.nexa_p0_recover_current_consent(
+ p_encounter uuid,p_expected_sync_version bigint,p_displayed_digest text,
+ p_purpose text,p_provider text,p_policy_version text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+ v_actor uuid := auth.uid();
+ v_source public.consultation_history%rowtype;
+ v_event private.nexa_p0_source_action_events%rowtype;
+ v_verified jsonb;
+ v_count integer;
+begin
+ if v_actor is null or p_encounter is null
+    or p_expected_sync_version is null or p_expected_sync_version<1
+    or p_displayed_digest is null
+    or p_displayed_digest !~ '^sha256:[0-9a-f]{64}$'
+    or p_purpose not in ('realtime_audio','radar_context',
+      'audio_diarization','final_documentation','audit_deidentification')
+    or p_provider not in ('openai','gemini','nexa-core')
+    or p_policy_version is null
+    or p_policy_version !~ '^[a-zA-Z0-9_.-]{3,80}$'
+ then raise exception using errcode='42501',
+   message='CURRENT_CONSENT_RECOVERY_SCOPE_REQUIRED'; end if;
+ perform 1 from public.profiles p
+ join private.clinical_slots cs on cs.profile_id=p.id
+ where p.id=v_actor and p.clinical_access is true
+   and p.access_status='active' and cs.slot_no between 1 and 5;
+ if not found then raise exception using errcode='42501',
+    message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
+
+ select * into v_source from public.consultation_history s
+ where s.encounter_id=p_encounter and s.user_id=v_actor for share;
+ if not found or v_source.sync_version is distinct from p_expected_sync_version
+    or v_source.encounter_state in ('audited','discarded')
+    or pg_catalog.jsonb_typeof(v_source.fields) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.processing_meta) is distinct from 'object'
+    or pg_catalog.jsonb_typeof(v_source.protocol_usage) is distinct from 'array'
+    or private.nexa_p0_clinical_digest(
+      v_source.fields,v_source.processing_meta,v_source.protocol_usage,
+      v_source.consent_recorded_at) is distinct from p_displayed_digest
+ then raise exception using errcode='42501',
+    message='CURRENT_OWNER_SNAPSHOT_REQUIRED'; end if;
+
+ -- Candidate row is verified independently below. Refuse multiple live
+ -- declarations for the same exact version/policy rather than choose one.
+ select pg_catalog.count(*) into v_count
+ from private.nexa_p0_source_action_events e
+ where e.owner_user_id=v_actor and e.encounter_id=p_encounter
+   and e.source_row_id=v_source.id::text
+   and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+   and e.physician_explicit_action is true
+   and e.patient_scope_attested is true
+   and e.source_sync_version=p_expected_sync_version
+   and e.source_digest=p_displayed_digest
+   and e.canonicalization='pg-jsonb-v1'
+   and e.purpose=p_purpose and e.provider=p_provider
+   and e.policy_version=p_policy_version
+   and not exists (
+     select 1 from private.nexa_p0_source_action_events rev
+     where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+       and rev.event_kind='CONSENT_REVOKED'
+       and rev.purpose=e.purpose and rev.provider=e.provider
+       and rev.policy_version=e.policy_version
+       and rev.event_order>=e.event_order
+   );
+ if v_count>1 then raise exception using errcode='42501',
+   message='AMBIGUOUS_ACTIVE_ATTESTATION_SET'; end if;
+ if v_count=0 then
+   return pg_catalog.jsonb_build_object(
+     'state','UNCONFIRMED','event_present_and_current',false,
+     'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+
+ select * into v_event from private.nexa_p0_source_action_events e
+ where e.owner_user_id=v_actor and e.encounter_id=p_encounter
+   and e.source_row_id=v_source.id::text
+   and e.event_kind='PHYSICIAN_PATIENT_CONSENT_ATTESTATION'
+   and e.physician_explicit_action is true
+   and e.patient_scope_attested is true
+   and e.source_sync_version=p_expected_sync_version
+   and e.source_digest=p_displayed_digest
+   and e.canonicalization='pg-jsonb-v1'
+   and e.purpose=p_purpose and e.provider=p_provider
+   and e.policy_version=p_policy_version
+   and not exists (
+     select 1 from private.nexa_p0_source_action_events rev
+     where rev.owner_user_id=v_actor and rev.encounter_id=p_encounter
+       and rev.event_kind='CONSENT_REVOKED'
+       and rev.purpose=e.purpose and rev.provider=e.provider
+       and rev.policy_version=e.policy_version
+       and rev.event_order>=e.event_order
+   ) for share;
+ if not found then
+   return pg_catalog.jsonb_build_object(
+     'state','UNCONFIRMED','event_present_and_current',false,
+     'external_ai_authorized',false,'gate_c_verified',false);
+ end if;
+
+ v_verified:=public.nexa_p0_verify_consent_action(
+   v_event.event_id,p_encounter,p_expected_sync_version,p_displayed_digest);
+ if v_verified->>'event_present_and_current' is distinct from 'true'
+    or v_verified->>'event_id' is distinct from v_event.event_id::text
+    or v_verified->>'purpose' is distinct from p_purpose
+    or v_verified->>'provider' is distinct from p_provider
+    or v_verified->>'policy_version' is distinct from p_policy_version
+    or v_verified->>'source_digest' is distinct from p_displayed_digest
+    or v_verified->>'external_ai_authorized' is distinct from 'false'
+    or v_verified->>'gate_c_verified' is distinct from 'false'
+ then raise exception using errcode='42501',
+   message='RECOVERED_CONSENT_NOT_CURRENT'; end if;
+
+ return pg_catalog.jsonb_build_object(
+   'state','OBSERVED_CURRENT','event_present_and_current',true,
+   'event_id',v_event.event_id,'client_action_id',v_event.client_action_id,
+   'kind',v_event.event_kind,'source_sync_version',v_event.source_sync_version,
+   'source_digest',v_event.source_digest,'canonicalization',v_event.canonicalization,
+   'purpose',v_event.purpose,'provider',v_event.provider,
+   'policy_version',v_event.policy_version,
+   'server_recorded_at',v_event.server_recorded_at,
+   'external_ai_authorized',false,'gate_c_verified',false);
+end; $$;
+
+
 -- Owner-scoped listing of actionable, IMMUTABLE physician attestations.
 -- Revocation does not depend on current source version, approved policies or
 -- client-generated consent. Deleted sources have no payload to expose here.
@@ -798,6 +924,14 @@ revoke all on function public.nexa_p0_reconcile_consent_action(
  from public,anon,authenticated,service_role;
 grant execute on function public.nexa_p0_reconcile_consent_action(
  uuid,uuid,bigint,text,text,text,text)
+ to authenticated;
+
+-- The recovery function has no write capability and is REVIEW_ONLY.
+revoke all on function public.nexa_p0_recover_current_consent(
+ uuid,bigint,text,text,text,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.nexa_p0_recover_current_consent(
+ uuid,bigint,text,text,text,text)
  to authenticated;
 
 -- New functions remain candidate-only, absent from hosted PostgreSQL.
