@@ -48,8 +48,19 @@ type RpcRequest = {
 function decodeRequest(body: unknown):
   { kind: "bootstrap"; encounter: string } |
   { kind: "prepare"; encounter: string } |
+  { kind: "revocations" } |
+  { kind: "revoke"; params: {
+      p_encounter: string; p_consent_event_id: string;
+      p_action_id: string; p_explicit_confirmation: true;
+    } } |
   { kind: "record"; params: RpcRequest } | null {
-  if (!plain(body) || !validId(body.encounterId)) return null;
+  if (!plain(body)) return null;
+  // Enumerate only immutable, server-owned attestations; never from local
+  // policy choices, browser storage or a client-supplied owner identifier.
+  if (body.action === "list_revocable_consents") {
+    return exact(body, ["action"]) ? { kind: "revocations" } : null;
+  }
+  if (!validId(body.encounterId)) return null;
   if (body.action === "prepare_recording") {
     // Never accept clinical fields, timestamps, policy claims or an actor ID.
     if (!exact(body, ["action", "encounterId"])) return null;
@@ -110,23 +121,17 @@ function decodeRequest(body: unknown):
     };
   }
   if (body.action === "revoke_consent") {
-    if (!exact(body, [...common, "purpose", "provider", "policyVersion"]) ||
-      !["realtime_audio", "radar_context", "audio_diarization",
-        "final_documentation", "audit_deidentification"].includes(String(body.purpose)) ||
-      !["openai", "gemini", "nexa-core"].includes(String(body.provider)) ||
-      typeof body.policyVersion !== "string" ||
-      !/^[\w.-]{3,80}$/.test(body.policyVersion) ||
+    if (!exact(body, [...common, "targetEventId"]) ||
+      !validId(body.targetEventId) ||
       !exact(body.confirmation, ["physicianRevokesAttestation"]) ||
       body.confirmation.physicianRevokesAttestation !== true) return null;
     return {
-      kind: "record",
+      kind: "revoke",
       params: {
-        p_kind: "revoke", p_encounter: body.encounterId,
+        p_encounter: body.encounterId,
+        p_consent_event_id: body.targetEventId,
         p_action_id: body.actionId,
-        p_expected_sync_version: null, p_displayed_digest: null,
-        p_purpose: body.purpose as string, p_provider: body.provider as string,
-        p_policy_version: body.policyVersion,
-        p_explicit_confirmation: true, p_patient_scope_attested: false,
+        p_explicit_confirmation: true,
       },
     };
   }
@@ -280,14 +285,90 @@ serve(async req => {
         external_ai_authorized: false, gate_c_verified: false,
       });
     }
+    if (request.kind === "revocations") {
+      const { data, error } = await db.rpc("nexa_p0_list_revocable_consents");
+      if (error || !plain(data) ||
+          data.event_origin !== "OWNED_PERSISTED_PHYSICIAN_ACTION" ||
+          data.external_ai_authorized !== false ||
+          data.gate_c_verified !== false ||
+          !Array.isArray(data.events) || data.events.length > 100 ||
+          !data.events.every((event: unknown) =>
+            plain(event) && validId(event.event_id) &&
+            validId(event.encounter_id) && version(event.source_sync_version) &&
+            typeof event.purpose === "string" &&
+            ["realtime_audio", "radar_context", "audio_diarization",
+              "final_documentation", "audit_deidentification"].includes(event.purpose) &&
+            ["openai", "gemini", "nexa-core"].includes(String(event.provider)) &&
+            typeof event.policy_version === "string" &&
+            /^[\\w.-]{3,80}$/.test(event.policy_version) &&
+            typeof event.server_recorded_at === "string" &&
+            Number.isFinite(Date.parse(event.server_recorded_at)))) {
+        return json({ error: "REVOCABLE_EVENT_LIST_UNVERIFIED" }, 409);
+      }
+      // No transcript, personal fields or other doctors' events are returned.
+      return json({ status: "OWNED_REVOCABLE_EVENTS_ONLY",
+        events: data.events.map((e: Record<string, unknown>) => ({
+          event_id: e.event_id, encounter_id: e.encounter_id,
+          purpose: e.purpose, provider: e.provider,
+          policy_version: e.policy_version,
+          source_sync_version: e.source_sync_version,
+          server_recorded_at: e.server_recorded_at,
+        })),
+        external_ai_authorized: false, gate_c_verified: false });
+    }
+    if (request.kind === "revoke") {
+      const { data, error } = await db.rpc("nexa_p0_revoke_target_event",
+        request.params);
+      if (error || !plain(data) || !validId(data.event_id) ||
+          data.kind !== "CONSENT_REVOKED" ||
+          data.revokes_event_id !== request.params.p_consent_event_id ||
+          data.canonicalization !== "pg-jsonb-v1" ||
+          !version(data.source_sync_version) ||
+          typeof data.server_recorded_at !== "string" ||
+          !Number.isFinite(Date.parse(data.server_recorded_at)) ||
+          data.authorizes_external_ai !== false ||
+          data.gate_c_verified !== false) {
+        // A failed response cannot establish that no event was written.
+        return json({ error: "REVOCATION_RECEIPT_UNVERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      // Read after commit in an independent authenticated RPC transaction.
+      const { data: readback, error: readError } =
+        await db.rpc("nexa_p0_verify_revocation", {
+          p_revoke_event_id: data.event_id,
+          p_consent_event_id: request.params.p_consent_event_id,
+          p_encounter: request.params.p_encounter,
+        });
+      if (readError || !plain(readback) ||
+          readback.event_present_and_current !== true ||
+          readback.event_id !== data.event_id ||
+          readback.revokes_event_id !== request.params.p_consent_event_id ||
+          readback.kind !== "CONSENT_REVOKED" ||
+          readback.source_sync_version !== data.source_sync_version ||
+          readback.canonicalization !== data.canonicalization ||
+          readback.server_recorded_at !== data.server_recorded_at ||
+          readback.external_ai_authorized !== false ||
+          readback.gate_c_verified !== false) {
+        return json({ error: "REVOCATION_READBACK_NOT_VERIFIED",
+          event_state: "UNCONFIRMED" }, 409);
+      }
+      return json({ status: "SOURCE_REVOCATION_PERSISTED_ONLY",
+        event: {
+          event_id: data.event_id, kind: data.kind,
+          target_event_id: data.revokes_event_id,
+          source_sync_version: data.source_sync_version,
+          server_recorded_at: data.server_recorded_at,
+          canonicalization: data.canonicalization,
+          receipt_readback_verified: true,
+        }, external_ai_authorized: false, gate_c_verified: false });
+    }
     const { data, error } = await db.rpc("nexa_p0_record_source_action", request.params);
     // A successful HTTP/RPC call is not an event receipt. Require the exact
     // server event kind, durable id, version and canonicalization even on
     // idempotent replays. Never forward arbitrary fields returned by an RPC.
     const expectedKind = request.params.p_kind === "consent"
       ? "PHYSICIAN_PATIENT_CONSENT_ATTESTATION"
-      : request.params.p_kind === "review"
-      ? "PHYSICIAN_FINAL_REVIEW_ACK" : "CONSENT_REVOKED";
+      : "PHYSICIAN_FINAL_REVIEW_ACK";
     const recordedAt = typeof data?.server_recorded_at === "string"
       ? Date.parse(data.server_recorded_at) : NaN;
     const expectedVersion = request.params.p_expected_sync_version;
