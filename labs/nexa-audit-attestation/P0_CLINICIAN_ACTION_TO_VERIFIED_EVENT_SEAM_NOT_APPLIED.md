@@ -12,6 +12,37 @@ Data da inspeção: 13/11/2026 · Issue #164 · PR #167 Draft, base privada `fea
 
 Essas fronteiras não são intercambiáveis: eventos de finalidade audit e external_ai não autorizam retroativamente o processamento de áudio nem podem ser inferidos do tempo de gravação no navegador.
 
+### 1.1. Caminhos externos anteriores à transcrição final — lacuna adicional comprovada no código
+
+A seção A acima **não pode ser implementada com um gate exclusivo em \`processAudio()\`**: quando esse método roda, alguns caminhos externos já podem ter sido utilizados durante a gravação. O checkbox \`consent\` é uma condição de UI; a leitura estática das Edge Functions abaixo não encontrou verificação de **evento servidor durável, por finalidade**, anterior à requisição ao provedor. Isso não demonstra que o usuário/paciente não tenha consentido; demonstra ausência de prova técnica nesse fluxo versionado. Não inferir equivalência jurídica entre consentimento do paciente, declaração do médico e autorização do controlador.
+
+| Fase e gatilho no browser | Edge/function versionada | Primeira saída externa possível | Prova de consentimento servidor presente nesse caminho? |
+| --- | --- | --- | --- |
+| Início de gravação, \`startRec()\` (\`index.html\` 3881–3911), após checkbox | \`startRealtimeRadar()\` (3768–3783) → \`realtime-call\` | \`realtime-call/index.ts\` 166–301 abre \`POST /v1/realtime/calls\` para OpenAI; mídia WebRTC pode começar **antes** de \`processAudio()\` | **NÃO COMPROVADA**. A Edge autentica usuário/estado clínico (aprox. 53–164), sem consultar evento durável de finalidade antes do upstream |
+| Falha ou timeout do WebRTC, durante gravação | \`startRadarChunkFallback\` (3806–3825) → \`drainRadarChunks\` (3785–3803) → \`realtime-call\` multipart | \`realtime-call/index.ts\` 349–427 faz \`POST /v1/audio/transcriptions\` para OpenAI em trechos temporários | **NÃO COMPROVADA**. Não reutilizar consentimento inferido de WebRTC ou data do browser |
+| Transcrição temporária atualiza Radar | \`handleRealtimeEvent\` (3760–3766), \`window.NexaRadarController.mount().analyze\` (5383–5389) → \`realtime-radar\` | \`realtime-radar/index.ts\` 15–80 pode enviar contexto e buffer de transcrição a \`/v1/responses\` da OpenAI ou a provedor NEXA Core, conforme configuração | **NÃO COMPROVADA**. Autenticação e acesso clínico não são prova de consentimento específico nem do conteúdo aprovado |
+| Processamento final após gravação, com diarização opcional | \`processAudio()\` (4014–4048) → \`nexaDiarizeAudio\` (3958–3974) → \`consultation-speakers\` | \`consultation-speakers/index.ts\` 26–59 envia arquivo a \`/v1/audio/transcriptions\` da OpenAI | **NÃO COMPROVADA**. Exige \`auth.getUser()\` e capacidade clínica; não há evento durável de consentimento consultado antes do fetch |
+| Estruturação final normal, fallback de diarização ou segmentos retornados | \`invoke\` (3941–3957) ou \`nexaInvokeAutomaticSpeakerSegments\` (3976–3991) → \`process-consultation\` | \`process-consultation/index.ts\` 1720–1830, 1940–1984 e 1163–1358: OpenAI (áudio, estruturação e assistência), ou Gemini (1402–1430, 1598–1685) conforme provider; segmentos verificados podem evitar segunda transcrição do áudio mas não processamento externo de texto | **NÃO COMPROVADA**. Há \`requireUser()\` no servidor, porém não um checkpoint de consentimento por finalidade |
+| Submissão à auditoria, depois de salvar | \`submitCurrentForAudit\` (2858–2887) → \`submit-audit-case\` | \`submit-audit-case/index.ts\` 49–110 envia \`fields/core_context\` à OpenAI antes da escrita \`audit_cases\` com service role | **NÃO COMPROVADA**. \`confirm()\` e \`reviewed_documentation:true\` não substituem consentimento durável nem ACK médico final |
+
+**Consequência para o desenho futuro, NÃO IMPLANTADO:** deve haver um gate de finalidade autenticado **antes de iniciar qualquer caminho de áudio/Radar que alcance o provedor** (incluindo primeira tentativa WebRTC e fallback). Separadamente, os pontos de entrada de diarização, processamento final, Radar remoto e auditoria devem verificar a autorização ainda válida no próprio backend antes de cada saída correspondente. A confirmação local do checkbox pode gerar *intenção* de consentimento, mas o servidor deve registrar/validar a ação explícita, sua finalidade, política, titularidade/escopo e eventual revogação. O desenho precisa decidir e documentar a semântica de um consentimento que cubra várias operações; não fabricar múltiplas permissões nem retroautorizar uma chamada prévia a partir de \`consentRecordedAt\` posterior. Um gate pré-IA do áudio não representa automaticamente ACK final de auditoria.
+
+**Compatibilidade de UX:** os eventos de transporte/transcrição temporária só devem alimentar internamente o Radar. A **transcrição textual visível** continua exclusivamente ao final da consulta, conforme requisito do NEXA. Nenhuma mudança visual é proposta.
+
+**Critérios de teste de integração adicionais — NÃO EXECUTADOS:**
+- **A13** checkbox marcado mas sem evento servidor antes de \`startRec\`: STOP, sem WebRTC ou chunks enviados a provedor.
+- **A14** WebRTC falha e fallback tenta reenviar áudio sem validação da mesma finalidade ainda vigente: STOP, sem fallback upstream.
+- **A15** transcript transitório chega ao Radar remoto com consentimento ausente, revogado ou de finalidade insuficiente: STOP, sem chamada OpenAI/NEXA Core.
+- **A16** diarização opcional com usuário autenticado mas sem consentimento válido para provedor externo: STOP antes do fetch; autenticação isolada não basta.
+- **A17** \`process-consultation\` por FormData ou JSON/segmentos sem gate verificado: STOP antes de OpenAI/Gemini; evitar reprocessamento pago automático.
+- **A18** timestamp \`consentRecordedAt\` só gerado por \`processAudio\`, depois de transmissão WebRTC/chunk: **não usar** como prova retroativa.
+- **A19** mesmo médico autoriza áudio mas não auditoria ou não revisa snapshot exato: no máximo processamento dentro da finalidade concedida; STOP antes da IA de auditoria.
+- **A20** troca de conta/sessão entre concessão, conexão de streaming, diarização e processamento final: revalidar no servidor finalidade/owner/sessão antes de cada requisição, sem reciclar recibo de outra sessão.
+
+**STOP:** todos os A13–A20 são requisitos candidatos, não testes passados. Nenhum gate de áudio, WebRTC, Radar, diarização ou auditoria foi ativado, testado em produção, ou validado em PostgreSQL. O produtor \`gate-c-event-producer.P0-CANDIDATE.mjs\` é apenas intenção de registro de eventos de consentimento e revisão final; não resolve os gates de processamento externo instalados. Gate C permanece NO-GO, C01–C10 NOT_RUN.
+
+
+
 ## 2. Fontes verificadas: conteúdo persistido pode ter sido editado no cliente
 
 | Campo/estado | Writer encontrado no repositório | Autoridade que NÃO constitui |
