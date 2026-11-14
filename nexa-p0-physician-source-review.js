@@ -80,7 +80,20 @@ function snapshotOK(source){
  source.canonicalization==='pg-jsonb-v1'&&DIGEST.test(source.server_digest||'')&&
  !!source.source_snapshot&&typeof source.source_snapshot==='object'&&
  !Array.isArray(source.source_snapshot)&&typeof source.source_snapshot.fields==='object'&&
- source.source_snapshot.fields!==null;
+ source.source_snapshot.fields!==null&&!Array.isArray(source.source_snapshot.fields)&&
+ !!source.source_snapshot.processing_meta&&
+ typeof source.source_snapshot.processing_meta==='object'&&
+ !Array.isArray(source.source_snapshot.processing_meta)&&
+ Array.isArray(source.source_snapshot.protocol_usage);
+}
+function validPersistedReceipt(event,kind,version){
+ return !!event&&UUID.test(String(event.event_id||''))&&
+  event.kind===kind&&
+  Number.isSafeInteger(event.source_sync_version)&&
+  event.source_sync_version===version&&
+  event.canonicalization==='pg-jsonb-v1'&&
+  typeof event.server_recorded_at==='string'&&
+  Number.isFinite(Date.parse(event.server_recorded_at));
 }
 async function verifyStable(){
  if(!prepared)throw Error('Abra novamente a versão confirmada pelo servidor.');
@@ -155,8 +168,11 @@ async function record(type){
     purpose:policy.purpose,provider:policy.provider,policyVersion:policy.policyVersion,
     confirmation:{physicianAttestsPatientScope:true,explicitlyConfirmsPurpose:true}
    });
-   if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY')throw Error('Sem confirmação de evento pelo servidor.');
-   warn('Ação médica registrada. ISSO NÃO autoriza processamento externo.');
+   if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
+      !validPersistedReceipt(resp.event,'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',
+        prepared.source.source_sync_version))
+    throw Error('Sem recibo verificável da declaração médica.');
+   warn('Declaração médica confirmada pelo servidor para esta versão. ISSO NÃO autoriza processamento externo.');
   }else{
    if(!reviewCheck.checked)throw Error('Confirme a revisão do conteúdo exibido.');
    const resp=await send({
@@ -165,8 +181,11 @@ async function record(type){
     displayedDigest:prepared.source.server_digest,
     confirmation:{physicianReviewedPersistedSnapshot:true}
    });
-   if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY')throw Error('Sem ACK autoritativo confirmado.');
-   warn('ACK da versão registrada. Auditoria e IA continuam bloqueadas.');
+   if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
+      !validPersistedReceipt(resp.event,'PHYSICIAN_FINAL_REVIEW_ACK',
+        prepared.source.source_sync_version))
+    throw Error('Sem recibo verificável de revisão médica.');
+   warn('Recibo da revisão desta versão confirmado. Auditoria e IA continuam bloqueadas.');
   }
   // A second action must explicitly re-open and re-check the current source.
   prepared=null;preview.textContent='';
@@ -210,7 +229,11 @@ document.querySelector('.panel-right')?.addEventListener('input',event=>{
  if(!surface?.contains(event.target))clear();
 });
 window.nexaClinicalSupabase18101?.auth?.onAuthStateChange?.((event)=>{
- if(event==='SIGNED_OUT')clear();
+ // Clear a displayed clinical snapshot on session/account transitions.
+ if(event==='SIGNED_OUT'||event==='SIGNED_IN'||event==='USER_UPDATED')clear();
+});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden)clear();
 });
 window.nexaP0PhysicianSourceReview=Object.freeze({clear});
 })();
