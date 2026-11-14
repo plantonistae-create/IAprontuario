@@ -129,7 +129,7 @@ begin
       and pol.approved_at<=pg_catalog.clock_timestamp()
   ),'[]'::jsonb)
  );
-end; $;
+end; $$;
 
 -- Atomic writer: actor identity comes ONLY from auth.uid() under an
 -- authenticated Supabase JWT; no p_actor, client status or service_role.
@@ -201,6 +201,8 @@ begin
   return pg_catalog.jsonb_build_object(
    'event_id',v_event.event_id,'kind',v_event.event_kind,
    'server_recorded_at',v_event.server_recorded_at,
+   'source_sync_version',v_event.source_sync_version,
+   'canonicalization',v_event.canonicalization,
    'authorizes_external_ai',false,'gate_c_verified',false);
  end if;
 
