@@ -76,6 +76,31 @@ Deno.serve(async req=>{
     if(aerr)throw Error("APPROVAL_QUERY_FAILED");
     const ids=(approved||[]).map(x=>x.audit_case_id);
     if(!ids.length)return res(req,{error:"NO_APPROVED_CASES",offset,limit},404);
+
+    // P0 owner-only export boundary. The approval page is GLOBAL, so reject
+    // the ENTIRE page when it includes another physician; never export a
+    // subset or fetch its clinical fields using the service-role credential.
+    // Both ownership assertions come from database records, not request body.
+    const {data:caseOwners,error:ownerError}=await admin.from("audit_cases")
+      .select("id,submitted_by,source_consultation_id").in("id",ids);
+    if(ownerError)throw Error("DATASET_OWNER_LOOKUP_FAILED");
+    if(!caseOwners||caseOwners.length!==ids.length||
+       new Set(caseOwners.map(x=>x.id)).size!==ids.length||
+       caseOwners.some(x=>x.submitted_by!==user.id||!x.source_consultation_id))
+      return res(req,{error:"DATASET_OWNER_SCOPE_FORBIDDEN"},403);
+
+    const sourceIds=[...new Set(caseOwners.map(x=>x.source_consultation_id))];
+    const {data:sourceOwners,error:sourceError}=await admin.from("consultation_history")
+      .select("encounter_id,user_id").in("encounter_id",sourceIds);
+    if(sourceError)throw Error("DATASET_SOURCE_OWNER_LOOKUP_FAILED");
+    if(!sourceOwners||sourceOwners.length!==sourceIds.length||
+       new Set(sourceOwners.map(x=>x.encounter_id)).size!==sourceIds.length||
+       sourceOwners.some(x=>x.user_id!==user.id)||
+       sourceIds.some(id=>!sourceOwners.some(source=>source.encounter_id===id)))
+      return res(req,{error:"DATASET_OWNER_SCOPE_FORBIDDEN"},403);
+
+    // No clinical content is fetched before all case IDs and their unique
+    // source encounters have passed both server-side owner checks.
     const [{data:cases,error:cerror},{data:audits,error:derror},{data:reviews,error:rerror}]=await Promise.all([
       admin.from("nexa_core_cases")
         .select("audit_case_id,quality_status,case_data,learning_profile,core_schema_version,audit_reviewed_at")
