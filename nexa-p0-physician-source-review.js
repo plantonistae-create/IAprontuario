@@ -422,6 +422,11 @@ async function reconcileConsent(){
   if(generation!==viewGeneration||document.hidden)return;
   if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
      resp.event?.receipt_readback_verified!==true||
+     resp.event?.action_id!==saved.id||
+     resp.event?.source_digest!==saved.digest||
+     resp.event?.purpose!==saved.purpose||
+     resp.event?.provider!==saved.provider||
+     resp.event?.policy_version!==saved.policyVersion||
      !validPersistedReceipt(resp.event,
        'PHYSICIAN_PATIENT_CONSENT_ATTESTATION',saved.sourceVersion))
     throw Error('A declaração original não foi comprovada em releitura.');

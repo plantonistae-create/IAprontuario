@@ -422,6 +422,8 @@ serve(async req => {
       if (data.state !== "CONFIRMED" ||
           data.event_present_and_current !== true ||
           !validId(data.event_id) ||
+          !validId(data.client_action_id) ||
+          data.client_action_id !== request.params.p_action_id ||
           data.kind !== "PHYSICIAN_PATIENT_CONSENT_ATTESTATION" ||
           data.source_sync_version !== request.params.p_expected_sync_version ||
           data.source_digest !== request.params.p_displayed_digest ||
@@ -436,8 +438,12 @@ serve(async req => {
       }
       return json({ status: "SOURCE_ACTION_PERSISTED_ONLY",
         event: {
-          event_id: data.event_id, kind: data.kind,
+          event_id: data.event_id, action_id: data.client_action_id,
+          kind: data.kind,
           source_sync_version: data.source_sync_version,
+          source_digest: data.source_digest,
+          purpose: data.purpose, provider: data.provider,
+          policy_version: data.policy_version,
           canonicalization: data.canonicalization,
           server_recorded_at: data.server_recorded_at,
           receipt_readback_verified: true,
