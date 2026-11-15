@@ -25,6 +25,9 @@ const LAB_ID = '.nexa-v321-pg16.wsWTxmon';
 const LAB = path.join(HOME, LAB_ID);
 const DATA = path.join(LAB, 'data');
 const SOCKET = path.join(LAB, 'socket');
+// Pinned future copy: structural inventory only, never DB authorization.
+const COPY_LAB = path.join(HOME, LAB_ID + '.group-socket-copy');
+const COPY_SOCKET_GROUP = 'nexa_gc_socket_lab';
 const REQUIRED_BLOBS = Object.freeze({
   'GATE_C_C01_C10_SINGLE_SESSION_NOT_RUN.md': '6a833676d829bc97b05d4420d528e6ef2cf7517a',
   'gate-c-checkpoint-atomic.P0-CANDIDATE-NOT-APPLIED.sql': '6f9d76e5883cdc8e0dd6a215ac4e7efb14054f06',
@@ -356,8 +359,91 @@ async function runCases(m, psql) {
   stop('INDEPENDENT_CASE_ASSERTIONS_AND_AUTH_PROOF_PENDING');
 }
 
+
+function inventoryGroupSocketCopy() {
+  // Caller-provided paths/manifests are intentionally unsupported.
+  // No database connection, actor authentication, or schema-only access.
+  if (process.platform !== 'darwin') stop('COPY_INVENTORY_REQUIRES_MACOS');
+  checkCluster(); // Original 0700 socket-only baseline remains mandatory.
+  const data = path.join(COPY_LAB, 'data');
+  const socket = path.join(COPY_LAB, 'socket');
+  const group = spawnSync('/usr/bin/dscl',
+    ['.', '-read', '/Groups/' + COPY_SOCKET_GROUP, 'PrimaryGroupID'],
+    { env: cleanEnv(), encoding: 'utf8', timeout: 5000 });
+  const found = /^PrimaryGroupID: ([0-9]+)$/.exec((group.stdout || '').trim());
+  if (group.error || group.status !== 0 || !found ||
+      !Number.isSafeInteger(Number(found[1])) || Number(found[1]) < 100) {
+    stop('COPY_SOCKET_GROUP_NOT_PROVEN');
+  }
+  const groupId = Number(found[1]);
+  function directory(file, mode, socketGroup = false) {
+    let st;
+    try { st = fs.lstatSync(file); } catch { stop('COPY_DIRECTORY_MISSING'); }
+    if (!st.isDirectory() || st.isSymbolicLink() ||
+        st.uid !== process.getuid() || (st.mode & 0o7777) !== mode ||
+        (socketGroup && st.gid !== groupId) ||
+        fs.realpathSync(file) !== file) stop('COPY_DIRECTORY_UNSAFE');
+  }
+  function metadata(file) {
+    let st;
+    try { st = fs.lstatSync(file); } catch { stop('COPY_METADATA_MISSING'); }
+    if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid() ||
+        (st.mode & 0o022) !== 0 || fs.realpathSync(file) !== file) {
+      stop('COPY_METADATA_UNSAFE');
+    }
+    return fs.readFileSync(file);
+  }
+  directory(COPY_LAB, 0o710, true);
+  directory(data, 0o700);
+  directory(socket, 0o710, true);
+  if (fs.existsSync(path.join(DATA, 'postmaster.pid')) ||
+      fs.existsSync(path.join(data, 'postmaster.pid')) ||
+      fs.readdirSync(socket).length !== 0) stop('COPY_SOURCE_OR_SOCKET_NOT_QUIESCENT');
+  if (metadata(path.join(data, 'PG_VERSION')).toString('utf8').trim() !== '16') {
+    stop('COPY_POSTGRESQL_VERSION');
+  }
+  const active = metadata(path.join(data, 'postgresql.conf')).toString('utf8')
+    .split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+  const expected = [
+    "listen_addresses = ''",
+    "unix_socket_directories = '" + socket + "'",
+    'unix_socket_permissions = 0770',
+    "unix_socket_group = '" + COPY_SOCKET_GROUP + "'"
+  ];
+  if (active.length !== expected.length ||
+      expected.some(item => active.filter(line => line === item).length !== 1)) {
+    stop('COPY_POSTGRES_CONFIG_UNREVIEWED');
+  }
+  if (metadata(path.join(data, 'postgresql.auto.conf')).toString('utf8')
+      .split(/\r?\n/).some(s => s.trim() && !s.trim().startsWith('#'))) {
+    stop('COPY_POSTGRES_OVERRIDE');
+  }
+  // Matching auth files and pg_control support limited copy provenance, not
+  // completeness, absence of real data, or authorization to connect.
+  for (const name of ['global/pg_control', 'pg_hba.conf', 'pg_ident.conf']) {
+    if (sha256(metadata(path.join(DATA, name))) !==
+        sha256(metadata(path.join(data, name)))) {
+      stop('COPY_METADATA_LINEAGE_MISMATCH');
+    }
+  }
+  console.log('COPY_GROUP_SOCKET_INVENTORY=STRUCTURAL_ONLY');
+  console.log('COPY_PROVENANCE=PARTIAL_METADATA_MATCH_ONLY');
+  console.log('COPY_SOCKET_ACL_AND_ACTOR_TRAVERSAL=NOT_PROVEN');
+  console.log('COPY_GROUP_MEMBERSHIP=NOT_PROVEN');
+  console.log('COPY_ACTOR_AUTHENTICATION=NOT_PROVEN');
+  console.log('COPY_DATA_SYNTHETIC=NOT_PROVEN');
+  console.log('COPY_PG_CONNECTION=NOT_ATTEMPTED');
+  console.log('GATE_C=NO_GO_0_OF_19');
+}
+
 async function main() {
   const mode = process.argv[2];
+  if (mode === '--inventory-group-copy') {
+    if (process.argv.length !== 3) stop('COPY_INVENTORY_USAGE');
+    checkEnv();
+    inventoryGroupSocketCopy();
+    return;
+  }
   const manifestFile = process.argv[3];
   if (!['--inventory','--catalog','--cases'].includes(mode) || !manifestFile) {
     stop('USAGE_INVENTORY_CATALOG_OR_CASES');
