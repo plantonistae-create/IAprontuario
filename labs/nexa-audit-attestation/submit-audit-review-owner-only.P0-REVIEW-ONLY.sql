@@ -67,24 +67,38 @@ begin
     raise sqlstate '22023' using message='DISCARD_REASON_REQUIRED';
   end if;
 
-  select ac.* into v_case from public.audit_cases ac where ac.id=case_id for update;
-  if not found then raise sqlstate 'PT404' using message='AUDIT_CASE_NOT_FOUND'; end if;
-  if v_case.status<>'pending' then raise sqlstate 'PT409' using message='AUDIT_REVIEW_CONFLICT'; end if;
+  -- Authorize ownership IN the initial row-locking query. For an unknown
+  -- case and a foreign case, return the SAME denial (no status/existence
+  -- oracle and no unguarded ac.* read for other physicians).
+  select ac.* into v_case
+    from public.audit_cases ac
+    where ac.id=case_id
+      and ac.submitted_by=v_actor
+      and exists (
+        select 1 from public.consultation_history source
+         where source.encounter_id=ac.source_consultation_id
+           and source.user_id=v_actor
+      )
+    for update;
+  if not found then
+    raise sqlstate '42501' using message='AUDIT_REVIEW_SOURCE_OWNER_FORBIDDEN';
+  end if;
 
-  -- The case is server-loaded under row lock. Never derive its owner or
-  -- source version from client fields, reviewer flags or admin authority.
-  if v_case.submitted_by is distinct from v_actor
-     or v_case.source_consultation_id is null
+  -- The case is server-loaded under lock; its source/version never comes
+  -- from client fields, reviewer flags, or admin capability.
+  if v_case.source_consultation_id is null
      or v_case.source_sync_version is null
      or v_case.source_sync_version < 1 then
     raise sqlstate '42501' using message='AUDIT_REVIEW_SOURCE_OWNER_FORBIDDEN';
   end if;
+  if v_case.status<>'pending' then raise sqlstate 'PT409' using message='AUDIT_REVIEW_CONFLICT'; end if;
 
-  -- encounter_id has a verified UNIQUE index on the current hosted schema.
-  -- This source lock also prevents a concurrent change before the two writes.
-  select s.* into v_source
-    from public.consultation_history s
-    where s.encounter_id=v_case.source_consultation_id
+  -- encounter_id is UNIQUE in the inspected hosted schema. Lock the exact
+  -- source after the case; check again after any concurrent source change.
+  select source.* into v_source
+    from public.consultation_history source
+    where source.encounter_id=v_case.source_consultation_id
+      and source.user_id=v_actor
     for update;
   if not found or v_source.user_id is distinct from v_actor then
     raise sqlstate '42501' using message='AUDIT_REVIEW_SOURCE_OWNER_FORBIDDEN';
