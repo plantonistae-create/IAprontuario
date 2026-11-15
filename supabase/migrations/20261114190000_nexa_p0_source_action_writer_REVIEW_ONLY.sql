@@ -542,7 +542,8 @@ begin
 
  return pg_catalog.jsonb_build_object(
    'state','CONFIRMED','event_present_and_current',true,
-   'event_id',v_event.event_id,'kind',v_event.event_kind,
+   'event_id',v_event.event_id,'client_action_id',v_event.client_action_id,
+   'kind',v_event.event_kind,
    'source_sync_version',v_event.source_sync_version,
    'source_digest',v_event.source_digest,
    'canonicalization',v_event.canonicalization,
