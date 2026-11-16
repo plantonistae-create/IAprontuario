@@ -107,15 +107,39 @@ Deno.serve(async(req:Request)=>{
         if(error||!data)throw new ArchiveError("READBACK_UNAVAILABLE",503);
         return data;
       },
-      async createSignedDownloadUrl(path:string,ttl:number){
-        const {data,error}=await store.createSignedUrl(path,ttl);
-        if(error||!data)throw new ArchiveError("DOWNLOAD_URL_UNAVAILABLE",503);
-        return{url:data.signedUrl};
-      }
     };
     const result=await executeAudioArchive({
       actor:user.id,request:cmd,source,grant,bucket,storage,hashBlob:verifiedDigest
     });
+
+    if(cmd.action==="retrieve"){
+      // The source/blob was verified by the contract. A second authority read
+      // narrows the revoke-vs-download race after potentially slow readback.
+      if(!("audio" in result)||!(result.audio instanceof Blob))
+        return json(req,503,{error:"READBACK_UNAVAILABLE"});
+      const {data:latestRows,error:latestError}=await userClient.rpc(
+        "nexa_audio_retention_authority",
+        {p_encounter_id:cmd.encounter_id,p_grant_id:cmd.retention_grant_id}
+      );
+      const latest=Array.isArray(latestRows)?latestRows[0]:latestRows;
+      if(latestError||!latest||latest.owner_user_id!==user.id||
+        latest.encounter_id!==cmd.encounter_id||
+        latest.grant_id!==cmd.retention_grant_id||
+        latest.active!==true||latest.server_verified!==true||
+        latest.revoked_at!==null||
+        typeof latest.expires_at!=="string"||
+        !Number.isFinite(Date.parse(latest.expires_at))||
+        Date.parse(latest.expires_at)<=Date.now())
+        return json(req,423,{error:"RETENTION_GRANT_NOT_VERIFIED"});
+      return new Response(result.audio,{status:200,headers:{
+        ...headers(req),
+        "Content-Type":cmd.mime_type,
+        "X-Nexa-Audio-Sha256":cmd.sha256,
+        "X-Nexa-Audio-Size-Bytes":String(cmd.size_bytes),
+        "Access-Control-Expose-Headers":"X-Nexa-Audio-Sha256, X-Nexa-Audio-Size-Bytes",
+        "Content-Disposition":`attachment; filename="consulta-audio.${cmd.extension}"`
+      }});
+    }
     return json(req,result.status,result.body);
   }catch(error){
     if(error instanceof ArchiveError)return json(req,error.status,{error:error.code});
