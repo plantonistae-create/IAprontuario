@@ -122,105 +122,10 @@
     }
   }
 
-  let startInFlight = false;
-  // Recorder recovery must only reset the recorder machinery. It never owns the
-  // decision to discard recorded audio: transcribed audio kept in this session
-  // (not archived anywhere) and untranscribed audio are preserved here. Explicit,
-  // confirmed discards live in index.html (reset, history reopen, logout, and the
-  // original startRec after the microphone is acquired for a confirmed new take).
-  function snapshotHeldAudio(){
-    let blob = null, kept = [], processDisabled = null;
-    try { if (typeof audioBlob !== 'undefined' && audioBlob) blob = audioBlob; } catch(_) {}
-    if (!blob) return null;
-    try { if (typeof chunks !== 'undefined' && Array.isArray(chunks)) kept = chunks.slice(); } catch(_) {}
-    try { const pb = byId('processBtn'); if (pb) processDisabled = pb.disabled; } catch(_) {}
-    return {blob, kept, processDisabled};
-  }
-  function restoreHeldAudio(held){
-    if (!held) return;
-    try { audioBlob = held.blob; } catch(_) {}
-    try { chunks = held.kept; } catch(_) {}
-    try { const pb = byId('processBtn'); if (pb && held.processDisabled !== null) pb.disabled = held.processDisabled; } catch(_) {}
-  }
-  async function releaseStaleRecorder(){
-    const held = snapshotHeldAudio();
-    try { if (typeof stopRealtimeRadar === 'function') stopRealtimeRadar({wipe:true}); } catch(_) {}
-    try { if (typeof stopRecordingTimer === 'function') stopRecordingTimer({reset:false}); } catch(_) {}
-    try {
-      if (typeof mediaRecorder !== 'undefined' && mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try { discardStoppedRecording = true; } catch(_) {}
-        const recorder = mediaRecorder;
-        await new Promise(resolve => {
-          recorder.addEventListener?.('stop', resolve, {once:true});
-          try { recorder.stop(); } catch(_) { resolve(); }
-          setTimeout(resolve, 400);
-        });
-      }
-    } catch(_) {}
-    try { if (typeof stream !== 'undefined' && stream) stream.getTracks().forEach(t => { try{t.stop()}catch(_){}}); } catch(_) {}
-    try { if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state !== 'closed') await audioCtx.close(); } catch(_) {}
-    try { if (typeof raf !== 'undefined') cancelAnimationFrame(raf); } catch(_) {}
-    try { recording = false; } catch(_) {}
-    try { mediaRecorder = null; } catch(_) {}
-    try { stream = null; } catch(_) {}
-    try { audioCtx = null; } catch(_) {}
-    try { analyser = null; dataArray = null; } catch(_) {}
-    try { discardStoppedRecording = false; } catch(_) {}
-    if (held) restoreHeldAudio(held);
-    else { try { chunks = []; audioBlob = null; } catch(_) {} }
-    const rec = byId('recBtn');
-    if (rec) {
-      rec.classList.remove('recording');
-      const consent = byId('consent');
-      rec.disabled = !!consent && !consent.checked;
-    }
-    const circle = byId('circleShape'), stop = byId('stopShape');
-    if (circle) circle.style.display = '';
-    if (stop) stop.style.display = 'none';
-  }
-
-  function installRecorderRecovery(){
-    let original = null;
-    try { if (typeof startRec === 'function') original = startRec; } catch(_) {}
-    if (!original || original.__nexaRecoveredStart) return;
-    const recoveredStart = async function(...args){
-      if (startInFlight) return;
-      startInFlight = true;
-      try {
-        let active = false;
-        try { active = !!recording; } catch(_) {}
-        if (!active) await releaseStaleRecorder();
-        return await original.apply(this,args);
-      } catch (err) {
-        console.error('[NEXA] Falha ao reiniciar gravação', err);
-        await releaseStaleRecorder();
-        try { if (typeof show === 'function') show('Não foi possível reiniciar a gravação. O gravador foi recuperado; tente novamente.', true); } catch(_) {}
-      } finally {
-        startInFlight = false;
-        setTimeout(refreshRecordingControls, 20);
-      }
-    };
-    recoveredStart.__nexaRecoveredStart = true;
-    try { startRec = recoveredStart; } catch(_) { return; }
-    const top = byId('nexaDesktopPause');
-    if (top && !top.dataset.nexaRecoveryBound) {
-      top.dataset.nexaRecoveryBound = '1';
-      top.addEventListener('click', e => {
-        let active = false, blob = null;
-        try { active = !!recording; } catch(_) {}
-        try { blob = audioBlob; } catch(_) {}
-        if (active || blob) return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const consent = byId('consent');
-        if (consent && !consent.checked) {
-          try { if (typeof show === 'function') show('Confirme o consentimento antes de iniciar a gravação.', true); } catch(_) {}
-          return;
-        }
-        recoveredStart();
-      }, true);
-    }
-  }
+  // NOTE (Sprint 8 / D1): the recorder state (startRec, audioBlob, chunks, mediaRecorder)
+  // lives inside the index.html IIFE and is intentionally NOT reachable from here.
+  // A previous wrapper that tried to patch startRec from this global script never
+  // installed in a real browser. Recorder safety is implemented in index.html.
 
   function recordingSnapshot(){
     let active = false, paused = false, secs = 0, blob = null;
@@ -336,7 +241,6 @@
   function init(){
     installStyles();
     compactConsentAndActions();
-    installRecorderRecovery();
     installRadarLedger();
     bindResetCleanup();
     refreshRecordingControls();

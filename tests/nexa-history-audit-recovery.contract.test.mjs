@@ -14,7 +14,7 @@ test('audit outbox derives identity from authenticated runtime, not persisted to
 });
 test('structured transcription is durably checkpointed and the audio is NOT discarded after the local note',()=>{
  const checkpoint=html.indexOf("await nexaPersistSession('structured')");
- const retain=html.indexOf("audioBlob.nexaTranscribed=true;nexaSetAudioArchiveNotice('session_only')");
+ const retain=html.indexOf("audioBlob.nexaTranscribed=true;$('recBtn').dataset.audioTranscribed='1';nexaSetAudioArchiveNotice('session_only')");
  assert.ok(checkpoint>0&&retain>checkpoint,'audio is marked session-only only after the note is saved');
  assert.equal(html.includes("audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente"),false,'premature audio discard must stay removed');
  assert.match(html,/if\(structuredSaved\)\{/);
