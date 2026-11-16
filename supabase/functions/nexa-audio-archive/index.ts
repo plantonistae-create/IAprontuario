@@ -125,6 +125,9 @@ Deno.serve(async(req:Request)=>{
       if(latestError||!latest||latest.owner_user_id!==user.id||
         latest.encounter_id!==cmd.encounter_id||
         latest.grant_id!==cmd.retention_grant_id||
+        latest.purpose!=="clinical_audio_retention"||
+        typeof latest.policy_version!=="string"||
+        !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(latest.policy_version)||
         latest.active!==true||latest.server_verified!==true||
         latest.revoked_at!==null||
         typeof latest.expires_at!=="string"||
