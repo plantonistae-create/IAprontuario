@@ -140,9 +140,17 @@ async function beforeReset(el){
  try{
   const fields=collect(),hasClinical=Object.values(fields).some(v=>String(v||'').trim()),
         hasValid=valid(fields);
-  const recorder=String(document.getElementById('recBtn')?.dataset?.recordingState||'');
-  if(['recording','paused','stopped'].includes(recorder))throw new Error('TRANSCRIVA_OU_FINALIZE_O_AUDIO_ANTES_DE_LIMPAR');
-  if(hasClinical&&typeof window.confirm==='function'&&!window.confirm(
+  const recordingControl=document.getElementById('recBtn');
+  const recorder=String(recordingControl?.dataset?.recordingState||'');
+  // Only the successful local structured-note checkpoint can mark audio transcribed.
+  // Active and untranscribed audio remain hard-blocked.
+  const transcribedAudio=recorder==='stopped'&&recordingControl?.dataset?.audioTranscribed==='1';
+  if(['recording','paused'].includes(recorder)||(recorder==='stopped'&&!transcribedAudio))
+   throw new Error('TRANSCRIVA_OU_FINALIZE_O_AUDIO_ANTES_DE_LIMPAR');
+  // Confirm the audio discard once, before performReset invokes native reset.
+  if(transcribedAudio&&typeof window.confirm==='function'&&!window.confirm(
+   'O áudio NÃO foi arquivado e será descartado ao limpar. O prontuário permanece salvo neste computador. Continuar?'))return;
+  if(hasClinical&&!transcribedAudio&&typeof window.confirm==='function'&&!window.confirm(
    'Iniciar novo atendimento? A consulta atual será preservada localmente antes de limpar.'))return;
   const autosave=window.nexaEncounterAutosave18101;
   let saved=null,snap=null,conflict=false;
