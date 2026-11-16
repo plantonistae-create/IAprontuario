@@ -245,3 +245,12 @@ test('unapplied SQL candidate has balanced bodies, intact regex and one transact
  assert.match(sql,/for share;/);
  assert.ok(sql.includes('REVIEW CANDIDATE, NOT APPLIED'));
 });
+
+test('unapplied receipt SQL explicitly rejects TRUNCATE and explains privilege limit',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/functions/nexa-audio-archive/retention-storage.CANDIDATE-NOT-APPLIED.sql',import.meta.url),'utf8');
+ assert.match(sql,/revoke truncate on public\.nexa_audio_archive_receipts from public, anon, authenticated, service_role;/);
+ assert.match(sql,/drop trigger if exists nexa_audio_receipt_no_truncate on public\.nexa_audio_archive_receipts;/);
+ assert.match(sql,/create trigger nexa_audio_receipt_no_truncate\s+before truncate on public\.nexa_audio_archive_receipts\s+for each statement execute function public\.nexa_audio_receipt_immutable_guard\(\);/);
+ assert.match(sql,/before update or delete on public\.nexa_audio_archive_receipts\s+for each row execute function public\.nexa_audio_receipt_immutable_guard\(\);/);
+ assert.match(sql,/A table owner or superuser can disable triggers/);
+});
