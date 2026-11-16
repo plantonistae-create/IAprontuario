@@ -5,15 +5,21 @@ import {reviewScramStaticProfile, SCRAM_ACTORS, REQUIRED_INDEPENDENT_EVIDENCE}
 import fs from 'node:fs';
 
 const db='nexa_gate_c_lab_synthetic_scram';
-const socket='/tmp/nexa-gc-scram-new/socket';
+const socket='/Users/test/Documents/NEXA/sprint11-3b-scram-abcdef/socket';
 const sample=()=>({
   database:db,socketPath:socket,
   postgresqlConf:[
     "listen_addresses = ''",
     "unix_socket_directories = '"+socket+"'",
     'unix_socket_permissions = 0700',
-    "password_encryption = 'scram-sha-256'"
+    "password_encryption = 'scram-sha-256'",
+    'log_connections = on',
+    "log_statement = 'none'",
+    "log_min_error_statement = 'PANIC'",
+    'log_parameter_max_length_on_error = 0',
+    "log_line_prefix = '%m [%p] '"
   ].join('\n'),
+  postgresqlAutoConf:'# empty; no overrides\n',
   pgHbaConf:[
     ...[...SCRAM_ACTORS,'nexa_gc_observer_lab'].map(role =>
       'local '+db+' '+role+' scram-sha-256'),
@@ -35,6 +41,10 @@ test('a matching synthetic SCRAM profile is still NOT a physical PASS',()=>{
   assert.equal(r.verdict,'STATIC_SCRAM_PROFILE_MATCH_ONLY');
   assert.equal(r.independentDbAuth,'NOT_PROVEN');
   assert.equal(r.independentUnixActors,'NOT_PROVEN');
+  assert.equal(r.effectivePostmasterConfiguration,'NOT_PROVEN');
+  assert.equal(r.observedScramAuthenticationMethod,'NOT_PROVEN');
+  assert.equal(r.clientRequireAuthAndRequirePeer,'NOT_PROVEN');
+  assert.equal(r.socketRealpathOwnershipAndMode,'NOT_PROVEN');
   assert.equal(r.actorPositiveAndCrossNegative,'NOT_RUN');
   assert.equal(r.privilegedRoleChecks,'NOT_RUN');
   assert.equal(r.casesApproved,false);
@@ -49,7 +59,10 @@ test('three fixed actors and a comprehensive pending-evidence matrix',()=>{
     'SESSION_USER_EQUALS_EXPECTED_AUTHENTICATED_LOGIN',
     'ROLE_GRAPH_NO_MEMBERSHIP_OR_SET_ROLE_ESCALATION',
     'EXTERNAL_ISOLATION_INDEPENDENTLY_PROVEN',
-    'SQL_CASES_C01_C10_AND_C07_C08_BARRIERS_SEPARATELY_APPROVED'])
+    'SQL_CASES_C01_C10_AND_C07_C08_BARRIERS_SEPARATELY_APPROVED',
+    'SERVER_AUTH_METHOD_HBA_LINE_AND_BACKEND_PID_CORRELATED',
+    'CLIENT_LIBPQ_REQUIRE_AUTH_SCRAM_AND_REQUIREPEER_PROVEN',
+    'POSTGRESQL_AUTO_CONF_EMPTY_IN_ACTUAL_CLUSTER_PROVEN'])
     assert.ok(REQUIRED_INDEPENDENT_EVIDENCE.includes(name));
 });
 test('fail closed: invalid input',()=>reject(x=>{x.postgresqlConf=null},'CONFIG_TEXT_INVALID'));
@@ -69,6 +82,19 @@ test('fail closed: host allow rule',()=>reject(x=>{x.pgHbaConf=x.pgHbaConf.repla
 test('fail closed: missing IPv6 host reject',()=>reject(x=>{x.pgHbaConf=x.pgHbaConf.replace('\nhost all all ::/0 reject','')},'HBA_RULES_OR_ORDER_UNREVIEWED'));
 test('fail closed: pg_ident mappings',()=>reject(x=>{x.pgIdentConf='lab map user\n'},'IDENT_MAPPING_UNREVIEWED'));
 test('fail closed: HBA include directive',()=>reject(x=>{x.pgHbaConf='include_dir elsewhere\n'+x.pgHbaConf},'HBA_RULES_OR_ORDER_UNREVIEWED'));
+test('fail closed: peer-LAB path with scram substring still rejected',()=>reject(x=>{x.socketPath='/Users/test/.nexa-v321-pg16.wsWTxmon/scram/socket'},'NEW_SOCKET_DIRECTORY_SCOPE'));
+test('fail closed: shared tmp socket path',()=>reject(x=>{x.socketPath='/tmp/nexa-scram/socket'},'NEW_SOCKET_DIRECTORY_SCOPE'));
+test('fail closed: var tmp socket path',()=>reject(x=>{x.socketPath='/var/tmp/scram/socket'},'NEW_SOCKET_DIRECTORY_SCOPE'));
+test('fail closed: arbitrary root socket path',()=>reject(x=>{x.socketPath='/scram'},'NEW_SOCKET_DIRECTORY_SCOPE'));
+test('fail closed: auto.conf override',()=>reject(x=>{x.postgresqlAutoConf="listen_addresses='*'";},'AUTO_CONF_OVERRIDE_UNREVIEWED'));
+test('fail closed: absent auto.conf is not evidence of a safe file',()=>reject(x=>{delete x.postgresqlAutoConf},'CONFIG_TEXT_INVALID'));
+test('fail closed: connection logging disabled',()=>reject(x=>{x.postgresqlConf=x.postgresqlConf.replace('log_connections = on','log_connections = off')},'POSTGRESQL_CONFIG_UNREVIEWED'));
+test('fail closed: authentication log PID prefix missing',()=>reject(x=>{x.postgresqlConf=x.postgresqlConf.replace("log_line_prefix = '%m [%p] '","log_line_prefix = ''")},'POSTGRESQL_CONFIG_UNREVIEWED'));
+test('fail closed: statement logging enabled',()=>reject(x=>{x.postgresqlConf=x.postgresqlConf.replace("log_statement = 'none'","log_statement = 'all'")},'POSTGRESQL_CONFIG_UNREVIEWED'));
+test('fail closed: error SQL logging enabled',()=>reject(x=>{x.postgresqlConf=x.postgresqlConf.replace("log_min_error_statement = 'PANIC'","log_min_error_statement = 'ERROR'")},'POSTGRESQL_CONFIG_UNREVIEWED'));
+test('fail closed: HBA comment backslash continuation',()=>reject(x=>{x.pgHbaConf='# malformed\\\n'+x.pgHbaConf},'CONFIG_TEXT_INVALID'));
+test('fail closed: postgresql.conf comment backslash continuation',()=>reject(x=>{x.postgresqlConf='# malformed\\\n'+x.postgresqlConf},'CONFIG_TEXT_INVALID'));
+
 test('fail closed: inline comment ambiguity',()=>reject(x=>{x.pgHbaConf=x.pgHbaConf+'\nlocal all all peer # unsafe'},'CONFIG_TEXT_INVALID'));
 test('original peer executor untouched and still stops before cases',()=>{
   const peer=fs.readFileSync(new URL(
