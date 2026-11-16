@@ -56,9 +56,9 @@ test('revocation cannot be silently ignored and event rows are locked',()=>{
   assert.match(sql,/RETENTION_ATTESTATION_REVOKED/);
 });
 test('attestations and policies reject UPDATE DELETE and TRUNCATE',()=>{
-  for(const t of ['policies','events']){
-    assert.match(sql,new RegExp('before update or delete on public\\\\.nexa_audio_retention_'+(t==='policies'?'approved_policies':'evidence_events')));
-    assert.match(sql,new RegExp('before truncate on public\\\\.nexa_audio_retention_'+(t==='policies'?'approved_policies':'evidence_events')));
+  for(const table of ['approved_policies','evidence_events']){
+    assert.ok(sql.includes('before update or delete on public.nexa_audio_retention_'+table));
+    assert.ok(sql.includes('before truncate on public.nexa_audio_retention_'+table));
   }
   assert.match(sql,/AUDIO_RETENTION_AUTHORITY_IMMUTABLE/);
 });
