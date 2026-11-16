@@ -50,6 +50,14 @@ create or replace function public.nexa_audio_revoke_stamp()
 returns trigger language plpgsql security invoker set search_path = ''
 as $$
 begin
+  -- Revocation is one-way: even an internal writer must create a new, separately
+  -- evidenced grant instead of reopening an old grant.
+  if old.revoked_at is not null and
+     (new.active is distinct from old.active or
+      new.revoked_at is distinct from old.revoked_at) then
+    raise exception 'AUDIO_RETENTION_REVOKED_IMMUTABLE'
+      using errcode = '23514';
+  end if;
   if old.active is true and new.active is false then
     new.revoked_at := clock_timestamp();
   end if;
