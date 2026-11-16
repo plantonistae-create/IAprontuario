@@ -43,6 +43,14 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
       grant.purpose!=='clinical_audio_retention'||grant.server_verified!==true)
     fail('RETENTION_GRANT_NOT_VERIFIED',423);
   if(!bucket||bucket.id!==ARCHIVE_BUCKET||bucket.public!==false)fail('PRIVATE_BUCKET_NOT_PROVEN',503);
+  // Private alone does not prove type/size restrictions on unauthenticated
+  // signed uploads. Require explicit bucket-level limits before issuing tokens.
+  const bucketMax=Number(bucket.file_size_limit);
+  if(!Array.isArray(bucket.allowed_mime_types)||!bucket.allowed_mime_types.length||
+     !bucket.allowed_mime_types.includes(cmd.mime_type)||
+     !Number.isSafeInteger(bucketMax)||bucketMax<1||bucketMax>MAX_AUDIO_BYTES)
+    fail('BUCKET_RESTRICTIONS_NOT_PROVEN',503);
+  if(cmd.size_bytes>bucketMax)fail('AUDIO_TOO_LARGE_FOR_BUCKET',413);
   const {directory,path,name}=archivePaths(actor,cmd);
   const entries=await storage.list(directory);
   if(!Array.isArray(entries))fail('STORAGE_LIST_UNAVAILABLE',503);
@@ -54,7 +62,7 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
     const signed=await storage.createSignedUploadUrl(path);
     if(!signed||typeof signed.token!=='string'||!signed.token)fail('UPLOAD_TOKEN_UNAVAILABLE',503);
     return {status:200,body:{schema_version:'nexa-audio-archive-v1',upload_path:path,
-      token:signed.token,method:'tus_or_signed_upload',max_bytes:MAX_AUDIO_BYTES,
+      token:signed.token,method:'signed_upload',max_bytes:bucketMax,
       archived:false,consent_for_training:false}};
   }
   if(others.length!==1)fail('AUDIO_NOT_UPLOADED',404);
