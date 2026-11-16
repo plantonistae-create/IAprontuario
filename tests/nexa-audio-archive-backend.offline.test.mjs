@@ -18,7 +18,17 @@ const rights={active:true,owner_user_id:doctor,encounter_id:encounter,grant_id:g
   purpose:'clinical_audio_retention',server_verified:true,revoked_at:null,
   policy_version:'clinical-audio-v1',expires_at:'2099-01-01T00:00:00.000Z'};
 function fixture(){
-  const objects=new Map();
+  const objects=new Map(),receipts=new Map();
+  const receiptStore={
+    async commitVerified(fields){
+      const existing=receipts.get(fields.client_action_id);
+      if(existing)return existing;
+      const committed={...fields,receipt_id:'66666666-6666-4666-8666-666666666666',
+        purpose:'clinical_audio_retention',committed_at:'2026-11-16T14:00:00.000Z'};
+      receipts.set(fields.client_action_id,committed);return committed;
+    },
+    async readCommitted(fields){return receipts.get(fields.client_action_id)||null}
+  };
   const storage={
     async list(dir){return [...objects.keys()].filter(k=>k.startsWith(dir+'/')).map(k=>({name:k.slice(dir.length+1)}));},
     async download(path){return objects.get(path)??null;},
@@ -26,8 +36,8 @@ function fixture(){
   };
   const call=async(extra={})=>executeAudioArchive({actor:doctor,
     source:{user_id:doctor,encounter_id:encounter},grant:rights,bucket:{id:ARCHIVE_BUCKET,public:false,file_size_limit:MAX_AUDIO_BYTES,allowed_mime_types:['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav']},
-    storage,hashBlob,...extra,request:{...request,...(extra.request||{})}});
-  return {call,objects};
+    storage,hashBlob,receiptStore,...extra,request:{...request,...(extra.request||{})}});
+  return {call,objects,receipts,receiptStore};
 }
 async function rejected(promise,code){
   await assert.rejects(promise,error=>error instanceof ArchiveError&&error.code===code);
@@ -52,6 +62,7 @@ test('confirms persisted bytes by independent server-side readback and stable re
 });
 test('retrieval rechecks owner, grant and checksum without reusable signed links',async()=>{
  const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ await f.call({request:{action:'confirm'}});
  const r=await f.call({request:{action:'retrieve'}});
  assert.equal(r.body.method,'authenticated_stream');
  assert.equal(r.body.training_approved,false);
@@ -162,4 +173,59 @@ test('raw audio is never included in the JSON confirmation receipt',async()=>{
  assert.equal(r.body.archived,true);
  assert.equal('audio' in r,false);
  assert.equal('signed_url' in r.body,false);
+});
+
+test('audio readback without persisted receipt cannot claim archived',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ await rejected(f.call({request:{action:'confirm'},receiptStore:{
+   commitVerified:async()=>null,readCommitted:async()=>null
+ }}),'DURABLE_RECEIPT_NOT_CONFIRMED');
+ assert.equal(f.receipts.size,0);
+});
+test('a missing receipt store fails closed after checksum verification',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ await rejected(f.call({request:{action:'confirm'},receiptStore:null}),
+   'DURABLE_RECEIPT_STORE_UNAVAILABLE');
+});
+test('receipt idempotency returns the same durable id for unchanged audio',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ const first=await f.call({request:{action:'confirm'}});
+ const retry=await f.call({request:{action:'confirm'}});
+ assert.equal(first.body.receipt_id,retry.body.receipt_id);
+ assert.equal(first.body.durable_receipt_verified,true);
+ assert.equal(f.receipts.size,1);
+});
+test('stored receipt must match hash, owner, action, grant, version and file size',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ const receipt=await f.call({request:{action:'confirm'}});
+ const saved=f.receipts.get(action);
+ assert.equal(saved.receipt_id,receipt.body.receipt_id);
+ for(const broken of [
+   {...saved,sha256:'a'.repeat(64)},{...saved,owner_user_id:doctorB},
+   {...saved,client_action_id:doctorB},{...saved,retention_grant_id:doctorB},
+   {...saved,policy_version:'unapproved'},{...saved,size_bytes:bytes.length+1},
+   {...saved,object_path:'other-blob'},{...saved,receipt_id:'not-a-uuid'}
+ ]){
+   f.receipts.set(action,broken);
+   await rejected(f.call({request:{action:'retrieve'}}),'DURABLE_RECEIPT_NOT_FOUND');
+ }
+});
+test('retrieve requires receipt committed after confirmed byte readback',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ await rejected(f.call({request:{action:'retrieve'}}),'DURABLE_RECEIPT_NOT_FOUND');
+ await f.call({request:{action:'confirm'}});
+ const ok=await f.call({request:{action:'retrieve'}});
+ assert.deepEqual(ok.audio,bytes);
+});
+test('no receipt commit occurs when the storage bytes fail integrity check',async()=>{
+ const f=fixture(),p=await f.call();
+ f.objects.set(p.body.upload_path,Buffer.from('tampered'));
+ await rejected(f.call({request:{action:'confirm'}}),'AUDIO_INTEGRITY_MISMATCH');
+ assert.equal(f.receipts.size,0);
+});
+test('only the backend is permitted to create committed archive receipts',()=>{
+ const handler=fs.readFileSync(new URL('../supabase/functions/nexa-audio-archive/index.ts',import.meta.url),'utf8');
+ assert.match(handler,/admin\.rpc\("nexa_audio_commit_verified_receipt"/);
+ assert.match(handler,/DURABLE_RECEIPT_COMMIT_FAILED/);
+ assert.match(handler,/readCommitted/);
 });
