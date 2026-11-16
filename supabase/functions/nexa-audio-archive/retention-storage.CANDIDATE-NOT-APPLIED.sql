@@ -122,6 +122,10 @@ create table if not exists public.nexa_audio_archive_receipts (
 alter table public.nexa_audio_archive_receipts enable row level security;
 revoke all on public.nexa_audio_archive_receipts from public, anon, authenticated;
 grant select, insert on public.nexa_audio_archive_receipts to service_role;
+-- TRUNCATE bypasses row-level policies; prohibit it to every application role.
+-- A table owner or superuser can disable triggers, so only a separately owned
+-- audit ledger and independent backup can withstand privileged tampering.
+revoke truncate on public.nexa_audio_archive_receipts from public, anon, authenticated, service_role;
 grant select, update on public.nexa_audio_retention_grants to service_role;
 -- SELECT ... FOR SHARE requires UPDATE privilege on the locked table,
 -- independently of the default Supabase service_role privileges.
@@ -140,6 +144,12 @@ drop trigger if exists nexa_audio_receipt_immutable on public.nexa_audio_archive
 create trigger nexa_audio_receipt_immutable
 before update or delete on public.nexa_audio_archive_receipts
 for each row execute function public.nexa_audio_receipt_immutable_guard();
+-- PostgreSQL TRUNCATE never fires row-level UPDATE/DELETE triggers or RLS.
+-- This statement-level guard prevents TRUNCATE while triggers remain enabled.
+drop trigger if exists nexa_audio_receipt_no_truncate on public.nexa_audio_archive_receipts;
+create trigger nexa_audio_receipt_no_truncate
+before truncate on public.nexa_audio_archive_receipts
+for each statement execute function public.nexa_audio_receipt_immutable_guard();
 
 -- This function is deliberately callable ONLY by service_role.
 -- A browser with a user JWT cannot call it or directly create receipts.
