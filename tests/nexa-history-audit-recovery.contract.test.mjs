@@ -12,10 +12,11 @@ test('audit outbox derives identity from authenticated runtime, not persisted to
  assert.match(audit,/async function sessionAuth\(\)/);
  assert.match(audit,/nexa:clinical-structured/);
 });
-test('structured transcription is durably checkpointed before audio discard',()=>{
+test('structured transcription is durably checkpointed and the audio is NOT discarded after the local note',()=>{
  const checkpoint=html.indexOf("await nexaPersistSession('structured')");
- const discard=html.indexOf("audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente");
- assert.ok(checkpoint>0&&discard>checkpoint,'structured note must be saved before clearing audio');
+ const retain=html.indexOf("audioBlob.nexaTranscribed=true;nexaSetAudioArchiveNotice('session_only')");
+ assert.ok(checkpoint>0&&retain>checkpoint,'audio is marked session-only only after the note is saved');
+ assert.equal(html.includes("audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente"),false,'premature audio discard must stay removed');
  assert.match(html,/if\(structuredSaved\)\{/);
  assert.match(html,/Transcrição pronta, porém NÃO salva/);
  assert.match(html,/const rec=await api\.preserve\(reason\)/);
@@ -261,7 +262,7 @@ test('legacy seven-day history cannot silently discard the open clinical note or
  const end=html.indexOf('  window.nexaRecoverSavedEncounter=nexaRecoverSavedEncounter;',begin);
  assert.ok(begin>0&&end>begin,'canonical history recovery must exist');
  const source=html.slice(begin,end);
- assert.ok(source.indexOf("if(recording||recordingStarting||(audioBlob&&audioBlob.size>0))")
+ assert.ok(source.indexOf("if(recording||recordingStarting||(audioBlob&&audioBlob.size>0&&!audioBlob.nexaTranscribed))")
    < source.indexOf("await nexaPersistSession('before_history_recovery')"),
    'volatile audio guard must precede any history switch');
  const id='88888888-8888-4888-8888-888888888888';

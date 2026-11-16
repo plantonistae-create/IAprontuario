@@ -79,7 +79,7 @@ test('login and logout user controls are wired in all major UI modes',()=>{
   assert.match(index,/if\(!preserveDraft\)nexaClearPersistedSession\(\)/);
   assert.match(index,/await sb\.auth\.signOut\(\{scope:'local'\}\)/);
   assert.match(index,/location\.replace\(location\.pathname\+location\.search\)/);
-  assert.match(index,/if\(recording\|\|audioBlob\)\{alert/);
+  assert.match(index,/if\(recording\|\|\(audioBlob&&!audioBlob\.nexaTranscribed\)\)\{alert/);
   assert.match(onboarding,/id="nexaPasswordRemember"/);
   assert.match(onboarding,/nexaAuthSession\?\.setRemembered/);
 });
