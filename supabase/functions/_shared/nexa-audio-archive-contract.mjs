@@ -32,7 +32,24 @@ export function archivePaths(actor,request){
   const name=request.sha256+'.'+request.extension;
   return Object.freeze({directory,path:directory+'/'+name,name});
 }
-export async function executeAudioArchive({actor,request,source,grant,bucket,storage,hashBlob}){
+// A successful readback is NOT an archived case until an independently
+// persisted, immutable receipt matches every field supplied by this server.
+// The receiptStore adapter must only use server-only database permissions.
+function receiptMatches(saved,expected){
+  return !!saved&&typeof saved==='object'&&UUID.test(saved.receipt_id||'')&&
+    saved.owner_user_id===expected.owner_user_id&&
+    saved.encounter_id===expected.encounter_id&&
+    saved.client_action_id===expected.client_action_id&&
+    saved.retention_grant_id===expected.retention_grant_id&&
+    saved.object_path===expected.object_path&&
+    saved.sha256===expected.sha256&&
+    saved.size_bytes===expected.size_bytes&&
+    saved.mime_type===expected.mime_type&&
+    saved.policy_version===expected.policy_version&&
+    saved.purpose==='clinical_audio_retention'&&
+    typeof saved.committed_at==='string'&&Number.isFinite(Date.parse(saved.committed_at));
+}
+export async function executeAudioArchive({actor,request,source,grant,bucket,storage,hashBlob,receiptStore}){
   const cmd=parseArchiveRequest(request);
   if(typeof actor!=='string'||!UUID.test(actor))fail('UNAUTHORIZED',401);
   // All checks repeat on every action, including retrieval; no implicit cross-owner access.
@@ -78,13 +95,31 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
   const observed=await hashBlob(audio);
   if(!observed||observed.sha256!==cmd.sha256||observed.size_bytes!==cmd.size_bytes)
     fail('AUDIO_INTEGRITY_MISMATCH',409);
+  // A server-held readback must precede ANY attempt to write a receipt.
+  const expected=Object.freeze({
+    owner_user_id:actor.toLowerCase(),encounter_id:cmd.encounter_id,
+    client_action_id:cmd.client_action_id,retention_grant_id:cmd.retention_grant_id,
+    object_path:path,sha256:cmd.sha256,size_bytes:cmd.size_bytes,
+    mime_type:cmd.mime_type,policy_version:grant.policy_version
+  });
+  if(!receiptStore||typeof receiptStore.commitVerified!=='function'||
+      typeof receiptStore.readCommitted!=='function')
+    fail('DURABLE_RECEIPT_STORE_UNAVAILABLE',503);
+  // The SQL commit RPC checks source ownership and locks the active retention
+  // grant inside the SAME transaction as the immutable receipt insert.
+  const saved=cmd.action==='confirm'
+    ?await receiptStore.commitVerified(expected)
+    :await receiptStore.readCommitted(expected);
+  if(!receiptMatches(saved,expected))
+    fail(cmd.action==='confirm'?'DURABLE_RECEIPT_NOT_CONFIRMED':'DURABLE_RECEIPT_NOT_FOUND',
+      cmd.action==='confirm'?503:409);
   const receipt={schema_version:'nexa-audio-archive-v1',archived:true,
+    receipt_id:saved.receipt_id,committed_at:saved.committed_at,
     audio_id:path,sha256:cmd.sha256,size_bytes:cmd.size_bytes,
     encounter_id:cmd.encounter_id,retention_grant_id:cmd.retention_grant_id,
-    owner_verified:true,server_readback_verified:true,training_approved:false};
+    owner_verified:true,server_readback_verified:true,
+    durable_receipt_verified:true,training_approved:false};
   if(cmd.action==='confirm')return {status:200,body:receipt};
-  // Do not mint a reusable download URL: it would remain valid after revocation.
-  // The HTTP adapter must recheck the grant and deliver this verified Blob
-  // only in the authenticated response, with Cache-Control: no-store.
+  // The HTTP adapter still checks the grant again before delivering bytes.
   return {status:200,body:{...receipt,method:'authenticated_stream'},audio};
 }
