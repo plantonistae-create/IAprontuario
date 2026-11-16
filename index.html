@@ -3888,7 +3888,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
   catch(e){return show('Não foi possível acessar o microfone.',true)}
   if(startEpoch!==clinicalEpoch||!$('consent').checked){stream?.getTracks().forEach(t=>t.stop());stream=null;return;}
-  chunks=[];audioBlob=null;nexaSetAudioArchiveNotice('none');$('processBtn').disabled=true;
+  chunks=[];audioBlob=null;delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');$('processBtn').disabled=true;
   audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   const source=audioCtx.createMediaStreamSource(stream);
   analyser=audioCtx.createAnalyser();analyser.fftSize=1024;
@@ -4080,7 +4080,7 @@ async function processAudio(){
       window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
       // The note is saved locally; the AUDIO is not archived anywhere. Keep it in
       // memory for this session and say so. Only an explicit reset discards it.
-      audioBlob.nexaTranscribed=true;nexaSetAudioArchiveNotice('session_only');
+      audioBlob.nexaTranscribed=true;$('recBtn').dataset.audioTranscribed='1';nexaSetAudioArchiveNotice('session_only');
       $('status').textContent='Prontuário salvo neste computador · sincronização pode estar pendente';
       show(autoSpeakerFallback?'Prontuário salvo neste computador. Diferenciação de vozes indisponível; revise os relatos. O áudio NÃO foi arquivado.':'Prontuário salvo neste computador. Revise antes de copiar. O áudio NÃO foi arquivado.');
     }else{
@@ -4128,7 +4128,7 @@ function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;clearTim
   stopRealtimeRadar();resetRealtimeRadar();window.nexaRadar?.reset(currentProf?.id||'');window.dispatchEvent(new CustomEvent('nexa:consultation-reset'));
   if(!preserveDraft)nexaClearPersistedSession();
   audioBlob=null;
-  chunks=[];nexaSetAudioArchiveNotice('none');
+  chunks=[];delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');
   seconds=0;
   $('timer').textContent='00:00';
   $('status').textContent='Aguardando início da gravação';
