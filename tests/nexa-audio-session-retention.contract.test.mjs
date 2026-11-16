@@ -13,11 +13,12 @@ const noticeSrc=slice('function nexaSetAudioArchiveNotice(state){','async functi
 function el(){return{textContent:'',hidden:true,disabled:false,dataset:{},checked:false}}
 function harness({persist='ok',invokeFails=false}={}){
   const els={};const $=id=>els[id]||(els[id]=el());
-  const toasts=[],events=[];
-  const factory=new Function('$','show','document','window','CustomEvent','persist','invokeFails',`
+  const toasts=[],events=[],markers=[];
+  const factory=new Function('$','show','document','window','CustomEvent','persist','invokeFails','markers',`
     let audioBlob=Object.assign(new Blob(['synthetic-audio']),{});let chunks=['c1'];
     let clinicalEpoch=1,recording=false,mediaRecorder=null,currentProf={id:'synthetic'};
     let activeHistoryId='x',realtimeTranscript='',realtimeTranscriptDelta='',lastProcessedMeta=null;
+    let seconds=3;const nexaAudioMarkerWrite=(st,sec)=>{markers.push([st,sec])};
     const stopRecordingTimer=()=>{},stopRec=()=>{},collect=()=>({}),fill=()=>{},nexaShowMedicationReview=()=>{},initHypothesisReview=()=>{};
     const normalizeOutput=o=>o,radarTranscriptBuffer={clear(){}},APP_CONFIG={appVersion:'t'},NexaRadarEngine={norm:s=>String(s||'')};
     const nexaDiarizeAudio=async()=>null,nexaInvokeAutomaticSpeakerSegments=async()=>({fields:{}});
@@ -27,8 +28,8 @@ function harness({persist='ok',invokeFails=false}={}){
     ${processSrc}
     return{processAudio,blob:()=>audioBlob,chunks:()=>chunks};`);
   const h=factory($,(m,err)=>toasts.push({m,err}),{body:{dataset:{}}},
-    {dispatchEvent:e=>events.push(e.type)},CustomEvent,persist,invokeFails);
-  return{...h,els,toasts,events};
+    {dispatchEvent:e=>events.push(e.type)},CustomEvent,persist,invokeFails,markers);
+  return{...h,els,toasts,events,markers};
 }
 
 test('local note saved: audio and chunks are kept and clearly marked not archived',async()=>{
@@ -41,6 +42,7 @@ test('local note saved: audio and chunks are kept and clearly marked not archive
   assert.match(n.textContent,/NÃO arquivado/);assert.match(n.textContent,/fechar ou recarregar/);
   assert.match(h.els.status.textContent,/Prontuário salvo/);
   assert.doesNotMatch(h.toasts.map(t=>t.m).join(' '),/áudio (foi )?arquivado/i);
+  assert.deepEqual(h.markers,[['transcribed',3]],'loss marker records only state+seconds, never audio');
 });
 
 test('local save failure: no false success, audio kept, state visible',async()=>{

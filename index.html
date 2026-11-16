@@ -2625,7 +2625,7 @@ function updateWorkflow(){const h=!!ta('hda')?.value.trim(),e=!!ta('exame_fisico
 if($('authRememberMe'))$('authRememberMe').checked=window.nexaAuthSession?.remembered===true;
 function setAuthMode(m){authMode=m;const up=m==='signup';$('signInTab').classList.toggle('active',!up);$('signUpTab').classList.toggle('active',up);$('authName').style.display=up?'block':'none';$('authNameLabel').style.display=up?'block':'none';$('forgotPasswordBtn').style.display=up?'none':'block';$('authSubmitBtn').textContent=up?'Criar conta':'Entrar';setBanner($('loginBanner'),'')}$('signInTab').onclick=()=>setAuthMode('signin');$('signUpTab').onclick=()=>setAuthMode('signup');
 async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.rpc('get_my_capabilities');if(error)throw error;const p=Array.isArray(data)?data[0]:data;if(p)return{id:u.id,name:p.display_name||fallback,email:u.email||'',access_status:p.access_status||'pending',is_admin:!!p.is_admin,is_reviewer:!!p.is_reviewer,clinical_access:!!p.clinical_access};return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}catch(e){console.warn('Capacidades NEXA Core indisponíveis:',e);return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}}
-async function enter(session){if(!session?.user)return;if(await window.nexaPasswordSetup?.requiresSetup(session,sb)){window.nexaPasswordSetup.show(session,sb,()=>enter(session));return;}if(currentProf?.id&&currentProf.id!==session.user.id)clearClinicalSession();const authEpoch=clinicalEpoch;const incomingProf=await getProfile(session.user);if(authEpoch!==clinicalEpoch)return;currentProf=incomingProf;window.nexaRadar?.setOwner(currentProf.id);nexaCheckRecoverableSession();if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
+async function enter(session){if(!session?.user)return;if(await window.nexaPasswordSetup?.requiresSetup(session,sb)){window.nexaPasswordSetup.show(session,sb,()=>enter(session));return;}let nexaDroppedForeignAudio=false;if((currentProf?.id&&currentProf.id!==session.user.id)||(nexaHeldAudioOwner&&nexaHeldAudioOwner!==session.user.id)){nexaDroppedForeignAudio=!!(audioBlob||recording);clearClinicalSession();nexaHeldAudioOwner=null}else if(nexaHeldAudioOwner===session.user.id)nexaHeldAudioOwner=null;const authEpoch=clinicalEpoch;const incomingProf=await getProfile(session.user);if(authEpoch!==clinicalEpoch)return;currentProf=incomingProf;window.nexaRadar?.setOwner(currentProf.id);nexaCheckRecoverableSession();nexaCheckLostAudioMarker();if(nexaDroppedForeignAudio)show('O áudio não transcrito de outra conta foi descartado por segurança e não foi transferido para esta conta.',true);if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
 async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;window.nexaAuthSession?.setRemembered($('authRememberMe')?.checked===true);try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};async function logoutNexa(){
   if(recording||(audioBlob&&!audioBlob.nexaTranscribed)){alert('Finalize a gravação e processe o áudio antes de sair, para não perder dados da consulta.');return;}
   if(audioBlob&&audioBlob.nexaTranscribed&&!confirm('O áudio desta consulta NÃO foi arquivado e será perdido ao sair. O prontuário permanece salvo neste computador. Sair mesmo assim?'))return;
@@ -2658,7 +2658,7 @@ async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(
   }
 }
 $('logoutBtn').onclick=logoutNexa;
-['nexaLogoutSidebarBtn','nexaLogoutHeaderBtn','nexaLogoutMoreBtn'].forEach(id=>$(id)?.addEventListener('click',()=>{$('logoutBtn')?.click()}));$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_IN'||event==='PASSWORD_RECOVERY')&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){clearClinicalSession({preserveDraft:true});currentProf=null;$('loginGate').style.display='flex';$('mainApp').style.display='none';$('nexaBottomNav').style.display='none';$('authPassword').value=''}});
+['nexaLogoutSidebarBtn','nexaLogoutHeaderBtn','nexaLogoutMoreBtn'].forEach(id=>$(id)?.addEventListener('click',()=>{$('logoutBtn')?.click()}));$('changeNameBtn').onclick=async()=>{if(!currentProf)return;const name=prompt('Novo nome profissional:',currentProf.name||'');if(!name||name.trim().length<2)return;const value=name.trim();const {error}=await sb.from('profiles').update({display_name:value}).eq('id',currentProf.id);if(error)return show('Não foi possível alterar o nome.',true);await sb.auth.updateUser({data:{display_name:value}});currentProf.name=value;$('loggedProfName').textContent=value;show('Nome atualizado.')};$('changePasswordBtn').onclick=async()=>{const pwd=prompt('Digite a nova senha (mínimo 8 caracteres):');if(!pwd)return;if(pwd.length<8)return show('A nova senha deve ter pelo menos 8 caracteres.',true);const {error}=await sb.auth.updateUser({password:pwd});show(error?error.message:'Senha atualizada.',!!error)};sb.auth.getSession().then(({data})=>data.session?enter(data.session):null);sb.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_IN'||event==='PASSWORD_RECOVERY')&&session)setTimeout(()=>enter(session),0);if(event==='SIGNED_OUT'){const nexaAudioHeld=nexaHoldAudioAcrossSignOut();if(!nexaAudioHeld)clearClinicalSession({preserveDraft:true});currentProf=null;if(nexaAudioHeld)setBanner($('loginBanner'),'Sua sessão terminou, mas o áudio desta consulta foi mantido SOMENTE na memória desta página. Entre novamente com a MESMA conta para transcrevê-lo e não feche nem recarregue esta página.',true);$('loginGate').style.display='flex';$('mainApp').style.display='none';$('nexaBottomNav').style.display='none';$('authPassword').value=''}});
 function item(container,title,preview,onopen,ondelete){const r=document.createElement('div');r.className='item';const b=document.createElement('div');b.style.cursor='pointer';const t=document.createElement('div');t.className='item-title';t.textContent=title;const p=document.createElement('div');p.className='item-preview';p.textContent=preview||'';b.append(t,p);if(onopen)b.onclick=onopen;r.appendChild(b);if(ondelete){const x=document.createElement('button');x.textContent='remover';x.onclick=e=>{e.stopPropagation();ondelete()};r.appendChild(x)}container.appendChild(r)}
 async function loadExamples(){
   if(!currentProf)return;
@@ -3835,7 +3835,7 @@ function stopRealtimeRadar({wipe=true}={}){
   radarTransportStatus('stopped');
 }
 
-let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,recordingStarting=false,seconds=0,timerInt=null,discardStoppedRecording=false;
+let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,recordingStarting=false,seconds=0,timerInt=null,discardStoppedRecording=false,nexaHeldAudioOwner=null;
 function stopRecordingTimer({reset=false}={}){
   if(timerInt!==null){
     clearInterval(timerInt);
@@ -3888,7 +3888,7 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
   catch(e){return show('Não foi possível acessar o microfone.',true)}
   if(startEpoch!==clinicalEpoch||!$('consent').checked){stream?.getTracks().forEach(t=>t.stop());stream=null;return;}
-  chunks=[];audioBlob=null;delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');$('processBtn').disabled=true;
+  chunks=[];audioBlob=null;delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');nexaAudioMarkerClear();$('processBtn').disabled=true;
   audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   const source=audioCtx.createMediaStreamSource(stream);
   analyser=audioCtx.createAnalyser();analyser.fftSize=1024;
@@ -3900,17 +3900,17 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
     stopRecordingTimer();
     recording=false;
     if(discardStoppedRecording){
-      discardStoppedRecording=false;chunks=[];audioBlob=null;$('processBtn').disabled=true;flat();return;
+      discardStoppedRecording=false;chunks=[];audioBlob=null;nexaAudioMarkerClear();$('processBtn').disabled=true;flat();return;
     }
-    audioBlob=new Blob(chunks,{type:mime});
+    audioBlob=new Blob(chunks,{type:mime});nexaAudioMarkerWrite('untranscribed',seconds);
     $('processBtn').disabled=false;
     $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever · áudio ainda apenas na memória · transcreva antes de sair`;
     flat();syncRecordingUi();
     window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
     nexaScrollToProcessCta();
   };
-  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
-  timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
+  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';nexaAudioMarkerWrite('recording',0);radarAnalyze(false);startRealtimeRadar(stream);
+  timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds);if(seconds%5===0)nexaAudioMarkerWrite('recording',seconds)},1000);
   $('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';
   $('status').textContent='Gravando consulta…';
   }catch{stopRec();show('Não foi possível iniciar a gravação.',true);}finally{recordingStarting=false;}
@@ -4016,6 +4016,38 @@ window.nexaShowMedicationReview=nexaShowMedicationReview;
 // things. The audio is never archived by this frontend; it only lives in memory
 // for this page session. "archived" is deliberately unreachable until an
 // authorized backend contract exists.
+const NEXA_AUDIO_MARKER_KEY='nexa-audio-loss-marker-v1';
+function nexaAudioTabId(){try{let t=sessionStorage.getItem('nexa-audio-tab-id');if(!t){t=Math.random().toString(36).slice(2);sessionStorage.setItem('nexa-audio-tab-id',t)}return t}catch{return'-'}}
+// Marker holds NO audio and NO clinical text: only owner, state and elapsed
+// seconds, so a reload/crash can be reported honestly instead of silently.
+function nexaAudioMarkerWrite(state,secs){
+  try{const owner=currentProf?.id||nexaHeldAudioOwner;if(!owner)return;localStorage.setItem(NEXA_AUDIO_MARKER_KEY,JSON.stringify({owner,state,seconds:Number(secs)||0,tab:nexaAudioTabId(),alive_at:Date.now()}))}catch{}
+}
+function nexaAudioMarkerClear(){try{localStorage.removeItem(NEXA_AUDIO_MARKER_KEY)}catch{}}
+function nexaCheckLostAudioMarker(){
+  try{
+    if(recording||recordingStarting||audioBlob||!currentProf?.id)return;
+    const raw=localStorage.getItem(NEXA_AUDIO_MARKER_KEY);if(!raw)return;
+    const m=JSON.parse(raw);if(!m||m.owner!==currentProf.id)return;
+    if(m.state==='recording'&&m.tab!==nexaAudioTabId()&&Date.now()-Number(m.alive_at||0)<12000)return;
+    nexaShowLostAudioNotice(m);
+  }catch{}
+}
+function nexaHoldAudioAcrossSignOut(){
+  const held=recording||(audioBlob&&audioBlob.size>0&&!audioBlob.nexaTranscribed);
+  if(!held)return false;
+  nexaHeldAudioOwner=currentProf?.id||null;
+  if(recording)stopRec();
+  return true;
+}
+function nexaShowLostAudioNotice(info){
+  const el=$('audioArchiveNotice');if(!el)return;
+    const mm=Math.floor((info?.seconds||0)/60),ss=String((info?.seconds||0)%60).padStart(2,'0');
+    const what=info?.state==='transcribed'?'O áudio da consulta anterior NÃO foi arquivado e não existe mais; o prontuário salvo neste computador foi preservado.'
+      :info?.state==='recording'?'A gravação da consulta anterior (cerca de '+mm+':'+ss+') foi interrompida quando a página fechou ou recarregou. O áudio NÃO foi preservado e não pode ser recuperado; repita a gravação se necessário.'
+      :'O áudio NÃO transcrito da consulta anterior ('+mm+':'+ss+') foi perdido quando a página fechou ou recarregou e não pode ser recuperado; repita a gravação se necessário.';
+    el.textContent='ATENÇÃO · '+what;el.hidden=false;el.dataset.audioArchive='lost';
+}
 function nexaSetAudioArchiveNotice(state){
   const el=$('audioArchiveNotice');if(!el)return;
   if(state==='session_only'){
@@ -4080,7 +4112,7 @@ async function processAudio(){
       window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
       // The note is saved locally; the AUDIO is not archived anywhere. Keep it in
       // memory for this session and say so. Only an explicit reset discards it.
-      audioBlob.nexaTranscribed=true;$('recBtn').dataset.audioTranscribed='1';nexaSetAudioArchiveNotice('session_only');
+      audioBlob.nexaTranscribed=true;$('recBtn').dataset.audioTranscribed='1';nexaSetAudioArchiveNotice('session_only');nexaAudioMarkerWrite('transcribed',seconds);
       $('status').textContent='Prontuário salvo neste computador · sincronização pode estar pendente';
       show(autoSpeakerFallback?'Prontuário salvo neste computador. Diferenciação de vozes indisponível; revise os relatos. O áudio NÃO foi arquivado.':'Prontuário salvo neste computador. Revise antes de copiar. O áudio NÃO foi arquivado.');
     }else{
@@ -4128,7 +4160,7 @@ function clearClinicalSession({preserveDraft=false}={}){clinicalEpoch++;clearTim
   stopRealtimeRadar();resetRealtimeRadar();window.nexaRadar?.reset(currentProf?.id||'');window.dispatchEvent(new CustomEvent('nexa:consultation-reset'));
   if(!preserveDraft)nexaClearPersistedSession();
   audioBlob=null;
-  chunks=[];delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');
+  chunks=[];delete $('recBtn').dataset.audioTranscribed;nexaSetAudioArchiveNotice('none');nexaAudioMarkerClear();
   seconds=0;
   $('timer').textContent='00:00';
   $('status').textContent='Aguardando início da gravação';

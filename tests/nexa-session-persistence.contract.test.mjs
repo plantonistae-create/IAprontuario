@@ -75,7 +75,8 @@ test('login and logout user controls are wired in all major UI modes',()=>{
   assert.match(index,/auth:\{persistSession:!!window\.nexaAuthSession/);
   assert.match(index,/storage:window\.nexaAuthSession\.storage/);
   assert.match(index,/setRemembered\(\$\('authRememberMe'\)\?\.checked===true\)/);
-  assert.match(index,/if\(event==='SIGNED_OUT'\)\{clearClinicalSession\(\{preserveDraft:true\}\)/);
+  // Expired session must keep unprocessed audio in memory; only without held audio is the draft-preserving clear used.
+  assert.match(index,/if\(event==='SIGNED_OUT'\)\{const nexaAudioHeld=nexaHoldAudioAcrossSignOut\(\);if\(!nexaAudioHeld\)clearClinicalSession\(\{preserveDraft:true\}\)/);
   assert.match(index,/if\(!preserveDraft\)nexaClearPersistedSession\(\)/);
   assert.match(index,/await sb\.auth\.signOut\(\{scope:'local'\}\)/);
   assert.match(index,/location\.replace\(location\.pathname\+location\.search\)/);
