@@ -10,6 +10,8 @@ const anon=Deno.env.get("SUPABASE_ANON_KEY")||"";
 const secret=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
 const origin=Deno.env.get("ALLOWED_ORIGIN")||"https://plantonistae-create.github.io";
 const enabled=Deno.env.get("NEXA_AUDIO_ARCHIVE_ENABLED")==="true";
+// Separate gate for independently reviewed Storage INSERT RLS, not an RLS substitute.
+const rlsReady=Deno.env.get("NEXA_AUDIO_DIRECT_RLS_READY")==="verified-v1";
 const headers=(req:Request)=>({
   "Access-Control-Allow-Origin":req.headers.get("Origin")===origin?origin:"",
   "Access-Control-Allow-Methods":"POST,OPTIONS",
@@ -45,6 +47,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response(null,{status:204,headers:headers(req)});
   if(req.method!=="POST")return json(req,405,{error:"METHOD_NOT_ALLOWED"});
   if(!enabled)return json(req,423,{error:"ARCHIVE_NOT_AUTHORIZED_FOR_DEPLOYMENT"});
+  if(!rlsReady)return json(req,423,{error:"STORAGE_OWNER_RLS_NOT_VERIFIED"});
   if(!url||!anon||!secret)return json(req,503,{error:"ARCHIVE_CONFIGURATION_INCOMPLETE"});
   const auth=req.headers.get("Authorization")||"";
   if(!/^Bearer \S+$/.test(auth))return json(req,401,{error:"UNAUTHORIZED"});
@@ -77,7 +80,13 @@ Deno.serve(async(req:Request)=>{
     if(!grant||grant.active!==true||grant.server_verified!==true||
       grant.owner_user_id!==user.id||grant.encounter_id!==cmd.encounter_id||
       grant.grant_id!==cmd.retention_grant_id||
-      grant.purpose!=="clinical_audio_retention")
+      grant.purpose!=="clinical_audio_retention"||
+      grant.revoked_at!==null||
+      typeof grant.policy_version!=="string"||
+      !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(grant.policy_version)||
+      typeof grant.expires_at!=="string"||
+      !Number.isFinite(Date.parse(grant.expires_at))||
+      Date.parse(grant.expires_at)<=Date.now())
       return json(req,423,{error:"RETENTION_GRANT_NOT_VERIFIED"});
     // Only after independent Auth + RLS ownership + retention-grant checks.
     // service_role bypasses Storage RLS; never use it as authorization.
@@ -92,11 +101,6 @@ Deno.serve(async(req:Request)=>{
         if(error||!data)throw new ArchiveError("STORAGE_LIST_UNAVAILABLE",503);
         if(data.length===100)throw new ArchiveError("STORAGE_LIST_INCOMPLETE",409);
         return data;
-      },
-      async createSignedUploadUrl(path:string){
-        const {data,error}=await store.createSignedUploadUrl(path,{upsert:false});
-        if(error||!data)throw new ArchiveError("UPLOAD_TOKEN_UNAVAILABLE",503);
-        return{token:data.token};
       },
       async download(path:string){
         const {data,error}=await store.download(path);
