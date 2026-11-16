@@ -121,7 +121,7 @@ with check (
 );
 drop policy if exists nexa_audio_owner_restrict_insert on storage.objects;
 create policy nexa_audio_owner_restrict_insert on storage.objects
-as restrictive for insert to authenticated
+as restrictive for insert to public
 with check (
   bucket_id <> 'nexa-private-clinical-audio' or (
     cardinality(storage.foldername(name))=4
@@ -139,16 +139,16 @@ with check (
 -- other permissive policies exist. Back-end authenticated readback mediates access.
 drop policy if exists nexa_audio_no_client_select on storage.objects;
 create policy nexa_audio_no_client_select on storage.objects
-as restrictive for select to authenticated
+as restrictive for select to public
 using (bucket_id <> 'nexa-private-clinical-audio');
 drop policy if exists nexa_audio_no_client_update on storage.objects;
 create policy nexa_audio_no_client_update on storage.objects
-as restrictive for update to authenticated
+as restrictive for update to public
 using (bucket_id <> 'nexa-private-clinical-audio')
 with check (bucket_id <> 'nexa-private-clinical-audio');
 drop policy if exists nexa_audio_no_client_delete on storage.objects;
 create policy nexa_audio_no_client_delete on storage.objects
-as restrictive for delete to authenticated
+as restrictive for delete to public
 using (bucket_id <> 'nexa-private-clinical-audio');
 
 -- Deliberately absent: server issuance of verified grants, immutable event
