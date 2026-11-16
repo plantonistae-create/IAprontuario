@@ -92,6 +92,83 @@ alter table public.nexa_audio_retention_grants
     references public.nexa_audio_retention_evidence_events(event_id);
 create unique index if not exists nexa_audio_grants_one_owner_action
   on public.nexa_audio_retention_grants(owner_user_id,encounter_id,issuer_action_id);
+-- R2: a verified attestation can fund ONE grant, regardless of how many
+-- client action identifiers ask to use it. Separate per-action bindings retain
+-- idempotency and prevent an old action being rebound to a new attestation.
+create unique index if not exists nexa_audio_grants_one_attestation
+  on public.nexa_audio_retention_grants(
+    owner_user_id,encounter_id,attestation_event_id
+  ) where attestation_event_id is not null;
+create table if not exists public.nexa_audio_retention_issuer_actions (
+  owner_user_id uuid not null references auth.users(id),
+  encounter_id uuid not null,
+  client_action_id uuid not null,
+  grant_id uuid not null references public.nexa_audio_retention_grants(grant_id),
+  attestation_event_id uuid not null
+    references public.nexa_audio_retention_evidence_events(event_id),
+  recorded_at timestamptz not null default clock_timestamp(),
+  primary key(owner_user_id,encounter_id,client_action_id)
+);
+alter table public.nexa_audio_retention_issuer_actions enable row level security;
+revoke all on public.nexa_audio_retention_issuer_actions
+  from public,anon,authenticated,service_role;
+grant select,insert,update on public.nexa_audio_retention_issuer_actions to service_role;
+drop trigger if exists nexa_audio_issuer_actions_immutable
+  on public.nexa_audio_retention_issuer_actions;
+create trigger nexa_audio_issuer_actions_immutable
+before update or delete on public.nexa_audio_retention_issuer_actions
+for each row execute function public.nexa_audio_issuer_immutable_guard();
+drop trigger if exists nexa_audio_issuer_actions_no_truncate
+  on public.nexa_audio_retention_issuer_actions;
+create trigger nexa_audio_issuer_actions_no_truncate
+before truncate on public.nexa_audio_retention_issuer_actions
+for each statement execute function public.nexa_audio_issuer_immutable_guard();
+
+-- R1: revocation cascades to existing grants ATOMICALLY, in the same
+-- transaction as the new revocation event. Every existing RLS upload,
+-- authenticated grant read, and receipt commit already checks grant.active
+-- and grant.revoked_at. The grant row lock also serializes a concurrent
+-- receipt commit (which holds FOR SHARE on the grant).
+create or replace function public.nexa_audio_revoke_event_grants()
+returns trigger language plpgsql security definer set search_path=''
+as $$
+declare
+  original public.nexa_audio_retention_evidence_events%rowtype;
+begin
+  if new.event_kind <> 'authorization_revoked' then return new; end if;
+  select e.* into original
+  from public.nexa_audio_retention_evidence_events e
+  where e.event_id=new.target_event_id
+    and e.event_kind='authorization_verified'
+  for update;
+  if not found or new.owner_user_id is distinct from original.owner_user_id
+    or new.encounter_id is distinct from original.encounter_id
+    or new.attested_by is distinct from original.attested_by
+    or new.purpose is distinct from original.purpose
+    or new.policy_version is distinct from original.policy_version
+    or new.terms_digest is distinct from original.terms_digest then
+    raise exception 'RETENTION_REVOCATION_SOURCE_MISMATCH'
+      using errcode='23514';
+  end if;
+  update public.nexa_audio_retention_grants g
+  set active=false
+  where g.attestation_event_id=original.event_id
+    and g.owner_user_id=original.owner_user_id
+    and g.encounter_id=original.encounter_id
+    and g.active and g.revoked_at is null;
+  -- The existing nexa_audio_revoke_stamp trigger stamps revoked_at on
+  -- transition active true -> false and prevents later reactivation.
+  return new;
+end;
+$$;
+revoke all on function public.nexa_audio_revoke_event_grants()
+  from public,anon,authenticated,service_role;
+drop trigger if exists nexa_audio_evidence_revocation_cascade
+  on public.nexa_audio_retention_evidence_events;
+create trigger nexa_audio_evidence_revocation_cascade
+after insert on public.nexa_audio_retention_evidence_events
+for each row execute function public.nexa_audio_revoke_event_grants();
+
 grant select,insert,update on public.nexa_audio_retention_grants to service_role;
 grant select on public.profiles,public.consultation_history to service_role;
 
