@@ -3896,6 +3896,13 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
   const mime=radarAudioMime();
   mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});
   mediaRecorder.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  // A device/encoder error must not strand the UI in "recording": finalize through
+  // the normal stop path so the audio captured so far stays in memory, and warn.
+  mediaRecorder.onerror=()=>{
+    if(!recording)return;
+    show('A gravação foi interrompida por um erro do dispositivo. O áudio capturado até aqui foi mantido nesta sessão (NÃO arquivado); revise antes de transcrever.',true);
+    stopRec();
+  };
   mediaRecorder.onstop=()=>{
     stopRecordingTimer();
     recording=false;
