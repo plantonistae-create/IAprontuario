@@ -100,8 +100,8 @@ grant execute on function public.nexa_audio_retention_authority(uuid,uuid) to au
 
 -- Immutable, server-confirmed archival receipts are NOT training approvals.
 -- No client insert/update/delete/read grants and NO authenticated RLS policies.
--- The only writer is the audited server-side RPC invoked with service_role
--- AFTER independent Storage byte readback and SHA-256 verification.
+-- Only audited backend code may request the service-role receipt RPC AFTER
+-- independent Storage byte readback and SHA-256 verification.
 create table if not exists public.nexa_audio_archive_receipts (
   receipt_id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id),
@@ -109,145 +109,10 @@ create table if not exists public.nexa_audio_archive_receipts (
   client_action_id uuid not null,
   retention_grant_id uuid not null references public.nexa_audio_retention_grants(grant_id),
   object_path text not null,
-  sha256 text not null check (sha256 ~ '^[a-f0-9]{64}-- separately designed chunk/resumable flow before real clinical deployment.
-insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
-values ('nexa-private-clinical-audio','nexa-private-clinical-audio',false,
-        41943040,array['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav'])
-on conflict (id) do nothing;
-
--- Explicit authenticated INSERT ONLY. No direct client SELECT/UPDATE/DELETE.
--- A restrictive guard also applies if another broad permissive policy exists.
-drop policy if exists nexa_audio_owner_insert on storage.objects;
-create policy nexa_audio_owner_insert on storage.objects
-as permissive for insert to authenticated
-with check (
-  bucket_id = 'nexa-private-clinical-audio'
-  and cardinality(storage.foldername(name)) = 4
-  and ((storage.foldername(name))[1]) = (select auth.uid())::text
-  and ((storage.foldername(name))[4]) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-  and storage.filename(name) ~ '^[0-9a-f]{64}\.(webm|ogg|m4a|wav)$'
-  and (select public.has_active_clinical_access())
-  and exists (
-    select 1 from public.nexa_audio_retention_grants g
-    join public.consultation_history c on
-      c.encounter_id=g.encounter_id and c.user_id=g.owner_user_id
-    where g.owner_user_id = (select auth.uid())
-      and g.encounter_id::text = ((storage.foldername(name))[2])
-      and g.grant_id::text = ((storage.foldername(name))[3])
-      and g.purpose='clinical_audio_retention'
-      and g.server_verified and g.active and g.revoked_at is null
-      and g.expires_at > now()
-  )
-);
-drop policy if exists nexa_audio_owner_restrict_insert on storage.objects;
-create policy nexa_audio_owner_restrict_insert on storage.objects
-as restrictive for insert to public
-with check (
-  bucket_id <> 'nexa-private-clinical-audio' or (
-    cardinality(storage.foldername(name))=4
-    and ((storage.foldername(name))[1])=(select auth.uid())::text
-    and exists (
-      select 1 from public.nexa_audio_retention_grants g
-      where g.owner_user_id=(select auth.uid()) and g.active
-        and g.server_verified and g.revoked_at is null and g.expires_at>now()
-        and g.encounter_id::text=((storage.foldername(name))[2])
-        and g.grant_id::text=((storage.foldername(name))[3])
-    )
-  )
-);
--- No client downloads, listing, upsert or deletion on this bucket, even when
--- other permissive policies exist. Back-end authenticated readback mediates access.
-drop policy if exists nexa_audio_no_client_select on storage.objects;
-create policy nexa_audio_no_client_select on storage.objects
-as restrictive for select to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_update on storage.objects;
-create policy nexa_audio_no_client_update on storage.objects
-as restrictive for update to public
-using (bucket_id <> 'nexa-private-clinical-audio')
-with check (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_delete on storage.objects;
-create policy nexa_audio_no_client_delete on storage.objects
-as restrictive for delete to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-
--- Deliberately absent: trusted server issuance of verified grants, cleanup of
--- unconfirmed objects, revoke/delete pipeline, direct-upload RLS/atomicity
--- integration test, commercial training rights and clinical go-live.
--- A receipt is only inserted by the server after authenticated readback.
-
-commit;
-),
+  sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
   size_bytes bigint not null check (size_bytes between 1 and 41943040),
   mime_type text not null check (mime_type in ('audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav')),
-  policy_version text not null check (policy_version ~ '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}-- separately designed chunk/resumable flow before real clinical deployment.
-insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
-values ('nexa-private-clinical-audio','nexa-private-clinical-audio',false,
-        41943040,array['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav'])
-on conflict (id) do nothing;
-
--- Explicit authenticated INSERT ONLY. No direct client SELECT/UPDATE/DELETE.
--- A restrictive guard also applies if another broad permissive policy exists.
-drop policy if exists nexa_audio_owner_insert on storage.objects;
-create policy nexa_audio_owner_insert on storage.objects
-as permissive for insert to authenticated
-with check (
-  bucket_id = 'nexa-private-clinical-audio'
-  and cardinality(storage.foldername(name)) = 4
-  and ((storage.foldername(name))[1]) = (select auth.uid())::text
-  and ((storage.foldername(name))[4]) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-  and storage.filename(name) ~ '^[0-9a-f]{64}\.(webm|ogg|m4a|wav)$'
-  and (select public.has_active_clinical_access())
-  and exists (
-    select 1 from public.nexa_audio_retention_grants g
-    join public.consultation_history c on
-      c.encounter_id=g.encounter_id and c.user_id=g.owner_user_id
-    where g.owner_user_id = (select auth.uid())
-      and g.encounter_id::text = ((storage.foldername(name))[2])
-      and g.grant_id::text = ((storage.foldername(name))[3])
-      and g.purpose='clinical_audio_retention'
-      and g.server_verified and g.active and g.revoked_at is null
-      and g.expires_at > now()
-  )
-);
-drop policy if exists nexa_audio_owner_restrict_insert on storage.objects;
-create policy nexa_audio_owner_restrict_insert on storage.objects
-as restrictive for insert to public
-with check (
-  bucket_id <> 'nexa-private-clinical-audio' or (
-    cardinality(storage.foldername(name))=4
-    and ((storage.foldername(name))[1])=(select auth.uid())::text
-    and exists (
-      select 1 from public.nexa_audio_retention_grants g
-      where g.owner_user_id=(select auth.uid()) and g.active
-        and g.server_verified and g.revoked_at is null and g.expires_at>now()
-        and g.encounter_id::text=((storage.foldername(name))[2])
-        and g.grant_id::text=((storage.foldername(name))[3])
-    )
-  )
-);
--- No client downloads, listing, upsert or deletion on this bucket, even when
--- other permissive policies exist. Back-end authenticated readback mediates access.
-drop policy if exists nexa_audio_no_client_select on storage.objects;
-create policy nexa_audio_no_client_select on storage.objects
-as restrictive for select to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_update on storage.objects;
-create policy nexa_audio_no_client_update on storage.objects
-as restrictive for update to public
-using (bucket_id <> 'nexa-private-clinical-audio')
-with check (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_delete on storage.objects;
-create policy nexa_audio_no_client_delete on storage.objects
-as restrictive for delete to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-
--- Deliberately absent: server issuance of verified grants, immutable event
--- receipts, cleanup of unconfirmed objects, revoke/delete pipeline,
--- direct-upload RLS integration test, training rights, and clinical go-live.
-
-commit;
-),
+  policy_version text not null check (policy_version ~ '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$'),
   purpose text not null default 'clinical_audio_retention'
     check (purpose = 'clinical_audio_retention'),
   committed_at timestamptz not null default clock_timestamp(),
@@ -257,17 +122,19 @@ commit;
 alter table public.nexa_audio_archive_receipts enable row level security;
 revoke all on public.nexa_audio_archive_receipts from public, anon, authenticated;
 grant select, insert on public.nexa_audio_archive_receipts to service_role;
-grant select on public.nexa_audio_retention_grants to service_role;
+grant select, update on public.nexa_audio_retention_grants to service_role;
+-- SELECT ... FOR SHARE requires UPDATE privilege on the locked table,
+-- independently of the default Supabase service_role privileges.
 
 -- Explicit immutable guard: even privileged service writes cannot silently
 -- mutate the evidence; corrections require a separately authorized event model.
 create or replace function public.nexa_audio_receipt_immutable_guard()
 returns trigger language plpgsql security invoker set search_path = ''
-as $
+as $$
 begin
   raise exception 'AUDIO_RECEIPT_IMMUTABLE' using errcode = '23514';
 end;
-$;
+$$;
 revoke all on function public.nexa_audio_receipt_immutable_guard() from public, anon, authenticated;
 drop trigger if exists nexa_audio_receipt_immutable on public.nexa_audio_archive_receipts;
 create trigger nexa_audio_receipt_immutable
@@ -289,7 +156,7 @@ returns table (
   purpose text, committed_at timestamptz
 )
 language plpgsql volatile security invoker set search_path = ''
-as $
+as $$
 declare
   g public.nexa_audio_retention_grants%rowtype;
   r public.nexa_audio_archive_receipts%rowtype;
@@ -297,74 +164,7 @@ declare
   expected_path text;
 begin
   if p_size_bytes is null or p_size_bytes not between 1 and 41943040 or
-     p_sha256 !~ '^[a-f0-9]{64}-- separately designed chunk/resumable flow before real clinical deployment.
-insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
-values ('nexa-private-clinical-audio','nexa-private-clinical-audio',false,
-        41943040,array['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav'])
-on conflict (id) do nothing;
-
--- Explicit authenticated INSERT ONLY. No direct client SELECT/UPDATE/DELETE.
--- A restrictive guard also applies if another broad permissive policy exists.
-drop policy if exists nexa_audio_owner_insert on storage.objects;
-create policy nexa_audio_owner_insert on storage.objects
-as permissive for insert to authenticated
-with check (
-  bucket_id = 'nexa-private-clinical-audio'
-  and cardinality(storage.foldername(name)) = 4
-  and ((storage.foldername(name))[1]) = (select auth.uid())::text
-  and ((storage.foldername(name))[4]) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-  and storage.filename(name) ~ '^[0-9a-f]{64}\.(webm|ogg|m4a|wav)$'
-  and (select public.has_active_clinical_access())
-  and exists (
-    select 1 from public.nexa_audio_retention_grants g
-    join public.consultation_history c on
-      c.encounter_id=g.encounter_id and c.user_id=g.owner_user_id
-    where g.owner_user_id = (select auth.uid())
-      and g.encounter_id::text = ((storage.foldername(name))[2])
-      and g.grant_id::text = ((storage.foldername(name))[3])
-      and g.purpose='clinical_audio_retention'
-      and g.server_verified and g.active and g.revoked_at is null
-      and g.expires_at > now()
-  )
-);
-drop policy if exists nexa_audio_owner_restrict_insert on storage.objects;
-create policy nexa_audio_owner_restrict_insert on storage.objects
-as restrictive for insert to public
-with check (
-  bucket_id <> 'nexa-private-clinical-audio' or (
-    cardinality(storage.foldername(name))=4
-    and ((storage.foldername(name))[1])=(select auth.uid())::text
-    and exists (
-      select 1 from public.nexa_audio_retention_grants g
-      where g.owner_user_id=(select auth.uid()) and g.active
-        and g.server_verified and g.revoked_at is null and g.expires_at>now()
-        and g.encounter_id::text=((storage.foldername(name))[2])
-        and g.grant_id::text=((storage.foldername(name))[3])
-    )
-  )
-);
--- No client downloads, listing, upsert or deletion on this bucket, even when
--- other permissive policies exist. Back-end authenticated readback mediates access.
-drop policy if exists nexa_audio_no_client_select on storage.objects;
-create policy nexa_audio_no_client_select on storage.objects
-as restrictive for select to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_update on storage.objects;
-create policy nexa_audio_no_client_update on storage.objects
-as restrictive for update to public
-using (bucket_id <> 'nexa-private-clinical-audio')
-with check (bucket_id <> 'nexa-private-clinical-audio');
-drop policy if exists nexa_audio_no_client_delete on storage.objects;
-create policy nexa_audio_no_client_delete on storage.objects
-as restrictive for delete to public
-using (bucket_id <> 'nexa-private-clinical-audio');
-
--- Deliberately absent: server issuance of verified grants, immutable event
--- receipts, cleanup of unconfirmed objects, revoke/delete pipeline,
--- direct-upload RLS integration test, training rights, and clinical go-live.
-
-commit;
- or p_policy_version is null then
+     p_sha256 !~ '^[a-f0-9]{64}$' or p_policy_version is null then
     raise exception 'INVALID_ARCHIVE_RECEIPT_INPUT' using errcode = '23514';
   end if;
   ext := case p_mime_type
@@ -421,7 +221,7 @@ commit;
     r.client_action_id,r.retention_grant_id,r.object_path,r.sha256,
     r.size_bytes,r.mime_type,r.policy_version,r.purpose,r.committed_at;
 end;
-$;
+$$;
 revoke all on function public.nexa_audio_commit_verified_receipt(
   uuid,uuid,uuid,uuid,text,text,bigint,text,text
 ) from public, anon, authenticated;
@@ -492,8 +292,8 @@ create policy nexa_audio_no_client_delete on storage.objects
 as restrictive for delete to public
 using (bucket_id <> 'nexa-private-clinical-audio');
 
--- Deliberately absent: server issuance of verified grants, immutable event
--- receipts, cleanup of unconfirmed objects, revoke/delete pipeline,
--- direct-upload RLS integration test, training rights, and clinical go-live.
+-- Deliberately absent: verified-grant issuer, pending object cleanup,
+-- post-revocation deletion, RLS integration proof, training rights and clinical go-live.
+-- The new receipt RPC only verifies original media; it never issues consent.
 
 commit;
