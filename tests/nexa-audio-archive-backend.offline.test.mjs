@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {ARCHIVE_BUCKET,ArchiveError,archivePaths,executeAudioArchive,parseArchiveRequest} from '../supabase/functions/_shared/nexa-audio-archive-contract.mjs';
+import {ARCHIVE_BUCKET,MAX_AUDIO_BYTES,ArchiveError,archivePaths,executeAudioArchive,parseArchiveRequest} from '../supabase/functions/_shared/nexa-audio-archive-contract.mjs';
 
 const doctor='11111111-1111-4111-8111-111111111111';
 const doctorB='22222222-2222-4222-8222-222222222222';
@@ -24,7 +24,7 @@ function fixture(){
     async createSignedDownloadUrl(path,ttl){return{url:'https://storage.invalid/signed/'+path,ttl};}
   };
   const call=async(extra={})=>executeAudioArchive({actor:doctor,
-    source:{user_id:doctor,encounter_id:encounter},grant:rights,bucket:{id:ARCHIVE_BUCKET,public:false},
+    source:{user_id:doctor,encounter_id:encounter},grant:rights,bucket:{id:ARCHIVE_BUCKET,public:false,file_size_limit:MAX_AUDIO_BYTES,allowed_mime_types:['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav']},
     storage,hashBlob,...extra,request:{...request,...(extra.request||{})}});
   return {call,objects,get uploadCalls(){return uploadCalls;}};
 }
@@ -34,6 +34,7 @@ async function rejected(promise,code){
 test('prepares a private, consent-gated upload without falsely claiming archive',async()=>{
  const f=fixture(),r=await f.call();assert.equal(r.status,200);assert.equal(r.body.archived,false);
  assert.equal(r.body.consent_for_training,false);assert.equal(f.objects.size,0);
+ assert.equal(r.body.method,'signed_upload');assert.equal(r.body.max_bytes,MAX_AUDIO_BYTES);
  assert.match(r.body.upload_path,/^11111111-.*\.webm$/);
 });
 test('confirms persisted bytes by independent server-side readback and stable retry',async()=>{
@@ -86,4 +87,22 @@ test('duplicate action race is fail-closed after both files land',async()=>{
 });
 test('storage errors propagate as fail-closed, not success',async()=>{
  const f=fixture();await rejected(f.call({storage:{list:async()=>null}}),'STORAGE_LIST_UNAVAILABLE');
+});
+test('signed uploads are denied unless the bucket constrains MIME and size',async()=>{
+ const f=fixture();
+ const base={id:ARCHIVE_BUCKET,public:false,file_size_limit:MAX_AUDIO_BYTES,
+   allowed_mime_types:['audio/webm']};
+ for(const b of [{...base,allowed_mime_types:null},{...base,allowed_mime_types:[]},
+    {...base,allowed_mime_types:['image/png']},{...base,file_size_limit:null},
+    {...base,file_size_limit:MAX_AUDIO_BYTES+1}]){
+   await rejected(f.call({bucket:b}),'BUCKET_RESTRICTIONS_NOT_PROVEN');
+ }
+ assert.equal(f.uploadCalls,0);
+});
+test('audio exceeding the bucket-specific cap is rejected before issuing token',async()=>{
+ const f=fixture();
+ await rejected(f.call({bucket:{id:ARCHIVE_BUCKET,public:false,
+   allowed_mime_types:['audio/webm'],file_size_limit:bytes.length-1}}),
+   'AUDIO_TOO_LARGE_FOR_BUCKET');
+ assert.equal(f.uploadCalls,0);
 });
