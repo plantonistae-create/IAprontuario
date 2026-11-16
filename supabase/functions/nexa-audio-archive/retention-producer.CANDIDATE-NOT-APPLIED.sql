@@ -29,6 +29,7 @@ revoke all on schema nexa_audio_producer
 grant usage,create on schema nexa_audio_producer
   to nexa_audio_policy_writer,nexa_audio_evidence_writer;
 grant usage on schema public to nexa_audio_evidence_writer;
+grant usage on schema auth to nexa_audio_evidence_writer;
 
 -- Policy writer gets NO INSERT/UPDATE/DELETE on policy table.
 -- Approval must eventually require a separate verifiable signed authority.
