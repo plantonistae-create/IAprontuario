@@ -108,8 +108,48 @@ Deno.serve(async(req:Request)=>{
         return data;
       },
     };
+    // This service-role RPC is a privileged RECEIPT writer, NOT consent issuance.
+    // The user JWT has already been verified and the DB RPC repeats ownership,
+    // active retention authority (under row lock) and Storage object existence.
+    // No archived:true response is allowed without the immutable DB receipt.
+    const receiptFields="receipt_id,owner_user_id,encounter_id,client_action_id,retention_grant_id,object_path,sha256,size_bytes,mime_type,policy_version,purpose,committed_at";
+    const unwrapReceipt=(data:unknown)=>{
+      const row=Array.isArray(data)?data[0]:data;
+      if(!row||typeof row!=="object")return null;
+      const value=row as Record<string,unknown>;
+      const n=Number(value.size_bytes);
+      if(!Number.isSafeInteger(n))return null;
+      return {...value,size_bytes:n};
+    };
+    const receiptStore={
+      async commitVerified(expected:Record<string,unknown>){
+        const {data,error}=await admin.rpc("nexa_audio_commit_verified_receipt",{
+          p_owner_user_id:expected.owner_user_id,
+          p_encounter_id:expected.encounter_id,
+          p_client_action_id:expected.client_action_id,
+          p_retention_grant_id:expected.retention_grant_id,
+          p_object_path:expected.object_path,
+          p_sha256:expected.sha256,
+          p_size_bytes:expected.size_bytes,
+          p_mime_type:expected.mime_type,
+          p_policy_version:expected.policy_version
+        });
+        if(error)throw new ArchiveError("DURABLE_RECEIPT_COMMIT_FAILED",503);
+        return unwrapReceipt(data);
+      },
+      async readCommitted(expected:Record<string,unknown>){
+        const {data,error}=await admin.from("nexa_audio_archive_receipts")
+          .select(receiptFields).eq("owner_user_id",String(expected.owner_user_id))
+          .eq("encounter_id",String(expected.encounter_id))
+          .eq("client_action_id",String(expected.client_action_id))
+          .maybeSingle();
+        if(error)throw new ArchiveError("DURABLE_RECEIPT_READ_FAILED",503);
+        return unwrapReceipt(data);
+      }
+    };
     const result=await executeAudioArchive({
-      actor:user.id,request:cmd,source,grant,bucket,storage,hashBlob:verifiedDigest
+      actor:user.id,request:cmd,source,grant,bucket,storage,
+      hashBlob:verifiedDigest,receiptStore
     });
 
     if(cmd.action==="retrieve"){
