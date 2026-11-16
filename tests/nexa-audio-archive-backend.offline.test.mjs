@@ -14,19 +14,19 @@ const request={action:'prepare',encounter_id:encounter,retention_grant_id:grantI
   client_action_id:action,sha256:digest,size_bytes:bytes.length,mime_type:'audio/webm'};
 const hashBlob=async blob=>({sha256:createHash('sha256').update(blob).digest('hex'),size_bytes:blob.length});
 const rights={active:true,owner_user_id:doctor,encounter_id:encounter,grant_id:grantId,
-  purpose:'clinical_audio_retention',server_verified:true};
+  purpose:'clinical_audio_retention',server_verified:true,revoked_at:null,
+  policy_version:'clinical-audio-v1',expires_at:'2099-01-01T00:00:00.000Z'};
 function fixture(){
-  const objects=new Map();let uploadCalls=0;
+  const objects=new Map();
   const storage={
     async list(dir){return [...objects.keys()].filter(k=>k.startsWith(dir+'/')).map(k=>({name:k.slice(dir.length+1)}));},
-    async createSignedUploadUrl(path){uploadCalls++;return{token:'synthetic-signature-for-test'};},
     async download(path){return objects.get(path)??null;},
     async createSignedDownloadUrl(path,ttl){return{url:'https://storage.invalid/signed/'+path,ttl};}
   };
   const call=async(extra={})=>executeAudioArchive({actor:doctor,
     source:{user_id:doctor,encounter_id:encounter},grant:rights,bucket:{id:ARCHIVE_BUCKET,public:false,file_size_limit:MAX_AUDIO_BYTES,allowed_mime_types:['audio/webm','audio/ogg','audio/mp4','audio/wav','audio/x-wav']},
     storage,hashBlob,...extra,request:{...request,...(extra.request||{})}});
-  return {call,objects,get uploadCalls(){return uploadCalls;}};
+  return {call,objects};
 }
 async function rejected(promise,code){
   await assert.rejects(promise,error=>error instanceof ArchiveError&&error.code===code);
@@ -34,7 +34,12 @@ async function rejected(promise,code){
 test('prepares a private, consent-gated upload without falsely claiming archive',async()=>{
  const f=fixture(),r=await f.call();assert.equal(r.status,200);assert.equal(r.body.archived,false);
  assert.equal(r.body.consent_for_training,false);assert.equal(f.objects.size,0);
- assert.equal(r.body.method,'signed_upload');assert.equal(r.body.max_bytes,MAX_AUDIO_BYTES);
+ assert.equal(r.body.method,'authenticated_direct_upload');
+ assert.equal(r.body.max_bytes,MAX_AUDIO_BYTES);
+ assert.equal(r.body.upload_pending,true);
+ assert.equal(r.body.requires_owner_rls,true);
+ assert.equal(r.body.upsert,false);
+ assert.equal(Object.hasOwn(r.body,'token'),false,'no signed upload token may escape');
  assert.match(r.body.upload_path,/^11111111-.*\.webm$/);
 });
 test('confirms persisted bytes by independent server-side readback and stable retry',async()=>{
@@ -42,7 +47,7 @@ test('confirms persisted bytes by independent server-side readback and stable re
  const r=await f.call({request:{action:'confirm'}});assert.equal(r.body.archived,true);
  assert.equal(r.body.sha256,digest);assert.equal(r.body.server_readback_verified,true);
  const retry=await f.call({request:{action:'confirm'}});assert.deepEqual(r.body,retry.body);
- assert.equal(f.uploadCalls,1);
+ assert.equal(Object.hasOwn(r.body,'token'),false);
 });
 test('retrieval rechecks owner, grant, checksum and gives short-lived signed link',async()=>{
  const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
@@ -53,7 +58,7 @@ test('missing, revoked, wrong-purpose or unverified grant cannot upload',async()
  const f=fixture();
  for(const g of [null,{...rights,active:false},{...rights,purpose:'audio_transcription'},{...rights,server_verified:false}]){
   await rejected(f.call({grant:g}),'RETENTION_GRANT_NOT_VERIFIED');
- }assert.equal(f.uploadCalls,0);
+ }
 });
 test('different doctor or forged source cannot access same encounter',async()=>{
  const f=fixture();
@@ -97,12 +102,40 @@ test('signed uploads are denied unless the bucket constrains MIME and size',asyn
     {...base,file_size_limit:MAX_AUDIO_BYTES+1}]){
    await rejected(f.call({bucket:b}),'BUCKET_RESTRICTIONS_NOT_PROVEN');
  }
- assert.equal(f.uploadCalls,0);
 });
 test('audio exceeding the bucket-specific cap is rejected before issuing token',async()=>{
  const f=fixture();
  await rejected(f.call({bucket:{id:ARCHIVE_BUCKET,public:false,
    allowed_mime_types:['audio/webm'],file_size_limit:bytes.length-1}}),
    'AUDIO_TOO_LARGE_FOR_BUCKET');
- assert.equal(f.uploadCalls,0);
+});
+
+test('active-looking but revoked retention grant cannot prepare, confirm or retrieve',async()=>{
+ const f=fixture(),p=await f.call();
+ f.objects.set(p.body.upload_path,bytes);
+ for(const operation of ['prepare','confirm','retrieve']){
+  await rejected(f.call({request:{action:operation},
+    grant:{...rights,revoked_at:'2026-11-16T10:00:00.000Z'}}),
+    'RETENTION_GRANT_NOT_VERIFIED');
+ }
+});
+test('expired or unversioned grant is denied before any storage action',async()=>{
+ const f=fixture();
+ for(const grant of [
+   {...rights,expires_at:'2020-01-01T00:00:00.000Z'},
+   {...rights,expires_at:null},
+   {...rights,policy_version:''},
+   {...rights,revoked_at:undefined}
+ ]){
+   await rejected(f.call({grant}),'RETENTION_GRANT_NOT_VERIFIED');
+ }
+ assert.equal(f.objects.size,0);
+});
+test('prepare never mints a long-lived signed upload URL',async()=>{
+ const f=fixture(),resp=await f.call();
+ assert.equal(resp.body.method,'authenticated_direct_upload');
+ assert.equal(resp.body.requires_owner_rls,true);
+ assert.equal(resp.body.upload_pending,true);
+ assert.equal('token' in resp.body,false);
+ assert.equal('signed_url' in resp.body,false);
 });
