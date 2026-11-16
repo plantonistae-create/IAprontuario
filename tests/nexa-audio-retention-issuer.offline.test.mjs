@@ -72,6 +72,10 @@ test('browser checkbox, timestamp and client claims cannot become attestation',a
   assert.equal(calls,1);
 });
 test('wrong encounter, purpose, ownership and policy cannot pass',async()=>{
+  // A counterfactual shape that only exists inside this negative test.
+  // It is NOT an observed or approved consent authority.
+  const isolatedSynthetic={...malformedEvidence,
+    origin:'immutable_server_retention_ledger_v1',verified_by_server:true};
   for(const tampered of [
     {owner_user_id:other},{encounter_id:other},{attested_by:other},
     {purpose:'training'},{policy_version:'other'},
@@ -80,7 +84,7 @@ test('wrong encounter, purpose, ownership and policy cannot pass',async()=>{
     {expires_at:'2020-01-01T00:00:00Z'}, {event_id:'not-a-uuid'}
   ]){
     await denied({evidenceAuthority:{
-      async readVerifiedAttestation(){return {...malformedEvidence,...tampered}}
+      async readVerifiedAttestation(){return {...isolatedSynthetic,...tampered}}
     }},'AUDIO_RETENTION_ATTESTATION_NOT_VERIFIED');
   }
 });
