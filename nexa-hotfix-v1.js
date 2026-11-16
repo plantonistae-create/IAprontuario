@@ -123,7 +123,27 @@
   }
 
   let startInFlight = false;
+  // Recorder recovery must only reset the recorder machinery. It never owns the
+  // decision to discard recorded audio: transcribed audio kept in this session
+  // (not archived anywhere) and untranscribed audio are preserved here. Explicit,
+  // confirmed discards live in index.html (reset, history reopen, logout, and the
+  // original startRec after the microphone is acquired for a confirmed new take).
+  function snapshotHeldAudio(){
+    let blob = null, kept = [], processDisabled = null;
+    try { if (typeof audioBlob !== 'undefined' && audioBlob) blob = audioBlob; } catch(_) {}
+    if (!blob) return null;
+    try { if (typeof chunks !== 'undefined' && Array.isArray(chunks)) kept = chunks.slice(); } catch(_) {}
+    try { const pb = byId('processBtn'); if (pb) processDisabled = pb.disabled; } catch(_) {}
+    return {blob, kept, processDisabled};
+  }
+  function restoreHeldAudio(held){
+    if (!held) return;
+    try { audioBlob = held.blob; } catch(_) {}
+    try { chunks = held.kept; } catch(_) {}
+    try { const pb = byId('processBtn'); if (pb && held.processDisabled !== null) pb.disabled = held.processDisabled; } catch(_) {}
+  }
   async function releaseStaleRecorder(){
+    const held = snapshotHeldAudio();
     try { if (typeof stopRealtimeRadar === 'function') stopRealtimeRadar({wipe:true}); } catch(_) {}
     try { if (typeof stopRecordingTimer === 'function') stopRecordingTimer({reset:false}); } catch(_) {}
     try {
@@ -145,8 +165,9 @@
     try { stream = null; } catch(_) {}
     try { audioCtx = null; } catch(_) {}
     try { analyser = null; dataArray = null; } catch(_) {}
-    try { chunks = []; audioBlob = null; } catch(_) {}
     try { discardStoppedRecording = false; } catch(_) {}
+    if (held) restoreHeldAudio(held);
+    else { try { chunks = []; audioBlob = null; } catch(_) {} }
     const rec = byId('recBtn');
     if (rec) {
       rec.classList.remove('recording');
