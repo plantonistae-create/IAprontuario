@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {ARCHIVE_BUCKET,MAX_AUDIO_BYTES,ArchiveError,archivePaths,executeAudioArchive,parseArchiveRequest} from '../supabase/functions/_shared/nexa-audio-archive-contract.mjs';
 
@@ -49,10 +50,14 @@ test('confirms persisted bytes by independent server-side readback and stable re
  const retry=await f.call({request:{action:'confirm'}});assert.deepEqual(r.body,retry.body);
  assert.equal(Object.hasOwn(r.body,'token'),false);
 });
-test('retrieval rechecks owner, grant, checksum and gives short-lived signed link',async()=>{
+test('retrieval rechecks owner, grant and checksum without reusable signed links',async()=>{
  const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
- const r=await f.call({request:{action:'retrieve'}});assert.equal(r.body.expires_in_seconds,60);
- assert.equal(r.body.training_approved,false);assert.match(r.body.signed_url,/storage.invalid/);
+ const r=await f.call({request:{action:'retrieve'}});
+ assert.equal(r.body.method,'authenticated_stream');
+ assert.equal(r.body.training_approved,false);
+ assert.equal('signed_url' in r.body,false);
+ assert.equal('expires_in_seconds' in r.body,false);
+ assert.deepEqual(r.audio,bytes);
 });
 test('missing, revoked, wrong-purpose or unverified grant cannot upload',async()=>{
  const f=fixture();
@@ -138,4 +143,23 @@ test('prepare never mints a long-lived signed upload URL',async()=>{
  assert.equal(resp.body.upload_pending,true);
  assert.equal('token' in resp.body,false);
  assert.equal('signed_url' in resp.body,false);
+});
+
+test('backend never signs a download URL; streaming checks authority again',()=>{
+ const handler=fs.readFileSync(new URL('../supabase/functions/nexa-audio-archive/index.ts',import.meta.url),'utf8');
+ assert.equal(handler.includes('createSignedUrl('),false);
+ assert.equal(handler.includes('createSignedDownloadUrl('),false);
+ assert.match(handler,/if\(cmd\.action==="retrieve"\)/);
+ const part=handler.split('if(cmd.action==="retrieve")')[1];
+ assert.match(part,/nexa_audio_retention_authority/,'latest grant must be rechecked after blob readback');
+ assert.match(part,/latest\.revoked_at!==null/,'re-check revocation before responding');
+ assert.match(part,/new Response\(result\.audio/,'return verified bytes in the authenticated response');
+ assert.match(part,/Access-Control-Expose-Headers/);
+});
+test('raw audio is never included in the JSON confirmation receipt',async()=>{
+ const f=fixture(),p=await f.call();f.objects.set(p.body.upload_path,bytes);
+ const r=await f.call({request:{action:'confirm'}});
+ assert.equal(r.body.archived,true);
+ assert.equal('audio' in r,false);
+ assert.equal('signed_url' in r.body,false);
 });
