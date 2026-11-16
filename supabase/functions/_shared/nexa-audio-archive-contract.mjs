@@ -40,7 +40,11 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
     fail('SOURCE_NOT_OWNED_OR_UNAVAILABLE',403);
   if(!grant||grant.active!==true||grant.owner_user_id!==actor.toLowerCase()||
       grant.encounter_id!==cmd.encounter_id||grant.grant_id!==cmd.retention_grant_id||
-      grant.purpose!=='clinical_audio_retention'||grant.server_verified!==true)
+      grant.purpose!=='clinical_audio_retention'||grant.server_verified!==true||
+      grant.revoked_at!==null||
+      typeof grant.policy_version!=='string'||!(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/).test(grant.policy_version)||
+      typeof grant.expires_at!=='string'||!Number.isFinite(Date.parse(grant.expires_at))||
+      Date.parse(grant.expires_at)<=Date.now())
     fail('RETENTION_GRANT_NOT_VERIFIED',423);
   if(!bucket||bucket.id!==ARCHIVE_BUCKET||bucket.public!==false)fail('PRIVATE_BUCKET_NOT_PROVEN',503);
   // Private alone does not prove type/size restrictions on unauthenticated
@@ -59,11 +63,14 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
   if(others.some(x=>x.name!==name)||others.length>1)fail('ACTION_ID_CONFLICT',409);
   if(cmd.action==='prepare'){
     if(others.length) return {status:409,body:{error:'ALREADY_UPLOADED_CONFIRM_FIRST'}};
-    const signed=await storage.createSignedUploadUrl(path);
-    if(!signed||typeof signed.token!=='string'||!signed.token)fail('UPLOAD_TOKEN_UNAVAILABLE',503);
+    // A signed upload token survives consent revocation for up to two hours.
+    // Instead, the authenticated user's Storage INSERT must be checked by
+    // a verified owner/encounter/grant RLS policy at upload time.
+    // No signed upload token or service-role credential is ever returned.
     return {status:200,body:{schema_version:'nexa-audio-archive-v1',upload_path:path,
-      token:signed.token,method:'signed_upload',max_bytes:bucketMax,
-      archived:false,consent_for_training:false}};
+      method:'authenticated_direct_upload',upsert:false,requires_owner_rls:true,
+      max_bytes:bucketMax,archived:false,upload_pending:true,
+      consent_for_training:false}};
   }
   if(others.length!==1)fail('AUDIO_NOT_UPLOADED',404);
   const audio=await storage.download(path);
