@@ -229,3 +229,19 @@ test('only the backend is permitted to create committed archive receipts',()=>{
  assert.match(handler,/DURABLE_RECEIPT_COMMIT_FAILED/);
  assert.match(handler,/readCommitted/);
 });
+
+test('unapplied SQL candidate has balanced bodies, intact regex and one transaction',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/functions/nexa-audio-archive/retention-storage.CANDIDATE-NOT-APPLIED.sql',import.meta.url),'utf8');
+ assert.equal((sql.match(/^begin;$/gm)||[]).length,1);
+ assert.equal((sql.match(/^commit;$/gm)||[]).length,1);
+ assert.equal((sql.match(/^\s*as \$\$\s*$/gm)||[]).length,4);
+ assert.equal((sql.match(/^\s*\$\$;\s*$/gm)||[]).length,4);
+ assert.equal((sql.match(/^\s*insert into storage\.buckets\b/gm)||[]).length,1);
+ assert.equal((sql.match(/^create table if not exists public\.nexa_audio_archive_receipts\b/gm)||[]).length,1);
+ assert.ok(sql.includes("sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$')"));
+ assert.ok(sql.includes("policy_version text not null check (policy_version ~ '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$')"));
+ assert.ok(sql.includes("p_sha256 !~ '^[a-f0-9]{64}$'"));
+ assert.ok(sql.includes('grant select, update on public.nexa_audio_retention_grants to service_role;'));
+ assert.match(sql,/for share;/);
+ assert.ok(sql.includes('REVIEW CANDIDATE, NOT APPLIED'));
+});
