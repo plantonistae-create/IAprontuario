@@ -83,7 +83,8 @@ export async function executeAudioArchive({actor,request,source,grant,bucket,sto
     encounter_id:cmd.encounter_id,retention_grant_id:cmd.retention_grant_id,
     owner_verified:true,server_readback_verified:true,training_approved:false};
   if(cmd.action==='confirm')return {status:200,body:receipt};
-  const signed=await storage.createSignedDownloadUrl(path,60);
-  if(!signed||typeof signed.url!=='string'||!signed.url)fail('DOWNLOAD_URL_UNAVAILABLE',503);
-  return {status:200,body:{...receipt,signed_url:signed.url,expires_in_seconds:60}};
+  // Do not mint a reusable download URL: it would remain valid after revocation.
+  // The HTTP adapter must recheck the grant and deliver this verified Blob
+  // only in the authenticated response, with Cache-Control: no-store.
+  return {status:200,body:{...receipt,method:'authenticated_stream'},audio};
 }
