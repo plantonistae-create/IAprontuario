@@ -5,6 +5,8 @@
 -- Existing consent_recorded_at and training approvals NEVER issue a grant.
 -- Client-side consent checkbox is NOT authoritative.
 
+begin;
+
 create table if not exists public.nexa_audio_retention_grants (
   grant_id uuid primary key default gen_random_uuid(),
   encounter_id uuid not null,
@@ -154,3 +156,5 @@ using (bucket_id <> 'nexa-private-clinical-audio');
 -- Deliberately absent: server issuance of verified grants, immutable event
 -- receipts, cleanup of unconfirmed objects, revoke/delete pipeline,
 -- direct-upload RLS integration test, training rights, and clinical go-live.
+
+commit;
