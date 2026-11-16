@@ -190,6 +190,7 @@ declare
   ev public.nexa_audio_retention_evidence_events%rowtype;
   pol public.nexa_audio_retention_approved_policies%rowtype;
   g public.nexa_audio_retention_grants%rowtype;
+  binding public.nexa_audio_retention_issuer_actions%rowtype;
   started_at timestamptz;
 begin
   if p_owner_user_id is null or p_encounter_id is null or
@@ -235,6 +236,17 @@ begin
   if ev.expires_at<=started_at then
     raise exception 'RETENTION_ATTESTATION_EXPIRED' using errcode='42501';
   end if;
+  -- Durable action binding. A client action can never be rebound to a
+  -- different attestation, even if an old grant is now revoked/expired.
+  select m.* into binding from public.nexa_audio_retention_issuer_actions m
+  where m.owner_user_id=p_owner_user_id and m.encounter_id=p_encounter_id
+    and m.client_action_id=p_client_action_id for update;
+  if found and binding.attestation_event_id is distinct from ev.event_id then
+    raise exception 'RETENTION_ISSUER_ACTION_CONFLICT' using errcode='23505';
+  end if;
+
+  -- Unique(owner,encounter,attestation) means different action IDs reuse
+  -- the SAME grant. The grant TTL is never extended on retries.
   insert into public.nexa_audio_retention_grants(
     owner_user_id,encounter_id,issuer_action_id,attestation_event_id,
     purpose,policy_version,consent_evidence_digest,server_verified,
@@ -247,15 +259,27 @@ begin
   select x.* into g from public.nexa_audio_retention_grants x
     where x.owner_user_id=p_owner_user_id
       and x.encounter_id=p_encounter_id
-      and x.issuer_action_id=p_client_action_id for update;
-  if not found or g.attestation_event_id is distinct from ev.event_id or
-     g.policy_version is distinct from pol.policy_version or
+      and x.attestation_event_id=ev.event_id for update;
+  if not found or g.policy_version is distinct from pol.policy_version or
      g.consent_evidence_digest is distinct from ev.evidence_digest then
     raise exception 'RETENTION_ISSUER_ACTION_CONFLICT' using errcode='23505';
   end if;
   if not g.active or not g.server_verified or g.revoked_at is not null or
      g.expires_at<=clock_timestamp() then
     raise exception 'RETENTION_GRANT_REVOKED_OR_EXPIRED' using errcode='42501';
+  end if;
+  insert into public.nexa_audio_retention_issuer_actions(
+    owner_user_id,encounter_id,client_action_id,grant_id,attestation_event_id
+  ) values(
+    p_owner_user_id,p_encounter_id,p_client_action_id,g.grant_id,ev.event_id
+  ) on conflict do nothing;
+  select m.* into binding from public.nexa_audio_retention_issuer_actions m
+    where m.owner_user_id=p_owner_user_id
+      and m.encounter_id=p_encounter_id
+      and m.client_action_id=p_client_action_id for update;
+  if not found or binding.grant_id is distinct from g.grant_id or
+     binding.attestation_event_id is distinct from ev.event_id then
+    raise exception 'RETENTION_ISSUER_ACTION_CONFLICT' using errcode='23505';
   end if;
   return query select g.grant_id,g.owner_user_id,g.encounter_id,
     g.issuer_action_id,g.attestation_event_id,g.purpose,g.policy_version,
