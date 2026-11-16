@@ -1,0 +1,74 @@
+// NEXA Core P0: private clinical audio archive protocol. No implicit training rights.
+// This module does not access a network or Supabase; adapters must be authenticated.
+export const ARCHIVE_BUCKET = 'nexa-private-clinical-audio';
+export const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const HASH = /^[0-9a-f]{64}$/;
+const TYPES = Object.freeze({'audio/webm':'webm','audio/ogg':'ogg','audio/mp4':'m4a','audio/wav':'wav','audio/x-wav':'wav'});
+const ACTIONS = new Set(['prepare','confirm','retrieve']);
+
+export class ArchiveError extends Error {
+  constructor(code,status){super(code);this.name='ArchiveError';this.code=code;this.status=status;}
+}
+const fail=(code,status)=>{throw new ArchiveError(code,status)};
+export function parseArchiveRequest(input){
+  if(!input||typeof input!=='object'||Array.isArray(input))fail('INVALID_REQUEST',400);
+  const {action,encounter_id,client_action_id,retention_grant_id,sha256,size_bytes,mime_type}=input;
+  if(!ACTIONS.has(action))fail('INVALID_ACTION',400);
+  for(const value of [encounter_id,client_action_id,retention_grant_id]){
+    if(typeof value!=='string'||!UUID.test(value))fail('INVALID_IDENTIFIER',400);
+  }
+  if(typeof sha256!=='string'||!HASH.test(sha256))fail('INVALID_SHA256',400);
+  if(!Number.isSafeInteger(size_bytes)||size_bytes<1||size_bytes>MAX_AUDIO_BYTES)fail('INVALID_AUDIO_SIZE',400);
+  if(!Object.hasOwn(TYPES,mime_type))fail('INVALID_AUDIO_TYPE',400);
+  return Object.freeze({action,encounter_id:encounter_id.toLowerCase(),
+    client_action_id:client_action_id.toLowerCase(),
+    retention_grant_id:retention_grant_id.toLowerCase(),
+    sha256,size_bytes,mime_type,extension:TYPES[mime_type]});
+}
+export function archivePaths(actor,request){
+  if(!UUID.test(actor))fail('UNAUTHORIZED',401);
+  const directory=[actor.toLowerCase(),request.encounter_id,request.retention_grant_id,request.client_action_id].join('/');
+  const name=request.sha256+'.'+request.extension;
+  return Object.freeze({directory,path:directory+'/'+name,name});
+}
+export async function executeAudioArchive({actor,request,source,grant,bucket,storage,hashBlob}){
+  const cmd=parseArchiveRequest(request);
+  if(typeof actor!=='string'||!UUID.test(actor))fail('UNAUTHORIZED',401);
+  // All checks repeat on every action, including retrieval; no implicit cross-owner access.
+  if(!source||source.user_id!==actor.toLowerCase()||source.encounter_id!==cmd.encounter_id)
+    fail('SOURCE_NOT_OWNED_OR_UNAVAILABLE',403);
+  if(!grant||grant.active!==true||grant.owner_user_id!==actor.toLowerCase()||
+      grant.encounter_id!==cmd.encounter_id||grant.grant_id!==cmd.retention_grant_id||
+      grant.purpose!=='clinical_audio_retention'||grant.server_verified!==true)
+    fail('RETENTION_GRANT_NOT_VERIFIED',423);
+  if(!bucket||bucket.id!==ARCHIVE_BUCKET||bucket.public!==false)fail('PRIVATE_BUCKET_NOT_PROVEN',503);
+  const {directory,path,name}=archivePaths(actor,cmd);
+  const entries=await storage.list(directory);
+  if(!Array.isArray(entries))fail('STORAGE_LIST_UNAVAILABLE',503);
+  // An action ID may never be bound to multiple object names, even after a race.
+  const others=entries.filter(x=>x&&typeof x.name==='string');
+  if(others.some(x=>x.name!==name)||others.length>1)fail('ACTION_ID_CONFLICT',409);
+  if(cmd.action==='prepare'){
+    if(others.length) return {status:409,body:{error:'ALREADY_UPLOADED_CONFIRM_FIRST'}};
+    const signed=await storage.createSignedUploadUrl(path);
+    if(!signed||typeof signed.token!=='string'||!signed.token)fail('UPLOAD_TOKEN_UNAVAILABLE',503);
+    return {status:200,body:{schema_version:'nexa-audio-archive-v1',upload_path:path,
+      token:signed.token,method:'tus_or_signed_upload',max_bytes:MAX_AUDIO_BYTES,
+      archived:false,consent_for_training:false}};
+  }
+  if(others.length!==1)fail('AUDIO_NOT_UPLOADED',404);
+  const audio=await storage.download(path);
+  if(!audio||typeof hashBlob!=='function')fail('READBACK_UNAVAILABLE',503);
+  const observed=await hashBlob(audio);
+  if(!observed||observed.sha256!==cmd.sha256||observed.size_bytes!==cmd.size_bytes)
+    fail('AUDIO_INTEGRITY_MISMATCH',409);
+  const receipt={schema_version:'nexa-audio-archive-v1',archived:true,
+    audio_id:path,sha256:cmd.sha256,size_bytes:cmd.size_bytes,
+    encounter_id:cmd.encounter_id,retention_grant_id:cmd.retention_grant_id,
+    owner_verified:true,server_readback_verified:true,training_approved:false};
+  if(cmd.action==='confirm')return {status:200,body:receipt};
+  const signed=await storage.createSignedDownloadUrl(path,60);
+  if(!signed||typeof signed.url!=='string'||!signed.url)fail('DOWNLOAD_URL_UNAVAILABLE',503);
+  return {status:200,body:{...receipt,signed_url:signed.url,expires_in_seconds:60}};
+}
