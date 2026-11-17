@@ -76,6 +76,7 @@ CREATE TABLE private.nexa_p0_ack_challenges_candidate (
   consent_event_id uuid NOT NULL
     REFERENCES private.nexa_p0_source_action_events(event_id),
   nonce_verifier bytea NOT NULL CHECK (pg_catalog.octet_length(nonce_verifier) = 32),
+  UNIQUE (nonce_verifier), -- Reject server nonce/verifier reuse across challenges.
   issued_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
   expires_at timestamptz NOT NULL,
   consumed_at timestamptz,
@@ -100,9 +101,20 @@ ALTER TABLE private.nexa_p0_ack_challenges_candidate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.nexa_p0_ack_challenges_candidate FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON private.nexa_p0_ack_challenges_candidate FROM PUBLIC;
 
--- Only a NULL -> consumed transition may ever be allowed in a future approved
--- owner-bound transaction. The invariant must be enforced with a separate
--- restricted DB owner/ACL and transition guard, not with caller-supplied flags.
+-- Direct UPDATE on challenge rows is forbidden in this candidate; a future
+-- reviewed transaction must replace this unconditional trigger with a narrow
+-- single-use NULL -> consumed transition guard under proven owner/RLS/ACL.
+-- Never expose challenge consumption by client-supplied flags.
+CREATE FUNCTION private.nexa_p0_reject_challenge_update_candidate()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+BEGIN
+  RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='CHALLENGE_UPDATE_NOT_AUTHORIZED';
+END;
+$;
+CREATE TRIGGER nexa_p0_ack_challenge_no_update_candidate
+BEFORE UPDATE ON private.nexa_p0_ack_challenges_candidate
+FOR EACH ROW EXECUTE FUNCTION private.nexa_p0_reject_challenge_update_candidate();
+
 CREATE FUNCTION private.nexa_p0_reject_challenge_delete_candidate()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 BEGIN
@@ -179,7 +191,7 @@ REVOKE ALL ON FUNCTION public.nexa_p0_consume_ack_challenge_candidate(
 -- 5. ISSUE: the trusted server generates 256-bit CSPRNG opaque secret (exact
 --    approved facility still UNRESOLVED), stores ONLY verifier/hash and
 --    challenge scope with <=5 min expiry; ensure one active challenge per
---    owner/source/revision/purpose or define explicit revocation rules. Never
+--    owner/source/revision/purpose or define explicit revocation rules.
 --    Never accept nonce/verifier from client or infer completeness from processing_meta.
 -- 6. CONSUME: lock existing challenge row FOR UPDATE AFTER source and policy
 --    lock, verify nonce with reviewed constant-time method, unused/unexpired
