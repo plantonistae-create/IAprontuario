@@ -111,3 +111,27 @@ test('V3 focused challenge UPDATE cannot silently consume without reviewed trans
   assert.match(statements, /CREATE TRIGGER nexa_p0_ack_challenge_no_update_candidate\s+BEFORE UPDATE ON private\.nexa_p0_ack_challenges_candidate\s+FOR EACH ROW EXECUTE FUNCTION private\.nexa_p0_reject_challenge_update_candidate\(\)/);
   assert.doesNotMatch(statements, /GRANT\s+UPDATE\b/i);
 });
+
+
+test('every candidate PL/pgSQL function uses paired dollar quotes', () => {
+  const functionCount = [...statements.matchAll(/\bCREATE FUNCTION\s+[\w.]+\s*\(/gi)].length;
+  const paired = [...statements.matchAll(/\bAS\s+\$\$[\s\S]*?\$\$\s*;/gi)].length;
+  assert.equal(functionCount, 6, 'expected exactly six reviewed function definitions');
+  assert.equal(paired, functionCount, 'each function body must have AS $$ ... $$;');
+  assert.doesNotMatch(statements, /\bAS\s+\$(?!\$)/i, 'bare $ is not a valid PostgreSQL delimiter');
+});
+
+test('candidate SECURITY DEFINER entrypoints explicitly revoke all application roles', () => {
+  const names = [
+    'private.nexa_p0_commit_processing_receipt_candidate',
+    'public.nexa_p0_issue_ack_challenge_candidate',
+    'public.nexa_p0_consume_ack_challenge_candidate',
+  ];
+  for (const name of names) {
+    assert.match(statements, new RegExp(
+      'REVOKE ALL ON FUNCTION '+name.replaceAll('.', '\\.')+
+      '\\([\\s\\S]*?\\) FROM PUBLIC, anon, authenticated, service_role\\s*;', 'i'
+    ), 'explicit role revocations missing for '+name);
+  }
+  assert.doesNotMatch(statements, /\bGRANT\s+EXECUTE\b/i);
+});
