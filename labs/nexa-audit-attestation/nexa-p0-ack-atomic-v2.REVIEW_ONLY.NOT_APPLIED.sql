@@ -106,11 +106,11 @@ REVOKE ALL ON private.nexa_p0_ack_challenges_candidate FROM PUBLIC;
 -- single-use NULL -> consumed transition guard under proven owner/RLS/ACL.
 -- Never expose challenge consumption by client-supplied flags.
 CREATE FUNCTION private.nexa_p0_reject_challenge_update_candidate()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 BEGIN
   RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='CHALLENGE_UPDATE_NOT_AUTHORIZED';
 END;
-$;
+$$;
 CREATE TRIGGER nexa_p0_ack_challenge_no_update_candidate
 BEFORE UPDATE ON private.nexa_p0_ack_challenges_candidate
 FOR EACH ROW EXECUTE FUNCTION private.nexa_p0_reject_challenge_update_candidate();
