@@ -95,3 +95,19 @@ test('no authorizations, clinical backfill or egress paths are introduced', () =
   has(/First AI egress, audit dispatch and locked reset stay DENIED/);
   has(/Gate C = NO-GO 0\/19/);
 });
+
+
+test('V3 focused challenge nonce uniqueness is enforced at schema level', () => {
+  const start=statements.indexOf('CREATE TABLE private.nexa_p0_ack_challenges_candidate');
+  const end=statements.indexOf('ALTER TABLE private.nexa_p0_ack_challenges_candidate');
+  assert.ok(start>=0 && end>start);
+  const challengeTable=statements.slice(start,end);
+  assert.match(challengeTable, /nonce_verifier bytea NOT NULL CHECK \(pg_catalog\.octet_length\(nonce_verifier\) = 32\)/);
+  assert.match(challengeTable, /UNIQUE \(nonce_verifier\)/);
+});
+
+test('V3 focused challenge UPDATE cannot silently consume without reviewed transition guard', () => {
+  assert.match(statements, /CREATE FUNCTION private\.nexa_p0_reject_challenge_update_candidate\(\)[\s\S]*?MESSAGE='CHALLENGE_UPDATE_NOT_AUTHORIZED'/);
+  assert.match(statements, /CREATE TRIGGER nexa_p0_ack_challenge_no_update_candidate\s+BEFORE UPDATE ON private\.nexa_p0_ack_challenges_candidate\s+FOR EACH ROW EXECUTE FUNCTION private\.nexa_p0_reject_challenge_update_candidate\(\)/);
+  assert.doesNotMatch(statements, /GRANT\s+UPDATE\b/i);
+});
