@@ -147,9 +147,15 @@ BEGIN
     MESSAGE='ATOMIC_ACK_CONSUMPTION_AND_OWNER_RLS_NOT_PROVEN';
 END;
 $$;
--- No GRANT EXECUTE on these entrypoints; in an eventual real migration the
--- future installer MUST revoke default PUBLIC execute in the SAME transaction
--- before any exposed function can be called. This file never reaches DDL.
+-- Defense-in-depth: no public EXECUTE even if the first STOP is
+-- removed in an unsafe edit. No privileged role is granted access.
+REVOKE ALL ON FUNCTION private.nexa_p0_commit_processing_receipt_candidate(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.nexa_p0_issue_ack_challenge_candidate(uuid,bigint,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.nexa_p0_consume_ack_challenge_candidate(
+  uuid,uuid,text,uuid,bigint,text,boolean
+) FROM PUBLIC;
+-- No GRANT EXECUTE. In a future reviewed migration, revokes and all DDL
+-- must be performed in one transaction before the functions become visible.
 
 -- TRANSACTION DESIGN REQUIRED BEFORE REMOVING ANY STOP (NOT IMPLEMENTED):
 -- 1. Server authenticate via auth.uid(); require active physician and own slot.
@@ -174,7 +180,7 @@ $$;
 --    approved facility still UNRESOLVED), stores ONLY verifier/hash and
 --    challenge scope with <=5 min expiry; ensure one active challenge per
 --    owner/source/revision/purpose or define explicit revocation rules. Never
---    accept nonce/verifier from client or infer completeness from processing_meta.
+--    Never accept nonce/verifier from client or infer completeness from processing_meta.
 -- 6. CONSUME: lock existing challenge row FOR UPDATE AFTER source and policy
 --    lock, verify nonce with reviewed constant-time method, unused/unexpired
 --    state with server clock; verify matching owner/source/version/digest,
