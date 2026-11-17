@@ -54,10 +54,62 @@ test('loader registers the client and the legacy blind writer no longer exists',
   assert.match(ui,/preserve\('audit_capture'\)/);
 });
 
-test('autosave treats an unload-lost acknowledgement as idempotent only when content is identical', () => {
-  const a=read('nexa-encounter-autosave-v18.10.1.js');
-  assert.match(a,/function remoteHoldsOwnWrite\(remote,payload,expected\)/);
-  assert.match(a,/Number\(remote\.sync_version\)>expected/);
-  assert.match(a,/stableJson\(remote\.fields\|\|\{\}\)===stableJson\(payload\.fields\|\|\{\}\)/);
-  assert.match(a,/if\(remoteHoldsOwnWrite\(current,payload,expected\)\)\{data=current\}\s*else if\(current\)\{/);
+const autosave=read('nexa-encounter-autosave-v18.10.1.js');
+const ack=(()=>{const a=autosave.indexOf('function stableJson'),b=autosave.indexOf('async function syncOne');
+  return vm.runInNewContext(autosave.slice(a,b)+';remoteHoldsOwnWrite')})();
+const sent={fields:{hda:'x',queixa_principal:'y'},protocol_usage:[{id:1}],processing_meta:{a:{b:1},saved_at:'t',encounter_autosave:{saved_at:'T1',reason:'beforeunload',radar:{n:1},state:'structured'}},consent_recorded_at:'2026-11-16T10:00:00Z',status:'draft',audit_priority:0,encounter_state:'draft'};
+const remote=(over={})=>({...JSON.parse(JSON.stringify(sent)),sync_version:5,...over});
+
+test('idempotent ack: only when remote is exactly expected+1 and EVERY sent component matches', () => {
+  assert.equal(ack(remote(),sent,4),true);
+  assert.equal(ack({...remote(),fields:{queixa_principal:'y',hda:'x'},processing_meta:{encounter_autosave:{state:'structured',radar:{n:1},reason:'beforeunload',saved_at:'T1'},saved_at:'t',a:{b:1}}},sent,4),true,'key order is irrelevant');
+  const stamps=remote();stamps.processing_meta.encounter_autosave.saved_at='T2';stamps.processing_meta.encounter_autosave.reason='pagehide';
+  assert.equal(ack(stamps,sent,4),true,'only the autosave bookkeeping stamps (saved_at, reason) may differ');
+  assert.equal(ack(remote({encounter_state:'ready_for_audit'}),sent,4),true,'server trigger keeps ready_for_audit over draft');
+});
+test('idempotent ack: real concurrency is never masked', () => {
+  const no=(r,e=4)=>assert.equal(ack(r,sent,e),false);
+  no(remote({sync_version:6}));            // another writer after ours / two steps ahead
+  no(remote({sync_version:4}));            // nothing was applied
+  no(remote({sync_version:3}));            // behind
+  no(remote(),0);                          // wrong expected -> version mismatch
+  no(remote({fields:{hda:'x',queixa_principal:'OUTRO'}}));
+  no(remote({fields:{hda:'x'}}));           // missing key
+  no(remote({fields:{hda:'x',queixa_principal:'y',extra:'z'}})); // extra key
+  no(remote({processing_meta:{a:{b:2},saved_at:'t'}}));
+  no(remote({processing_meta:{}}));
+  const radar=remote();radar.processing_meta.encounter_autosave.radar={n:2};no(radar);      // autosave payload other than the stamps
+  const st=remote();st.processing_meta.encounter_autosave.state='draft';no(st);
+  const extra=remote();extra.processing_meta.foreign=1;no(extra);
+  const top=remote();top.processing_meta.saved_at='other';no(top);                          // only the nested stamps are exempt
+  no(remote({protocol_usage:[]}));
+  no(remote({consent_recorded_at:null}));
+  no(remote({consent_recorded_at:'2026-11-16T11:00:00Z'}));
+  no(remote({status:'final'}));
+  no(remote({audit_priority:2}));
+  no(remote({encounter_state:'audited'}));
+  no(remote({encounter_state:'discarded'}));
+  assert.equal(ack({...remote(),encounter_state:'draft'},{...sent,encounter_state:'ready_for_audit'},4),false,'draft never satisfies ready_for_audit');
+  no(null);no(undefined);no('x');
+  assert.equal(ack(remote(),null,4),false);
+});
+test('autosave: ack branch precedes the conflict branch and the select covers every compared column', () => {
+  assert.match(autosave,/if\(remoteHoldsOwnWrite\(current,payload,expected\)\)\{data=current\}\s*else if\(current\)\{/);
+  assert.match(autosave,/select\(columns\+',fields,protocol_usage,consent_recorded_at,processing_meta'\)/);
+});
+
+// Schema dependency (documented, NOT inferred about the hosted database): the
+// readback endpoint and the autosave payload use columns that no versioned
+// migration mentions. The hosted schema must be confirmed by the owner; until
+// then both sides fail closed (endpoint 503, autosave pending, UI never verified).
+test('columns used by the readback endpoint but not mentioned in any versioned migration are pinned', () => {
+  const dir=new URL('../supabase/migrations/',import.meta.url);
+  const sql=fs.readdirSync(dir).filter(f=>f.endsWith('.sql'));
+  assert.equal(sql.length,14,'migration set changed: re-verify the column dependency below');
+  const all=sql.map(f=>fs.readFileSync(new URL(f,dir),'utf8')).join('\n');
+  const endpoint=read('supabase/functions/nexa-clinical-text-readback/index.ts');
+  const cols=endpoint.match(/\.select\('([^']+)'\)/)[1].split(',');
+  const undeclared=cols.filter(c=>!new RegExp('\\b'+c+'\\b').test(all)).sort();
+  assert.deepEqual(undeclared,['consent_recorded_at','processing_meta']);
+  assert.match(endpoint,/if \(error\) throw new TextReadbackError\('READBACK_UNAVAILABLE', 503\)/);
 });

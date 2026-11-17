@@ -26,6 +26,12 @@ const iso=d=>d.toISOString().replace('Z','+00:00');
 const clone=x=>JSON.parse(JSON.stringify(x));
 const project=(r,cols)=>{if(!cols||cols==='*')return clone(r);const o={};for(const c of String(cols).split(',').map(x=>x.trim()).filter(Boolean))o[c]=clone(r[c]??null);return o};
 function dbExec(s){
+  const r=dbExec1(s);
+  if(s.op==='select'&&s.table==='consultation_history'&&String(s.cols).includes('processing_meta')&&S.afterFullSelect&&r.data){const f=S.afterFullSelect;S.afterFullSelect=null;f(S.db.get(r.data.id))}
+  return r}
+function dbExec1(s){
+  if(S.missingConsentColumn&&s.table==='consultation_history'&&(String(s.cols).includes('consent_recorded_at')||(s.payload&&'consent_recorded_at' in s.payload)))
+    return{data:null,error:{code:'42703',message:'column consent_recorded_at does not exist'}};
   const uid=S.session&&S.session.id;
   if(!uid)return{data:null,error:{code:'401',message:'no session'}};
   if(s.table!=='consultation_history')return{data:s.single?null:[],error:null};
@@ -42,6 +48,7 @@ function dbExec(s){
   }else if(s.op==='update'){
     rows=mine.filter(match);
     for(const r of rows){const old=r.sync_version;Object.assign(r,clone(s.payload));r.user_id=r.user_id;r.sync_version=old+1;r.updated_at=iso(new Date())}
+    if(S.dropAck&&s.filters.some(f=>f[0]==='eq'&&f[1]==='sync_version')&&rows.length){const d=S.dropAck;S.dropAck=null;if(d.after)d.after(rows[0]);return{data:null,error:null}} // server applied it, the client never saw the reply
   }else if(s.op==='delete'){
     rows=mine.filter(match);for(const r of rows)S.db.delete(r.id);
   }else{
@@ -62,6 +69,7 @@ async function invoke(name,body){
   const uid=S.session&&S.session.id;
   if(name!==FN)return{error:{code:'NOT_FOUND',status:404}};
   if(!uid)return{error:{code:'UNAUTHORIZED',status:401}};
+  if(S.missingConsentColumn)return{error:{code:'READBACK_UNAVAILABLE',status:503}};
   if(S.inject.fail)return{error:{code:'READBACK_UNAVAILABLE',status:503}};
   if(S.inject.beforeLookup)S.inject.beforeLookup(body);
   try{
@@ -281,6 +289,75 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     check('S4 offline reload does not serve a cached clinical page (no offline shell is claimed)',off==='failed'||info===0,JSON.stringify({off,info}));
     await c2.close();
   }
+
+
+  // ===== concurrency / lost acknowledgement / metadata / schema dependency ======
+  const scen=async(name,fn)=>{
+    S.db.clear();S.invokes.length=0;S.inject={};S.dropAck=null;S.afterFullSelect=null;S.missingConsentColumn=false;S.session=A;
+    const c=await newCtx({flag:true});const p=await c.newPage();const k=H(p);await k.boot();
+    try{await fn(k,p)}finally{await c.close()}
+  };
+  const seed=async k=>{await k.edit('BASE do encontro.');const r=await k.waitRb(s=>s.state==='verified');return{r,row:rowFor(A.id)}};
+  const localState=(k,id)=>k.ev(i=>window.nexaEncounterAutosave18101.get(i).then(x=>x&&x.sync_state),id);
+
+  await scen('L1',async k=>{
+    const {row}=await seed(k);const n=S.invokes.length;
+    S.dropAck={};await k.edit('L1 conteudo identico, resposta perdida.');
+    const r=await k.waitRb(s=>s.state==='verified'&&s.sync_version>row.sync_version);const now=rowFor(A.id);
+    check('L1 lost reply, server holds exactly what we sent (next version): acknowledged, readback verified',r.state==='verified'&&now.fields.hda==='L1 conteudo identico, resposta perdida.'&&r.sha256===await independentSha(now.encounter_id,A.id)&&S.invokes.length>n,JSON.stringify({r,hda:now.fields.hda}));
+  });
+  await scen('L2',async k=>{
+    const {row}=await seed(k);const id=row.encounter_id;
+    S.dropAck={after:x=>{x.fields={...x.fields,hda:'OUTRO CLIENTE SALVOU ISTO'};x.sync_version+=1}};
+    await k.edit('L2 minha edicao.');
+    const r=await k.waitRb(s=>s.state==='mismatch');const now=rowFor(A.id);const ls=await localState(k,id);
+    check('L2 other client saved on top of our write: conflict, not synced; their text is NOT overwritten',ls==='conflict'&&r.code==='SYNC_CONFLICT'&&now.fields.hda==='OUTRO CLIENTE SALVOU ISTO'&&r.state!=='verified',JSON.stringify({ls,r:r.code,hda:now.fields.hda}));
+  });
+  await scen('L3',async k=>{
+    const {row}=await seed(k);const id=row.encounter_id;
+    S.dropAck={after:x=>{x.processing_meta={...x.processing_meta,foreign_marker:true}}};
+    await k.edit('L3 minha edicao.');
+    const r=await k.waitRb(s=>s.state==='mismatch');const now=rowFor(A.id);const ls=await localState(k,id);
+    check('L3 same fields and next version but different processing_meta: conflict, never acknowledged',ls==='conflict'&&now.processing_meta.foreign_marker===true&&r.state!=='verified',JSON.stringify({ls,r:r.code}));
+  });
+  await scen('L4',async k=>{
+    const {row}=await seed(k);const id=row.encounter_id;
+    S.dropAck={after:x=>{x.sync_version+=1}}; // two steps ahead with identical content
+    await k.edit('L4 identico mas duas versoes a frente.');
+    const r=await k.waitRb(s=>s.state==='mismatch');const ls=await localState(k,id);
+    check('L4 identical content but remote is TWO versions ahead: conflict (a second writer touched it)',ls==='conflict'&&r.state==='mismatch',JSON.stringify({ls,r:r.code}));
+  });
+  await scen('L5',async k=>{
+    const {row}=await seed(k);const id=row.encounter_id;
+    S.dropAck={};S.afterFullSelect=x=>{x.fields={...x.fields,hda:'OUTRO CLIENTE SALVOU APOS A CONSULTA DE VERSAO'};x.sync_version+=1};
+    await k.edit('L5 minha edicao.');
+    const r=await k.waitRb(s=>s.state==='mismatch'&&s.code==='SOURCE_VERSION_CHANGED',25000);
+    const afterAck=rowFor(A.id);const ls1=await localState(k,id);
+    check('L5 another client saves between our version lookup and the ack: readback cannot confirm (SOURCE_VERSION_CHANGED), their text kept',r.state==='mismatch'&&afterAck.fields.hda==='OUTRO CLIENTE SALVOU APOS A CONSULTA DE VERSAO'&&r.state!=='verified',JSON.stringify({r:r.code,ls1,hda:afterAck.fields.hda}));
+    await k.edit('L5 minha proxima edicao.');await sleep(3500);
+    const fin=rowFor(A.id);const ls2=await localState(k,id);const r2=await k.rb();
+    check('L5b our next save fails the version check as a conflict: their text is never overwritten, never verified',ls2==='conflict'&&fin.fields.hda==='OUTRO CLIENTE SALVOU APOS A CONSULTA DE VERSAO'&&r2.state!=='verified',JSON.stringify({ls2,r2:r2.code,hda:fin.fields.hda}));
+  });
+  await scen('L6',async k=>{
+    S.missingConsentColumn=true;
+    await k.edit('L6 coluna de consentimento ausente no banco hospedado.');await sleep(4000);
+    const r=await k.rb();const ls=await k.ev(()=>window.nexaEncounterAutosave18101.get(window.nexaEncounterAutosave18101.currentEncounterId()).then(x=>x&&{s:x.sync_state,h:x.fields.hda}));
+    check('L6 schema without consent_recorded_at: writes and readback fail closed (pending), local note kept, never verified',r.state==='pending'&&r.state!=='verified'&&ls&&ls.s==='pending'&&/ausente/.test(ls.h)&&S.db.size===0,JSON.stringify({r:r.state+'/'+r.code,ls,rows:S.db.size}));
+  });
+  await scen('M',async(k,p)=>{
+    await k.record(1500);await k.finish();await k.transcribe();
+    await k.waitRb(s=>s.state==='verified');
+    await k.edit('M edicao apos transcricao, texto final.');await sleep(3500);
+    await k.waitRb(s=>s.state==='verified'&&true);
+    const row=rowFor(A.id);const pm=row.processing_meta||{};
+    const page=await k.ev(()=>JSON.parse(JSON.stringify(window.lastProcessedMeta||{})));
+    const pageKeys=Object.keys(page).filter(x=>x!=='audit_capture');
+    const kept=pageKeys.every(x=>JSON.stringify(pm[x])===JSON.stringify(page[x]));
+    const cap=pm.audit_capture||{};
+    check('M1 audit capture handed to autosave: prior clinical metadata kept key-by-key, autosave block kept, capture present',pageKeys.length>=3&&kept&&!!pm.encounter_autosave&&cap.mode==='automatic'&&cap.original_fields&&cap.original_fields.queixa_principal==='TESTE SINTETICO'&&cap.final_fields&&cap.final_fields.hda==='M edicao apos transcricao, texto final.',JSON.stringify({pageKeys,kept,auto:!!pm.encounter_autosave,cap:Object.keys(cap)}));
+    const r=await k.rb();const ls=await localState(k,row.encounter_id);
+    check('M2 the note itself persisted at the latest text and the readback verifies it (no conflict)',row.fields.hda==='M edicao apos transcricao, texto final.'&&ls==='synced'&&r.state==='verified'&&r.sha256===await independentSha(row.encounter_id,A.id),JSON.stringify({ls,r:r.state,hda:row.fields.hda}));
+  });
 
   console.log('aborted external requests:',external.length,'hosts:',[...new Set(external.map(u=>new URL(u).host))].join(', '));
   await browser.close();server.close();
