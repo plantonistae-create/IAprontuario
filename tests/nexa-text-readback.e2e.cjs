@@ -184,7 +184,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   let r=await h.waitRb(s=>s.state==='verified');
   const rowA=rowFor(A.id);const encA=rowA&&rowA.encounter_id;
   check('A1 recorder -> structured note -> autosave: row exists for doctor A with the transcribed text',!!rowA&&rowA.user_id===A.id&&rowA.fields.queixa_principal==='TESTE SINTETICO',JSON.stringify(rowA&&rowA.fields));
-  check('A2 readback verified: UI shows server version and SHA-256, text-only wording',r.state==='verified'&&r.sync_version===rowA.sync_version&&r.sha256&&r.text.includes(r.sha256.slice(0,12))&&/somente texto/i.test(r.text)&&!/arquivad/i.test(r.text),JSON.stringify(r));
+  check('A2 readback verified: UI shows server version and SHA-256, text-only wording',r.state==='verified'&&r.sync_version===rowA.sync_version&&r.sha256&&r.text.includes(r.sha256.slice(0,12))&&/processing_meta NÃO é comparado/.test(r.text)&&!/arquivad/i.test(r.text),JSON.stringify(r));
   const sha1=await independentSha(encA,A.id);
   check('A3 displayed SHA-256 equals an independent hash of the server row',r.sha256===sha1,r.sha256+' vs '+sha1);
   check('A4 readback request carries only encounter id + version (no clinical text, no audio)',S.invokes.length>0&&S.invokes.every(i=>Object.keys(i.body).sort().join()==='encounter_id,expected_sync_version'),JSON.stringify(S.invokes.slice(-1)));

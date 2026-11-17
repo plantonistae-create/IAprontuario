@@ -113,3 +113,12 @@ test('columns used by the readback endpoint but not mentioned in any versioned m
   assert.deepEqual(undeclared,['consent_recorded_at','processing_meta']);
   assert.match(endpoint,/if \(error\) throw new TextReadbackError\('READBACK_UNAVAILABLE', 503\)/);
 });
+
+test('scope is explicit: processing_meta is NOT compared locally, so confirmation never claims whole-record integrity', () => {
+  const {api}=load(undefined);
+  assert.deepEqual([...api.compared],['fields','protocol_usage','consent_recorded_at']);
+  assert.deepEqual([...api.not_compared],['processing_meta']);
+  assert.match(client,/processing_meta NÃO é comparado/);
+  assert.doesNotMatch(client,/p\.processing_meta|rec\.processing_meta/);
+  assert.doesNotMatch(client,/integridade (clínica )?(integral|total|completa)/i);
+});

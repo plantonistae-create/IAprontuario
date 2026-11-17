@@ -3,7 +3,9 @@
  * with enabled:true and mode:'synthetic-review-v1'. Nothing in index.html sets it; with the flag absent this
  * file makes no request and renders nothing.
  * Verifies ONLY the textual note (fields, protocol usage, consent timestamp)
- * against what the server reads back. It never covers audio, never claims an
+ * against what the server reads back. processing_meta is covered by the server's
+ * SHA-256 of its own package but is NOT compared with the local copy, so a
+ * confirmation is never a claim of whole-record clinical integrity. It never covers audio, never claims an
  * archive, and never reports success unless every check below passes.
  */
 (function(){
@@ -50,7 +52,7 @@ function render(state,detail={}){
   const text={
     checking:'Releitura textual: verificando…',
     pending:'Releitura textual PENDENTE — a nota ainda não foi confirmada pelo servidor'+(detail.code?' ('+detail.code+')':''),
-    verified:'Releitura textual confirmada · versão '+detail.sync_version+' · SHA-256 '+String(detail.sha256||'').slice(0,12)+'… · somente texto, áudio não incluído',
+    verified:'Releitura textual confirmada · versão '+detail.sync_version+' · SHA-256 '+String(detail.sha256||'').slice(0,12)+'… · compara campos, protocolo e consentimento; processing_meta NÃO é comparado · áudio não incluído',
     mismatch:'Releitura textual DIVERGENTE — NÃO confirmada ('+(detail.code||'conteúdo')+'). Mantenha esta tela e revise a nota',
     error:'Releitura textual com ERRO — NÃO confirmada'+(detail.code?' ('+detail.code+')':'')
   }[state];
@@ -118,5 +120,5 @@ window.addEventListener('nexa:encounter-sync-conflict',e=>{if(enabled()){seq++;r
 // New local edits invalidate any earlier confirmation until the next readback.
 window.addEventListener('nexa:encounter-local-saved',e=>{if(enabled()&&current.state==='verified'){seq++;render('pending',{encounter_id:e.detail?.encounter_id,code:'LOCAL_CHANGED'})}});
 window.addEventListener('nexa:consultation-reset',()=>{seq++;render('idle')});
-window.nexaTextReadback=Object.freeze({verify,state:()=>({...current}),canonicalJson,version:'v1'});
+window.nexaTextReadback=Object.freeze({verify,state:()=>({...current}),canonicalJson,version:'v1',compared:Object.freeze(['fields','protocol_usage','consent_recorded_at']),not_compared:Object.freeze(['processing_meta'])});
 })();
