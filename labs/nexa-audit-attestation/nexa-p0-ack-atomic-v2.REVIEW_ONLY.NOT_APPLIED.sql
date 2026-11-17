@@ -161,11 +161,11 @@ END;
 $$;
 -- Defense-in-depth: no public EXECUTE even if the first STOP is
 -- removed in an unsafe edit. No privileged role is granted access.
-REVOKE ALL ON FUNCTION private.nexa_p0_commit_processing_receipt_candidate(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.nexa_p0_issue_ack_challenge_candidate(uuid,bigint,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.nexa_p0_commit_processing_receipt_candidate(uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.nexa_p0_issue_ack_challenge_candidate(uuid,bigint,text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.nexa_p0_consume_ack_challenge_candidate(
   uuid,uuid,text,uuid,bigint,text,boolean
-) FROM PUBLIC;
+) FROM PUBLIC, anon, authenticated, service_role;
 -- No GRANT EXECUTE. In a future reviewed migration, revokes and all DDL
 -- must be performed in one transaction before the functions become visible.
 
