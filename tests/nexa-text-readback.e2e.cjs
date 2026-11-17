@@ -128,7 +128,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   });
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const base='http://127.0.0.1:'+server.address().port;
-  const browser=await chromium.launch({headless:true,args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
+  const browser=await chromium.launch({headless:true,executablePath:process.env.NEXA_CHROMIUM_EXECUTABLE||undefined,args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
   const external=[];
   const newCtx=async({flag,sw})=>{
     const ctx=await browser.newContext({permissions:['microphone'],serviceWorkers:sw?'allow':'block'});
