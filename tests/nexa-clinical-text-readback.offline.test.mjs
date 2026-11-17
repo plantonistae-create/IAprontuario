@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { canonicalJson, readVerifiedTextPackage, TextReadbackError } from '../supabase/functions/_shared/nexa-clinical-text-readback.mjs';
+import { canonicalJson, readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../supabase/functions/_shared/nexa-clinical-text-readback.mjs';
 
 const doctor = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
@@ -62,4 +62,49 @@ test('endpoint requires verified JWT and owner-scoped RLS without service key or
   assert.match(source,/NEXA_TEXT_READBACK_ENABLED/);
   assert.match(source,/no-store/);
   assert.doesNotMatch(source,/SUPABASE_SERVICE_ROLE_KEY|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+});
+
+
+test('malformed stored processing metadata is rejected, never silently replaced with empty values', async () => {
+  for (const changed of [
+    {processing_meta: null}, {processing_meta: []},
+    {protocol_usage: null}, {protocol_usage: {}}
+  ]) {
+    await denied(run({lookup: async () => ({...row, ...changed})}), 'SOURCE_INVALID');
+  }
+});
+
+test('text readback accepts valid JSON split across byte chunks', async () => {
+  const json = JSON.stringify(request);
+  const bytes = new TextEncoder().encode(json);
+  const body = (async function* () {
+    yield bytes.subarray(0, 3);
+    yield bytes.subarray(3, 27);
+    yield bytes.subarray(27);
+  })();
+  assert.deepEqual(await readBoundedTextReadbackBody({body}), request);
+});
+
+test('text readback rejects oversized streamed body before consuming subsequent chunks', async () => {
+  let laterChunkRead = false;
+  const body = (async function* () {
+    yield new Uint8Array(4097);
+    laterChunkRead = true;
+    yield new Uint8Array([123, 125]);
+  })();
+  await denied(readBoundedTextReadbackBody({body}), 'REQUEST_TOO_LARGE');
+  assert.equal(laterChunkRead, false);
+});
+
+test('malformed JSON, invalid UTF-8 and absent request stream fail closed', async () => {
+  await denied(readBoundedTextReadbackBody({body:(async function* () {yield new TextEncoder().encode('{');})()}), 'INVALID_REQUEST');
+  await denied(readBoundedTextReadbackBody({body:(async function* () {yield Uint8Array.from([255]);})()}), 'INVALID_REQUEST');
+  await denied(readBoundedTextReadbackBody({body:null}), 'INVALID_REQUEST');
+});
+
+test('HTTP adapter uses bounded reader and does not buffer req.text before size check', () => {
+  const source = readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(source, /await readBoundedTextReadbackBody\(req\)/);
+  assert.doesNotMatch(source, /await req\.text\(\)/);
+  assert.match(source, /NEXA_TEXT_READBACK_ENABLED/);
 });
