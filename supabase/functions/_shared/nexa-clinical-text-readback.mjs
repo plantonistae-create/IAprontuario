@@ -8,6 +8,29 @@ export class TextReadbackError extends Error {
 const fail = (code, status) => { throw new TextReadbackError(code, status); };
 const object = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 
+// Bound bytes WHILE reading: req.text() buffers arbitrarily large unauthenticated
+// payloads before a post-read size check can reject them.
+export async function readBoundedTextReadbackBody(request) {
+  if (!request?.body) fail('INVALID_REQUEST', 400);
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of request.body) {
+      if (!(chunk instanceof Uint8Array)) fail('INVALID_REQUEST', 400);
+      if (chunk.byteLength > 4096 - size) fail('REQUEST_TOO_LARGE', 413);
+      chunks.push(chunk);
+      size += chunk.byteLength;
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  } catch (error) {
+    if (error instanceof TextReadbackError) throw error;
+    fail('INVALID_REQUEST', 400);
+  }
+}
+
 export function parseTextReadbackRequest(input) {
   if (!object(input) || Object.keys(input).some(k => !['encounter_id','expected_sync_version','expected_sha256'].includes(k))) fail('INVALID_REQUEST', 400);
   if (typeof input.encounter_id !== 'string' || !UUID.test(input.encounter_id)) fail('INVALID_ENCOUNTER_ID', 400);
@@ -34,7 +57,11 @@ export async function readVerifiedTextPackage({ actor, capability, request, look
   const source = await lookup({ owner, encounter_id: cmd.encounter_id });
   if (!source) fail('SOURCE_NOT_FOUND', 404);
   if (source.user_id !== owner || source.encounter_id !== cmd.encounter_id) fail('OWNER_SCOPE_VIOLATION', 403);
-  if (!Number.isSafeInteger(source.sync_version) || source.sync_version < 0 || !object(source.fields)) fail('SOURCE_INVALID', 409);
+  // Never replace malformed persisted clinical metadata with empty values:
+  // that would make an incomplete package appear successfully verified.
+  if (!Number.isSafeInteger(source.sync_version) || source.sync_version < 0 ||
+      !object(source.fields) || !object(source.processing_meta) ||
+      !Array.isArray(source.protocol_usage)) fail('SOURCE_INVALID', 409);
   if (source.sync_version !== cmd.expected_sync_version) fail('SOURCE_VERSION_CHANGED', 409);
   const pkg = {
     schema_version: 'nexa-clinical-text-readback-v1',
@@ -44,8 +71,8 @@ export async function readVerifiedTextPackage({ actor, capability, request, look
     encounter_state: source.encounter_state ?? null,
     consent_recorded_at: source.consent_recorded_at ?? null,
     fields: source.fields,
-    processing_meta: object(source.processing_meta) ? source.processing_meta : {},
-    protocol_usage: Array.isArray(source.protocol_usage) ? source.protocol_usage : []
+    processing_meta: source.processing_meta,
+    protocol_usage: source.protocol_usage
   };
   const canonical = canonicalJson(pkg);
   const sha256 = await hashCanonical(canonical);
