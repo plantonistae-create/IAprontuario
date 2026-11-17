@@ -222,6 +222,14 @@ function remotePayload(rec){return{
  consent_recorded_at:rec.consent_recorded_at||null,last_client_saved_at:rec.last_client_saved_at||nowIso(),
  processing_meta:rec.processing_meta||{},created_at:rec.created_at||nowIso()
 }}
+// A page unload can apply our own write on the server while the acknowledgement
+// is lost; the next attempt then fails the version predicate against a row that
+// already holds exactly our clinical content. That is an idempotent ack, not a conflict.
+function stableJson(v){if(v===null||typeof v!=='object')return JSON.stringify(v===undefined?null:v);if(Array.isArray(v))return '['+v.map(stableJson).join(',')+']';return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableJson(v[k])).join(',')+'}'}
+function remoteHoldsOwnWrite(remote,payload,expected){
+ try{return !!remote&&Number(remote.sync_version)>expected&&stableJson(remote.fields||{})===stableJson(payload.fields||{})
+  &&stableJson(remote.protocol_usage||[])===stableJson(payload.protocol_usage||[])&&(remote.consent_recorded_at||null)===(payload.consent_recorded_at||null)}catch{return false}
+}
 async function syncOne(rec){
  if(rec?.encounter_id&&syncInflight.has(rec.encounter_id))return syncInflight.get(rec.encounter_id);
  const task=(async()=>{
@@ -257,20 +265,21 @@ async function syncOne(rec){
     if(error)throw error;
     return data;
    };
-   const data=await withSessionRetry(c,rec.owner_user_id,performWrite);
+   let data=await withSessionRetry(c,rec.owner_user_id,performWrite);
    if(!data){
      const current=await withSessionRetry(c,rec.owner_user_id,async()=>{
-      const result=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+      const result=await c.from('consultation_history').select(columns+',fields,protocol_usage,consent_recorded_at').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
       if(result.error)throw result.error;
       return result.data;
      });
-     if(current){
+     if(remoteHoldsOwnWrite(current,payload,expected)){data=current}
+     else if(current){
        const conflict={...rec,sync_state:'conflict',last_error:'SERVER_VERSION_CONFLICT',next_attempt_at:null};
        if(!(await putSyncResultIfCurrent(rec,conflict)))return{sent:false,stale:true};
        window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
        return{sent:false,conflict:true,item:conflict};
      }
-     throw new Error('SYNC_ROW_NOT_WRITABLE');
+     else throw new Error('SYNC_ROW_NOT_WRITABLE');
    }
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);

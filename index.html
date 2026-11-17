@@ -4762,6 +4762,7 @@ function pauseSession(){
     if(snap.radar)window.nexaRadar?.restore(snap.radar,currentProf.id);
     openSession();setStage(snap.stage||'summary');nexaSetSessionState(snap.state||'structured');
     q('nexaRestoreBanner')?.setAttribute('hidden','');show('Atendimento recuperado do autosave local.');
+    if(snap.encounter_id)window.dispatchEvent(new CustomEvent('nexa:session-restored',{detail:{encounter_id:snap.encounter_id}}));
   }
   async function nexaRecoverSavedEncounter(row){
     if(!row||!currentProf?.id)return false;
