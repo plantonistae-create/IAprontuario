@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.49.8';
-import { readVerifiedTextPackage, TextReadbackError } from '../_shared/nexa-clinical-text-readback.mjs';
+import { readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../_shared/nexa-clinical-text-readback.mjs';
 
 // Draft-only endpoint: disabled by default, never deployed or authorized for real patient data.
 const url = Deno.env.get('SUPABASE_URL') || '';
@@ -25,11 +25,9 @@ Deno.serve(async (req: Request) => {
   const bearer = req.headers.get('Authorization') || '';
   if (!/^Bearer \S+$/.test(bearer)) return json(req, 401, { error: 'UNAUTHORIZED' });
   try {
-    // Bound the untrusted request body; package content is read from the database only.
-    const raw = await req.text();
-    if (new TextEncoder().encode(raw).byteLength > 4096) return json(req, 413, { error: 'REQUEST_TOO_LARGE' });
-    let body: unknown;
-    try { body = JSON.parse(raw); } catch { return json(req, 400, { error: 'INVALID_REQUEST' }); }
+    // Hard byte cap during streaming, not after buffering the entire body.
+    // Package content always comes from the owner-scoped database lookup.
+    const body = await readBoundedTextReadbackBody(req);
     const client = createClient(url, anon, {
       global: { headers: { Authorization: bearer } },
       auth: { persistSession: false, autoRefreshToken: false }
