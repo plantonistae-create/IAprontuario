@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { canonicalJson, readVerifiedTextPackage, TextReadbackError } from '../supabase/functions/_shared/nexa-clinical-text-readback.mjs';
+import { canonicalJson, readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../supabase/functions/_shared/nexa-clinical-text-readback.mjs';
 
 const doctor = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
@@ -11,7 +11,7 @@ const row = { user_id: doctor, encounter_id: encounter, sync_version: 3,
   updated_at: '2026-11-16T12:00:00Z', encounter_state: 'draft', consent_recorded_at: null,
   fields: { hda: 'Atendimento inteiramente fictício', conduta: 'Observação fictícia' },
   processing_meta: { radar: { items: [2,1] } }, protocol_usage: [] };
-const capability = { access_status: 'active', clinical_access: true };
+const capability = { id: doctor, access_status: 'active', clinical_access: true };
 const hashCanonical = async text => createHash('sha256').update(text, 'utf8').digest('hex');
 const request = { encounter_id: encounter, expected_sync_version: 3 };
 function run(change = {}) {
@@ -37,7 +37,9 @@ test('canonical JSON hash is key-order independent, preserving array order', () 
 });
 test('cross-owner row never returns clinical text', async () => {
   await denied(run({lookup: async () => ({...row,user_id:other})}), 'OWNER_SCOPE_VIOLATION');
-  await denied(run({actor:other}), 'OWNER_SCOPE_VIOLATION');
+  // Give B a matching synthetic capability so this branch actually exercises
+  // the row-owner check, instead of failing earlier at capability binding.
+  await denied(run({actor:other,capability:{...capability,id:other}}), 'OWNER_SCOPE_VIOLATION');
 });
 test('missing row and revoked clinical access fail closed', async () => {
   await denied(run({lookup:async()=>null}), 'SOURCE_NOT_FOUND');
@@ -62,4 +64,77 @@ test('endpoint requires verified JWT and owner-scoped RLS without service key or
   assert.match(source,/NEXA_TEXT_READBACK_ENABLED/);
   assert.match(source,/no-store/);
   assert.doesNotMatch(source,/SUPABASE_SERVICE_ROLE_KEY|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+});
+
+
+test('malformed stored processing metadata is rejected, never silently replaced with empty values', async () => {
+  for (const changed of [
+    {processing_meta: null}, {processing_meta: []},
+    {protocol_usage: null}, {protocol_usage: {}}
+  ]) {
+    await denied(run({lookup: async () => ({...row, ...changed})}), 'SOURCE_INVALID');
+  }
+});
+
+test('text readback accepts valid JSON split across byte chunks', async () => {
+  const json = JSON.stringify(request);
+  const bytes = new TextEncoder().encode(json);
+  const body = (async function* () {
+    yield bytes.subarray(0, 3);
+    yield bytes.subarray(3, 27);
+    yield bytes.subarray(27);
+  })();
+  assert.deepEqual(await readBoundedTextReadbackBody({body}), request);
+});
+
+test('text readback rejects oversized streamed body before consuming subsequent chunks', async () => {
+  let laterChunkRead = false;
+  const body = (async function* () {
+    yield new Uint8Array(4097);
+    laterChunkRead = true;
+    yield new Uint8Array([123, 125]);
+  })();
+  await denied(readBoundedTextReadbackBody({body}), 'REQUEST_TOO_LARGE');
+  assert.equal(laterChunkRead, false);
+});
+
+test('malformed JSON, invalid UTF-8 and absent request stream fail closed', async () => {
+  await denied(readBoundedTextReadbackBody({body:(async function* () {yield new TextEncoder().encode('{');})()}), 'INVALID_REQUEST');
+  await denied(readBoundedTextReadbackBody({body:(async function* () {yield Uint8Array.from([255]);})()}), 'INVALID_REQUEST');
+  await denied(readBoundedTextReadbackBody({body:null}), 'INVALID_REQUEST');
+});
+
+test('HTTP adapter uses bounded reader and does not buffer req.text before size check', () => {
+  const source = readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(source, /await readBoundedTextReadbackBody\(req\)/);
+  assert.doesNotMatch(source, /await req\.text\(\)/);
+  assert.match(source, /NEXA_TEXT_READBACK_ENABLED/);
+});
+
+
+test('distinguishes explicit access denial from capability RPC unavailability', async () => {
+  for (const deniedCapability of [
+    null,
+    {access_status:'pending',clinical_access:false},
+    {access_status:'disabled',clinical_access:false},
+    {access_status:'active',clinical_access:false}
+  ]) {
+    await assert.rejects(run({capability:deniedCapability}), e =>
+      e instanceof TextReadbackError && e.status === 403 && e.code === 'CLINICAL_ACCESS_REQUIRED');
+  }
+
+  const handler=readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(handler, /if \(capabilityError\) return json\(req, 503, \{ error: 'CAPABILITIES_UNAVAILABLE' \}\);/);
+  assert.doesNotMatch(handler, /if \(capabilityError\) return json\(req, 403/);
+  assert.match(handler, /if \(userError \|\| !user\) return json\(req, 401/);
+});
+
+
+test('owner-bound capability id and ambiguous RPC rows fail closed', async () => {
+  await denied(run({capability:{...capability,id:other}}), 'CLINICAL_ACCESS_REQUIRED');
+  await denied(run({capability:{access_status:'active',clinical_access:true}}), 'CLINICAL_ACCESS_REQUIRED');
+  await denied(run({capability:{...capability,id:'invalid'}}), 'CLINICAL_ACCESS_REQUIRED');
+  const handler=readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(handler, /capabilities\.length > 1/);
+  assert.match(handler, /error: 'CAPABILITIES_AMBIGUOUS'/);
 });
