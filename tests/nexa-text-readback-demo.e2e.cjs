@@ -1,5 +1,5 @@
 'use strict';
-// FICTITIOUS DEMO of textual recovery against a MOCK of the backend readback contract (PR #181 as described):
+// FICTITIOUS DEMO of textual recovery against a MOCK of the backend readback contract (PR #181, aligned with d034ed2):
 // recorder -> structured note -> REAL autosave module -> synthetic in-memory table -> TEST-ONLY contract mock
 // (tests/support/nexa-readback-contract-mock.cjs, no backend file imported) -> REAL readback client
 // (nexa-text-readback-v1.js, flag-gated) -> UI state. No hosted endpoint, no audio, no durable archive.
@@ -73,8 +73,10 @@ async function invoke(name,body){
   if(S.inject.fail)return{error:{code:'READBACK_UNAVAILABLE',status:503}};
   if(S.inject.beforeLookup)S.inject.beforeLookup(body);
   try{
-    const out=await mod.readVerifiedTextPackage({actor:uid,capability:{access_status:'active',clinical_access:true},request:body,hashCanonical,
-      lookup:async({encounter_id})=>{const r=[...S.db.values()].find(x=>x.encounter_id===encounter_id&&(S.inject.leakRls||x.user_id===uid));return r?clone(r):null}});
+    // SIMULATED endpoint/RPC layer (as index.ts): resolve get_my_capabilities rows first; 503 lives HERE, not in the pure fn.
+    const capability=mod.resolveCapabilityLikeEndpoint(S.inject.capRpcError?{rpcError:true}:{rows:S.inject.capRows||[{id:uid,access_status:'active',clinical_access:true}]});
+    const out=await mod.readVerifiedTextPackage({actor:uid,capability,request:body,hashCanonical,
+      lookup:async({encounter_id})=>{const r=[...S.db.values()].find(x=>x.encounter_id===encounter_id&&(S.inject.leakRls||x.user_id===uid));if(!r)return null;const c=clone(r);if(S.inject.mutateLookup)S.inject.mutateLookup(c);return c}});
     if(S.inject.tamperSha)out.canonical_sha256=(out.canonical_sha256[0]==='a'?'b':'a')+out.canonical_sha256.slice(1);
     return{data:out};
   }catch(e){
@@ -83,7 +85,7 @@ async function invoke(name,body){
   }
 }
 const independentSha=async(encId,uid)=>{const r=[...S.db.values()].find(x=>x.encounter_id===encId);
-  return (await mod.readVerifiedTextPackage({actor:uid,capability:{access_status:'active',clinical_access:true},request:{encounter_id:encId,expected_sync_version:r.sync_version},hashCanonical,lookup:async()=>clone(r)})).canonical_sha256};
+  return (await mod.readVerifiedTextPackage({actor:uid,capability:{id:uid,access_status:'active',clinical_access:true},request:{encounter_id:encId,expected_sync_version:r.sync_version},hashCanonical,lookup:async()=>clone(r)})).canonical_sha256};
 
 // ---- page-side stub ---------------------------------------------------------
 const STUB=`(function(){
@@ -231,6 +233,22 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const finalRow=rowFor(A.id);
   check('F6 edit during an in-flight readback: final confirmation matches the FINAL text only',r.state==='verified'&&finalRow.fields.hda==='EDITADO 7b (final).'&&r.sha256===await independentSha(encA,A.id),JSON.stringify({r,hda:finalRow.fields.hda}));
 
+  // ---- #181 contract alignment: owner-bound capability, capability RPC layer, strict metadata (never verified) ----
+  const neg=async(label,inject,text,wantState,wantCode)=>{const n=S.invokes.length;S.inject=inject;await h.edit(text);
+    const x=await fresh(n,s=>s.state===wantState&&s.code===wantCode);S.inject={};return x};
+  r=await neg('N1',{capRows:[{id:'99999999-9999-4999-8999-999999999999',access_status:'active',clinical_access:true}]},'EDITADO N1 (capacidade de outro medico).','pending','CLINICAL_ACCESS_REQUIRED');
+  check('N1 capability.id of ANOTHER physician: CLINICAL_ACCESS_REQUIRED, pending, never verified',r.state==='pending'&&r.code==='CLINICAL_ACCESS_REQUIRED'&&noSuccess(r),JSON.stringify(r));
+  r=await neg('N2',{capRpcError:true},'EDITADO N2 (RPC de capacidade falhou).','pending','CAPABILITIES_UNAVAILABLE');
+  check('N2 capability RPC failure at the endpoint layer: 503 CAPABILITIES_UNAVAILABLE, pending (not a denial, not verified)',r.state==='pending'&&r.code==='CAPABILITIES_UNAVAILABLE'&&noSuccess(r),JSON.stringify(r));
+  r=await neg('N3',{capRows:[{id:A.id,access_status:'active',clinical_access:true},{id:A.id,access_status:'active',clinical_access:true}]},'EDITADO N3 (duas linhas de capacidade).','pending','CAPABILITIES_AMBIGUOUS');
+  check('N3 two capability rows at the endpoint layer: 503 CAPABILITIES_AMBIGUOUS, pending, first row never picked',r.state==='pending'&&r.code==='CAPABILITIES_AMBIGUOUS'&&noSuccess(r),JSON.stringify(r));
+  r=await neg('N4',{mutateLookup:c=>{c.processing_meta=null}},'EDITADO N4 (processing_meta invalido no servidor).','mismatch','SOURCE_INVALID');
+  check('N4 malformed server processing_meta: SOURCE_INVALID mismatch, never replaced by {} and verified',r.state==='mismatch'&&r.code==='SOURCE_INVALID'&&noSuccess(r),JSON.stringify(r));
+  r=await neg('N5',{mutateLookup:c=>{c.protocol_usage={nao:'array'}}},'EDITADO N5 (protocol_usage invalido no servidor).','mismatch','SOURCE_INVALID');
+  check('N5 server protocol_usage not an array: SOURCE_INVALID mismatch, never replaced by [] and verified',r.state==='mismatch'&&r.code==='SOURCE_INVALID'&&noSuccess(r),JSON.stringify(r));
+  n0=S.invokes.length;S.inject={};await h.edit('EDITADO N6 (contrato normal de novo).');
+  r=await fresh(n0,s=>s.state==='verified');
+  check('N6 with the owner-bound capability and valid metadata the CURRENT row verifies again (fail-closed is not sticky)',r.state==='verified'&&r.sha256===await independentSha(encA,A.id),JSON.stringify(r));
   n0=S.invokes.length;S.inject={beforeLookup:()=>{rowFor(A.id).sync_version+=1}};
   await h.edit('EDITADO 4 (versao alterada por outro escritor).');
   r=await fresh(n0,s=>s.state==='mismatch');
