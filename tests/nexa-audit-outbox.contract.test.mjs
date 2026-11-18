@@ -26,7 +26,13 @@ await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'queued',nex
 await f.api.flush('startup');assert.equal((await f.api.get(snapshot.idempotency_key)).state,'blocked_gate_c');assert.equal(f.sends,0);
 assert.equal((await f.api.reconcileRemoteReady()).blocked,true);assert.equal((await f.api.submitRemoteEncounter({encounter_id:'old'},{})).blocked,true);assert.equal(f.reads,0);
 await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'sent'});assert.equal((await f.api.sendItem(await f.api.get(snapshot.idempotency_key))).skipped,true);
-f.setUser('doctor-B');await f.api.flush('focus');assert.equal((await f.api.get(snapshot.idempotency_key)).state,'sent');
+const foreign={...await f.api.get(snapshot.idempotency_key),idempotency_key:'foreign-encounter:final-v1',source_consultation_id:'foreign-encounter',owner_user_id:'doctor-B',state:'sending',last_attempt_at:'2020-01-01T00:00:00.000Z',last_error:null};
+await f.api.put(foreign);
+await f.api.flush('owner-isolation');
+assert.equal((await f.api.get(foreign.idempotency_key)).state,'sending','doctor-A cannot rewrite doctor-B stale entry');
+f.setUser('doctor-B');await f.api.flush('focus');
+assert.equal((await f.api.get(snapshot.idempotency_key)).state,'sent');
+assert.equal((await f.api.get(foreign.idempotency_key)).state,'blocked_gate_c','doctor-B may quarantine their own stale entry');
 const e=setup(code.replace('const AUDIT_GATE_C_LOCAL_STOP=true;','const AUDIT_GATE_C_LOCAL_STOP=false;'));
 const t=await e.api.buildSnapshot('synthetic-423');await e.api.put({...t,state:'queued',last_error:null});
 const denied=await e.api.sendItem({...t,state:'queued',last_error:null});assert.equal(denied.blocked,true);assert.equal(e.sends,1);
