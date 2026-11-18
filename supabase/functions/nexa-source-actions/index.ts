@@ -617,6 +617,17 @@ serve(async req => {
       }
       receiptReadbackVerified = true;
     }
+    // Final medical ACK has NO independent authenticated readback RPC in
+    // this candidate. A writer-only response is not durable/current evidence.
+    // Block success even if the mutation may already have committed.
+    if (request.params.p_kind === "review" && !receiptReadbackVerified) {
+      return json({
+        error: "FINAL_REVIEW_ACK_READBACK_NOT_VERIFIED",
+        event_state: "UNCONFIRMED",
+        external_ai_authorized: false,
+        gate_c_verified: false,
+      }, 409);
+    }
     return json({
       status: "SOURCE_ACTION_PERSISTED_ONLY",
       event: {

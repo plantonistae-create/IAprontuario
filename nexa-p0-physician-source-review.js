@@ -136,8 +136,8 @@ async function prepare(){
   owner=start.profile.id;encounter=start.id;
   // An indeterminate action remains tied to its ORIGINAL version/owner.
   // A new snapshot must never discard its key or trigger another write.
-  if(pendingAction?.kind==='consent'||pendingAction?.kind==='revoke')
-   warn('Existe uma ação pendente. Consulte o recibo original antes de nova declaração.');
+  if(['consent','revoke','review'].includes(pendingAction?.kind))
+   warn('Existe uma ação sem recibo confirmado. Nenhuma nova declaração ou revisão será enviada nesta sessão.');
   // The exact fields and metadata included in the server digest are displayed.
   // No transcription/Radar text is shown while recording.
   preview.textContent=JSON.stringify(out.source.source_snapshot,null,2);
@@ -154,13 +154,14 @@ async function prepare(){
   // A browser's ready_for_audit flag is never evidence of complete audio.
   // Do not offer an actionable ACK until an explicitly reviewed server
   // completeness receipt exists. Preview remains available independently.
-  reviewButton.disabled=out.source.final_review_server_completeness_verified!==true;
+  reviewButton.disabled=out.source.final_review_server_completeness_verified!==true||
+     !!pendingAction;
   // A saved source/policy is not proof that no prior provider egress occurred.
   // The current #172 RPC deliberately does NOT supply a trusted pre-egress
   // certificate. Consent gesture must stay disabled until that exists.
   consentButton.disabled=policySelect.options.length===0||
      out.source.pre_egress_source_verified!==true||
-     pendingAction?.kind==='consent'||pendingAction?.kind==='revoke';
+     !!pendingAction;
   warn(out.source.pre_egress_source_verified!==true?
    'Consentimento pré-IA bloqueado: origem/ordem do primeiro egress ainda não comprovadas. Revisão final também aguarda prova de completude no servidor.':
    'Ações explícitas exigem revisão humana. Registrar não libera IA ou auditoria.');
@@ -173,8 +174,8 @@ async function prepare(){
 }
 async function record(type){
  if(busy||!prepared)return;
- if(pendingAction?.kind==='consent'||pendingAction?.kind==='revoke'){
-  warn('Consulte o recibo original pendente antes de registrar nova declaração.');
+ if(['consent','revoke','review'].includes(pendingAction?.kind)){
+  warn('Há ação médica sem recibo confirmado. Não repita a gravação nem crie novo identificador nesta sessão.');
   return;
  }
  busy=true;
@@ -234,6 +235,7 @@ async function record(type){
    });
    if(generation!==viewGeneration||document.hidden)return;
    if(resp.status!=='SOURCE_ACTION_PERSISTED_ONLY'||
+      resp.event?.receipt_readback_verified!==true||
       !validPersistedReceipt(resp.event,'PHYSICIAN_FINAL_REVIEW_ACK',
         prepared.source.source_sync_version))
     throw Error('Sem recibo verificável de revisão médica.');
