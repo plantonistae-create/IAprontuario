@@ -37,7 +37,9 @@ test('canonical JSON hash is key-order independent, preserving array order', () 
 });
 test('cross-owner row never returns clinical text', async () => {
   await denied(run({lookup: async () => ({...row,user_id:other})}), 'OWNER_SCOPE_VIOLATION');
-  await denied(run({actor:other}), 'OWNER_SCOPE_VIOLATION');
+  // Give B a matching synthetic capability so this branch actually exercises
+  // the row-owner check, instead of failing earlier at capability binding.
+  await denied(run({actor:other,capability:{...capability,id:other}}), 'OWNER_SCOPE_VIOLATION');
 });
 test('missing row and revoked clinical access fail closed', async () => {
   await denied(run({lookup:async()=>null}), 'SOURCE_NOT_FOUND');
