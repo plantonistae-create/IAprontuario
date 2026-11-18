@@ -35,7 +35,9 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await client.auth.getUser();
     if (userError || !user) return json(req, 401, { error: 'UNAUTHORIZED' });
     const { data: capabilities, error: capabilityError } = await client.rpc('get_my_capabilities');
-    if (capabilityError) return json(req, 403, { error: 'CAPABILITIES_UNAVAILABLE' });
+    // RPC/transport failures are not proof that a physician is disabled.
+    // Remain fail-closed, but report unavailable rather than an access denial.
+    if (capabilityError) return json(req, 503, { error: 'CAPABILITIES_UNAVAILABLE' });
     const capability = Array.isArray(capabilities) ? capabilities[0] : capabilities;
     const result = await readVerifiedTextPackage({
       actor: user.id, capability, request: body,
