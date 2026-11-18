@@ -22,7 +22,7 @@ const f=setup(code);const snapshot=await f.api.buildSnapshot('manual_priority');
 await f.api.enqueue(snapshot);assert.equal((await f.api.sendItem(await f.api.get(snapshot.idempotency_key))).blocked,true);assert.equal(f.sends,0);
 f.fields.hda='Novo texto sintético completo após revisão de exemplo.';await f.api.enqueue(await f.api.buildSnapshot('updated'));
 assert.match((await f.api.get(snapshot.idempotency_key)).payload.fields.hda,/Novo texto/);
-await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'queued',next_attempt_at:null});
+await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'queued',next_attempt_at:'2099-01-01T00:00:00.000Z'});
 await f.api.flush('startup');assert.equal((await f.api.get(snapshot.idempotency_key)).state,'blocked_gate_c');assert.equal(f.sends,0);
 assert.equal((await f.api.reconcileRemoteReady()).blocked,true);assert.equal((await f.api.submitRemoteEncounter({encounter_id:'old'},{})).blocked,true);assert.equal(f.reads,0);
 await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'sent'});assert.equal((await f.api.sendItem(await f.api.get(snapshot.idempotency_key))).skipped,true);
