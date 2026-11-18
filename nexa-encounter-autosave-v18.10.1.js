@@ -222,6 +222,29 @@ function remotePayload(rec){return{
  consent_recorded_at:rec.consent_recorded_at||null,last_client_saved_at:rec.last_client_saved_at||nowIso(),
  processing_meta:rec.processing_meta||{},created_at:rec.created_at||nowIso()
 }}
+// A page unload can apply our own write on the server while the acknowledgement
+// is lost; the retry then fails the version predicate against a row that already
+// holds what we sent. That is an idempotent ack ONLY when the remote version is
+// exactly one step ahead (a single write: ours) and EVERY component we sent
+// matches. Any other difference is real concurrency and stays a conflict.
+function stableJson(v){if(v===null||typeof v!=='object')return JSON.stringify(v===undefined?null:v);if(Array.isArray(v))return '['+v.map(stableJson).join(',')+']';return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableJson(v[k])).join(',')+'}'}
+function remoteHoldsOwnWrite(remote,payload,expected){
+ try{
+  if(!remote||!payload||!Number.isSafeInteger(expected)||Number(remote.sync_version)!==expected+1)return false;
+  // processing_meta is compared in full EXCEPT the two bookkeeping stamps of the
+  // autosave block (saved_at, reason): a page unload fires two saves a few ms
+  // apart, and only those stamps differ between them.
+  const core=m=>{const c=JSON.parse(JSON.stringify(m||{}));if(c.encounter_autosave&&typeof c.encounter_autosave==='object'){delete c.encounter_autosave.saved_at;delete c.encounter_autosave.reason}return c};
+  const same=(k,d)=>stableJson(remote[k]??d)===stableJson(payload[k]??d);
+  if(!same('fields',{})||!same('protocol_usage',[])||stableJson(core(remote.processing_meta))!==stableJson(core(payload.processing_meta)))return false;
+  if((remote.consent_recorded_at||null)!==(payload.consent_recorded_at||null))return false;
+  if(String(remote.status||'')!==String(payload.status||''))return false;
+  if(Number(remote.audit_priority||0)!==Number(payload.audit_priority||0))return false;
+  // The server trigger never demotes ready_for_audit back to draft; nothing else may differ.
+  const rs=String(remote.encounter_state||''),ps=String(payload.encounter_state||'');
+  return rs===ps||(rs==='ready_for_audit'&&ps==='draft');
+ }catch{return false}
+}
 async function syncOne(rec){
  if(rec?.encounter_id&&syncInflight.has(rec.encounter_id))return syncInflight.get(rec.encounter_id);
  const task=(async()=>{
@@ -257,20 +280,21 @@ async function syncOne(rec){
     if(error)throw error;
     return data;
    };
-   const data=await withSessionRetry(c,rec.owner_user_id,performWrite);
+   let data=await withSessionRetry(c,rec.owner_user_id,performWrite);
    if(!data){
      const current=await withSessionRetry(c,rec.owner_user_id,async()=>{
-      const result=await c.from('consultation_history').select('sync_version,encounter_state').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
+      const result=await c.from('consultation_history').select(columns+',fields,protocol_usage,consent_recorded_at,processing_meta').eq('id',rec.encounter_id).eq('user_id',rec.owner_user_id).maybeSingle();
       if(result.error)throw result.error;
       return result.data;
      });
-     if(current){
+     if(remoteHoldsOwnWrite(current,payload,expected)){data=current}
+     else if(current){
        const conflict={...rec,sync_state:'conflict',last_error:'SERVER_VERSION_CONFLICT',next_attempt_at:null};
        if(!(await putSyncResultIfCurrent(rec,conflict)))return{sent:false,stale:true};
        window.dispatchEvent(new CustomEvent('nexa:encounter-sync-conflict',{detail:{encounter_id:rec.encounter_id}}));
        return{sent:false,conflict:true,item:conflict};
      }
-     throw new Error('SYNC_ROW_NOT_WRITABLE');
+     else throw new Error('SYNC_ROW_NOT_WRITABLE');
    }
    const remoteState=data?.encounter_state||rec.encounter_state;
    const terminal=['audited','discarded'].includes(remoteState);
