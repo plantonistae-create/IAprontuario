@@ -218,7 +218,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p,cs;
+ for share of p;
  if not found then
   raise exception using errcode='42501',message='ACTIVE_CLINICAL_ACCESS_REQUIRED';
  end if;
@@ -406,7 +406,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p,cs;
+ for share of p;
  if not found then raise exception using errcode='42501',
    message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
 
@@ -763,7 +763,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p,cs;
+ for share of p;
  if not found then raise exception using errcode='42501',
    message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
 
@@ -1014,6 +1014,174 @@ revoke all on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid
  from public,anon,authenticated,service_role;
 grant execute on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid)
  to authenticated;
+
+
+-- V4 / #164: ROLE + RLS PROVISIONING CANDIDATE -- REVIEW_ONLY / NEVER APPLIED
+-- Deliberately within the same transaction as the original candidate.
+-- The first command below FAILS UNCONDITIONALLY with SQLSTATE 42501; therefore
+-- running this file in any DB cannot commit either the original or new DDL.
+-- Removing that guard requires separate written authorization and PG17 tests
+-- of authenticated JWT claims, row_security_active, ownership, ACLs, and
+-- concurrency. A verified physician action is NOT legal patient consent.
+do $p0_not_authorized$
+begin
+  raise exception using errcode='42501',
+    message='STOP_WRITER176_ROLE_RLS_REVIEW_ONLY_NOT_AUTHORIZED';
+end $p0_not_authorized$;
+
+-- Candidate assumes an independently approved migration executor.
+-- Proving what actor actually runs migrations remains a mandatory STOP.
+do $p0_executor$
+begin
+  if current_user not in ('postgres','supabase_admin') then
+    raise exception using errcode='42501',
+      message='STOP_WRITER176_MIGRATION_EXECUTOR_NOT_APPROVED';
+  end if;
+  if exists (select 1 from pg_catalog.pg_roles
+             where rolname='nexa_p0_writer') then
+    raise exception using errcode='42501',
+      message='STOP_WRITER176_ROLE_ALREADY_PRESENT_RECONCILE_REQUIRED';
+  end if;
+end $p0_executor$;
+
+create role nexa_p0_writer
+  nologin noinherit nosuperuser nobypassrls
+  nocreatedb nocreaterole noreplication;
+
+-- No direct role grants to API actors and no direct login.
+-- Required privileges to call qualified helpers and see ONLY a physician's
+-- clinical row are scoped to this dedicated function owner.
+grant usage on schema public, private, auth to nexa_p0_writer;
+grant execute on function auth.uid() to nexa_p0_writer;
+grant execute on function public.has_active_clinical_access()
+  to nexa_p0_writer;
+grant execute on function private.nexa_p0_assert_restricted_definer()
+  to nexa_p0_writer;
+grant execute on function private.nexa_p0_clinical_digest(
+  jsonb,jsonb,jsonb,timestamptz) to nexa_p0_writer;
+
+grant select (id,access_status,clinical_access)
+  on public.profiles to nexa_p0_writer;
+grant update (updated_at) on public.profiles to nexa_p0_writer;
+grant select on public.consultation_history to nexa_p0_writer;
+grant update (updated_at) on public.consultation_history
+  to nexa_p0_writer;
+grant select (profile_id,slot_no) on private.clinical_slots
+  to nexa_p0_writer;
+-- INTENTIONALLY NO UPDATE, INSERT, DELETE OR TRIGGER on clinical_slots.
+-- V4 replaced the three FOR SHARE OF p,cs with FOR SHARE OF p, leaving
+-- slot reads behind the lock on the corresponding profiles row. This is
+-- a candidate concurrency boundary, NOT proven for direct admin slot writes.
+grant select, insert on private.nexa_p0_source_action_events
+  to nexa_p0_writer;
+grant update (client_action_id) on private.nexa_p0_source_action_events
+  to nexa_p0_writer;
+grant select on private.nexa_p0_purpose_policy to nexa_p0_writer;
+
+-- PostgreSQL 17 SELECT FOR SHARE needs column UPDATE privilege and UPDATE
+-- RLS USING on the locked relation. WITH CHECK (false) denies actual UPDATE,
+-- while allowing the locked SELECT to pass USING. The ledger additionally
+-- rejects every physical UPDATE through its immutable trigger.
+-- The clinical actor is always auth.uid(), never p_actor in a request body.
+create policy nexa_p0_writer_profiles_read
+ on public.profiles as permissive for select to nexa_p0_writer
+ using (auth.uid() is not null and id=auth.uid());
+create policy nexa_p0_writer_profiles_lock
+ on public.profiles as permissive for update to nexa_p0_writer
+ using (auth.uid() is not null and id=auth.uid())
+ with check (false);
+
+create policy nexa_p0_writer_source_read
+ on public.consultation_history as permissive for select to nexa_p0_writer
+ using (auth.uid() is not null and user_id=auth.uid()
+        and public.has_active_clinical_access());
+create policy nexa_p0_writer_source_lock
+ on public.consultation_history as permissive for update to nexa_p0_writer
+ using (auth.uid() is not null and user_id=auth.uid()
+        and public.has_active_clinical_access()
+        and encounter_state in ('draft','ready_for_audit'))
+ with check (false);
+
+create policy nexa_p0_writer_event_read
+ on private.nexa_p0_source_action_events
+ as permissive for select to nexa_p0_writer
+ using (auth.uid() is not null and owner_user_id=auth.uid());
+create policy nexa_p0_writer_event_insert
+ on private.nexa_p0_source_action_events
+ as permissive for insert to nexa_p0_writer
+ with check (auth.uid() is not null and owner_user_id=auth.uid()
+             and physician_explicit_action is true);
+create policy nexa_p0_writer_event_lock
+ on private.nexa_p0_source_action_events
+ as permissive for update to nexa_p0_writer
+ using (auth.uid() is not null and owner_user_id=auth.uid())
+ with check (false);
+create policy nexa_p0_writer_policy_read
+ on private.nexa_p0_purpose_policy
+ as permissive for select to nexa_p0_writer
+ using (revoked_at is null and approved_at<=pg_catalog.clock_timestamp());
+
+-- The function owner must be able to CREATE on public DURING transfer,
+-- and the migration actor must be able to SET ROLE to the new owner.
+-- Both are temporary within ONE uncommitted transaction; failure rolls back.
+-- Neither capability is presumed/proven by this candidate.
+do $p0_temp_membership$
+begin
+  execute pg_catalog.format(
+   'grant nexa_p0_writer to %I with inherit false, set true',
+   current_user);
+end $p0_temp_membership$;
+grant create on schema public to nexa_p0_writer;
+
+-- Nine entrypoints; helper owners remain separate from this role.
+alter function public.nexa_p0_prepare_source_review(uuid) owner to nexa_p0_writer;
+alter function public.nexa_p0_record_source_action(text,uuid,uuid,bigint,text,text,text,text,boolean,boolean) owner to nexa_p0_writer;
+alter function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text) owner to nexa_p0_writer;
+alter function public.nexa_p0_reconcile_consent_action(uuid,uuid,bigint,text,text,text,text) owner to nexa_p0_writer;
+alter function public.nexa_p0_recover_current_consent(uuid,bigint,text,text,text,text) owner to nexa_p0_writer;
+alter function public.nexa_p0_list_revocable_consents() owner to nexa_p0_writer;
+alter function public.nexa_p0_revoke_target_event(uuid,uuid,uuid,boolean) owner to nexa_p0_writer;
+alter function public.nexa_p0_verify_revocation(uuid,uuid,uuid) owner to nexa_p0_writer;
+alter function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid) owner to nexa_p0_writer;
+
+revoke create on schema public from nexa_p0_writer;
+do $p0_remove_membership$
+begin
+  execute pg_catalog.format(
+    'revoke nexa_p0_writer from %I',current_user);
+  if exists (
+    select 1 from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles r on r.oid=m.roleid
+    join pg_catalog.pg_roles mbr on mbr.oid=m.member
+    where r.rolname='nexa_p0_writer'
+       or mbr.rolname='nexa_p0_writer'
+  ) then raise exception using errcode='42501',
+    message='STOP_WRITER176_ROLE_MEMBERSHIP_NOT_CLEAN';
+  end if;
+  if (select rolcanlogin or rolsuper or rolbypassrls
+      or rolcreaterole or rolcreatedb or rolinherit
+      from pg_catalog.pg_roles where rolname='nexa_p0_writer')
+  then raise exception using errcode='42501',
+    message='STOP_WRITER176_ROLE_ATTRIBUTES_NOT_RESTRICTED';
+  end if;
+end $p0_remove_membership$;
+
+-- Emergency rollback (SEPARATE authorization; never run automatically):
+-- immediately revoke authenticated EXECUTE on ALL nine RPCs below; preserve
+-- private consent and revocation evidence. NO DROP TABLE / DROP ROLE by default.
+-- revoke execute on function public.nexa_p0_prepare_source_review(uuid) from authenticated;
+-- revoke execute on function public.nexa_p0_record_source_action(text,uuid,uuid,bigint,text,text,text,text,boolean,boolean) from authenticated;
+-- revoke execute on function public.nexa_p0_verify_consent_action(uuid,uuid,bigint,text) from authenticated;
+-- revoke execute on function public.nexa_p0_reconcile_consent_action(uuid,uuid,bigint,text,text,text,text) from authenticated;
+-- revoke execute on function public.nexa_p0_recover_current_consent(uuid,bigint,text,text,text,text) from authenticated;
+-- revoke execute on function public.nexa_p0_list_revocable_consents() from authenticated;
+-- revoke execute on function public.nexa_p0_revoke_target_event(uuid,uuid,uuid,boolean) from authenticated;
+-- revoke execute on function public.nexa_p0_verify_revocation(uuid,uuid,uuid) from authenticated;
+-- revoke execute on function public.nexa_p0_reconcile_revocation_action(uuid,uuid,uuid) from authenticated;
+-- Validate ACLs / actual row_security_active under the owner; JWT subject
+-- integrity, cross-user access, source/slot concurrency and ownership.
+-- Mandatory hard stops outside this SQL remain:
+-- PRE_EGRESS_RECEIPT_NOT_PROVEN, FINAL_ACK_NOT_PROVEN, GATE_C_NO_GO_0_19.
 
 commit;
 -- MANDATORY STOP: no policy rows; no UI, dispatch gate, validated audio state
