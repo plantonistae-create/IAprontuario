@@ -108,3 +108,21 @@ test('HTTP adapter uses bounded reader and does not buffer req.text before size 
   assert.doesNotMatch(source, /await req\.text\(\)/);
   assert.match(source, /NEXA_TEXT_READBACK_ENABLED/);
 });
+
+
+test('distinguishes explicit access denial from capability RPC unavailability', async () => {
+  for (const deniedCapability of [
+    null,
+    {access_status:'pending',clinical_access:false},
+    {access_status:'disabled',clinical_access:false},
+    {access_status:'active',clinical_access:false}
+  ]) {
+    await assert.rejects(run({capability:deniedCapability}), e =>
+      e instanceof TextReadbackError && e.status === 403 && e.code === 'CLINICAL_ACCESS_REQUIRED');
+  }
+
+  const handler=readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(handler, /if \(capabilityError\) return json\(req, 503, \{ error: 'CAPABILITIES_UNAVAILABLE' \}\);/);
+  assert.doesNotMatch(handler, /if \(capabilityError\) return json\(req, 403/);
+  assert.match(handler, /if \(userError \|\| !user\) return json\(req, 401/);
+});
