@@ -11,10 +11,11 @@ const processSrc=slice('async function processAudio(){',"}$('processBtn').onclic
 const noticeSrc=slice('function nexaSetAudioArchiveNotice(state){','async function processAudio(){');
 
 function el(){return{textContent:'',hidden:true,disabled:false,dataset:{},checked:false}}
-function harness({persist='ok',invokeFails=false}={}){
+function harness({persist='ok',invokeFails=false,capabilityVerified=true}={}){
   const els={};const $=id=>els[id]||(els[id]=el());
   const toasts=[],events=[],markers=[];
-  const factory=new Function('$','show','document','window','CustomEvent','persist','invokeFails','markers',`
+  const invokes=[];
+  const factory=new Function('$','show','document','window','CustomEvent','persist','invokeFails','markers','capabilityVerified','invokes',`
     let audioBlob=Object.assign(new Blob(['synthetic-audio']),{});let chunks=['c1'];
     let clinicalEpoch=1,recording=false,mediaRecorder=null,currentProf={id:'synthetic'};
     let activeHistoryId='x',realtimeTranscript='',realtimeTranscriptDelta='',lastProcessedMeta=null;
@@ -22,14 +23,15 @@ function harness({persist='ok',invokeFails=false}={}){
     const stopRecordingTimer=()=>{},stopRec=()=>{},collect=()=>({}),fill=()=>{},nexaShowMedicationReview=()=>{},initHypothesisReview=()=>{};
     const normalizeOutput=o=>o,radarTranscriptBuffer={clear(){}},APP_CONFIG={appVersion:'t'},NexaRadarEngine={norm:s=>String(s||'')};
     const nexaDiarizeAudio=async()=>null,nexaInvokeAutomaticSpeakerSegments=async()=>({fields:{}});
-    const invoke=async()=>{if(invokeFails)throw new Error('falha sintética');return{fields:{hda:'Dor sintética'}}};
+    const nexaCapabilityAllows=()=>capabilityVerified; // capability gate (index.html): verified -> true
+    const invoke=async()=>{invokes.push(1);if(invokeFails)throw new Error('falha sintética');return{fields:{hda:'Dor sintética'}}};
     const nexaPersistSession=async()=>{if(persist!=='ok')throw new Error('SAVE_FAILED')};
     ${noticeSrc}
     ${processSrc}
     return{processAudio,blob:()=>audioBlob,chunks:()=>chunks};`);
   const h=factory($,(m,err)=>toasts.push({m,err}),{body:{dataset:{}}},
-    {dispatchEvent:e=>events.push(e.type)},CustomEvent,persist,invokeFails,markers);
-  return{...h,els,toasts,events,markers};
+    {dispatchEvent:e=>events.push(e.type)},CustomEvent,persist,invokeFails,markers,capabilityVerified,invokes);
+  return{...h,els,toasts,events,markers,invokes};
 }
 
 test('local note saved: audio and chunks are kept and clearly marked not archived',async()=>{
@@ -100,4 +102,12 @@ test('discard paths ask first when the retained audio is not archived',async()=>
   assert.equal(ok.allowed,true);assert.equal(no.allowed,false);
   assert.equal(ok.confirms,1);assert.match(ok.msg,/NÃO foi arquivado/);
   assert.equal(run(true,false).allowed,false,'untranscribed audio is still hard-blocked');
+});
+
+test('unverified capabilities: processAudio sends nothing, keeps audio and chunks, changes no state',async()=>{
+  const h=harness({capabilityVerified:false});await h.processAudio();
+  assert.equal(h.invokes.length,0,'no transcription request while permissions are not confirmed');
+  assert.ok(h.blob(),'audio kept');assert.equal(h.chunks().length,1,'chunks kept');
+  assert.notEqual(h.blob().nexaTranscribed,true,'not marked transcribed');
+  assert.deepEqual(h.markers,[],'no loss marker written');
 });
