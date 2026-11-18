@@ -11,7 +11,7 @@ const row = { user_id: doctor, encounter_id: encounter, sync_version: 3,
   updated_at: '2026-11-16T12:00:00Z', encounter_state: 'draft', consent_recorded_at: null,
   fields: { hda: 'Atendimento inteiramente fictício', conduta: 'Observação fictícia' },
   processing_meta: { radar: { items: [2,1] } }, protocol_usage: [] };
-const capability = { access_status: 'active', clinical_access: true };
+const capability = { id: doctor, access_status: 'active', clinical_access: true };
 const hashCanonical = async text => createHash('sha256').update(text, 'utf8').digest('hex');
 const request = { encounter_id: encounter, expected_sync_version: 3 };
 function run(change = {}) {
@@ -125,4 +125,14 @@ test('distinguishes explicit access denial from capability RPC unavailability', 
   assert.match(handler, /if \(capabilityError\) return json\(req, 503, \{ error: 'CAPABILITIES_UNAVAILABLE' \}\);/);
   assert.doesNotMatch(handler, /if \(capabilityError\) return json\(req, 403/);
   assert.match(handler, /if \(userError \|\| !user\) return json\(req, 401/);
+});
+
+
+test('owner-bound capability id and ambiguous RPC rows fail closed', async () => {
+  await denied(run({capability:{...capability,id:other}}), 'CLINICAL_ACCESS_REQUIRED');
+  await denied(run({capability:{access_status:'active',clinical_access:true}}), 'CLINICAL_ACCESS_REQUIRED');
+  await denied(run({capability:{...capability,id:'invalid'}}), 'CLINICAL_ACCESS_REQUIRED');
+  const handler=readFileSync(new URL('../supabase/functions/nexa-clinical-text-readback/index.ts',import.meta.url),'utf8');
+  assert.match(handler, /capabilities\.length > 1/);
+  assert.match(handler, /error: 'CAPABILITIES_AMBIGUOUS'/);
 });
