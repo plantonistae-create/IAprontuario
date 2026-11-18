@@ -52,7 +52,9 @@ export async function readVerifiedTextPackage({ actor, capability, request, look
   const cmd = parseTextReadbackRequest(request);
   if (typeof actor !== 'string' || !UUID.test(actor)) fail('UNAUTHORIZED', 401);
   const owner = actor.toLowerCase();
-  if (!capability || capability.access_status !== 'active' || capability.clinical_access !== true) fail('CLINICAL_ACCESS_REQUIRED', 403);
+  if (!capability || typeof capability.id !== 'string' || !UUID.test(capability.id) ||
+      capability.id.toLowerCase() !== owner || capability.access_status !== 'active' ||
+      capability.clinical_access !== true) fail('CLINICAL_ACCESS_REQUIRED', 403);
   if (typeof lookup !== 'function' || typeof hashCanonical !== 'function') fail('READBACK_UNAVAILABLE', 503);
   const source = await lookup({ owner, encounter_id: cmd.encounter_id });
   if (!source) fail('SOURCE_NOT_FOUND', 404);
