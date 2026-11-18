@@ -33,7 +33,7 @@ function setup(script){
  const ctx={document,console,AbortController,structuredClone,CustomEvent:class{constructor(t,o){this.type=t;this.detail=o?.detail}},crypto:{randomUUID:()=>String(++n)},addEventListener(){},setTimeout:()=>0,clearTimeout(){},sessionStorage:{getItem:k=>mem.get(k)||null,setItem:(k,v)=>mem.set(k,v),removeItem:k=>mem.delete(k)},indexedDB:{open(){throw Error('No IndexedDB needed')}},fetch:async()=>{sends++;return{ok:false,status:423,json:async()=>({error:'AUDIT_GATE_C_NO_GO'})}}};
  ctx.window=ctx;ctx.dispatchEvent=()=>true;ctx.nexaClinicalRuntime18121={getProfile:()=>({id:user})};ctx.nexaClinicalSupabase18101={supabaseUrl:'https://synthetic.invalid',auth:{getSession:async()=>({data:{session:{access_token:'fake',user:{id:user}}},error:null})},from:()=>{reads++;throw Error('remote scan prohibited')}};
  vm.runInNewContext(script,ctx);const api=ctx.nexaAuditOutbox18919;
- api.setStoreAdapter({get:async k=>db.get(k)||null,put:async x=>{db.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...db.values()].map(structuredClone)});
+ api.setStoreAdapter({get:async k=>db.get(k)||null,put:async x=>{db.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...db.values()].map(value => structuredClone(value))});
  return{api,fields,setUser:x=>user=x,get sends(){return sends},get reads(){return reads}};
 }
 const f=setup(code);const snapshot=await f.api.buildSnapshot('manual_priority');assert.equal(snapshot.state,'blocked_gate_c');
