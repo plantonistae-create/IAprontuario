@@ -123,6 +123,8 @@ begin
  if pg_catalog.row_security_active(
       'public.consultation_history'::pg_catalog.regclass) is distinct from true
     or pg_catalog.row_security_active(
+      'private.clinical_slots'::pg_catalog.regclass) is distinct from true
+    or pg_catalog.row_security_active(
       'private.nexa_p0_source_action_events'::pg_catalog.regclass) is distinct from true
     or pg_catalog.row_security_active(
       'private.nexa_p0_purpose_policy'::pg_catalog.regclass) is distinct from true
@@ -218,7 +220,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p;
+ for share of p,cs;
  if not found then
   raise exception using errcode='42501',message='ACTIVE_CLINICAL_ACCESS_REQUIRED';
  end if;
@@ -406,7 +408,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p;
+ for share of p,cs;
  if not found then raise exception using errcode='42501',
    message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
 
@@ -763,7 +765,7 @@ begin
  join private.clinical_slots cs on cs.profile_id=p.id
  where p.id=v_actor and p.clinical_access is true
    and p.access_status='active' and cs.slot_no between 1 and 5
- for share of p;
+ for share of p,cs;
  if not found then raise exception using errcode='42501',
    message='ACTIVE_CLINICAL_ACCESS_REQUIRED'; end if;
 
@@ -1037,6 +1039,29 @@ begin
     raise exception using errcode='42501',
       message='STOP_WRITER176_MIGRATION_EXECUTOR_NOT_APPROVED';
   end if;
+  -- V4.3 R1: non-superuser CREATEROLE leaves an implicit ADMIN membership.
+  -- Do not claim a clean role via REVOKE under that executor.
+  if not exists (
+    select 1 from pg_catalog.pg_roles
+    where rolname=current_user and rolsuper is true
+  ) then raise exception using errcode='42501',
+    message='STOP_WRITER176_EXECUTOR_MUST_BE_SUPERUSER';
+  end if;
+  -- V4.3 R2/R3: GRANT without grant option can merely emit WARNING.
+  -- Fail before role creation when the auth or public capability is absent.
+  if pg_catalog.has_schema_privilege(
+       current_user,'auth','USAGE WITH GRANT OPTION') is distinct from true
+     or pg_catalog.has_function_privilege(
+       current_user,'auth.uid()'::pg_catalog.regprocedure,
+       'EXECUTE WITH GRANT OPTION') is distinct from true
+  then raise exception using errcode='42501',
+    message='STOP_WRITER176_AUTH_GRANT_OPTION_NOT_PROVEN';
+  end if;
+  if pg_catalog.has_schema_privilege(
+       current_user,'public','CREATE WITH GRANT OPTION') is distinct from true
+  then raise exception using errcode='42501',
+    message='STOP_WRITER176_PUBLIC_CREATE_GRANT_OPTION_NOT_PROVEN';
+  end if;
   if exists (select 1 from pg_catalog.pg_roles
              where rolname='nexa_p0_writer') then
     raise exception using errcode='42501',
@@ -1066,12 +1091,26 @@ grant update (updated_at) on public.profiles to nexa_p0_writer;
 grant select on public.consultation_history to nexa_p0_writer;
 grant update (updated_at) on public.consultation_history
   to nexa_p0_writer;
+-- V4.3 R5: lock the same physician's slot row for the transaction.
+-- PostgreSQL 17 FOR SHARE requires column UPDATE privilege. Row SECURITY
+-- keeps writer SELECT/UPDATE scoped to auth.uid(); WITH CHECK(false) denies
+-- effective UPDATE. This remains UNPROVEN until a newly authorized PG17 run.
+-- Existing postgres-owned maintenance functions continue as table owner.
+alter table private.clinical_slots enable row level security;
 grant select (profile_id,slot_no) on private.clinical_slots
   to nexa_p0_writer;
--- INTENTIONALLY NO UPDATE, INSERT, DELETE OR TRIGGER on clinical_slots.
--- V4 replaced the three FOR SHARE OF p,cs with FOR SHARE OF p, leaving
--- slot reads behind the lock on the corresponding profiles row. This is
--- a candidate concurrency boundary, NOT proven for direct admin slot writes.
+grant update (slot_no) on private.clinical_slots
+  to nexa_p0_writer;
+create policy nexa_p0_writer_slot_read
+ on private.clinical_slots as permissive for select to nexa_p0_writer
+ using (auth.uid() is not null and profile_id=auth.uid()
+        and slot_no between 1 and 5);
+create policy nexa_p0_writer_slot_lock
+ on private.clinical_slots as permissive for update to nexa_p0_writer
+ using (auth.uid() is not null and profile_id=auth.uid()
+        and slot_no between 1 and 5)
+ with check (false);
+-- Writer never receives INSERT, DELETE, or UPDATE outside slot_no.
 grant select, insert on private.nexa_p0_source_action_events
   to nexa_p0_writer;
 grant update (client_action_id) on private.nexa_p0_source_action_events
@@ -1121,10 +1160,9 @@ create policy nexa_p0_writer_policy_read
  as permissive for select to nexa_p0_writer
  using (revoked_at is null and approved_at<=pg_catalog.clock_timestamp());
 
--- The function owner must be able to CREATE on public DURING transfer,
--- and the migration actor must be able to SET ROLE to the new owner.
--- Both are temporary within ONE uncommitted transaction; failure rolls back.
--- Neither capability is presumed/proven by this candidate.
+-- The function owner requires temporary CREATE on public and the executor
+-- must be able to SET ROLE. This candidate REQUIRES a separately authorized
+-- superuser executor and prechecks grant options. NOT a hosted approval.
 do $p0_temp_membership$
 begin
   execute pg_catalog.format(
@@ -1181,7 +1219,10 @@ end $p0_remove_membership$;
 -- Validate ACLs / actual row_security_active under the owner; JWT subject
 -- integrity, cross-user access, source/slot concurrency and ownership.
 -- Mandatory hard stops outside this SQL remain:
--- PRE_EGRESS_RECEIPT_NOT_PROVEN, FINAL_ACK_NOT_PROVEN, GATE_C_NO_GO_0_19.
+-- JWT_CRYPTOGRAPHIC_ORIGIN_NOT_PROVEN, PRE_EGRESS_RECEIPT_NOT_PROVEN,
+-- FINAL_ACK_NOT_PROVEN, GATE_C_NO_GO_0_19.
+-- V4.4 is unexecuted. Recheck slot RLS, concurrency, owner-only, JWT scope
+-- and rollback on disposable PG17 before any further approval.
 
 commit;
 -- MANDATORY STOP: no policy rows; no UI, dispatch gate, validated audio state
