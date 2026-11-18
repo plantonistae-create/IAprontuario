@@ -38,6 +38,10 @@ Deno.serve(async (req: Request) => {
     // RPC/transport failures are not proof that a physician is disabled.
     // Remain fail-closed, but report unavailable rather than an access denial.
     if (capabilityError) return json(req, 503, { error: 'CAPABILITIES_UNAVAILABLE' });
+    // Zero rows means no clinical capability; multiple rows are an ambiguous
+    // authority response and must never be resolved by choosing the first.
+    if (Array.isArray(capabilities) && capabilities.length > 1)
+      return json(req, 503, { error: 'CAPABILITIES_AMBIGUOUS' });
     const capability = Array.isArray(capabilities) ? capabilities[0] : capabilities;
     const result = await readVerifiedTextPackage({
       actor: user.id, capability, request: body,
