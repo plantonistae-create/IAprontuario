@@ -75,6 +75,7 @@ test('ambiguous or compromised database listing fails closed',async()=>{
   await denied(run({listRows:async()=>rows.concat(rows)}),'HISTORY_LIST_INVALID');
   await denied(run({listRows:async()=>[{...rows[0],sync_version:'2'}]}),'HISTORY_ROW_NOT_VERIFIED');
   await denied(run({listRows:async()=>[{...rows[0],user_id:B}]}),'HISTORY_ROW_NOT_VERIFIED');
+  await denied(run({listRows:async()=>[rows[0],rows[1],{...rows[2],user_id:B}]}),'HISTORY_ROW_NOT_VERIFIED');
 });
 
 test('filters and cursor accept only strict, bounded, non-injectable shapes',()=>{
