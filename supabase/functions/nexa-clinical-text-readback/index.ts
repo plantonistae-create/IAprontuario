@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.49.8';
 import { readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../_shared/nexa-clinical-text-readback.mjs';
+import { listOwnedHistory, HistoryListError } from '../_shared/nexa-clinical-history-list.mjs';
 
 // Draft-only endpoint: disabled by default, never deployed or authorized for real patient data.
 const url = Deno.env.get('SUPABASE_URL') || '';
@@ -43,6 +44,32 @@ Deno.serve(async (req: Request) => {
     if (Array.isArray(capabilities) && capabilities.length > 1)
       return json(req, 503, { error: 'CAPABILITIES_AMBIGUOUS' });
     const capability = Array.isArray(capabilities) ? capabilities[0] : capabilities;
+    // Read-only cross-device consultation index. Every page repeats JWT,
+    // active clinical capability and owner-filtered RLS checks. No service key.
+    if (body?.action === 'list') {
+      const result = await listOwnedHistory({
+        actor: user.id, capability, request: body,
+        listRows: async ({ owner, limit, from_utc, until_utc, cursor }) => {
+          let query = client.from('consultation_history')
+            .select('id,encounter_id,user_id,created_at,updated_at,sync_version,status,encounter_state')
+            .eq('user_id', owner)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(limit + 1);
+          if (from_utc) query = query.gte('created_at', from_utc);
+          if (until_utc) query = query.lt('created_at', until_utc);
+          if (cursor) {
+            // Both cursor members are strictly validated by the shared contract
+            // before being interpolated into PostgREST's filter syntax.
+            query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+          }
+          const { data, error } = await query;
+          if (error) throw new HistoryListError('HISTORY_LIST_UNAVAILABLE', 503);
+          return data;
+        }
+      });
+      return json(req, 200, result);
+    }
     const result = await readVerifiedTextPackage({
       actor: user.id, capability, request: body,
       lookup: async ({ owner, encounter_id }) => {
@@ -62,6 +89,7 @@ Deno.serve(async (req: Request) => {
     return json(req, 200, result);
   } catch (error) {
     // Never log or return encounter data, source text, credentials or raw DB errors.
+    if (error instanceof HistoryListError) return json(req, error.status, { error: error.code });
     if (error instanceof TextReadbackError) return json(req, error.status, { error: error.code });
     return json(req, 503, { error: 'READBACK_UNAVAILABLE' });
   }
