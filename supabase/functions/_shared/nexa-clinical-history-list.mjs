@@ -40,7 +40,9 @@ export async function listOwnedHistory({actor,capability,request,listRows}){
   if(typeof listRows!=='function')fail('HISTORY_LIST_UNAVAILABLE',503);
   const rows=await listRows({owner,...cmd});
   if(!Array.isArray(rows)||rows.length>cmd.limit+1)fail('HISTORY_LIST_INVALID',503);
-  const entries=rows.slice(0,cmd.limit).map(row=>{
+  // Validate the lookahead row too: even pagination metadata must not be
+  // influenced by an out-of-owner or malformed database response.
+  const verified=rows.map(row=>{
     if(!obj(row)||row.user_id!==owner||!uuid(row.id)||!uuid(row.encounter_id)||
        !timestamp(row.created_at)||!timestamp(row.updated_at)||
        !Number.isSafeInteger(row.sync_version)||row.sync_version<0||
@@ -53,6 +55,7 @@ export async function listOwnedHistory({actor,capability,request,listRows}){
       status:row.status,encounter_state:row.encounter_state
     });
   });
+  const entries=verified.slice(0,cmd.limit);
   // A cursor is a navigation token, NOT an authorization token.
   // The HTTP adapter must enforce the same JWT/RLS owner on every page.
   const last=entries.at(-1);
