@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.49.8';
 import { readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../_shared/nexa-clinical-text-readback.mjs';
-import { listOwnedHistory, HistoryListError } from '../_shared/nexa-clinical-history-list.mjs';
+import { listOwnedHistory, buildHistoryCursorFilter, HistoryListError } from '../_shared/nexa-clinical-history-list.mjs';
 
 // Draft-only endpoint: disabled by default, never deployed or authorized for real patient data.
 const url = Deno.env.get('SUPABASE_URL') || '';
@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
           if (cursor) {
             // Both cursor members are strictly validated by the shared contract
             // before being interpolated into PostgREST's filter syntax.
-            query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+            query = query.or(buildHistoryCursorFilter(cursor));
           }
           const { data, error } = await query;
           if (error) throw new HistoryListError('HISTORY_LIST_UNAVAILABLE', 503);
