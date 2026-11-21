@@ -1,14 +1,18 @@
-/* NEXA V4.38: additive cross-device history, candidate-only, no automatic network calls.
- * The historic 7-day view, audio buffer and audit guards remain unchanged.
- * The readback endpoint is disabled/unpublished until separately authorized. */
+/* NEXA V4.62-B: owner-only direct cross-device history candidate.
+ * Uses the logged-in Supabase user's RLS; no new endpoint, audit service,
+ * paid AI call or automatic clinical-content loading. No server-signed digest. */
 (()=>{
 'use strict';
 if(window.__NEXA_HISTORY_MULTIDEVICE_V438__)return;
 window.__NEXA_HISTORY_MULTIDEVICE_V438__=true;
-const ENDPOINT='https://fmkrcieubrlltiggyauc.supabase.co/functions/v1/nexa-clinical-text-readback';
+// No hard-coded endpoint: direct authenticated PostgREST queries only.
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_ID=/^[A-Za-z0-9_-]{1,256}$/;
-const HASH=/^[a-f0-9]{64}$/;
+const CURSOR_TIME=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+const META_COLUMNS='id,encounter_id,user_id,status,encounter_state,created_at,updated_at,sync_version';
+const TEXT_COLUMNS=META_COLUMNS+',fields,processing_meta,protocol_usage,consent_recorded_at';
+const META_KEYS=META_COLUMNS.split(',').sort().join(',');
+const TEXT_KEYS=TEXT_COLUMNS.split(',').sort().join(',');
 const FIELDS=['record_id','encounter_id','created_at','updated_at','sync_version','status','encounter_state'];
 let owner='',items=[],cursor=null,hasMore=false,busy=false;
 const el=id=>document.getElementById(id);
@@ -50,37 +54,122 @@ function validatePage(data){
  }else if(next!==null)fail('HISTORY_CURSOR_NOT_VERIFIED');
  return Object.freeze({rows,has_more:data.has_more,next_cursor:next});
 }
-async function validateReadback(data,meta){
- const pkg=data?.package;
- if(!object(data)||data.verified!==true||data.durable_archive!==false||
-    data.audio_included!==false||!HASH.test(data.canonical_sha256)||
-    !object(pkg)||pkg.schema_version!=='nexa-clinical-text-readback-v1'||
-    pkg.encounter_id!==meta.encounter_id||pkg.sync_version!==meta.sync_version||
-    !object(pkg.fields)||!object(pkg.processing_meta)||!Array.isArray(pkg.protocol_usage))
-    fail('READBACK_NOT_VERIFIED');
- if(!window.crypto?.subtle?.digest||typeof window.TextEncoder!=='function')fail('HASH_VERIFIER_UNAVAILABLE');
- const bytes=new window.TextEncoder().encode(canonicalJson(pkg));
- const digest=await window.crypto.subtle.digest('SHA-256',bytes);
- const own=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
- if(own!==data.canonical_sha256)fail('READBACK_DIGEST_MISMATCH');
- return pkg;
+// Direct RLS reads are NOT server-signed, and a browser-calculated hash is not
+// authoritative integrity evidence. We verify identity, version and timestamps;
+// the protected clinical recovery handler still performs a local CAS checkpoint.
+function validateDirectReadback(data,meta,expectedOwner){
+ const row=data?.row;
+ if(!object(data)||!object(row)||Object.keys(row).sort().join(',')!==TEXT_KEYS||
+    !SAFE_ID.test(row.id)||!UUID.test(row.encounter_id)||!UUID.test(row.user_id)||
+    row.id!==meta.record_id||row.encounter_id!==meta.encounter_id||
+    row.user_id!==expectedOwner||row.sync_version!==meta.sync_version||
+    row.status!==meta.status||row.encounter_state!==meta.encounter_state||
+    row.created_at!==meta.created_at||row.updated_at!==meta.updated_at||
+    !validTime(row.created_at)||!validTime(row.updated_at)||
+    !Number.isSafeInteger(row.sync_version)||row.sync_version<0||
+    !object(row.fields)||!object(row.processing_meta)||
+    !Array.isArray(row.protocol_usage)||
+    (row.consent_recorded_at!==null&&!validTime(row.consent_recorded_at)))
+    fail('DIRECT_READBACK_NOT_VERIFIED');
+ return Object.freeze({
+  schema_version:'nexa-clinical-text-readback-v1',
+  encounter_id:row.encounter_id,sync_version:row.sync_version,
+  updated_at:row.updated_at,encounter_state:row.encounter_state,
+  consent_recorded_at:row.consent_recorded_at,
+  fields:row.fields,processing_meta:row.processing_meta,
+  protocol_usage:row.protocol_usage
+ });
+}
+async function authenticatedClient(expectedOwner){
+ const c=supa();
+ if(!UUID.test(expectedOwner)||profile()?.id!==expectedOwner||
+    !c?.auth?.getSession||!c?.auth?.getUser||
+    typeof c?.rpc!=='function'||typeof c?.from!=='function')
+   fail('AUTH_REQUIRED');
+ let session,authenticated,access;
+ try{
+  const current=await c.auth.getSession();session=current?.data?.session;
+  if(current?.error||!session?.access_token||session?.user?.id!==expectedOwner)
+    fail('AUTH_REQUIRED');
+  authenticated=await c.auth.getUser();
+ }catch{fail('AUTH_REQUIRED');}
+ if(authenticated?.error||authenticated?.data?.user?.id!==expectedOwner||
+    profile()?.id!==expectedOwner)fail('AUTH_REQUIRED');
+ try{access=await c.rpc('has_active_clinical_access');}
+ catch{fail('CLINICAL_ACCESS_UNAVAILABLE');}
+ if(access?.error||typeof access?.data!=='boolean')fail('CLINICAL_ACCESS_UNAVAILABLE');
+ if(access.data!==true)fail('CLINICAL_ACCESS_REQUIRED');
+ if(profile()?.id!==expectedOwner)fail('OWNER_CHANGED');
+ return c;
+}
+function validateMetadataRow(row,expectedOwner){
+ if(!object(row)||Object.keys(row).sort().join(',')!==META_KEYS||
+    !SAFE_ID.test(row.id)||!UUID.test(row.encounter_id)||row.user_id!==expectedOwner||
+    !validTime(row.created_at)||!validTime(row.updated_at)||
+    !Number.isSafeInteger(row.sync_version)||row.sync_version<0||
+    !['draft','final'].includes(row.status)||
+    !['draft','ready_for_audit','audited','discarded'].includes(row.encounter_state))
+   fail('HISTORY_ROW_NOT_VERIFIED');
+ return {
+  record_id:row.id,encounter_id:row.encounter_id,
+  created_at:row.created_at,updated_at:row.updated_at,
+  sync_version:row.sync_version,status:row.status,encounter_state:row.encounter_state
+ };
 }
 async function request(body,expectedOwner){
- const c=supa();if(!c?.auth?.getSession||!UUID.test(expectedOwner))fail('AUTH_REQUIRED');
- const {data,error}=await c.auth.getSession(),session=data?.session;
- if(error||!session?.access_token||session?.user?.id!==expectedOwner)fail('AUTH_REQUIRED');
- const key=c.supabaseKey||window.nexaClinicalRuntime18121?.publishableKey;
- if(typeof key!=='string'||!key)fail('PUBLIC_KEY_UNAVAILABLE');
- const response=await fetch(ENDPOINT,{
-  method:'POST',cache:'no-store',
-  headers:{Authorization:'Bearer '+session.access_token,apikey:key,'Content-Type':'application/json'},
-  body:JSON.stringify(body)
- });
- if(!response.ok)fail(response.status===404||response.status===503?'READBACK_BACKEND_NOT_READY':
-   response.status===401||response.status===403?'AUTH_REQUIRED':'REMOTE_REQUEST_FAILED_'+response.status);
- const payload=await response.json();
- if(profile()?.id!==expectedOwner)fail('OWNER_CHANGED');
- return payload;
+ const c=await authenticatedClient(expectedOwner);
+ if(body?.action==='list'){
+  if(body.limit!==20)fail('INVALID_PAGE_REQUEST');
+  let query=c.from('consultation_history').select(META_COLUMNS)
+   .eq('user_id',expectedOwner)
+   .order('created_at',{ascending:false})
+   .order('id',{ascending:false})
+   .limit(21);
+  if(body.cursor!==undefined){
+   const cursor=body.cursor;
+   if(!object(cursor)||Object.keys(cursor).sort().join(',')!=='created_at,id'||
+      !SAFE_ID.test(cursor.id)||!CURSOR_TIME.test(cursor.created_at)||
+      !validTime(cursor.created_at))fail('HISTORY_CURSOR_INVALID');
+   // Keyset pagination: no omissions when timestamps tie, and no offset drift.
+   query=query.or('created_at.lt.'+cursor.created_at+
+     ',and(created_at.eq.'+cursor.created_at+',id.lt.'+cursor.id+')');
+  }
+  let result;try{result=await query;}catch{fail('REMOTE_HISTORY_QUERY_FAILED');}
+  if(result?.error||!Array.isArray(result?.data)||result.data.length>21)
+   fail('REMOTE_HISTORY_QUERY_FAILED');
+  if(profile()?.id!==expectedOwner)fail('OWNER_CHANGED');
+  const first=result.data.slice(0,20);
+  const rows=first.map(row=>validateMetadataRow(row,expectedOwner));
+  const last=rows.at(-1),hasMore=result.data.length>20;
+  return {
+   schema_version:'nexa-clinical-history-list-v1',
+   scope:'authenticated_owner_only',
+   content_included:false,audio_included:false,training_approved:false,
+   items:rows,has_more:hasMore,
+   next_cursor:hasMore?{created_at:last.created_at,id:last.record_id}:null
+  };
+ }
+ if(object(body)&&SAFE_ID.test(body.record_id)&&UUID.test(body.encounter_id)&&
+    Number.isSafeInteger(body.expected_sync_version)&&body.expected_sync_version>=0&&
+    validTime(body.expected_updated_at)&&
+    ['draft','final'].includes(body.expected_status)&&
+    ['draft','ready_for_audit','audited','discarded'].includes(body.expected_encounter_state)){
+  let result;
+  try{
+   result=await c.from('consultation_history').select(TEXT_COLUMNS)
+    .eq('user_id',expectedOwner).eq('id',body.record_id)
+    .eq('encounter_id',body.encounter_id)
+    .eq('sync_version',body.expected_sync_version)
+    .eq('updated_at',body.expected_updated_at)
+    .eq('status',body.expected_status)
+    .eq('encounter_state',body.expected_encounter_state).maybeSingle();
+  }catch{fail('DIRECT_READBACK_QUERY_FAILED');}
+  if(result?.error)fail('DIRECT_READBACK_QUERY_FAILED');
+  if(profile()?.id!==expectedOwner)fail('OWNER_CHANGED');
+  if(!result?.data)fail('DIRECT_READBACK_VERSION_CHANGED_OR_DENIED');
+  return {row:result.data};
+ }
+ fail('INVALID_READBACK_REQUEST');
 }
 function status(message){const x=el('nexa438Status');if(x)x.textContent=message}
 function clearPreviousOwner(nextOwner){
@@ -172,10 +261,12 @@ async function openItem(meta){
   if(saved&&(saved.owner_user_id!==who||saved.sync_state!=='synced'||saved.requires_form_refresh||
     Number(saved.sync_version)>meta.sync_version))
      fail('LOCAL_DRAFT_OR_CONFLICT_PROTECTED');
-  // Server readback must match its own SHA-256 before any clinical state changes.
-  const pkg=await validateReadback(await request({
-   encounter_id:meta.encounter_id,expected_sync_version:meta.sync_version
-  },who),meta);
+  // RLS-backed readback requires exact identity and version. No signed digest.
+  const pkg=validateDirectReadback(await request({
+   record_id:meta.record_id,encounter_id:meta.encounter_id,
+   expected_sync_version:meta.sync_version,expected_updated_at:meta.updated_at,
+   expected_status:meta.status,expected_encounter_state:meta.encounter_state
+  },who),meta,who);
   requireCleanForm(auto,baseline,meta.encounter_id);
   if(owner!==who)fail('OWNER_CHANGED');
   // A legacy text PK must never be silently converted into an editable UUID.
@@ -214,7 +305,7 @@ async function openItem(meta){
       Number(durable.sync_version)<meta.sync_version||
       canonicalJson(durable.fields)!==canonicalJson(pkg.fields))
       fail('RECOVERY_LOCAL_CHECKPOINT_NOT_VERIFIED');
-   status('Consulta recuperada com SHA-256; checkpoint local verificado. Não é arquivo de áudio.');
+   status('Consulta recuperada por identidade e versão; checkpoint local verificado. Não é arquivo de áudio nem prova criptográfica do servidor.');
   }finally{body.inert=wasInert;}
  }catch(error){status('Recuperação NÃO concluída: '+String(error?.message||'FAIL'));}
  finally{busy=false;}
@@ -225,11 +316,11 @@ function mount(){
  section.style.cssText='margin-top:18px;padding-top:14px;border-top:1px solid var(--nf-line,var(--hair))';
  const head=document.createElement('h3');head.textContent='Consultas no servidor · todos os períodos';
  const desc=document.createElement('p');
- desc.textContent='Consulta privada, paginada e sob autenticação. Recuperação exige readback e integridade SHA-256. Não é arquivo de áudio ou autorização de IA.';
+ desc.textContent='Histórico privado paginado, pela sessão autenticada e RLS. Recuperação exige identidade, versão e checkpoint local. Não inclui arquivo de áudio nem valida consentimento para IA.';
  const btn=document.createElement('button');btn.id='nexa438Load';btn.className='n197-btn';btn.type='button';
  btn.textContent='Consultar servidor';btn.addEventListener('click',()=>void loadPage(true));
  const st=document.createElement('p');st.id='nexa438Status';st.className='n197-status';
- st.textContent='Disponível somente após implantação e autorização separadas do endpoint de leitura.';
+ st.textContent='Consulta sob demanda; requer autenticação e acesso clínico ativo.';
  const rows=document.createElement('div');rows.id='nexa438Rows';rows.className='n197-list';
  const more=document.createElement('button');more.id='nexa438More';more.type='button';
  more.className='n197-btn';more.hidden=true;more.textContent='Carregar mais';
@@ -238,7 +329,7 @@ function mount(){
  preview.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
  section.append(head,desc,btn,st,rows,more,preview);root.append(section);return true;
 }
-window.nexaMultideviceHistoryV438=Object.freeze({validatePage,validateReadback,request,loadPage,openItem,mount});
+window.nexaMultideviceHistoryV438=Object.freeze({validatePage,validateDirectReadback,request,loadPage,openItem,mount});
 try{
  const auth=supa()?.auth;
  if(typeof auth?.onAuthStateChange==='function')
