@@ -205,7 +205,8 @@ test('deferred local save failure is visible to clinician without showing patien
  assert.ok(version,'versioned Radar controller is required');
  assert.equal(cache,version,'worker cache must use current Radar controller release');
  assert.match(worker,/nexa-hotfix\.js\?v=20261107-radar-silent-focus-p0/);
- assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261106-server-refresh/);
+ assert.match(loader,/nexa-encounter-autosave-v18\.10\.1\.js\?v=20261120-owner-v2/);
+ assert.match(loader,/nexa-owner-scoped-idb-v460\.js\?v=20261120-owner-v2/);
 });
 
 

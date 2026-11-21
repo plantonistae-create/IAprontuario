@@ -5,7 +5,8 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'..','nexa-encounter-autosave-v18.10.1.js'),'utf8');
+const source="window.nexaOwnerScopedIDB460={DB:'nexa-encounter-autosave-v18101',STORE:'encounters_owner_v2',VERSION:2};\n"+
+ fs.readFileSync(path.join(__dirname,'..','nexa-encounter-autosave-v18.10.1.js'),'utf8');
 const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
 const USER='11111111-1111-4111-8111-111111111111';
 let serial=1;
@@ -17,7 +18,7 @@ function local(id,fields,version=0,state='pending'){
 }
 function memoryStore(){
  const records=new Map();
- return{records,adapter:{
+ return{records,adapter:{ownerScoped:true,
    get:async id=>copy(records.get(id)||null),
    put:async item=>{records.set(item.encounter_id,copy(item));return copy(item)},
    all:async()=>copy([...records.values()]),

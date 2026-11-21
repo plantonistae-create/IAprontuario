@@ -4,7 +4,11 @@
 if(window.__NEXA_ENCOUNTER_AUTOSAVE_V18_10_1__)return;
 window.__NEXA_ENCOUNTER_AUTOSAVE_V18_10_1__=true;
 
-const DB='nexa-encounter-autosave-v18101',STORE='encounters',ACTIVE='nexa-active-encounter-v18101';
+const DB='nexa-encounter-autosave-v18101',STORE='encounters_owner_v2',ACTIVE='nexa-active-encounter-v18101';
+// V4.60: load the owner-scoped IDB provider before this module; never fall back to V1.
+const scopedDb=window.nexaOwnerScopedIDB460;
+if(!scopedDb||scopedDb.DB!==DB||scopedDb.STORE!==STORE||scopedDb.VERSION!==2)
+ throw new Error('OWNER_SCOPED_IDB_PROVIDER_UNAVAILABLE');
 const ARCHIVE_DB='nexa-encounter-conflict-archive-v1',ARCHIVE_STORE='snapshots';
 const RESET='#resetBtn,#nexaRadarResetBtn,#nfClear,#nfTopClear,#nexaNewCaseBtn,#nexaTopReset';
 const NAV='[data-go],[data-mobile-stage],[data-desk],#navAuditBtn,#navProtocolsBtn,#navAdminBtn,#coreAdminBtn,#nexaHomeNav';
@@ -12,12 +16,14 @@ const START='#recBtn,#nfStart';
 const uuid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const clone=x=>{try{return structuredClone(x)}catch{return JSON.parse(JSON.stringify(x))}};
 const nowIso=()=>new Date().toISOString();
-let storeAdapter=null,archiveAdapter=null,persistTimer=null,persistMaxTimer=null,flushPromise=null,retryTimer=null,pendingNew=false,currentId='';
+let storeAdapter=null,archiveAdapter=null,persistTimer=null,persistMaxTimer=null,retryTimer=null,pendingNew=false,currentId='';
+const flushInflight=new Map();
 let localPersistQueue=Promise.resolve();
 let activeOwnerId=null,ownerSwitchRequiresExplicitEncounter=false;
 const editedAfterReconciliation=new Set();
 function serializeLocal(fn){const p=localPersistQueue.then(fn,fn);localPersistQueue=p.catch(()=>{});return p}
 const syncInflight=new Map();
+const syncKey=(who,id)=>String(who)+'\u0000'+String(id);
 function sameLocalRevision(current,expected){
  return !!current&&current.owner_user_id===expected.owner_user_id&&current.encounter_id===expected.encounter_id&&
    Number(current.local_revision||0)===Number(expected.local_revision||0)&&
@@ -128,18 +134,32 @@ function processingMeta(reason){
  let destination={};try{destination=clone(window.nexaDestinationFlow18915?.state||{})}catch{}
  return {...base,encounter_autosave:{version:'18.10.1',reason,state:sessionState(),saved_at:nowIso(),radar,hypothesisReview:hypothesis,alternatives,discarded,clinicalPlan:plan,destination}};
 }
-function openDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE)){const s=db.createObjectStore(STORE,{keyPath:'encounter_id'});s.createIndex('owner_user_id','owner_user_id',{unique:false});s.createIndex('sync_state','sync_state',{unique:false})}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('ENCOUNTER_IDB_OPEN_FAILED'))})}
-async function idbGet(id){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close()})}
-async function idbPut(item){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(clone(item));tx.oncomplete=()=>{db.close();resolve(clone(item))};tx.onerror=()=>{db.close();reject(tx.error||new Error('ENCOUNTER_IDB_WRITE_FAILED'))}})}
+// All access uses the authenticated owner's [owner_user_id,encounter_id] key.
+// V1 entries are copied transactionally by the provider and retained as backup.
+function scopedOwner(){
+ const who=owner();if(!isUuid(who))throw new Error('OWNER_SCOPED_AUTH_REQUIRED');
+ return who;
+}
+async function idbGet(id){
+ if(!isUuid(id))return null;
+ const who=scopedOwner(),result=await scopedDb.get(id,who);
+ assertOwnerStill(who);
+ return result;
+}
+async function idbPut(item){
+ const who=scopedOwner();
+ if(!item||item.owner_user_id!==who)throw new Error('OWNER_SCOPED_WRITE_DENIED');
+ const saved=await scopedDb.put(item,who);
+ assertOwnerStill(who);
+ return saved;
+}
 async function idbComparePut(expected,item){
- const db=await openDb();return new Promise((resolve,reject)=>{
-   const tx=db.transaction(STORE,'readwrite'),table=tx.objectStore(STORE),req=table.get(expected.encounter_id);
-   let accepted=false;
-   req.onsuccess=()=>{if(sameLocalRevision(req.result,expected)){table.put(clone(item));accepted=true}};
-   tx.oncomplete=()=>{db.close();resolve(accepted)};
-   tx.onabort=()=>{db.close();reject(tx.error||new Error('ENCOUNTER_COMPARE_WRITE_FAILED'))};
-   tx.onerror=()=>{db.close()};
- });
+ const who=scopedOwner();
+ if(expected?.owner_user_id!==who||item?.owner_user_id!==who)
+  throw new Error('OWNER_SCOPED_CAS_DENIED');
+ const accepted=await scopedDb.comparePut(expected,item,who,sameLocalRevision);
+ assertOwnerStill(who);
+ return accepted;
 }
 async function archiveConflictCopies(local,remote,choice){
  if(archiveAdapter)return archiveAdapter(clone(local),clone(remote),choice);
@@ -159,15 +179,53 @@ async function archiveConflictCopies(local,remote,choice){
    tx.onerror=()=>{db.close()};
  });
 }
-async function idbAll(){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close()})}
+async function idbAll(){
+ const who=scopedOwner(),rows=await scopedDb.all(who);
+ assertOwnerStill(who);
+ return rows;
+}
+function verifiedAdapter(){
+ if(storeAdapter&&storeAdapter.ownerScoped!==true)
+  throw new Error('UNSCOPED_STORE_ADAPTER_REJECTED');
+ return storeAdapter;
+}
 const store={
- get:id=>storeAdapter?.get?storeAdapter.get(id):idbGet(id),
- put:item=>storeAdapter?.put?storeAdapter.put(clone(item)):idbPut(item),
- all:()=>storeAdapter?.all?storeAdapter.all():idbAll(),
+ get:async id=>{
+  if(!isUuid(id)||!owner())return null;
+  const who=scopedOwner(),adapter=verifiedAdapter();
+  const rec=adapter?.get?await adapter.get(id,who):await idbGet(id);
+  assertOwnerStill(who);
+  if(rec&&rec.owner_user_id!==who)throw new Error('OWNER_SCOPED_READ_DENIED');
+  return rec||null;
+ },
+ put:async item=>{
+  const who=scopedOwner(),adapter=verifiedAdapter();
+  if(item?.owner_user_id!==who)throw new Error('OWNER_SCOPED_WRITE_DENIED');
+  const rec=adapter?.put?await adapter.put(clone(item),who):await idbPut(item);
+  assertOwnerStill(who);
+  return rec;
+ },
+ all:async()=>{
+  if(!owner())return [];
+  const who=scopedOwner(),adapter=verifiedAdapter();
+  const rows=adapter?.all?await adapter.all(who):await idbAll();
+  assertOwnerStill(who);
+  if(!Array.isArray(rows)||rows.some(x=>x?.owner_user_id!==who))
+   throw new Error('OWNER_SCOPED_LIST_DENIED');
+  return rows;
+ },
  comparePut:async(expected,item)=>{
-   if(storeAdapter?.comparePut)return storeAdapter.comparePut(clone(expected),clone(item));
-   if(storeAdapter?.put){const latest=await store.get(expected.encounter_id);if(!sameLocalRevision(latest,expected))return false;await store.put(item);return true}
-   return idbComparePut(expected,item);
+  const who=scopedOwner(),adapter=verifiedAdapter();
+  if(expected?.owner_user_id!==who||item?.owner_user_id!==who||
+     expected.encounter_id!==item.encounter_id)
+   throw new Error('OWNER_SCOPED_CAS_DENIED');
+  if(adapter){
+   if(typeof adapter.comparePut!=='function')
+    throw new Error('NONATOMIC_ADAPTER_CAS_DISABLED');
+   const ok=await adapter.comparePut(clone(expected),clone(item),who);
+   assertOwnerStill(who);return ok;
+  }
+  return idbComparePut(expected,item);
  }
 };
 
@@ -223,7 +281,8 @@ function remotePayload(rec){return{
  processing_meta:rec.processing_meta||{},created_at:rec.created_at||nowIso()
 }}
 async function syncOne(rec){
- if(rec?.encounter_id&&syncInflight.has(rec.encounter_id))return syncInflight.get(rec.encounter_id);
+ const scopedKey=rec?.encounter_id&&rec?.owner_user_id?syncKey(rec.owner_user_id,rec.encounter_id):null;
+ if(scopedKey&&syncInflight.has(scopedKey))return syncInflight.get(scopedKey);
  const task=(async()=>{
  if(!rec||rec.owner_user_id!==owner())return{skipped:true};
  if(rec.sync_state==='conflict')return{sent:false,conflict:true,item:rec};
@@ -291,16 +350,21 @@ async function syncOne(rec){
    if(!(await putSyncResultIfCurrent(rec,saved)))return{sent:false,stale:true};window.dispatchEvent(new CustomEvent('nexa:encounter-sync-failed',{detail:{encounter_id:rec.encounter_id,error:saved.last_error}}));return{sent:false,error:saved.last_error,item:saved};
  }
 })();
- if(rec?.encounter_id)syncInflight.set(rec.encounter_id,task);
+ if(scopedKey)syncInflight.set(scopedKey,task);
  try{return await task}finally{
-  if(rec?.encounter_id&&syncInflight.get(rec.encounter_id)===task){
-    syncInflight.delete(rec.encounter_id);
+  if(scopedKey&&syncInflight.get(scopedKey)===task){
+    syncInflight.delete(scopedKey);
     // A newer local draft may have arrived while the request was in flight.
     // Retry only that pending draft; never overwrite it with the older response.
     try{
-      const latest=await store.get(rec.encounter_id);
-      if(latest?.owner_user_id===owner()&&latest.sync_state==='pending'&&Number(latest.local_revision||0)!==Number(rec.local_revision||0)&&navigator.onLine!==false){
-        setTimeout(()=>void syncOne(latest),0);
+      // The in-flight request may belong to a previously authenticated doctor.
+      // Never inspect or retry the next doctor's same encounter UUID.
+      if(rec.owner_user_id===owner()){
+        const latest=await store.get(rec.encounter_id);
+        if(rec.owner_user_id===owner()&&latest?.owner_user_id===rec.owner_user_id&&
+           latest.sync_state==='pending'&&
+           Number(latest.local_revision||0)!==Number(rec.local_revision||0)&&navigator.onLine!==false)
+          setTimeout(()=>void syncOne(latest),0);
       }
     }catch{console.warn('NEXA pending encounter retry deferred')}
   }
@@ -448,7 +512,8 @@ async function resolveConflict({id,expectedVersion,localRevision,localSavedAt,mo
  const initial=await store.get(id);
  if(!initial||initial.owner_user_id!==owner()||initial.sync_state!=='conflict')throw new Error('CONFLICT_NOT_AVAILABLE');
  if(Number(initial.local_revision||0)!==Number(localRevision||0)||initial.last_client_saved_at!==localSavedAt)throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
- if(syncInflight.has(id))await syncInflight.get(id);
+ const waitKey=syncKey(owner(),id);
+ if(syncInflight.has(waitKey))await syncInflight.get(waitKey);
  const current=await store.get(id);
  if(!sameLocalRevision(current,initial))throw new Error('LOCAL_CHANGED_REVIEW_AGAIN');
  const c=client();if(!c||navigator.onLine===false)throw new Error('OFFLINE_RESOLUTION_UNAVAILABLE');
@@ -514,7 +579,28 @@ function schedulePersist(reason='input'){
 }
 function scheduleRetry(items){clearTimeout(retryTimer);retryTimer=null;const pending=items.filter(x=>x.owner_user_id===owner()&&!['synced','locked','conflict'].includes(x.sync_state)&&x.next_attempt_at);if(!pending.length)return;const at=Math.min(...pending.map(x=>new Date(x.next_attempt_at).getTime()).filter(Number.isFinite));retryTimer=setTimeout(()=>void flush('retry'),Math.max(500,Math.min(300000,at-Date.now())))}
 async function flush(reason='manual'){
- if(flushPromise)return flushPromise;flushPromise=(async()=>{const userId=owner();if(!userId)return{sent:0,pending:0,reason:'no_owner'};let items=await store.all(),sent=0;for(const rec of items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)&&due(x))){const r=await syncOne(rec);if(r.sent)sent++}items=await store.all();scheduleRetry(items);return{sent,pending:items.filter(x=>x.owner_user_id===userId&&!['synced','locked','conflict'].includes(x.sync_state)).length,reason}})().finally(()=>{flushPromise=null});return flushPromise;
+ const userId=owner();
+ if(!userId)return{sent:0,pending:0,reason:'no_owner'};
+ if(flushInflight.has(userId))return flushInflight.get(userId);
+ const task=(async()=>{
+  assertOwnerStill(userId);
+  let items=await store.all(),sent=0;
+  assertOwnerStill(userId);
+  for(const rec of items.filter(x=>x.owner_user_id===userId&&
+      !['synced','locked','conflict'].includes(x.sync_state)&&due(x))){
+   assertOwnerStill(userId);
+   const result=await syncOne(rec);
+   if(result.sent)sent++;
+  }
+  assertOwnerStill(userId);
+  items=await store.all();
+  assertOwnerStill(userId);
+  scheduleRetry(items);
+  return{sent,pending:items.filter(x=>x.owner_user_id===userId&&
+    !['synced','locked','conflict'].includes(x.sync_state)).length,reason};
+ })().finally(()=>{if(flushInflight.get(userId)===task)flushInflight.delete(userId)});
+ flushInflight.set(userId,task);
+ return task;
 }
 function isClinicalEdit(event){
  const target=event?.target;
@@ -549,5 +635,5 @@ function bind(){
 }
 bind();
 
-window.nexaEncounterAutosave18101={DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,reviewConflict,resolveConflict,reconcileFields,setStoreAdapter:a=>{storeAdapter=a||null},setArchiveAdapter:a=>{archiveAdapter=a||null}};
+window.nexaEncounterAutosave18101={DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,reviewConflict,resolveConflict,reconcileFields,setStoreAdapter:a=>{if(a&&a.ownerScoped!==true)throw new Error('UNSCOPED_STORE_ADAPTER_REJECTED');storeAdapter=a||null},setArchiveAdapter:a=>{archiveAdapter=a||null}};
 })();
