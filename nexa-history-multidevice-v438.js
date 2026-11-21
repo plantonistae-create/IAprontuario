@@ -129,58 +129,95 @@ async function loadPage(reset=true){
  }catch(error){status('Histórico remoto indisponível: '+String(error?.message||'FAIL'));hasMore=false;remoteRows();}
  finally{busy=false}
 }
+// Only the clinical app itself can determine whether an in-memory audio recording
+// exists. Its trusted recovery handler refuses active/unprocessed audio and verifies
+// the original session checkpoint. Never call window.fill(): it calls
+// clearClinicalSession(), which destroys the in-memory audio buffer.
+function pristineFormSnapshot(auto){
+ const bridge=window.nexaClinicalBridge18101;
+ if(typeof auto?.collectFields!=='function'||typeof bridge?.state!=='function')
+  fail('CLINICAL_FORM_GUARD_UNAVAILABLE');
+ const fields=auto.collectFields(),state=bridge.state();
+ if(!object(fields)||Object.values(fields).some(v=>typeof v!=='string')||
+    typeof state!=='string')fail('CLINICAL_FORM_GUARD_UNAVAILABLE');
+ return {owner:profile()?.id||'',active:auto.currentEncounterId(),state,
+  content:canonicalJson(fields)};
+}
+function requireCleanForm(auto,baseline,target){
+ const current=pristineFormSnapshot(auto);
+ if(current.owner!==baseline.owner||current.active!==baseline.active||
+    current.state!==baseline.state||current.content!==baseline.content)
+    fail('CLINICAL_FORM_CHANGED_DURING_READBACK');
+ if(current.state!=='idle')fail('ACTIVE_CLINICAL_SESSION_PROTECTED');
+ if(Object.values(auto.collectFields()).some(v=>v.trim()))fail('UNSAVED_FORM_PROTECTED');
+ // An active encounter ID, even with blank fields, requires an explicit,
+ // separately verified checkpoint before changing identity.
+ if(current.active&&current.active!==target)fail('ACTIVE_ENCOUNTER_CHECKPOINT_REQUIRED');
+}
 async function openItem(meta){
  if(busy)return;busy=true;status('Verificando versão e integridade da consulta…');
  try{
   const who=profile()?.id||'',auto=window.nexaEncounterAutosave18101;
   if(who!==owner||!UUID.test(who))fail('OWNER_CHANGED');
-  if(!auto?.get||!auto?.adoptExisting||!auto?.currentEncounterId||!auto?.preserve)
-   fail('LOCAL_AUTOSAVE_UNAVAILABLE');
-  const initial=auto.currentEncounterId();
+  // Prevent callers from injecting a stale or out-of-list record. The index
+  // contains metadata only and every selection repeats JWT/RLS readback.
+  if(!items.some(x=>x.record_id===meta?.record_id&&x.encounter_id===meta?.encounter_id&&
+      x.sync_version===meta?.sync_version))fail('HISTORY_SELECTION_NOT_VERIFIED');
+  if(!auto?.get||!auto?.adoptExisting||!auto?.currentEncounterId||!auto?.preserve||
+     typeof window.nexaRecoverSavedEncounter!=='function')
+    fail('TRUSTED_RECOVERY_UNAVAILABLE');
+  const baseline=pristineFormSnapshot(auto);
+  requireCleanForm(auto,baseline,meta.encounter_id);
   const saved=await auto.get(meta.encounter_id);
   if(saved&&(saved.owner_user_id!==who||saved.sync_state!=='synced'||saved.requires_form_refresh||
-    Number(saved.sync_version)>meta.sync_version))fail('LOCAL_DRAFT_OR_CONFLICT_PROTECTED');
-  // Read only metadata until the user explicitly selects this record.
+    Number(saved.sync_version)>meta.sync_version))
+     fail('LOCAL_DRAFT_OR_CONFLICT_PROTECTED');
+  // Server readback must match its own SHA-256 before any clinical state changes.
   const pkg=await validateReadback(await request({
-    encounter_id:meta.encounter_id,expected_sync_version:meta.sync_version
+   encounter_id:meta.encounter_id,expected_sync_version:meta.sync_version
   },who),meta);
-  if(owner!==who||who!==profile()?.id||initial!==auto.currentEncounterId())fail('ACTIVE_ENCOUNTER_CHANGED');
-  // Legacy textual IDs must not be adopted into an editor whose update key is the encounter UUID.
+  requireCleanForm(auto,baseline,meta.encounter_id);
+  if(owner!==who)fail('OWNER_CHANGED');
+  // A legacy text PK must never be silently converted into an editable UUID.
   if(meta.record_id!==meta.encounter_id){
    const preview=el('nexa438Preview');
-   if(preview){preview.hidden=false;preview.textContent='Registro legado verificado (somente leitura).\n'+
-      JSON.stringify(pkg.fields,null,2);}
+   if(preview){preview.hidden=false;preview.textContent='Registro legado verificado (somente leitura).\n'+JSON.stringify(pkg.fields,null,2);}
    status('Leitura verificada. Registro legado preservado sem regravar ou renumerar.');
    return;
   }
-  if(initial&&initial!==meta.encounter_id){
-   if(!window.confirm('Esta ação trocará a consulta exibida. Deseja guardar o rascunho local antes de abrir a consulta remota?')){status('Operação cancelada.');return;}
-   const checkpoint=await auto.preserve('before_remote_history_open',{sync:false});
-   if(checkpoint&&checkpoint.sync_state!=='synced')fail('LOCAL_DRAFT_CHECKPOINTED_SWITCH_BLOCKED');
-  }
-  if(owner!==who||who!==profile()?.id||initial!==auto.currentEncounterId())fail('ACTIVE_ENCOUNTER_CHANGED');
   const refreshed=await auto.get(meta.encounter_id);
-  if(refreshed&&(refreshed.sync_state!=='synced'||refreshed.owner_user_id!==who||
-      Number(refreshed.sync_version)>meta.sync_version||
-      (Number(refreshed.sync_version)===meta.sync_version&&
-       canonicalJson(refreshed.fields)!==canonicalJson(pkg.fields))))
-      fail('LOCAL_DRAFT_OR_CONFLICT_PROTECTED');
-  if(typeof fill!=='function')fail('FORM_RESTORE_UNAVAILABLE');
-  const adopted=await auto.adoptExisting({...pkg,id:meta.record_id,user_id:who,
-    status:meta.status,created_at:meta.created_at});
-  if(!adopted||adopted.owner_user_id!==who||adopted.sync_state!=='synced'||
-     adopted.encounter_id!==meta.encounter_id||Number(adopted.sync_version)!==meta.sync_version||
-     canonicalJson(adopted.fields)!==canonicalJson(pkg.fields))fail('ADOPTION_NOT_VERIFIED');
-  fill(pkg.fields);
-  try{lastProcessedMeta=pkg.processing_meta}catch{}
-  try{activeHistoryId=meta.record_id}catch{}
-  window.__NEXA_PROTOCOL_USAGE__=pkg.protocol_usage;
-  window.nexaShowMedicationReview?.(pkg.processing_meta?.medication_review);
-  document.querySelector('#nfSide [data-go="summary"]')?.click()||
-    document.querySelector('#nexaMobileBottomNav [data-mobile-stage="summary"]')?.click();
-  status('Consulta recuperada após readback e SHA-256; sem liberação de auditoria.');
+  requireCleanForm(auto,baseline,meta.encounter_id);
+  if(refreshed&&(refreshed.owner_user_id!==who||refreshed.sync_state!=='synced'||
+     refreshed.requires_form_refresh||Number(refreshed.sync_version)>meta.sync_version||
+     (Number(refreshed.sync_version)===meta.sync_version&&
+      canonicalJson(refreshed.fields)!==canonicalJson(pkg.fields))))
+     fail('LOCAL_DRAFT_OR_CONFLICT_PROTECTED');
+  // The real app exposes this trusted handler. Unlike window.fill(), it checks
+  // lexical recording/audioBlob state and uses verified, owner-scoped IndexedDB.
+  // Inert is mandatory to prevent user edits during async recovery.
+  const body=document.body;
+  if(!body||typeof body.inert!=='boolean')fail('CLINICAL_FORM_LOCK_UNAVAILABLE');
+  const wasInert=body.inert;body.inert=true;
+  try{
+   requireCleanForm(auto,baseline,meta.encounter_id);
+   const recovered=await window.nexaRecoverSavedEncounter({
+     ...pkg,id:meta.record_id,owner_user_id:who,user_id:who,
+     status:meta.status,created_at:meta.created_at
+   });
+   // This can return false when audio exists. Never claim recovery then.
+   if(recovered!==true)fail('AUDIO_OR_RECOVERY_BLOCKED');
+   if(owner!==who||profile()?.id!==who||auto.currentEncounterId()!==meta.encounter_id)
+     fail('RECOVERY_IDENTITY_NOT_VERIFIED');
+   const durable=await auto.get(meta.encounter_id);
+   if(!durable||durable.owner_user_id!==who||durable.encounter_id!==meta.encounter_id||
+      !['synced','pending'].includes(durable.sync_state)||
+      Number(durable.sync_version)<meta.sync_version||
+      canonicalJson(durable.fields)!==canonicalJson(pkg.fields))
+      fail('RECOVERY_LOCAL_CHECKPOINT_NOT_VERIFIED');
+   status('Consulta recuperada com SHA-256; checkpoint local verificado. Não é arquivo de áudio.');
+  }finally{body.inert=wasInert;}
  }catch(error){status('Recuperação NÃO concluída: '+String(error?.message||'FAIL'));}
- finally{busy=false}
+ finally{busy=false;}
 }
 function mount(){
  const root=el('nexa197History');if(!root||el('nexa438Remote'))return !!root;
