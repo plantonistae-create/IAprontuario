@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.49.8';
 import { readBoundedTextReadbackBody, readVerifiedTextPackage, TextReadbackError } from '../_shared/nexa-clinical-text-readback.mjs';
 import { listOwnedHistory, buildHistoryCursorFilter, HistoryListError } from '../_shared/nexa-clinical-history-list.mjs';
+import { requireOwnerClinicalAccess, ClinicalAccessGateError } from '../_shared/nexa-clinical-access-gate.mjs';
 
 // Draft-only endpoint: disabled by default, never deployed or authorized for real patient data.
 const url = Deno.env.get('SUPABASE_URL') || '';
@@ -44,6 +45,9 @@ Deno.serve(async (req: Request) => {
     if (Array.isArray(capabilities) && capabilities.length > 1)
       return json(req, 503, { error: 'CAPABILITIES_AMBIGUOUS' });
     const capability = Array.isArray(capabilities) ? capabilities[0] : capabilities;
+    // Match the hosted SELECT RLS condition, including the active clinical slot.
+    // This client carries the validated user's JWT; never use a privileged key.
+    await requireOwnerClinicalAccess({ client, actor: user.id, capability });
     // Read-only cross-device consultation index. Every page repeats JWT,
     // active clinical capability and owner-filtered RLS checks. No service key.
     if (body?.action === 'list') {
@@ -89,6 +93,7 @@ Deno.serve(async (req: Request) => {
     return json(req, 200, result);
   } catch (error) {
     // Never log or return encounter data, source text, credentials or raw DB errors.
+    if (error instanceof ClinicalAccessGateError) return json(req, error.status, { error: error.code });
     if (error instanceof HistoryListError) return json(req, error.status, { error: error.code });
     if (error instanceof TextReadbackError) return json(req, error.status, { error: error.code });
     return json(req, 503, { error: 'READBACK_UNAVAILABLE' });
