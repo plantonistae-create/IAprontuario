@@ -55,6 +55,26 @@ export async function listOwnedHistory({actor,capability,request,listRows}){
       status:row.status,encounter_state:row.encounter_state
     });
   });
+  // The day-review index must not silently return duplicates, out-of-window
+  // rows or a cursor page moving backwards. These checks supplement (never
+  // replace) the database query, JWT, and owner-scoped RLS.
+  const seenRecords=new Set();
+  const seenEncounters=new Set();
+  let previousCreatedAt=Infinity;
+  const cursorTime=cmd.cursor?Date.parse(cmd.cursor.created_at):null;
+  for(const entry of verified){
+    const createdAt=Date.parse(entry.created_at);
+    if(seenRecords.has(entry.record_id)||seenEncounters.has(entry.encounter_id)||
+       (cmd.from_utc&&createdAt<Date.parse(cmd.from_utc))||
+       (cmd.until_utc&&createdAt>=Date.parse(cmd.until_utc))||
+       createdAt>previousCreatedAt||
+       (cursorTime!==null&&(createdAt>cursorTime||
+         (createdAt===cursorTime&&entry.record_id===cmd.cursor.id))))
+      fail('HISTORY_PAGE_INCONSISTENT',409);
+    seenRecords.add(entry.record_id);
+    seenEncounters.add(entry.encounter_id);
+    previousCreatedAt=createdAt;
+  }
   const entries=verified.slice(0,cmd.limit);
   // A cursor is a navigation token, NOT an authorization token.
   // The HTTP adapter must enforce the same JWT/RLS owner on every page.
