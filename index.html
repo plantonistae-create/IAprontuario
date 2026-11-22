@@ -3850,7 +3850,7 @@ async function nexaOfferAudioCheckpointRestore(){
         if(currentProf?.id!==user.id)throw Error('OWNER_CHANGED');
         const source=await api.get(target.encounterId);
         if(!source||source.owner_user_id!==user.id)throw Error('AUDIO_SOURCE_NOT_OWNED_OR_MISSING');
-        if(!await nexaRecoverSavedEncounter(source))return;
+        if(!await window.nexaRecoverSavedEncounter?.(source))return;
         const restored=await vault.recover({...target,ownerId:user.id});
         if(currentProf?.id!==user.id||api.currentEncounterId?.()!==target.encounterId)
           throw Error('AUDIO_ACTIVE_ENCOUNTER_CHANGED');
