@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -48,6 +48,41 @@ test('clinical records are refused before creating an export directory',async()=
     const rows=fixture();rows[0].origin='real_clinical';
     await writeFile(input,JSON.stringify(rows));
     await assert.rejects(exportSyntheticDataset({inputFile:input,outputDir:output,datasetVersion:'lab-v1'}),/REAL_CLINICAL_TRAINING_EXPORT_BLOCKED/);
+    await assert.rejects(readFile(join(output,'manifest.json'),'utf8'),{code:'ENOENT'});
+  }finally{await rm(root,{recursive:true,force:true})}
+});
+
+test('synthetic audio is copied only when its independent asset digest matches',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'nexa-g0-'));
+  try{
+    const input=join(root,'source.json'),output=join(root,'out');
+    const audio=Buffer.from('RIFF0000WAVEfmt 0000data0000SYNTHETIC_SILENCE');
+    const cases=fixture();
+    cases[0].audio={
+      ref:'lab://audio/fictional.wav',mime:'audio/wav',
+      sha256:'sha256:'+createHash('sha256').update(audio).digest('hex'),
+      duration_ms:1000
+    };
+    await mkdir(join(root,'audio'));
+    await writeFile(join(root,'audio','fictional.wav'),audio);
+    await writeFile(input,JSON.stringify(cases));
+    const {manifest}=await exportSyntheticDataset({inputFile:input,outputDir:output,datasetVersion:'lab-v1'});
+    assert.equal(manifest.counts.asr,1);
+    assert.equal(manifest.audio_assets.length,1);
+    assert.deepEqual(await readFile(join(output,'audio','fictional.wav')),audio);
+  }finally{await rm(root,{recursive:true,force:true})}
+});
+test('tampered synthetic audio prevents all dataset writes',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'nexa-g0-'));
+  try{
+    const input=join(root,'source.json'),output=join(root,'out');
+    const cases=fixture();
+    cases[0].audio={ref:'lab://audio/fictional.wav',mime:'audio/wav',
+      sha256:'sha256:'+'0'.repeat(64),duration_ms:1000};
+    await mkdir(join(root,'audio'));
+    await writeFile(join(root,'audio','fictional.wav'),'WRONG_AUDIO_BYTES');
+    await writeFile(input,JSON.stringify(cases));
+    await assert.rejects(exportSyntheticDataset({inputFile:input,outputDir:output,datasetVersion:'lab-v1'}),/SYNTHETIC_AUDIO_DIGEST_MISMATCH/);
     await assert.rejects(readFile(join(output,'manifest.json'),'utf8'),{code:'ENOENT'});
   }finally{await rm(root,{recursive:true,force:true})}
 });
