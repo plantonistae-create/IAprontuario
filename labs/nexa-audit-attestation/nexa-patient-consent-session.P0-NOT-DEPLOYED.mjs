@@ -118,6 +118,7 @@ export function reviewPatientConsentSessionCandidate({
      !/^[a-z0-9._-]{3,80}$/.test(receipt.identityService)||
      !positive(receipt.providerConfirmedAtEpochMs)||
      receipt.providerConfirmedAtEpochMs<session.issuedAtEpochMs||
+     receipt.providerConfirmedAtEpochMs>=session.expiresAtEpochMs||
      receipt.providerConfirmedAtEpochMs>nowEpochMs)
     return stop('BOUND_PROVIDER_RECEIPT_NOT_PROVEN');
 
