@@ -239,6 +239,21 @@ serve(async req => {
     if (bodyText.length > 2048) return json({ error: "PAYLOAD_TOO_LARGE" }, 413);
     const request = decodeRequest(JSON.parse(bodyText));
     if (!request) return json({ error: "EXPLICIT_ACTION_REQUIRED" }, 400);
+
+    // V4.98: the physician's own declaration is NOT patient-confirmed consent.
+    // A single-use patient session, independently verified identity, approved
+    // purpose/provider policy and prior-to-egress server evidence do not yet
+    // exist. Never let the legacy attestation path mint a consent event, even
+    // if someone separately removes the outer Gate C STOP in a future change.
+    // No new ledger, QR/link or patient authority is invented by this guard.
+    if (request.kind === "record" && request.params.p_kind === "consent") {
+      return json({
+        error: "PATIENT_CONFIRMED_CONSENT_AUTHORITY_NOT_PROVEN",
+        external_ai_authorized: false,
+        gate_c_verified: false,
+      }, 423);
+    }
+
     if (request.kind === "bootstrap") {
       // P0 SOURCE BOOTSTRAP: this is ONLY a persisted owner-bound row,
       // NEVER consent, first-egress evidence or an authorization receipt.
