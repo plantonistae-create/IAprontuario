@@ -1,96 +1,59 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-
 const code=fs.readFileSync(new URL('../nexa-audit-outbox-v18.9.19.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../nexa-hotfix.js',import.meta.url),'utf8');
-for(const token of ['indexedDB.open','auditSubmitUrl','AUDIT_SUBMIT_PATH','sessionAuth','reconcileRemoteReady','remote_reconcile','reset_safety_net','manual_priority','idempotency_key','owner_user_id','snapshot_version','audit_submission_snapshot','learning_layers','audit_corrected','AbortController','ALREADY_SUBMITTED','ALREADY_REVIEWED','RECOVERED_STALE_SENDING','nexa:audit-outbox-queued','nexa:audit-outbox-refreshed','stable_encounter','visibility_hidden'])assert.ok(code.includes(token),`missing ${token}`);
-assert.ok(code.includes('nexaEncounterAutosave18101'),'audit outbox must share encounter identity with autosave');
-assert.ok(!code.includes('https://fmkrcieubrlltiggyauc.supabase.co/functions/v1/submit-audit-case'),'audit outbox must not hardcode production endpoint');
-for(const sel of ['#resetBtn','#nexaRadarResetBtn','#nfClear','#nfTopClear','#nexaNewCaseBtn','#nexaTopReset','#submitAuditBtn'])assert.ok(code.includes(sel),`missing ${sel}`);
-assert.ok(loader.includes('nexa-audit-outbox-v18.9.19.js'),'outbox not loaded');
-assert.ok(loader.indexOf('nexa-audit-outbox-v18.9.19.js')<loader.indexOf('nexa-history-style-audit-v18.9.7.js'),'outbox must bind before legacy finalize handler');
+assert.ok(loader.includes('nexa-audit-outbox-v18.9.19.js'));
+assert.ok(!loader.includes('nexa-audit-autosave-v18.5.js'));
+assert.match(code,/const AUDIT_GATE_C_LOCAL_STOP=true;/);
+assert.match(code,/response\.status===423\|\|data\?\.error==='AUDIT_GATE_C_NO_GO'/);
+const legacyCode=fs.readFileSync(new URL('../nexa-history-style-audit-v18.9.7.js',import.meta.url),'utf8');
+assert.ok(loader.includes('nexa-history-style-audit-v18.9.7.js'),'legacy History remains loaded');
+assert.ok(legacyCode.includes("async function sendAudit(_row){throw new Error('AUDIT_REAUTHORIZATION_REQUIRED')}"));
+assert.ok(legacyCode.includes("async function retryAudit(){return{blocked:true,reason:'AUDIT_REAUTHORIZATION_REQUIRED'}}"));
+assert.ok(!legacyCode.includes("fetch(endpoint,{method:'POST'"),'legacy HTTP audit submits must be removed');
+new Function(legacyCode);
+const historicalKey='nexa-v1897-auditqueue-doctor-A';
+const historicalValue=JSON.stringify([{row:{id:'old-synthetic-encounter'},reason:'AUDIT_GATE_C_NO_GO',queued_at:'2026-01-01T00:00:00.000Z'}]);
+const legacyStorage=new Map([[historicalKey,historicalValue]]);
+let oldSends=0;
+const oldDocument={getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>({}),head:{appendChild(){}},body:{appendChild(){}},addEventListener(){}};
+const oldContext={document:oldDocument,console,currentProf:{id:'doctor-A'},localStorage:{getItem:k=>legacyStorage.get(k)||null,setItem:(k,v)=>legacyStorage.set(k,String(v))},setTimeout:()=>0,clearTimeout(){},addEventListener(){},fetch:async()=>{oldSends++;throw Error('UNEXPECTED_LEGACY_POST')}};
+oldContext.window=oldContext;
+vm.runInNewContext(legacyCode,oldContext);
+const oldRetry=await oldContext.nexaRetryAudit197();
+assert.equal(oldRetry.blocked,true,'legacy retry must be terminal');
+assert.equal(oldSends,0,'old localStorage queue cannot POST');
+assert.equal(legacyStorage.get(historicalKey),historicalValue,'old queue must be preserved');
 new Function(code);
-
-const local=new Map(),session=new Map(),memory=new Map();
-const fieldValues={queixa_principal:'Dor torácica',hda:'Paciente com dor torácica iniciada há duas horas, sem síncope.',exame_fisico:'BEG, eupneico.',hipotese_diagnostica:'Dor torácica a esclarecer',conduta:'ECG e reavaliação.',comorbidades:'HAS',antecedentes:'',medicacoes:'',alergias:'',orientacoes_alta:'',sugestoes_perguntas:''};
-const storage=map=>({get length(){return map.size},key:i=>[...map.keys()][i]??null,getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)});
-local.set('sb-auth-token',JSON.stringify({access_token:'token-A',user:{id:'doctor-A'}}));
-let fetchMode='success',fetchCount=0,fetchUrls=[],uuidN=0,sessionUserId='doctor-A',sessionToken='real-session-token';
-const document={
-  hidden:false,documentElement:{dataset:{}},body:{appendChild(){}},
-  querySelector(sel){const m=sel.match(/data-key="([^"]+)"/);return m?{value:fieldValues[m[1]]||''}:null},
-  getElementById(id){if(id==='conductRecordText')return{value:fieldValues.conduta};if(id==='aiHypothesisOriginal')return{textContent:'Síndrome coronariana aguda'};if(id==='physicianHypothesis')return{value:'Dor torácica a esclarecer'};if(id==='physicianCid')return{value:'R07.4'};return null},
-  createElement(){return{style:{},remove(){}}},addEventListener(){}
-};
-const remoteReady=[{encounter_id:'11111111-1111-4111-8111-111111111111',audit_priority:0,updated_at:'2026-09-27T10:00:00Z',sync_version:3}];
-const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:remoteReady,error:null})};
-const context={console,document,localStorage:storage(local),sessionStorage:storage(session),structuredClone,AbortController,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail}},crypto:{randomUUID:()=>`uuid-${++uuidN}`},setTimeout:()=>0,clearTimeout(){},addEventListener(){},window:null,indexedDB:{open(){throw new Error('test must use adapter')}},nexaClinicalSupabase18101:{supabaseUrl:'https://synthetic.supabase.co',supabaseKey:'synthetic-publishable-key',auth:{getSession:async()=>({data:{session:{access_token:sessionToken,user:{id:sessionUserId}}},error:null})},from:()=>query},fetch:async url=>{fetchCount++;fetchUrls.push(String(url));if(fetchMode==='success')return{ok:true,json:async()=>({id:'case-1'})};if(fetchMode==='updated')return{ok:true,json:async()=>({ok:true,updated:true})};if(fetchMode==='already')return{ok:false,status:409,json:async()=>({error:'ALREADY_SUBMITTED'})};if(fetchMode==='reviewed')return{ok:false,status:409,json:async()=>({error:'ALREADY_REVIEWED'})};return{ok:false,status:500,json:async()=>({error:'SERVER_FAIL'})}}};
-context.window=context;context.currentProf={id:'doctor-A'};context.nexaClinicalRuntime18121={getProfile:()=>context.currentProf};context.nexaDestinationFlow18915={state:{recommended:'alta',final:'internacao',status:'altered',source:'physician'}};context.dispatchEvent=()=>true;
-vm.runInNewContext(code,context);
-const api=context.nexaAuditOutbox18919;
-// Simulate "Permanecer conectado" unchecked: no localStorage token.
-local.clear();
-assert.equal(api.owner(),'doctor-A','in-memory login must still own audit submission');
-const sessionAuth=await api.sessionAuth();assert.equal(sessionAuth.access,'real-session-token','outbox must use Supabase client session token');assert.equal(sessionAuth.userId,'doctor-A');
-api.setStoreAdapter({get:async k=>memory.get(k)||null,put:async x=>{memory.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...memory.values()].map(structuredClone)});
-
-assert.equal(api.valid({}),false,'empty case must not be valid');
-const savedFields=structuredClone(fieldValues);for(const k of Object.keys(fieldValues))fieldValues[k]='';
-assert.equal(await api.buildSnapshot('stable_encounter'),null,'empty encounter must not enter audit outbox');
-Object.assign(fieldValues,savedFields);
-const s1=await api.buildSnapshot('manual_priority');
-const s2=await api.buildSnapshot('reset_safety_net');
-assert.equal(s1.source_consultation_id,s2.source_consultation_id,'same encounter must keep source id');
-assert.equal(s1.idempotency_key,s2.idempotency_key,'manual + reset must share idempotency key');
-assert.equal(s1.payload.fields.conduta,fieldValues.conduta);
-assert.equal(s1.payload.core_context.destination.recommended,'alta');
-assert.equal(s1.payload.core_context.destination.final,'internacao');
-await api.enqueue(s1);await api.enqueue(s2);assert.equal(memory.size,1,'duplicate trigger must keep one outbox item');
-for(let i=0;i<5;i++){fieldValues.hda=`Paciente com dor torácica revisada no autosave ${i} e evolução clínica estável.`;await api.enqueue(await api.buildSnapshot('stable_encounter'))}
-assert.equal(memory.size,1,'five autosaves must keep exactly one audit identity');
-assert.match(memory.get(s1.idempotency_key).payload.fields.hda,/autosave 4/,'latest pending snapshot must replace older pending payload');
-fieldValues.hda='Texto alterado depois do snapshot.';assert.notEqual(memory.get(s1.idempotency_key).payload.fields.hda,fieldValues.hda,'stored snapshot must be immutable from later UI edits');
-
-fetchMode='success';let result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).state,'sent');assert.equal(fetchUrls.at(-1),'https://synthetic.supabase.co/functions/v1/submit-audit-case','audit outbox must submit to the active Supabase project, never the GitHub Pages origin');
-fieldValues.hda='Paciente com dor torácica revisada e evolução atualizada.';
-const refreshed=await api.buildSnapshot('stable_encounter');await api.enqueue(refreshed);assert.equal(memory.get(s1.idempotency_key).state,'queued','later encounter changes must requeue the same audit identity');assert.equal(memory.size,1);
-fetchMode='updated';result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s1.idempotency_key).server_result,'updated');
-await api.enqueue(await api.buildSnapshot('stable_encounter'));fetchMode='reviewed';result=await api.sendItem(memory.get(s1.idempotency_key));assert.equal(result.locked,true);assert.equal(memory.get(s1.idempotency_key).state,'locked');
-const lockedPayload=memory.get(s1.idempotency_key).payload.fields.hda;fieldValues.hda='Mudança posterior que não pode reabrir auditoria concluída.';await api.enqueue(await api.buildSnapshot('stable_encounter'));assert.equal(memory.get(s1.idempotency_key).state,'locked');assert.equal(memory.get(s1.idempotency_key).payload.fields.hda,lockedPayload);
-const sentCount=fetchCount;
-local.set('sb-auth-token',JSON.stringify({access_token:'token-B',user:{id:'doctor-B'}}));result=await api.sendItem({...s1,state:'queued'});assert.equal(result.sent,true,'real Supabase session must override stale localStorage auth');assert.equal(fetchCount,sentCount+1);
-sessionUserId='doctor-B';result=await api.sendItem({...s1,state:'queued'});assert.equal(result.skipped,true,'real session for another user must not submit doctor A outbox');assert.equal(fetchCount,sentCount+1);
-sessionUserId='doctor-A';local.set('sb-auth-token',JSON.stringify({access_token:'token-A',user:{id:'doctor-A'}}));
-
-const remoteResult=await api.reconcileRemoteReady(5);assert.equal(remoteResult.processed,1,'remote reconciliation must inspect ready encounters');assert.equal(remoteResult.sent,1,'remote reconciliation must submit ready encounter idempotently');
-const sentAfterFirstReconcile=fetchCount;
-const reconcileAgain=await api.reconcileRemoteReady(5);
-assert.equal(reconcileAgain.sent,0,'already acknowledged remote version must not be resent in loops');
-assert.equal(reconcileAgain.skipped,1);
-assert.equal(fetchCount,sentAfterFirstReconcile,'focus/visibility must not flood audit endpoint with duplicate 409 requests');
-
-const oldId=s1.source_consultation_id;api.rotateEncounter('doctor-A');const s3=await api.buildSnapshot('new_case');assert.notEqual(s3.source_consultation_id,oldId,'new encounter must rotate identity');
-await api.enqueue(s3);fetchMode='already';result=await api.sendItem(memory.get(s3.idempotency_key));assert.equal(result.sent,true);assert.equal(memory.get(s3.idempotency_key).server_result,'ALREADY_SUBMITTED');
-api.rotateEncounter('doctor-A');const s4=await api.buildSnapshot('retry_case');await api.enqueue(s4);fetchMode='500';result=await api.sendItem(memory.get(s4.idempotency_key));assert.equal(result.sent,false);assert.equal(memory.get(s4.idempotency_key).state,'queued');assert.equal(memory.get(s4.idempotency_key).last_error,'SERVER_FAIL');assert.ok(memory.get(s4.idempotency_key).next_attempt_at,'failed item needs retry schedule');
-assert.ok(api.backoff(2)>=5000,'backoff must be positive and increasing');
-
-
-const syntheticAutosave={sync_state:'pending',encounter_state:'ready_for_audit',owner_user_id:'doctor-A'};
-context.nexaEncounterAutosave18101={get:async()=>structuredClone(syntheticAutosave)};
-const beforePending=fetchCount;
-const pendingSource=await api.sendItem({...s4,state:'queued'});
-assert.equal(pendingSource.pending,true,'audit must wait for server confirmation of clinical source');
-const deferredSource=await api.get(s4.idempotency_key);
-assert.equal(deferredSource.last_error,'SOURCE_NOT_SYNCED','pending source must leave durable retry reason');
-assert.ok(deferredSource.next_attempt_at,'pending source must have a persisted audit retry deadline');
-assert.equal(deferredSource.state,'queued','pending source must stay recoverable in audit queue');
-assert.equal(fetchCount,beforePending,'an unconfirmed source must not hit audit endpoint');
-syntheticAutosave.sync_state='synced';
-syntheticAutosave.encounter_state='ready_for_audit';
-fetchMode='success';
-const confirmedSource=await api.sendItem({...s4,state:'queued'});
-assert.equal(confirmedSource.sent,true,'after server ACK queued audit should be deliverable');
-assert.equal(fetchCount,beforePending+1);
-
-console.log('NEXA Audit outbox functional + contract: PASS');
+function setup(script){
+ const db=new Map(),mem=new Map(),fields={queixa_principal:'Dor fictícia',hda:'História clínica simulada de trinta minutos sem dados reais.',exame_fisico:'Exame simulado',hipotese_diagnostica:'Hipótese simulada',conduta:'Conduta simulada'};
+ let sends=0,reads=0,n=0,user='doctor-A';
+ const document={documentElement:{dataset:{}},body:{appendChild(){}},hidden:false,addEventListener(){},getElementById:id=>id==='conductRecordText'?{value:fields.conduta}:null,querySelector:s=>({value:fields[s.match(/data-key="([^"]+)"/)?.[1]]||''})};
+ const ctx={document,console,AbortController,structuredClone,CustomEvent:class{constructor(t,o){this.type=t;this.detail=o?.detail}},crypto:{randomUUID:()=>String(++n)},addEventListener(){},setTimeout:()=>0,clearTimeout(){},sessionStorage:{getItem:k=>mem.get(k)||null,setItem:(k,v)=>mem.set(k,v),removeItem:k=>mem.delete(k)},indexedDB:{open(){throw Error('No IndexedDB needed')}},fetch:async()=>{sends++;return{ok:false,status:423,json:async()=>({error:'AUDIT_GATE_C_NO_GO'})}}};
+ ctx.window=ctx;ctx.dispatchEvent=()=>true;ctx.nexaClinicalRuntime18121={getProfile:()=>({id:user})};ctx.nexaClinicalSupabase18101={supabaseUrl:'https://synthetic.invalid',auth:{getSession:async()=>({data:{session:{access_token:'fake',user:{id:user}}},error:null})},from:()=>{reads++;throw Error('remote scan prohibited')}};
+ vm.runInNewContext(script,ctx);const api=ctx.nexaAuditOutbox18919;
+ api.setStoreAdapter({get:async k=>db.get(k)||null,put:async x=>{db.set(x.idempotency_key,structuredClone(x));return structuredClone(x)},all:async()=>[...db.values()].map(value => structuredClone(value))});
+ return{api,fields,setUser:x=>user=x,get sends(){return sends},get reads(){return reads}};
+}
+const f=setup(code);const snapshot=await f.api.buildSnapshot('manual_priority');assert.equal(snapshot.state,'blocked_gate_c');
+await f.api.enqueue(snapshot);assert.equal((await f.api.sendItem(await f.api.get(snapshot.idempotency_key))).blocked,true);assert.equal(f.sends,0);
+f.fields.hda='Novo texto sintético completo após revisão de exemplo.';await f.api.enqueue(await f.api.buildSnapshot('updated'));
+assert.match((await f.api.get(snapshot.idempotency_key)).payload.fields.hda,/Novo texto/);
+await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'queued',next_attempt_at:'2099-01-01T00:00:00.000Z'});
+await f.api.flush('startup');assert.equal((await f.api.get(snapshot.idempotency_key)).state,'blocked_gate_c');assert.equal(f.sends,0);
+assert.equal((await f.api.reconcileRemoteReady()).blocked,true);assert.equal((await f.api.submitRemoteEncounter({encounter_id:'old'},{})).blocked,true);assert.equal(f.reads,0);
+await f.api.put({...await f.api.get(snapshot.idempotency_key),state:'sent'});assert.equal((await f.api.sendItem(await f.api.get(snapshot.idempotency_key))).skipped,true);
+const foreign={...await f.api.get(snapshot.idempotency_key),idempotency_key:'foreign-encounter:final-v1',source_consultation_id:'foreign-encounter',owner_user_id:'doctor-B',state:'sending',last_attempt_at:'2020-01-01T00:00:00.000Z',last_error:null};
+await f.api.put(foreign);
+await f.api.flush('owner-isolation');
+assert.equal((await f.api.get(foreign.idempotency_key)).state,'sending','doctor-A cannot rewrite doctor-B stale entry');
+f.setUser('doctor-B');await f.api.flush('focus');
+assert.equal((await f.api.get(snapshot.idempotency_key)).state,'sent');
+assert.equal((await f.api.get(foreign.idempotency_key)).state,'blocked_gate_c','doctor-B may quarantine their own stale entry');
+const e=setup(code.replace('const AUDIT_GATE_C_LOCAL_STOP=true;','const AUDIT_GATE_C_LOCAL_STOP=false;'));
+const t=await e.api.buildSnapshot('synthetic-423');await e.api.put({...t,state:'queued',last_error:null});
+const denied=await e.api.sendItem({...t,state:'queued',last_error:null});assert.equal(denied.blocked,true);assert.equal(e.sends,1);
+const stored=await e.api.get(t.idempotency_key);assert.equal(stored.state,'blocked_gate_c');assert.equal(stored.next_attempt_at,null);assert.equal(stored.sent_at,null);assert.equal(stored.server_result,null);
+await e.api.flush('retry');assert.equal(e.sends,1,'423 cannot requeue');
+console.log('NEXA P0 V4.11 synthetic tests: PASS');

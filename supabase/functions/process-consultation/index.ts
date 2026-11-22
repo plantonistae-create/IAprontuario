@@ -1763,6 +1763,15 @@ Deno.serve(
     }
 
 
+    // P0 review-only fail-closed at the actual handler. Blocks FormData audio,
+    // JSON/verified segments and ALL OpenAI/Gemini fallback paths. Auth, a
+    // checkbox or an autosaved timestamp cannot authorize provider egress.
+    const prospectiveExternalAiGateCNoGo = true;
+    if (prospectiveExternalAiGateCNoGo) {
+      return json(req, {error: "P0_PRE_EGRESS_GATE_C_NO_GO",
+        external_ai_authorized: false}, 423);
+    }
+
     /* ORIGIN */
 
     const origin =
