@@ -4050,7 +4050,7 @@ async function processAudio(){
   document.body.dataset.nexaProcessing='1';window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'processing'}}));
   const prior=collect();
   try{
-    const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString();
+    const epoch=clinicalEpoch,consentRecordedAt=lastProcessedMeta?.consentRecordedAt||null; // Existing legacy metadata only; processing never records new consent.
     let payload;
     let autoSpeakerFallback=false;
     const startedProcessingAt=performance.now();
