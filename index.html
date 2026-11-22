@@ -2845,7 +2845,7 @@ async function saveHistory(){
       if(error)throw error;const i=history.findIndex(x=>x.id===activeHistoryId);if(i>=0)history[i]=data;
     }else{
       const id=crypto.randomUUID();
-      const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||now,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
+      const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||null,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
       if(error)throw error;activeHistoryId=data.id;history.unshift(data);
     }
     saveState('saved','salvo');renderHistory();show('Revisão salva no Histórico. Use “Salvar no meu estilo” somente quando quiser transformar esta versão em referência de escrita.');
