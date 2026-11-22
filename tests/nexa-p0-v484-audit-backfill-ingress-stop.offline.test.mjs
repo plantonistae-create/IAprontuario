@@ -19,7 +19,9 @@ test('historical audit backfill is stopped before administrative read and AI egr
     'await requireStaff(req)', 'createClient(URL,SERVICE', 'await inventory(admin)',
     'await deidentify(', ".from('audit_cases').insert({"];
   const offsets = markers.map(marker => {
-    assert.equal(handler.split(marker).length - 1, 1, 'unique expected boundary: ' + marker);
+    const expectedCount = marker === 'await inventory(admin)' ? 2 : 1;
+    assert.equal(handler.split(marker).length - 1, expectedCount,
+      'expected ingress and post-batch inventory boundaries: ' + marker);
     return handler.indexOf(marker);
   });
   for(let i=1;i<offsets.length;i++){
