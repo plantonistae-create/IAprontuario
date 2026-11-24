@@ -47,7 +47,10 @@ function db(){
 async function read(table,id){const d=await db(),t=d.transaction(table,'readonly');return req(t.objectStore(table).get(id))}
 async function add(table,row){
  const d=await db(),t=d.transaction(table,'readwrite'),done=txDone(t);
- t.objectStore(table).add(row);await done;
+ const request=t.objectStore(table).add(row);
+ let requestError=null;
+ request.onerror=()=>{requestError=request.error};
+ try{await done}catch(error){throw requestError||error}
 }
 async function put(table,row){
  const d=await db(),t=d.transaction(table,'readwrite'),done=txDone(t);
@@ -78,8 +81,19 @@ async function begin(args){
   return {sessionId:i.sessionId,existing:true};
  }
  await ownerKey(i.ownerId,{create:true});
- await add('sessions',{...i,mime:String(args.mime||'audio/webm'),
-  createdAt:new Date().toISOString(),finalized:false});
+ const mime=String(args.mime||'audio/webm');
+ try{
+  await add('sessions',{...i,mime,createdAt:new Date().toISOString(),finalized:false});
+ }catch(error){
+  if(error?.name!=='ConstraintError')throw error;
+  const winner=await read('sessions',i.sessionId);
+  if(!winner||winner.ownerId!==i.ownerId||winner.encounterId!==i.encounterId)
+    throw Error('AUDIO_SESSION_OWNER_MISMATCH');
+  if(winner.finalized)throw Error('AUDIO_SESSION_ALREADY_FINALIZED');
+  if(winner.mime!==mime)throw Error('AUDIO_SESSION_MIME_MISMATCH');
+  await ownerKey(i.ownerId);
+  return {sessionId:i.sessionId,existing:true};
+ }
  return {sessionId:i.sessionId,existing:false};
 }
 async function verifyChunk(i,c,seq,mime,key){

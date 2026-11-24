@@ -156,3 +156,23 @@ test('duplicate ciphertext is verified before confirming idempotent append',asyn
  row.ciphertext=new Uint8Array(row.ciphertext.byteLength);
  await assert.rejects(vault.append({...input,sequence:0,blob:wav('A')}));
 });
+
+test('concurrent begin shares exactly one session and owner key',async()=>{
+ const idb=fakeIDB(),{vault}=browser(idb);
+ const results=await Promise.all(Array.from({length:3},()=>vault.begin({...input,mime:'audio/webm'})));
+ assert.equal(results.filter(x=>!x.existing).length,1);
+ assert.equal(results.filter(x=>x.existing).length,2);
+ assert.equal(idb.storage.get('sessions').size,1);
+ assert.equal(idb.storage.get('keys').size,1);
+ await vault.append({...input,sequence:0,blob:wav('RACE')});
+ assert.equal(await (await vault.recover(input)).blob.text(),'RACE');
+});
+test('concurrent begin never joins a session with another encounter or MIME',async()=>{
+ const {vault}=browser();
+ const results=await Promise.allSettled([
+  vault.begin({...input,mime:'audio/webm'}),
+  vault.begin({...input,encounterId:'55555555-5555-4555-8555-555555555555',mime:'audio/webm'})
+ ]);
+ assert.equal(results.filter(x=>x.status==='fulfilled').length,1);
+ assert.match(String(results.find(x=>x.status==='rejected').reason),/AUDIO_SESSION_OWNER_MISMATCH/);
+});
