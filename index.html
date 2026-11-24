@@ -2598,7 +2598,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <link rel="stylesheet" href="./nexa-core-radar-review-v3.css?v=20261025-core-audit-v3">
 <script src="./nexa-auth-session-v1.js?v=20261019"></script>
 <script src="./nexa-password-onboarding-v1.js?v=20261019"></script>
-<script src="./nexa-audio-checkpoint-p0.js?v=20261122-g1-draft"></script>
+<script src="./nexa-audio-checkpoint-p0.js?v=20261124-v510-draft"></script>
 <script>
 'use strict';
 (async function(){
@@ -3999,7 +3999,8 @@ async function startRec(){
     $('processBtn').disabled=true;
     $('status').textContent='Finalizando e verificando backup do áudio neste dispositivo…';
     flat();syncRecordingUi();
-    void audioCheckpointQueue.then(()=>checkpointVault.finalize(checkpoint))
+    const expectedChunkCount=audioCheckpointSeq;
+    void audioCheckpointQueue.then(()=>checkpointVault.finalize({...checkpoint,expectedChunkCount}))
       .then(()=>checkpointVault.recover(checkpoint))
       .then(saved=>{
         if(currentProf?.id!==checkpoint.ownerId||clinicalEpoch!==startEpoch)return;

@@ -43,7 +43,7 @@ function fakeIDB(){
        }),
        index:indexName=>({
          getAll:value=>issue(()=>[...store.values()]
-           .filter(item=>item[indexes.get(table).get(indexName)]===value).map(structuredClone))
+           .filter(item=>item[indexes.get(table).get(indexName)]===value).map(item=>structuredClone(item)))
        })
      };
     }
@@ -77,7 +77,7 @@ test('encrypted audio survives reload and decrypts after authenticated owner rea
  await first.begin({...input,mime:'audio/webm'});
  await first.append({...input,sequence:0,blob:wav('AUDIO_ONE')});
  await first.append({...input,sequence:1,blob:wav('AUDIO_TWO')});
- assert.equal((await first.finalize(input)).readback,true);
+ assert.equal((await first.finalize({...input,expectedChunkCount:2})).readback,true);
  const saved=idb.storage.get('chunks').get(session+':000000');
  assert(!String(saved.ciphertext).includes('AUDIO_ONE'));
  const reopened=browser(idb).vault;
@@ -118,10 +118,41 @@ test('ciphertext tampering, conflicting seq and browser data loss are fail-close
 test('PR integration does not confuse local checkpoint with remote sync or Gate C',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  assert(html.includes('nexa-audio-checkpoint-p0.js?v='));
- assert(html.includes('checkpointVault.finalize(checkpoint)'));
+ assert(html.includes('checkpointVault.finalize({...checkpoint,expectedChunkCount})'));
  assert(html.includes('mediaRecorder.start(10000)'));
  assert(html.includes('nexaP0PreparePersistedSourceBeforeAudio(startEpoch)'));
  assert(html.includes('return false; // Hard STOP independent of server response and client claims.'));
  assert(!js.includes('SUPABASE_SERVICE_ROLE_KEY'));
  assert(!js.includes('fetch('));
+});
+
+test('finalization refuses an incomplete tail and recovery detects loss after finalization',async()=>{
+ const {vault,idb}=browser();
+ await vault.begin({...input,mime:'audio/webm'});
+ await vault.append({...input,sequence:0,blob:wav('A')});
+ await assert.rejects(vault.finalize({...input,expectedChunkCount:2}),/AUDIO_EXPECTED_CHUNK_COUNT_MISMATCH/);
+ assert.equal((await vault.recover(input)).finalized,false);
+ await vault.append({...input,sequence:1,blob:wav('B')});
+ await vault.finalize({...input,expectedChunkCount:2});
+ idb.storage.get('chunks').delete(session+':000001');
+ await assert.rejects(vault.recover(input),/AUDIO_FINALIZED_CHUNK_COUNT_MISMATCH/);
+ await assert.rejects(vault.finalize({...input,expectedChunkCount:1}),/AUDIO_FINALIZED_CHUNK_COUNT_MISMATCH/);
+});
+test('missing key does not silently generate replacement during recovery or resume',async()=>{
+ const {vault,idb}=browser();
+ await vault.begin({...input,mime:'audio/webm'});
+ await vault.append({...input,sequence:0,blob:wav('A')});
+ idb.storage.get('keys').delete(owner);
+ await assert.rejects(vault.recover(input),/AUDIO_KEY_MISSING/);
+ await assert.rejects(vault.begin({...input,mime:'audio/webm'}),/AUDIO_KEY_MISSING/);
+ assert.equal(idb.storage.get('keys').has(owner),false);
+});
+test('duplicate ciphertext is verified before confirming idempotent append',async()=>{
+ const {vault,idb}=browser();
+ await vault.begin({...input,mime:'audio/webm'});
+ await vault.append({...input,sequence:0,blob:wav('A')});
+ assert.equal((await vault.append({...input,sequence:0,blob:wav('A')})).duplicate,true);
+ const row=idb.storage.get('chunks').get(session+':000000');
+ row.ciphertext=new Uint8Array(row.ciphertext.byteLength);
+ await assert.rejects(vault.append({...input,sequence:0,blob:wav('A')}));
 });
