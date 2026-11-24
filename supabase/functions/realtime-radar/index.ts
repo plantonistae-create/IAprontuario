@@ -15,6 +15,10 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers});
  if(req.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
+ // P0: STOP server-side, including OpenAI and NEXA Core provider branches.
+ // A browser checkbox or source insert is not a verified pre-egress consent.
+ const prospectiveExternalAiGateCNoGo=true;
+ if(prospectiveExternalAiGateCNoGo)return json({error:'P0_PRE_EGRESS_GATE_C_NO_GO',external_ai_authorized:false},423);
  try{
   const authorization=req.headers.get('Authorization')||'';
   if(!authorization.startsWith('Bearer '))return json({error:'UNAUTHORIZED'},401);

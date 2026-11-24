@@ -46,6 +46,14 @@ function sourceCoreContext(body:any,source:any){
 serve(async(req)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  if(req.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
+ // P0 PROSPECTIVE AUDIT STOP: no trusted purpose-specific consent event or
+ // final physician review ACK is bound to a synchronized source version/digest.
+ // Client flags, browser timestamps and successful offline CI are NOT authority.
+ // No environment switch, request header or client-supplied bypass exists.
+ // A separately authorized authoritative Gate C must replace this STOP.
+ const auditSubmissionBlockedPendingGateC=true;
+ if(auditSubmissionBlockedPendingGateC)
+  return json({error:'AUDIT_GATE_C_NO_GO',audit_submitted:false},423);
  try{
   const auth=req.headers.get('Authorization')||'';if(!auth.startsWith('Bearer '))return json({error:'UNAUTHORIZED'},401);
   const userClient=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{global:{headers:{Authorization:auth}}});

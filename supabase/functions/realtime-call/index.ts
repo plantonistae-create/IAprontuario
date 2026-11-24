@@ -513,6 +513,16 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // P0 review-only: both WebRTC SDP and multipart audio chunks are blocked
+  // at the REAL server ingress, before any OpenAI/API dispatch. The #167
+  // candidate lacks a deployed owner-bound pre-egress consent receipt.
+  // This constant has no request, environment or client-controlled bypass.
+  const prospectiveExternalAiGateCNoGo = true;
+  if (prospectiveExternalAiGateCNoGo) {
+    return json({ error: "P0_PRE_EGRESS_GATE_C_NO_GO",
+      external_ai_authorized: false }, 423);
+  }
+
   try {
     const authResult =
       await getAuthenticatedUser(

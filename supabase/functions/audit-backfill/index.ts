@@ -69,6 +69,12 @@ function coreFor(row:any){
 serve(async req=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  if(req.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
+ // P0: legacy historical backfill lacks per-case owner consent and final review ACK.
+ // This unconditional server-ingress STOP precedes staff auth, admin inventory,
+ // service-role use, provider egress and any audit_cases write.
+ // No request field, admin role or environment variable can authorize bypass.
+ const auditBackfillGateCNoGo=true;
+ if(auditBackfillGateCNoGo)return json({error:'AUDIT_BACKFILL_GATE_C_NO_GO',audit_backfilled:false,external_ai_authorized:false},423);
  try{
   await requireStaff(req);const body=await req.json().catch(()=>({})),action=String(body?.action||'report');
   const admin=createClient(URL,SERVICE,{auth:{persistSession:false}}),inv=await inventory(admin);

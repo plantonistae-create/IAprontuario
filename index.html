@@ -2598,6 +2598,7 @@ html[data-nexa-theme="dark"] .nexa-radar-alerts{
 <link rel="stylesheet" href="./nexa-core-radar-review-v3.css?v=20261025-core-audit-v3">
 <script src="./nexa-auth-session-v1.js?v=20261019"></script>
 <script src="./nexa-password-onboarding-v1.js?v=20261019"></script>
+<script src="./nexa-audio-checkpoint-p0.js?v=20261124-v510-draft"></script>
 <script>
 'use strict';
 (async function(){
@@ -2625,7 +2626,7 @@ function updateWorkflow(){const h=!!ta('hda')?.value.trim(),e=!!ta('exame_fisico
 if($('authRememberMe'))$('authRememberMe').checked=window.nexaAuthSession?.remembered===true;
 function setAuthMode(m){authMode=m;const up=m==='signup';$('signInTab').classList.toggle('active',!up);$('signUpTab').classList.toggle('active',up);$('authName').style.display=up?'block':'none';$('authNameLabel').style.display=up?'block':'none';$('forgotPasswordBtn').style.display=up?'none':'block';$('authSubmitBtn').textContent=up?'Criar conta':'Entrar';setBanner($('loginBanner'),'')}$('signInTab').onclick=()=>setAuthMode('signin');$('signUpTab').onclick=()=>setAuthMode('signup');
 async function getProfile(u){const fallback=(u.user_metadata?.display_name||u.email?.split('@')[0]||'Profissional').trim();try{const {data,error}=await sb.rpc('get_my_capabilities');if(error)throw error;const p=Array.isArray(data)?data[0]:data;if(p)return{id:u.id,name:p.display_name||fallback,email:u.email||'',access_status:p.access_status||'pending',is_admin:!!p.is_admin,is_reviewer:!!p.is_reviewer,clinical_access:!!p.clinical_access};return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}catch(e){console.warn('Capacidades NEXA Core indisponíveis:',e);return{id:u.id,name:fallback,email:u.email||'',access_status:'pending',is_admin:false,is_reviewer:false,clinical_access:false}}}
-async function enter(session){if(!session?.user)return;if(await window.nexaPasswordSetup?.requiresSetup(session,sb)){window.nexaPasswordSetup.show(session,sb,()=>enter(session));return;}if(currentProf?.id&&currentProf.id!==session.user.id)clearClinicalSession();const authEpoch=clinicalEpoch;const incomingProf=await getProfile(session.user);if(authEpoch!==clinicalEpoch)return;currentProf=incomingProf;window.nexaRadar?.setOwner(currentProf.id);nexaCheckRecoverableSession();if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
+async function enter(session){if(!session?.user)return;if(await window.nexaPasswordSetup?.requiresSetup(session,sb)){window.nexaPasswordSetup.show(session,sb,()=>enter(session));return;}if(currentProf?.id&&currentProf.id!==session.user.id)clearClinicalSession();const authEpoch=clinicalEpoch;const incomingProf=await getProfile(session.user);if(authEpoch!==clinicalEpoch)return;currentProf=incomingProf;window.nexaRadar?.setOwner(currentProf.id);nexaCheckRecoverableSession();void nexaOfferAudioCheckpointRestore();if(currentProf.access_status==='disabled'){await sb.auth.signOut();setBanner($('loginBanner'),'Seu acesso ao NEXA está desativado. Contate o administrador.',true);return}if(currentProf.access_status==='pending'){await sb.auth.signOut();setBanner($('loginBanner'),'Cadastro aguardando ativação pelo administrador do NEXA.',true);return}$('loginGate').style.display='none';$('mainApp').style.display='flex';$('loggedProfName').textContent=currentProf.name;const canReview=!!(currentProf.is_admin||currentProf.is_reviewer);$('coreAdminBtn').style.display='none';$('nexaBottomNav').style.display=canReview?'grid':'none';$('navAuditBtn').style.display=canReview?'flex':'none';$('navProtocolsBtn').style.display=canReview?'flex':'none';$('navAdminBtn').style.display=currentProf.is_admin?'flex':'none';const clinical=!!currentProf.clinical_access;document.querySelector('main').style.display=clinical?'grid':'none';if(typeof window.nexaV341SyncRole==='function')window.nexaV341SyncRole();if(clinical){setNexaNavActive('navClinicalBtn');await Promise.all([loadExamples(),loadHistory()]);await migrateLegacyConducts();await loadConducts({silent:true});if(conductSyncInterval)clearInterval(conductSyncInterval);conductSyncInterval=setInterval(()=>{if(currentProf)loadConducts({silent:true})},15000)}else if(canReview){await openCorePane(currentProf.is_admin?'coreUsersPane':'coreAuditPane');}}
 async function submitAuth(){const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(!email.includes('@'))return setBanner($('loginBanner'),'Informe um e-mail válido.',true);if(password.length<8)return setBanner($('loginBanner'),'Use senha com pelo menos 8 caracteres.',true);$('authSubmitBtn').disabled=true;window.nexaAuthSession?.setRemembered($('authRememberMe')?.checked===true);try{if(authMode==='signup'){const name=$('authName').value.trim();if(name.length<2)throw new Error('Informe o nome profissional.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:location.href.split('#')[0]}});if(error)throw error;if(data.session)await enter(data.session);else setBanner($('loginBanner'),'Conta criada. Confirme o e-mail para entrar.')}else{const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enter(data.session)}}catch(e){setBanner($('loginBanner'),/invalid login/i.test(e.message)?'E-mail ou senha incorretos.':e.message,true)}finally{$('authSubmitBtn').disabled=false;$('authSubmitBtn').textContent=authMode==='signup'?'Criar conta':'Entrar'}}$('authSubmitBtn').onclick=submitAuth;$('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});$('forgotPasswordBtn').onclick=async()=>{const email=$('authEmail').value.trim();if(!email.includes('@'))return setBanner($('loginBanner'),'Digite seu e-mail primeiro.',true);const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});setBanner($('loginBanner'),error?error.message:'E-mail de redefinição enviado.',!!error)};async function logoutNexa(){
   if(recording||audioBlob){alert('Finalize a gravação e processe o áudio antes de sair, para não perder dados da consulta.');return;}
   if(!confirm('Deseja sair do NEXA neste dispositivo? O acesso exigirá novo login.'))return;
@@ -2845,7 +2846,7 @@ async function saveHistory(){
       if(error)throw error;const i=history.findIndex(x=>x.id===activeHistoryId);if(i>=0)history[i]=data;
     }else{
       const id=crypto.randomUUID();
-      const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||now,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
+      const {data,error}=await sb.from('consultation_history').insert({id,user_id:currentProf.id,fields,status:'draft',consent_recorded_at:lastProcessedMeta?.consentRecordedAt||null,processing_meta:lastProcessedMeta||{},created_at:now,updated_at:now}).select().single();
       if(error)throw error;activeHistoryId=data.id;history.unshift(data);
     }
     saveState('saved','salvo');renderHistory();show('Revisão salva no Histórico. Use “Salvar no meu estilo” somente quando quiser transformar esta versão em referência de escrita.');
@@ -2857,34 +2858,22 @@ async function sessionHeaders(){const {data:{session}}=await sb.auth.getSession(
 function prettyFields(obj){return Object.entries(obj||{}).filter(([,v])=>String(v||'').trim()).map(([k,v])=>`${labels[k]||k.toUpperCase()}:\n${v}`).join('\n\n')}
 async function submitCurrentForAudit(){
   if(!currentProf?.clinical_access)return show('Seu perfil não possui acesso clínico.',true);
-  const fields=collect();if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))return show('Não há conteúdo para enviar à auditoria.',true);if(hypothesisReview.ai)fields.hipotese_ia_original=hypothesisReview.ai;if(hypothesisReview.final)fields.hipotese_medico_final=hypothesisReview.final;if(hypothesisReview.cid)fields.cid_medico_final=hypothesisReview.cid;fields.status_validacao_hipotese=hypothesisReview.status;
-  if(!activeHistoryId){await saveHistory();if(!activeHistoryId)return;}
-  if(!confirm('Enviar esta consulta para desidentificação e auditoria do NEXA Core? O caso será separado da sua identificação antes de aparecer ao revisor.'))return;
-  const btn=$('submitAuditBtn');btn.disabled=true;btn.textContent='Priorizando…';
-  const planForCore=clinicalPlanCache.both||{exams:clinicalPlanCache.exams||null,prescription:clinicalPlanCache.prescription||null};
-  const coreContext={
-    schema_version:'2',
-    case_mode:mode(),
-    hypothesis_validation:{status:hypothesisReview.status||'pending',ai:hypothesisReview.ai||'',final:hypothesisReview.final||'',cid:hypothesisReview.cid||'',source:hypothesisReview.source||''},
-    clinical_plan:planForCore,
-    speaker_attribution:lastProcessedMeta?.speaker_attribution||null,
-    // Only interactions and aggregate counters; never raw speech or answers.
-    radar_feedback:{
-      actions:Object.fromEntries(Object.entries(window.nexaRadar?.snapshot()?.ledger||{})
-        .map(([id,event])=>[id,String(event?.action||'')])
-        .filter(([,action])=>['answer','evaluated','dismissed','not_applicable'].includes(action))),
-      metrics:{
-        suggested:window.nexaRadar?.state?.items?.length||0,
-        covered:window.nexaRadar?.state?.clarified?.length||0,
-        confirm:window.nexaRadar?.state?.confirm?.length||0,
-        alerts:window.nexaRadar?.state?.alerts?.length||0
-      }
-    },
-    radar_learning:{chief_complaint:radarState?.chief_complaint||'',covered:Array.isArray(radarState?.covered)?radarState.covered:[],missing:Array.isArray(radarState?.missing)?radarState.missing:[],questions:Array.isArray(radarState?.questions)?radarState.questions:[],alerts:Array.isArray(radarState?.alerts)?radarState.alerts:[]},
-    provenance:{app_version:APP_CONFIG.appVersion,reviewed_documentation:true,radar_raw_transcript_saved:false,official_source:'final_review'}
-  };
-  try{const r=await fetch(SUPABASE_URL+APP_CONFIG.submitAuditPath,{method:'POST',headers:await sessionHeaders(),body:JSON.stringify({source_consultation_id:activeHistoryId,fields,core_context:coreContext})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error==='ALREADY_SUBMITTED'?'Esta consulta já foi enviada para auditoria.':d.error||'Falha ao enviar para auditoria.');show('Consulta desidentificada enviada à auditoria. Após aprovação/correção, o caso entra automaticamente no conjunto auditado do NEXA Core.');}
-  catch(e){show(e.message,true)}finally{btn.disabled=false;btn.textContent='Priorizar para auditoria'}
+  const fields=collect();
+  if(!Object.values(fields).some(v=>typeof v==='string'&&v.trim()))
+    return show('Não há documentação clínica para priorizar.',true);
+  // Preserve the clinician's draft locally. A local checkpoint is NOT
+  // verified consent, source sync ACK or physician final-review evidence.
+  const preserve=window.nexaEncounterAutosave18101?.preserve;
+  if(typeof preserve!=='function')
+    return show('Auditoria P0 bloqueada: preservação local indisponível. Salve a consulta e não descarte o rascunho.',true);
+  try{
+    const saved=await preserve('audit_gate_blocked',{sync:false});
+    if(!saved?.encounter_id||saved?.owner_user_id!==currentProf?.id)
+      return show('Auditoria P0 bloqueada: salvamento local não comprovado. Não descarte o rascunho.',true);
+  }catch{
+    return show('Auditoria P0 bloqueada: não foi possível confirmar o salvamento local. Não descarte o rascunho.',true);
+  }
+  show('Auditoria P0 ainda não liberada: falta comprovar consentimento específico para IA externa/auditoria, ACK de revisão médica e fonte autoritativa no servidor. Rascunho local preservado; nenhum caso foi enviado.',true);
 }
 $('submitAuditBtn').onclick=submitCurrentForAudit;
 
@@ -3835,6 +3824,48 @@ function stopRealtimeRadar({wipe=true}={}){
 }
 
 let mediaRecorder,stream,audioCtx,analyser,dataArray,raf,chunks=[],audioBlob=null,recording=false,recordingStarting=false,seconds=0,timerInt=null,discardStoppedRecording=false;
+let audioCheckpointActive=null,audioCheckpointSeq=0,audioCheckpointQueue=Promise.resolve();
+async function nexaOfferAudioCheckpointRestore(){
+  const user=currentProf, vault=window.nexaAudioCheckpointP0;
+  if(!vault||!user?.id||user.access_status!=='active'||!user.clinical_access)return;
+  try{
+    const rows=await vault.listOwned(user.id);
+    if(!rows.length||currentProf?.id!==user.id)return;
+    const host=$('recBtn')?.parentElement;
+    if(!host)return;
+    let btn=$('nexaAudioCheckpointRestoreBtn');
+    if(!btn){
+      btn=document.createElement('button');btn.id='nexaAudioCheckpointRestoreBtn';
+      btn.type='button';btn.className='btn ghost';
+      btn.style.marginTop='8px';host.append(btn);
+    }
+    btn.textContent='Recuperar áudio protegido deste dispositivo';
+    btn.onclick=async()=>{
+      if(recording||recordingStarting||(audioBlob?.size>0))return show('Existe uma gravação ativa. Finalize-a antes de restaurar.',true);
+      // Latest owner-scoped checkpoint only. Never combine unrelated consultations.
+      const target=rows[0], api=window.nexaEncounterAutosave18101;
+      if(!api?.get)return show('Histórico local indisponível. Não será possível associar o áudio à consulta.',true);
+      btn.disabled=true;
+      try{
+        if(currentProf?.id!==user.id)throw Error('OWNER_CHANGED');
+        const source=await api.get(target.encounterId);
+        if(!source||source.owner_user_id!==user.id)throw Error('AUDIO_SOURCE_NOT_OWNED_OR_MISSING');
+        if(!await window.nexaRecoverSavedEncounter?.(source))return;
+        const restored=await vault.recover({...target,ownerId:user.id});
+        if(currentProf?.id!==user.id||api.currentEncounterId?.()!==target.encounterId)
+          throw Error('AUDIO_ACTIVE_ENCOUNTER_CHANGED');
+        audioBlob=restored.blob;chunks=[restored.blob];
+        $('processBtn').disabled=false;
+        $('status').textContent=restored.finalized
+          ?'Áudio recuperado do cofre local · confira a consulta antes de processar'
+          :'Áudio parcial recuperado · últimos segundos podem estar ausentes';
+        show(restored.finalized?'Gravação recuperada neste dispositivo.':'Recuperação parcial: gravação interrompida sem finalização.',!restored.finalized);
+      }catch(error){show('Não foi possível verificar e restaurar o áudio protegido. O registro original não foi apagado.',true)}
+      finally{btn.disabled=false}
+    };
+  }catch{show('Não foi possível inspecionar os áudios locais para recuperação.',true)}
+}
+
 function stopRecordingTimer({reset=false}={}){
   if(timerInt!==null){
     clearInterval(timerInt);
@@ -3878,10 +3909,53 @@ function nexaScrollToProcessCta(){
     setTimeout(settle,32);
   });
 }
-const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function startRec(){
+const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');ctx.beginPath();ctx.moveTo(0,canvas.height/2);ctx.lineTo(canvas.width,canvas.height/2);ctx.stroke()}function wave(){if(!analyser)return;analyser.getByteTimeDomainData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');ctx.beginPath();let x=0,s=canvas.width/dataArray.length;dataArray.forEach((v,i)=>{let y=v/128*canvas.height/2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);x+=s});ctx.stroke();raf=requestAnimationFrame(wave)}function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}async function nexaP0PreparePersistedSourceBeforeAudio(epoch){
+  // The browser checkbox means user intent, NEVER verified consent.
+  // Saving a blank owner-bound source is a prerequisite, NOT an AI grant.
+  const autosave=window.nexaEncounterAutosave18101;
+  if(!autosave?.preserve||!autosave?.get||!currentProf?.id){
+    show('Gate C P0: fonte autenticada indisponível. Não foi possível iniciar a gravação.',true);
+    return false;
+  }
+  let local;
+  try{local=await autosave.preserve('p0_pre_first_egress_source',{sync:false})}
+  catch{show('Gate C P0: falha ao preservar fonte local. Gravação não iniciada.',true);return false}
+  if(!local?.encounter_id||local.owner_user_id!==currentProf.id||
+     ['conflict','locked'].includes(local.sync_state)||local.requires_form_refresh){
+    show('Gate C P0: consulta sem origem estável ou com conflito. Gravação bloqueada.',true);
+    return false;
+  }
+  if(epoch!==clinicalEpoch||!$('consent').checked)return false;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session?.access_token||session.user?.id!==currentProf.id)
+      throw Error('SESSION_CHANGED');
+    const response=await fetch(SUPABASE_URL+'/functions/v1/nexa-source-actions',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+session.access_token,
+        apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'prepare_recording',encounterId:local.encounter_id}),
+      cache:'no-store'
+    });
+    // This Draft's Edge rejects every POST with 423. Even if a later
+    // deployment persists a source successfully, DO NOT permit WebRTC,
+    // chunks, Radar or final processing without independent server gates.
+    if(response.status===423){
+      show('Gate C P0: origem pré-IA ainda não habilitada. Nenhum áudio foi enviado.',true);
+      return false;
+    }
+    show('Gate C P0: origem não é consentimento nem autorização de IA. Gravação bloqueada.',true);
+  }catch{
+    show('Gate C P0: bootstrap autenticado não confirmado. Gravação bloqueada.',true);
+  }
+  return false; // Hard STOP independent of server response and client claims.
+}
+async function startRec(){
   if(recording||recordingStarting||!$('consent').checked||!currentProf?.clinical_access)return;
   recordingStarting=true;try{
   const startEpoch=clinicalEpoch;
+  // This STOP precedes getUserMedia, MediaRecorder, Radar and any provider fetch.
+  if(!await nexaP0PreparePersistedSourceBeforeAudio(startEpoch))return;
   stopRecordingTimer();
   discardStoppedRecording=false;
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
@@ -3894,21 +3968,55 @@ const canvas=$('wave'),ctx=canvas.getContext('2d');function flat(){cancelAnimati
   dataArray=new Uint8Array(analyser.frequencyBinCount);source.connect(analyser);wave();
   const mime=radarAudioMime();
   mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});
-  mediaRecorder.ondataavailable=e=>e.data.size&&chunks.push(e.data);
-  mediaRecorder.onstop=()=>{
-    stopRecordingTimer();
-    recording=false;
-    if(discardStoppedRecording){
-      discardStoppedRecording=false;chunks=[];audioBlob=null;$('processBtn').disabled=true;flat();return;
-    }
-    audioBlob=new Blob(chunks,{type:mime});
-    $('processBtn').disabled=false;
-    $('status').textContent=`Gravação concluída · ${fmt(seconds)} · pronta para transcrever · áudio ainda apenas na memória · transcreva antes de sair`;
-    flat();syncRecordingUi();
-    window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds}}));
-    nexaScrollToProcessCta();
+  const checkpointVault=window.nexaAudioCheckpointP0;
+  const encounterId=window.nexaEncounterAutosave18101?.currentEncounterId?.();
+  if(!checkpointVault||!currentProf?.id||!encounterId)
+    throw Error('AUDIO_DURABLE_CHECKPOINT_REQUIRED');
+  const checkpoint={ownerId:currentProf.id,encounterId,sessionId:crypto.randomUUID()};
+  await checkpointVault.begin({...checkpoint,mime:mediaRecorder.mimeType||mime||'audio/webm'});
+  if(startEpoch!==clinicalEpoch||currentProf?.id!==checkpoint.ownerId)
+    throw Error('AUDIO_OWNER_CHANGED_BEFORE_RECORDING');
+  audioCheckpointActive=checkpoint;audioCheckpointSeq=0;audioCheckpointQueue=Promise.resolve();
+  mediaRecorder.ondataavailable=e=>{
+    if(!e.data?.size)return;
+    chunks.push(e.data);
+    const seq=audioCheckpointSeq++;
+    audioCheckpointQueue=audioCheckpointQueue.then(()=>checkpointVault.append({
+      ...checkpoint,sequence:seq,blob:e.data
+    }));
+    // Rejections remain in the chain and fail final readback; no false 'saved'.
+    void audioCheckpointQueue.catch(()=>{$('status').textContent='ATENÇÃO: áudio não confirmado no cofre local';});
   };
-  mediaRecorder.start();recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
+  mediaRecorder.onstop=()=>{
+    stopRecordingTimer();recording=false;
+    const discarded=discardStoppedRecording;
+    discardStoppedRecording=false;
+    if(discarded){
+      // Never delete checkpointed audio by client-side reset; require explicit retention policy.
+      chunks=[];audioBlob=null;$('processBtn').disabled=true;flat();return;
+    }
+    audioBlob=new Blob(chunks,{type:mediaRecorder.mimeType||mime});
+    $('processBtn').disabled=true;
+    $('status').textContent='Finalizando e verificando backup do áudio neste dispositivo…';
+    flat();syncRecordingUi();
+    const expectedChunkCount=audioCheckpointSeq;
+    void audioCheckpointQueue.then(()=>checkpointVault.finalize({...checkpoint,expectedChunkCount}))
+      .then(()=>checkpointVault.recover(checkpoint))
+      .then(saved=>{
+        if(currentProf?.id!==checkpoint.ownerId||clinicalEpoch!==startEpoch)return;
+        audioBlob=saved.blob;$('processBtn').disabled=false;
+        $('status').textContent='Áudio protegido neste dispositivo · pronto para transcrever';
+        window.dispatchEvent(new CustomEvent('nexa:recording-finalized',{detail:{seconds,checkpoint:true}}));
+        nexaScrollToProcessCta();
+      })
+      .catch(()=>{
+        if(currentProf?.id!==checkpoint.ownerId||clinicalEpoch!==startEpoch)return;
+        $('processBtn').disabled=false; // The memory copy may still permit immediate processing.
+        $('status').textContent='ATENÇÃO: áudio NÃO confirmado em armazenamento durável · não feche a página';
+        show('Falha ao preservar a gravação. O áudio continua apenas nesta sessão; mantenha a página aberta.',true);
+      });
+  };
+  mediaRecorder.start(10000);recording=true;seconds=0;$('timer').textContent='00:00';radarAnalyze(false);startRealtimeRadar(stream);
   timerInt=setInterval(()=>{seconds+=1;$('timer').textContent=fmt(seconds)},1000);
   $('recBtn').classList.add('recording');$('circleShape').style.display='none';$('stopShape').style.display='block';
   $('status').textContent='Gravando consulta…';
@@ -4019,7 +4127,7 @@ async function processAudio(){
   document.body.dataset.nexaProcessing='1';window.dispatchEvent(new CustomEvent('nexa:clinical-processing',{detail:{state:'processing'}}));
   const prior=collect();
   try{
-    const epoch=clinicalEpoch,consentRecordedAt=new Date().toISOString();
+    const epoch=clinicalEpoch,consentRecordedAt=lastProcessedMeta?.consentRecordedAt||null; // Existing legacy metadata only; processing never records new consent.
     let payload;
     let autoSpeakerFallback=false;
     const startedProcessingAt=performance.now();
@@ -5393,6 +5501,8 @@ window.nexaRadar.setOwner(currentProf?.id||'');
 flat();updateWorkflow();
 })();
 </script>
+<!-- P0 review-only candidate: Edge hard-stopped; no audio/provider admission. -->
+<script src="./nexa-p0-physician-source-review.js?v=20261114-p0-review-only"></script>
 <script>
 (function(){
   const root=document.body;
