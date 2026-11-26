@@ -549,5 +549,19 @@ function bind(){
 }
 bind();
 
-window.nexaEncounterAutosave18101={DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,reviewConflict,resolveConflict,reconcileFields,setStoreAdapter:a=>{storeAdapter=a||null},setArchiveAdapter:a=>{archiveAdapter=a||null}};
+/* V5.17/V5.22: legacy writers (saveHistory, persistVersions) update the SAME server row without CAS. The real table bumps sync_version on every update, so the next autosave CAS would
+   raise a false SERVER_VERSION_CONFLICT. They report the version the server returned. Only a strictly newer version of OUR OWN, non-conflicted record is adopted. */
+async function noteServerVersion(encounterId,version){
+ try{
+  const who=owner();if(!isUuid(encounterId)||!isUuid(who)||!Number.isSafeInteger(version)||version<0)return false;
+  return await serializeLocal(async()=>{
+   const rec=await store.get(encounterId);
+   if(!rec||rec.owner_user_id!==who)return false;
+   if(Number(rec.sync_version||0)>=version)return true;
+   if(['conflict','locked'].includes(rec.sync_state))return false;
+   return store.comparePut(rec,{...rec,sync_version:version});
+  });
+ }catch{return false}
+}
+window.nexaEncounterAutosave18101={noteServerVersion,DB,STORE,currentEncounterId,setActiveId,rotateEncounter,startNew,adoptExisting,preserve,prioritize,flush,syncOne,buildLocal,eligible,meaningful,collectFields,get:store.get,put:store.put,all:store.all,reviewConflict,resolveConflict,reconcileFields,setStoreAdapter:a=>{storeAdapter=a||null},setArchiveAdapter:a=>{archiveAdapter=a||null}};
 })();

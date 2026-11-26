@@ -243,8 +243,11 @@ test('unprocessed recorded audio warns before unload even with no clinical text'
  const withNote=runScenario({hasNote:true});
  assert.equal(withNote.prevented,true);
  assert.equal(withNote.checkpointCount,1,'clinical text should still trigger the IndexedDB checkpoint');
- assert.match(html,/áudio ainda apenas na memória · transcreva antes de sair/,
-   'recording completion must clearly warn that audio is not durably stored');
+ // V5.22 (preservation branch): audio is checkpointed to the encrypted owner-scoped IndexedDB; the honest warning is shown ONLY when that durable write fails.
+ assert.match(html,/ATENÇÃO: áudio NÃO confirmado em armazenamento durável · não feche a página/,
+   'recording completion must clearly warn when audio is not durably stored');
+ assert.match(html,/Áudio protegido neste dispositivo · pronto para transcrever/,
+   'recording completion must state local protection only after the durable checkpoint is verified');
 });
 
 

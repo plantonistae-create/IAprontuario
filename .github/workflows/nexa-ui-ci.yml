@@ -67,6 +67,10 @@ jobs:
         run: node tests/nexa-continuous-soap.e2e.cjs && node tests/nexa-audit-responsive.e2e.cjs
       - name: Recover clinical history after browser restart without remembered login
         run: node tests/nexa-history-audit-recovery.e2e.cjs
+      - name: Cross-consultation contamination guard and ten consecutive visits
+        run: node tests/nexa-cross-consultation-guard.e2e.cjs && node tests/nexa-ten-visits.main.e2e.cjs both 10 default nohdr
+      - name: Local audio vault resilience and interrupted-recording recovery (Chromium; WebKit/device evidence is separate)
+        run: node tests/nexa-audio-vault-resilience.e2e.cjs chromium && node tests/nexa-audio-preservation.app.e2e.cjs chromium && node tests/nexa-capture-inventory.e2e.cjs chromium && node tests/nexa-audio-retention.e2e.cjs chromium && node tests/nexa-transcript-capture.e2e.cjs chromium && node tests/nexa-radar-capture.e2e.cjs chromium && node tests/nexa-audio-multidevice.e2e.cjs chromium && node tests/nexa-admin-preservation.e2e.cjs chromium
       - name: Save focused browser captures
         if: always()
         uses: actions/upload-artifact@v4

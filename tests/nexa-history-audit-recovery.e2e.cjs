@@ -30,7 +30,7 @@ const timeout=setTimeout(()=>{console.error('History/audit recovery E2E exceeded
    await page.waitForFunction(()=>document.body.dataset.nexaClinicalPhase==='review');
    // Supabase session remains valid even though the doctor elected NOT to store the login.
    await page.evaluate(()=>localStorage.removeItem('sb-synthetic-auth-token'));
-   assert.equal(await page.evaluate(()=>window.nexaAuditOutbox18919.owner()),'qa-physician-a','Audit must identify in-memory authenticated doctor');
+   assert.equal(await page.evaluate(()=>window.nexaAuditOutbox18919.owner()),'aaaaaaaa-0000-4000-8000-0000000000a1','Audit must identify in-memory authenticated doctor');
    const note='Paciente QA sintético com sintomas há 24 horas, sem sinais de alarme.';
    await page.locator('.field[data-key="hda"] textarea').fill(note);
    await page.locator('.field[data-key="hipotese_diagnostica"] textarea').fill('Quadro clínico sintético a esclarecer.');
@@ -39,7 +39,7 @@ const timeout=setTimeout(()=>{console.error('History/audit recovery E2E exceeded
     const row=await api.preserve('synthetic_browser_closure',{sync:false});
     return {id:row.encounter_id,owner:row.owner_user_id,hda:row.fields.hda};
    });
-   assert.equal(stored.owner,'qa-physician-a');assert.equal(stored.hda,note);
+   assert.equal(stored.owner,'aaaaaaaa-0000-4000-8000-0000000000a1');assert.equal(stored.hda,note);
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>window.currentProf?.clinical_access&&window.nexaRecoverHistoryV1&&window.nexaRecoverSavedEncounter&&window.nexaOpenHistoryStage18122);
    await page.evaluate(()=>window.nexaOpenHistoryStage18122());

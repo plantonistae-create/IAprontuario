@@ -89,8 +89,9 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
       await sleep(1150);assert.ok(parseTimer(await page.locator('#timer').innerText())>paused,'timer must resume from the previous value');
     }
 
+    await sleep(1100);   // V5.22: a recording with no audio frames yields no chunk (zero-chunk message); real visits always capture audio
     await page.locator('#nfFinish').click();
-    await page.waitForFunction(()=>!document.getElementById('processBtn').disabled&&/pronta para transcrever/i.test(document.getElementById('status')?.textContent||''));
+    await page.waitForFunction(()=>!document.getElementById('processBtn').disabled&&/pront[oa] para transcrever/i.test(document.getElementById('status')?.textContent||''));
     await page.waitForFunction(()=>document.getElementById('nfProcess')?.dataset.nexaAutofocus==='process');
     assert.equal(await page.locator('#recBtn').getAttribute('data-recording-state'),'stopped','Finalizar must leave the recorder stopped');
     assert.equal(await page.locator('#recBtn').isDisabled(),true,'finalized circular control must not start a new recording');
@@ -248,7 +249,7 @@ function parseTimer(v){const m=String(v||'').match(/^(\d+):(\d{2})$/);return m?(
     await page.locator('#nfSide [data-go="history"]').click();
    }
    await page.waitForFunction(()=>document.body.dataset.nexaStage==='history'&&document.getElementById('nexa197History'));
-   await page.evaluate(()=>{window.__qa.consultationRows.push({id:'55555555-5555-4555-8555-555555555555',user_id:'qa-physician-a',fields:{queixa_principal:'Atendimento legado QA',hda:'Registro antigo compatível.',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Orientar hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});return window.nexaRefreshHistory197?.()});
+   await page.evaluate(()=>{window.__qa.consultationRows.push({id:'55555555-5555-4555-8555-555555555555',user_id:'aaaaaaaa-0000-4000-8000-0000000000a1',fields:{queixa_principal:'Atendimento legado QA',hda:'Registro antigo compatível.',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Orientar hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});return window.nexaRefreshHistory197?.()});
    await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===4);
    assert.match(await page.locator('#n197List').innerText(),/Atendimento legado QA/,'legacy History rows must remain visible alongside Continuous/SOAP encounters');
    const historySearch=page.locator('#n197Search');
