@@ -4064,7 +4064,7 @@ async function processAudio(){
     }
     if(structuredSaved){
       window.dispatchEvent(new CustomEvent('nexa:clinical-structured',{detail:{encounter_id:window.nexaEncounterAutosave18101?.currentEncounterId?.()||null}}));
-      audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente · sincronização pode estar pendente';
+      audioBlob=null;chunks=[];$('status').textContent='Transcrição salva localmente · sincronização pode estar pendente';syncRecordingUi();   // V5.19: refresh data-recording-state NOW; otherwise it stays 'stopped' for up to 1 s and "Novo atendimento" is refused with TRANSCRIVA_OU_FINALIZE_O_AUDIO_ANTES_DE_LIMPAR
       show(autoSpeakerFallback?'Transcrição salva neste computador. Diferenciação de vozes indisponível; revise os relatos.':'Transcrição salva neste computador. Revise antes de copiar.');
     }else{
       $('status').textContent='Transcrição pronta, porém NÃO salva · não feche o navegador';
