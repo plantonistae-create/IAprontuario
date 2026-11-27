@@ -1,6 +1,6 @@
 # NEXA S6 · checkpoint para ChatGPT
 
-Base exata: 6394e561b0032c6a2784ee9515f54f801c69f816. Branch local: local/nexa-s6. O relato de entrada registra M4 20261127210800 com POST 131 PASS e CI #46016781657 com 47 PASS e Chromium aprovado. A S6 manteve produção e GitHub sem escrita e não reexecutou esse lote.
+Base exata: 6394e561b0032c6a2784ee9515f54f801c69f816. Branch de revisão: review/nexa-s6-offline-hardening. Commits preservados: dce8e64 (WebKit), 3994589 (exportação) e 79d3908 (candidato M4 e evidência). O relato de entrada registra M4 20261127210800 com POST 131 PASS e CI #46016781657 com 47 PASS e Chromium aprovado. A homologação S6 foi local. A transferência publica somente a branch de revisão e não reexecuta esse lote.
 
 ## Resultados focais
 
@@ -21,6 +21,20 @@ A emulação offline nativa do WebKit interfere no I/O de Blob. A prova de trans
 O SHA-256 do SQL original coincide com o manifesto V5.33. O laboratório usou somente a definição de get_my_capabilities() do schema-only autorizado e confirmou o MD5 do runbook, 3e618471f2fd45089768c0bbe43ab4f4. O restante foi montado com DDL e registros fictícios. A identidade da conta foi simulada no limite da role authenticated, sem JWT real. O 42501 na base foi emitido pela asserção do teste, após detectar o retorno indevido.
 
 O candidato S6 exige is_admin e access_status 'active'. A role authenticated mantém o grant existente. Contas desativadas, pendentes, sem status ou perfil e contas ativas sem papel administrativo não recebem agregados. O administrador ativo passa mesmo sem slot clínico. Os grants de anon e service_role continuam negados. A M4 instalada e seus arquivos pinados não foram alterados. Prioridade da próxima revisão: decidir se a correção da M4 deve receber autorização separada de aplicação.
+
+### Artefatos para revisão
+
+| Artefato | SHA-256 |
+|---|---|
+| [Candidato M4 corrigido](../supabase/proposals/V533/M4-active-admin.S6.REVIEW-ONLY.sql) | 80c0db73164c307cb9d8202e9058740453fb457593ab9bd14b687da447632ee8 |
+| [Rollback específico, não destrutivo](../supabase/proposals/V533/rollback.M4-active-admin.S6.NON-DESTRUCTIVE.sql) | 0713b1da3aa9eb2329f26aae7ddcd0ba6e1d1c28c097d2c1b34c2f457f23de46 |
+| [Verificador S6 somente leitura](../supabase/ops/V533/sql/post-apply-verify.M4-active-admin.S6.READ-ONLY.sql) | f217d971c9b8e40a78ee243d1aae75fdf899b01dffdc85e1b413c184e40ca2f7 |
+
+O verificador S6 valida somente a M4 corrigida. Checa o MD5 do corpo efetivo, 65be9e2537cd9e0f3ea5255dbc752b8d, os atributos da função, a definição da dependência, o proprietário e os privilégios de execução. O verificador histórico V5.34 mantém o hash da M4 original. Seu P07 da M4 continua sendo a referência anterior à correção. Após eventual aplicação autorizada, use o P99 do verificador S6 para essa função.
+
+O rollback revoga EXECUTE da única RPC da M4 para PUBLIC, anon, authenticated e service_role. Preserva a definição endurecida, o proprietário, as tabelas, os dados e as flags. Não restaura a definição antiga. Após o rollback, P01, P02, P03 e P05 do verificador S6 devem continuar PASS. P04 e P99 devem indicar FAIL porque a RPC foi intencionalmente fechada para authenticated.
+
+Somente os artefatos novos foram validados no PostgreSQL descartável. O verificador reprovou a ausência da função e a versão original, aprovou o candidato corrigido e detectou o fechamento após o rollback. Duas execuções do rollback mantiveram a definição, o proprietário e a contagem sintética de registros. EXECUTE efetivo ficou negado a authenticated, anon e service_role. O laboratório foi removido. Os testes S6 já aprovados não foram reexecutados.
 
 ## Planejador
 
