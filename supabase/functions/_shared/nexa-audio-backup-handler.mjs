@@ -49,6 +49,11 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
       if (assistGateStopped(env, 'audio-backup')) return json(req, 423, { error: 'P0_PRE_EGRESS_GATE_C_NO_GO' });
       if (req.headers.get('Origin') !== allowed) return json(req, 403, { error: 'ORIGIN_FORBIDDEN' });
       if (env('NEXA_AUDIO_BACKUP') !== 'enabled') return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });                      // default OFF
+      // V5.37 test window (all optional; unset = production behaviour unchanged). EXPIRES_AT: after this instant the function behaves as OFF, even if nobody turns the switch off (an unparsable value is treated as expired = fail closed).
+      // ALLOWED_USERS: comma-separated Supabase user ids; when set, ONLY those users pass (decided on the server from the verified JWT subject, never from a client flag). A malformed list is a configuration error (503), never 'allow everyone'.
+      const until = env('NEXA_AUDIO_BACKUP_EXPIRES_AT'); if (until !== undefined && until !== '' && !(Date.parse(until) > Date.now())) return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });
+      const allowRaw = env('NEXA_AUDIO_BACKUP_ALLOWED_USERS'), allowList = allowRaw === undefined || allowRaw === '' ? null : allowRaw.split(',').map((x) => x.trim().toLowerCase());
+      if (allowList && (!allowList.length || allowList.length > 20 || !allowList.every((x) => UUID.test(x)))) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
       const [url0, anon, service, kms, kmsToken] = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXA_KMS_ENDPOINT', 'NEXA_KMS_TOKEN'].map(env);
       const kmsReady = env('NEXA_KMS_PROVIDER') === 'aws' ? ['NEXA_AWS_REGION', 'NEXA_AWS_KMS_KEY_ARN', 'NEXA_AWS_ACCESS_KEY_ID', 'NEXA_AWS_SECRET_ACCESS_KEY'].every((n) => Boolean(env(n))) : Boolean(kms && kmsToken);
       if (![url0, anon, service].every(Boolean) || !kmsReady) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
@@ -57,6 +62,7 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
       const user = createClient(url0, anon, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
       const { data: { user: me } = {}, error: authError } = await user.auth.getUser();
       if (authError || !me || !UUID.test(String(me.id))) return json(req, 401, { error: 'UNAUTHORIZED' });
+      if (allowList && !allowList.includes(String(me.id).toLowerCase())) return json(req, 403, { error: 'BACKUP_USER_NOT_ALLOWED' });
       const { data: caps, error: capError } = await user.rpc('get_my_capabilities'); const cap = Array.isArray(caps) ? caps[0] : caps;
       if (capError || !cap || cap.access_status !== 'active' || !cap.clinical_access) return json(req, 403, { error: 'CLINICAL_ACCESS_REQUIRED' });
       const url = new URL(req.url), route = url.pathname.replace(/\/+$/, '').split('/').pop();
