@@ -5,13 +5,13 @@ import { createAudioBackupHandler } from '../../supabase/functions/_shared/nexa-
 export const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222', E = '33333333-3333-4333-8333-333333333333', S = '44444444-4444-4444-8444-444444444444';
 export const ORIGIN = 'https://plantonistae-create.github.io';
 export function world({ kmsDown = false } = {}) {
-  const kek = randomBytes(32), chunks = new Map(), manifests = new Map(), sessionKeys = new Map(), grants = new Set([`${A}|${E}`]), users = { 'tok-A': A, 'tok-B': B, 'tok-X': null }; let kmsCalls = 0;
+  const kek = randomBytes(32), chunks = new Map(), manifests = new Map(), sessionKeys = new Map(), grants = new Set([`${A}|${E}`]), users = { 'tok-A': A, 'tok-B': B, 'tok-X': null }; let kmsCalls = 0; const rpcLog = [];
   const key = (o, e, s, v) => [o, e, s, v].join('|');
   const createClient = (url, k, opts) => {
     const token = (opts?.global?.headers?.Authorization || '').replace('Bearer ', ''); const isAdmin = k === 'service';
     return {
       auth: { getUser: async () => users[token] ? { data: { user: { id: users[token] } }, error: null } : { data: { user: null }, error: { message: 'bad' } } },
-      rpc: async (name, a) => {
+      rpc: async (name, a) => { rpcLog.push(name);
         if (name === 'get_my_capabilities') return { data: [{ access_status: 'active', clinical_access: users[token] !== B || world.noClinicalB !== true }], error: null };
         if (name === 'nexa_assist_verify') { const me = users[token]; const ok = grants.has(`${me}|${a.p_encounter}`) && a.p_purpose === 'clinical_backup';
           return { data: ok ? { authorized: true, purpose: 'clinical_backup', encounter_id: a.p_encounter, owner_id: me, grant_id: 'cccccccc-0000-4000-8000-0000000000c1', server_now: new Date().toISOString(), expires_at: new Date(Date.now() + 3600e3).toISOString() } : { authorized: false, reason: 'NO_LIVE_GRANT' }, error: null }; }
@@ -35,6 +35,6 @@ export function world({ kmsDown = false } = {}) {
     const raw = Buffer.from(b.blob, 'base64'), d = createDecipheriv('aes-256-gcm', kek, raw.subarray(0, 12)); d.setAAD(aad); d.setAuthTag(raw.subarray(12, 28)); return Response.json({ key_b64: Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString('base64') }); };
   const baseEnv = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service', NEXA_KMS_ENDPOINT: 'https://kms.example/', NEXA_KMS_TOKEN: 't', NEXA_AUDIO_BACKUP: 'enabled' };
   const mk = (over = {}) => { const e = { ...baseEnv, ...over }; return createAudioBackupHandler({ env: n => e[n], createClient: (u, k, o) => createClient(u, k === 'service' ? 'service' : k, o), fetchImpl }); };
-  return { mk, chunks, manifests, sessionKeys, grants, kmsCalls: () => kmsCalls };
+  return { mk, chunks, manifests, sessionKeys, grants, rpcLog, kmsCalls: () => kmsCalls };
 }
 export const req = (path, { method = 'GET', token = 'tok-A', origin = ORIGIN, body, extra = '' } = {}) => new Request(`https://x.supabase.co/functions/v1/audio-backup/${path}?encounter=${E}&session=${S}&revision=1${extra}`, { method, body, headers: { Origin: origin, ...(token ? { Authorization: 'Bearer ' + token } : {}) } });
