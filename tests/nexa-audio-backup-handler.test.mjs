@@ -67,3 +67,9 @@ test('V5.25 envelope v2 behind NEXA_AUDIO_BACKUP_ENVELOPE=v2: session key stored
   await h1(req('chunks', { method: 'PUT', body: Buffer.from('old'.repeat(50)), extra: '&seq=0' })); await h2(req('chunks', { method: 'PUT', body: Buffer.from('new'.repeat(50)), extra: '&seq=1' })); assert.equal((await fin(h2, 2)).status, 200);
   assert.equal(Buffer.from(await (await h2(req('chunks', { extra: '&seq=0' }))).arrayBuffer()).toString().slice(0, 3), 'old'); assert.equal(Buffer.from(await (await h2(req('chunks', { extra: '&seq=1' }))).arrayBuffer()).toString().slice(0, 3), 'new');
 });
+test('V5.31: AWS KMS provider is opt-in and fail-closed when its configuration is incomplete; default provider path is unchanged', async () => {
+  const w = world(); const put = () => req('chunks', { method: 'PUT', body: 'x', extra: '&seq=0' });
+  assert.equal((await w.mk({ NEXA_KMS_PROVIDER: 'aws' })(put())).status, 503, 'aws selected but no aws settings');
+  assert.equal((await w.mk({ NEXA_KMS_PROVIDER: 'aws', NEXA_AWS_REGION: 'sa-east-1', NEXA_AWS_KMS_KEY_ARN: 'arn:aws:kms:sa-east-1:123456789012:key/11111111-2222-4333-8444-555555555555', NEXA_AWS_ACCESS_KEY_ID: 'AKIATEST' })(put())).status, 503, 'missing secret');
+  assert.equal((await w.mk({ NEXA_KMS_ENDPOINT: '', NEXA_KMS_TOKEN: '' })(put())).status, 503, 'default provider still requires endpoint+token');
+});

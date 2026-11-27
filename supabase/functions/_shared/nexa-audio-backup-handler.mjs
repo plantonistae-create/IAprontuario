@@ -9,6 +9,7 @@ import { Buffer } from 'node:buffer';
 import { createBackupService } from './nexa-audio-backup-core.mjs';
 import { createEnvelopeCodecCompat } from './nexa-audio-envelope-v2.mjs';
 import { createKmsCustody } from './nexa-kms-custody.mjs';
+import { createAwsKmsCustody } from './nexa-aws-kms-custody.mjs';
 import { assistGateStopped } from './nexa-assist-gate.mjs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_CHUNK = 32 * 1024 * 1024;
@@ -24,6 +25,9 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
   let shared = null;   // isolate-level: service client, store, KMS custody and the codec (whose bounded data-key cache must outlive a single request)
   const build = () => {
     const [url0, , service, kms, kmsToken] = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXA_KMS_ENDPOINT', 'NEXA_KMS_TOKEN'].map(env);
+    const custody = env('NEXA_KMS_PROVIDER') === 'aws'   // opt-in; default = the generic https custody front
+      ? createAwsKmsCustody({ region: env('NEXA_AWS_REGION'), keyId: env('NEXA_AWS_KMS_KEY_ARN'), previousKeyIds: (env('NEXA_AWS_KMS_PREVIOUS_KEY_ARNS') || '').split(',').filter(Boolean), getCredentials: async () => ({ accessKeyId: env('NEXA_AWS_ACCESS_KEY_ID'), secretAccessKey: env('NEXA_AWS_SECRET_ACCESS_KEY') }), fetchImpl })
+      : createKmsCustody({ endpoint: kms, getToken: async () => kmsToken, fetchImpl });
     const admin = createClient(url0, service, { auth: { persistSession: false } });
     const rpc = async (name, args) => { const { data, error } = await admin.rpc(name, args); if (error) { const code = /BACKUP_[A-Z_]+/.exec(String(error.message || ''))?.[0]; throw Error(code || 'AUDIO_BACKUP_STORE_FAILED'); } return data; };
     const keyArgs = (s) => ({ p_owner: s.ownerId, p_encounter: s.encounterId, p_session: s.sessionId, p_version: s.sourceVersion });
@@ -36,7 +40,7 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
       async read(id) { const [ownerId, encounterId, sessionId, sourceVersion] = JSON.parse(id); const w = await rpc('nexa_audio_get_session_key', { p_owner: ownerId, p_encounter: encounterId, p_session: sessionId, p_version: sourceVersion }); return w ? { wrapped: w } : null; },
       async insertIfAbsent(id, v) { const [ownerId, encounterId, sessionId, sourceVersion] = JSON.parse(id); return (await rpc('nexa_audio_put_session_key', { p_owner: ownerId, p_encounter: encounterId, p_session: sessionId, p_version: sourceVersion, p_wrapped: v.wrapped })) === true; },
     };
-    const codec = createEnvelopeCodecCompat({ custody: createKmsCustody({ endpoint: kms, getToken: async () => kmsToken, fetchImpl }), sessionKeys, writeVersion: env('NEXA_AUDIO_BACKUP_ENVELOPE') === 'v2' ? 'v2' : 'v1' });
+    const codec = createEnvelopeCodecCompat({ custody, sessionKeys, writeVersion: env('NEXA_AUDIO_BACKUP_ENVELOPE') === 'v2' ? 'v2' : 'v1' });
     return { rpc, keyArgs, store, codec };
   };
   return async function handle(req) {
@@ -46,7 +50,8 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
       if (req.headers.get('Origin') !== allowed) return json(req, 403, { error: 'ORIGIN_FORBIDDEN' });
       if (env('NEXA_AUDIO_BACKUP') !== 'enabled') return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });                      // default OFF
       const [url0, anon, service, kms, kmsToken] = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXA_KMS_ENDPOINT', 'NEXA_KMS_TOKEN'].map(env);
-      if (![url0, anon, service, kms, kmsToken].every(Boolean)) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
+      const kmsReady = env('NEXA_KMS_PROVIDER') === 'aws' ? ['NEXA_AWS_REGION', 'NEXA_AWS_KMS_KEY_ARN', 'NEXA_AWS_ACCESS_KEY_ID', 'NEXA_AWS_SECRET_ACCESS_KEY'].every((n) => Boolean(env(n))) : Boolean(kms && kmsToken);
+      if (![url0, anon, service].every(Boolean) || !kmsReady) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
       const authorization = req.headers.get('Authorization') || '';
       if (!/^Bearer \S+$/.test(authorization)) return json(req, 401, { error: 'UNAUTHORIZED' });
       const user = createClient(url0, anon, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
