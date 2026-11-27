@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "NexaAudioBackupWrapUnwrapOnly",
+      "Sid": "WrapUnwrapOnThisKeyOnly",
       "Effect": "Allow",
       "Action": [
         "kms:Encrypt",
@@ -16,10 +16,42 @@
         "Bool": {
           "aws:SecureTransport": "true"
         },
-        "StringLike": {
-          "kms:EncryptionContext:nexa_aad_sha256": "*"
+        "Null": {
+          "kms:EncryptionContext:nexa_aad_sha256": "false"
+        },
+        "ForAllValues:StringEquals": {
+          "kms:EncryptionContextKeys": [
+            "nexa_aad_sha256"
+          ]
         }
       }
+    },
+    {
+      "Sid": "DenyAnyOtherKeyOrAction",
+      "Effect": "Deny",
+      "NotAction": [
+        "kms:Encrypt",
+        "kms:Decrypt"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCryptoOnAnyOtherKey",
+      "Effect": "Deny",
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "NotResource": "arn:aws:kms:sa-east-1:<ACCOUNT_ID>:key/<KEY_ID>"
     }
   ]
 }

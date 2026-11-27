@@ -3,7 +3,7 @@
   "Id": "nexa-audio-backup-key-policy",
   "Statement": [
     {
-      "Sid": "AccountRootAdmin",
+      "Sid": "AccountAdministrationAndIamDelegation",
       "Effect": "Allow",
       "Principal": {
         "AWS": "arn:aws:iam::<ACCOUNT_ID>:root"
@@ -20,6 +20,161 @@
       "Action": [
         "kms:Encrypt",
         "kms:Decrypt"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCryptoToEveryoneExceptEdgeUser",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:PrincipalArn": "arn:aws:iam::<ACCOUNT_ID>:user/nexa-edge-kms"
+        }
+      }
+    },
+    {
+      "Sid": "DenyEdgeUserAnythingButEncryptDecrypt",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "arn:aws:iam::<ACCOUNT_ID>:user/nexa-edge-kms"
+      },
+      "NotAction": [
+        "kms:Encrypt",
+        "kms:Decrypt"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOutsideSaoPaulo",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "sa-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "DenyInsecureTransport",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyMissingEncryptionContext",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Null": {
+          "kms:EncryptionContext:nexa_aad_sha256": "true"
+        }
+      }
+    },
+    {
+      "Sid": "DenyAnyOtherEncryptionContextKey",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:GenerateDataKeyPair*",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:GenerateMac",
+        "kms:VerifyMac",
+        "kms:Sign",
+        "kms:Verify",
+        "kms:DeriveSharedSecret"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ForAnyValue:StringNotEquals": {
+          "kms:EncryptionContextKeys": [
+            "nexa_aad_sha256"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyGrantsForEveryone",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:CreateGrant"
       ],
       "Resource": "*"
     }
