@@ -314,7 +314,7 @@ function recorderSnapshot(){
   const state=String(rec?.dataset.recordingState||'');
   const active=helper?.active??(state==='recording'||state==='paused'||!!rec?.classList.contains('recording'));
   const paused=helper?.paused??(state==='paused');
-  const blob=helper?.blob??(!active&&!!process&&!process.disabled&&/gravação concluída|pronta para transcrever/i.test(status));
+  const blob=helper?.blob??(!active&&!!process&&!process.disabled&&/gravação concluída|pront[oa] para transcrever/i.test(status));
   const processing=document.body.dataset.nexaProcessing==='1'||document.body.dataset.nexaClinicalPhase==='processing';
   const timer=String($('timer')?.textContent||'00:00').trim()||'00:00';
   return{active,paused,blob,processing,timer,state};

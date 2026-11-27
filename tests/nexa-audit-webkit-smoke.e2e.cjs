@@ -63,7 +63,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
       await page.locator('.nexa-flow-copy[data-copy="S"]').evaluate(el=>el.click());
       await page.waitForFunction(()=>/^✓ S copiado$/.test(document.getElementById('nexaFlowCopyFeedback')?.textContent||''));
       assert.match(await page.evaluate(()=>window.__qa.clipboard),/QP:\nDOR ABDOMINAL/,'WebKit clipboard must receive standardized S');
-      await page.evaluate(()=>{window.__qa.consultationRows=[{id:'77777777-7777-4777-8777-777777777777',user_id:'qa-physician-a',fields:{queixa_principal:'Dor abdominal',hda:'Dor abdominal há dois dias',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}];window.nexaOpenHistoryStage18122?.();});
+      await page.evaluate(()=>{window.__qa.consultationRows=[{id:'77777777-7777-4777-8777-777777777777',user_id:'aaaaaaaa-0000-4000-8000-0000000000a1',fields:{queixa_principal:'Dor abdominal',hda:'Dor abdominal há dois dias',hipotese_diagnostica:'Gastroenterite',cid:'A09',conduta:'Hidratação oral'},status:'draft',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}];window.nexaOpenHistoryStage18122?.();});
       await page.waitForFunction(()=>document.getElementById('n197Search'));await page.evaluate(()=>window.nexaRefreshHistory197?.());
       await page.locator('#n197Search').fill('A09');await page.waitForFunction(()=>document.querySelectorAll('#n197List .n197-item').length===1);
       assert.match(await page.locator('#n197List').innerText(),/Dor abdominal/i);

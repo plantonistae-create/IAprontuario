@@ -12,7 +12,7 @@ function recorderState(){
   const controlText=[$('nexaPauseBtn')?.textContent,$('nexaDesktopPause')?.textContent,$('nexaLocalPauseBtn')?.textContent].filter(Boolean).join(' ').toLowerCase();
   const paused=active&&controlText.includes('retomar');
   const secs=parseTimer(timer?.textContent);
-  const blob=!active&&!!process&&!process.disabled&&/gravação concluída|pronta para transcrever/i.test(status?.textContent||'');
+  const blob=!active&&!!process&&!process.disabled&&/gravação concluída|pront[oa] para transcrever/i.test(status?.textContent||'');
   return{active,paused,blob,secs};
 }
 const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;

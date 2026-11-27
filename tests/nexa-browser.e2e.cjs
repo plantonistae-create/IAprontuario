@@ -324,8 +324,8 @@ const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
     await window.nexaAuditFunctionalGuard18916.refreshCapabilities();
   });
 
-  await page.evaluate(()=>window.__qa.switchUser('qa-physician-b'));
-  await page.waitForFunction(()=>window.currentProf.id==='qa-physician-b');
+  await page.evaluate(()=>window.__qa.switchUser('bbbbbbbb-0000-4000-8000-0000000000b1'));
+  await page.waitForFunction(()=>window.currentProf.id==='bbbbbbbb-0000-4000-8000-0000000000b1');
   await page.evaluate(()=>window.__qa.speak('late','Dor torácica com síncope.',0));
   assert.equal(await page.locator('.field[data-key="hda"] textarea').inputValue(),'');
   assert.equal(await page.evaluate(()=>window.radarState.hasContext),false);
