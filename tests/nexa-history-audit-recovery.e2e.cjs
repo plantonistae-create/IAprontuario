@@ -1,4 +1,5 @@
-const {chromium}=require('playwright');
+const {chromium,webkit}=require('playwright');
+const useWebKit=process.env.NEXA_BROWSER==='webkit';
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 const fixture=fs.readFileSync(path.join(__dirname,'browser-fixture.js'),'utf8');
@@ -17,9 +18,9 @@ const timeout=setTimeout(()=>{console.error('History/audit recovery E2E exceeded
    }catch{res.writeHead(404).end()}
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+  browser=await (useWebKit?webkit:chromium).launch({headless:true,...(useWebKit?{}:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']})});
   for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
-   const context=await browser.newContext({viewport,permissions:['microphone']});
+   const context=await browser.newContext({viewport,...(useWebKit?{}:{permissions:['microphone']})});
    const page=await context.newPage();page.setDefaultTimeout(16000);
    const errors=[];page.on('pageerror',error=>errors.push(error.message));
    await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});

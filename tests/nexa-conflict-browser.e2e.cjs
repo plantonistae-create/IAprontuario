@@ -1,7 +1,8 @@
 'use strict';
 /* Browser-level verification of the real NEXA conflict UI with synthetic clinical text. */
-const {chromium,firefox}=require('playwright');
-const selectedBrowser=process.env.NEXA_BROWSER==='firefox'?'firefox':'chromium';
+const {chromium,firefox,webkit}=require('playwright');
+const engines={chromium,firefox,webkit};
+const selectedBrowser=Object.hasOwn(engines,process.env.NEXA_BROWSER)?process.env.NEXA_BROWSER:'chromium';
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -25,7 +26,7 @@ const server=http.createServer((req,res)=>{
  const base='http://127.0.0.1:'+server.address().port;
  let browser;
  try{
-  browser=await (selectedBrowser==='firefox'?firefox:chromium).launch({headless:true});
+  browser=await engines[selectedBrowser].launch({headless:true});
   const page=await browser.newPage({viewport:{width:1080,height:800}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/tests/fixtures/nexa-conflict-browser.html',{waitUntil:'load'});
