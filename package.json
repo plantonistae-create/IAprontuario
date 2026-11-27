@@ -16,7 +16,7 @@
     "test:continuous-soap": "node tests/nexa-continuous-soap.e2e.cjs",
     "test:radar-auto-review": "node tests/nexa-radar-auto-review.e2e.cjs",
     "test:audio-preservation": "node tests/nexa-audio-vault-resilience.e2e.cjs && node tests/nexa-audio-preservation.app.e2e.cjs && node tests/nexa-audio-retention.e2e.cjs",
-    "test:remote-gate": "node --test tests/nexa-audio-backup-handler.test.mjs tests/nexa-audio-envelope-v2.test.mjs tests/nexa-kms-custody.test.mjs tests/nexa-aws-kms-custody.test.mjs tests/nexa-preservation-adapters.test.mjs && node tests/nexa-audio-multidevice.e2e.cjs chromium",
+    "test:remote-gate": "node --test tests/nexa-audio-backup-handler.test.mjs tests/nexa-audio-envelope-v2.test.mjs tests/nexa-kms-custody.test.mjs tests/nexa-aws-kms-custody.test.mjs tests/nexa-core-capture-eligibility.V523.test.mjs tests/nexa-preservation-adapters.test.mjs && node tests/nexa-audio-multidevice.e2e.cjs chromium",
     "test:cloud-v525": "node tests/nexa-audio-multidevice.e2e.cjs && node tests/nexa-admin-preservation.e2e.cjs",
     "test:capture-v524": "node tests/nexa-transcript-capture.e2e.cjs && node tests/nexa-radar-capture.e2e.cjs",
     "test:consultation-isolation": "node tests/nexa-cross-consultation-guard.e2e.cjs && node tests/nexa-ten-visits.main.e2e.cjs both 10 default nohdr",
