@@ -32,7 +32,8 @@
     "test:g13:review-only": "node --test tests/nexa-g13-private-rpc-triage.test.mjs",
     "test:g14:review-only": "node --test tests/nexa-g14-private-session-preflight.test.mjs",
     "test:g16:offline": "node --test tests/nexa-g16-phase-a-hard-stop.test.mjs",
-    "test:capture-inventory": "node tests/nexa-capture-inventory.e2e.cjs"
+    "test:capture-inventory": "node tests/nexa-capture-inventory.e2e.cjs",
+    "test:storage-risk": "node tests/nexa-storage-risk.e2e.cjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.49.8",
