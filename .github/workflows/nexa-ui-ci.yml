@@ -59,6 +59,7 @@ jobs:
           deno check supabase/functions/audit-backfill/index.ts
           deno check supabase/functions/consultation-speakers/index.ts
           deno check supabase/functions/core-dataset-export/index.ts
+          deno check supabase/functions/audio-backup/index.ts
       - name: Install focused browser
         run: npx playwright install --with-deps chromium
       - name: Processing History Audit sequential E2E
@@ -69,8 +70,8 @@ jobs:
         run: node tests/nexa-history-audit-recovery.e2e.cjs
       - name: Cross-consultation contamination guard and ten consecutive visits
         run: node tests/nexa-cross-consultation-guard.e2e.cjs chromium && node tests/nexa-ten-visits.main.e2e.cjs chromium 10 default nohdr
-      # REMOTE-ACTIVATION GATE (V5.29 dormant release): tests/nexa-audio-multidevice.e2e.cjs (second-device recovery) needs remote preservation ON and the server adapter/handler,
-      # which are NOT part of this release. It is intentionally not run here; it MUST be restored to CI and pass (together with the handler/adapter unit tests) BEFORE any remote flag is enabled.
+      - name: Remote-preservation gate - second-device recovery (restored V5.30; served with the remote flags ON only inside the test server)
+        run: node --test tests/nexa-audio-backup-handler.test.mjs tests/nexa-audio-envelope-v2.test.mjs tests/nexa-kms-custody.test.mjs tests/nexa-aws-kms-custody.test.mjs tests/nexa-core-capture-eligibility.V523.test.mjs tests/nexa-preservation-adapters.test.mjs && node tests/nexa-audio-multidevice.e2e.cjs chromium
       - name: Local audio vault resilience and interrupted-recording recovery (Chromium; WebKit/device evidence is separate)
         run: node tests/nexa-audio-vault-resilience.e2e.cjs chromium && node tests/nexa-audio-preservation.app.e2e.cjs chromium && node tests/nexa-capture-inventory.e2e.cjs chromium && node tests/nexa-audio-retention.e2e.cjs chromium && node tests/nexa-transcript-capture.e2e.cjs chromium && node tests/nexa-radar-capture.e2e.cjs chromium && node tests/nexa-admin-preservation.e2e.cjs chromium && node tests/nexa-storage-risk.e2e.cjs chromium && node tests/nexa-pilot-gate.e2e.cjs chromium && NEXA_PILOT=off node tests/nexa-ten-visits.main.e2e.cjs chromium 10 default
       - name: Save focused browser captures

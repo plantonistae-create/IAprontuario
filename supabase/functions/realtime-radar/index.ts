@@ -6,15 +6,19 @@ import { emitUsage } from '../_shared/nexa-ai-usage.mjs';
 import { radarRequestFingerprint, coalesceRadarInFlight } from './inflight.mjs';
 import catalog from './concepts.json' with { type: 'json' };
 import { schema, validate, validateObservations, outputText, authorized } from './contract.mjs';
+import { assistGateStopped, assistanceGate } from '../_shared/nexa-assist-gate.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
 const anon=Deno.env.get('SUPABASE_ANON_KEY')!;
 const radarProvider=capabilityProviderFromEnv('realtime.radar',(name)=>Deno.env.get(name));
 const origin=Deno.env.get('ALLOWED_ORIGIN')||'https://plantonistae-create.github.io';
-const headers={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json'};
+const headers={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type, x-nexa-encounter-id','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers});
  if(req.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
+ // P0: STOP server-side, including OpenAI and NEXA Core provider branches, unless the V5.15 assistance gate is explicitly enabled (default OFF).
+ // A browser checkbox or source insert is never consent: only a live server grant (verified below under the caller's JWT) passes.
+ if (assistGateStopped((n:string)=>Deno.env.get(n), "realtime-radar"))return json({error:'P0_PRE_EGRESS_GATE_C_NO_GO',external_ai_authorized:false},423);
  try{
   const authorization=req.headers.get('Authorization')||'';
   if(!authorization.startsWith('Bearer '))return json({error:'UNAUTHORIZED'},401);
@@ -24,6 +28,8 @@ Deno.serve(async(req:Request)=>{
   // Read the authenticated user's row through RLS. No service-role client or client-supplied user id.
   const {data:profile,error:profileError}=await client.from('profiles').select('clinical_access,access_status').eq('id',user.id).maybeSingle();
   if(profileError||!authorized(profile))return json({error:'CLINICAL_ACCESS_REQUIRED'},403);
+  const gate=await assistanceGate({req,createClient,env:(n:string)=>Deno.env.get(n),provider:radarProvider, fn: "realtime-radar"});
+  if(!gate.allow)return json(gate.body,gate.status);
   const raw=await req.text();if(raw.length>60000)return json({error:'CONTEXT_TOO_LARGE'},413);
   let body;try{body=JSON.parse(raw)}catch{return json({error:'INVALID_JSON'},400)}
   const fields=body.clinical_context&&typeof body.clinical_context==='object'?body.clinical_context:{};
