@@ -35,7 +35,7 @@ async function run(kind,port){
   }finally{await browser.close().catch(()=>{})}
 }
 (async()=>{const server=http.createServer((req,res)=>{let file=decodeURIComponent(req.url.split('?')[0]);if(file==='/')file='/index.html';const full=path.join(root,file);if(!full.startsWith(root+path.sep)){res.writeHead(403).end();return}
-  try{let body=fs.readFileSync(full);if(file==='/index.html')body=body.toString().replace(/<script[^>]+src="https:\/\/[^"]*supabase[^"]*"[^>]*><\/script>/g,'').replace('<head>','<head><script>'+fixture+'</script>');
+  try{let body=fs.readFileSync(full);if(file==='/index.html')body=require('./helpers/pilot.cjs').apply(body.toString()).replace(/<script[^>]+src="https:\/\/[^"]*supabase[^"]*"[^>]*><\/script>/g,'').replace('<head>','<head><script>'+fixture+'</script>');
     res.setHeader('Content-Type',file.endsWith('.html')?'text/html':file.endsWith('.js')?'application/javascript':file.endsWith('.css')?'text/css':'application/octet-stream');res.end(body)}catch{res.writeHead(404).end()}});
   await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;
   try{if(which!=='webkit')await run('chromium',port);if(which!=='chromium')await run('webkit',port);console.log('STORAGE_RISK_PASS (emulated; storage API values injected)')}catch(e){console.error('STORAGE_RISK_FAIL',e&&e.stack||e);process.exitCode=1}finally{server.close()}})();
