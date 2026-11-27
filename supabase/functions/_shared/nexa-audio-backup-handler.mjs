@@ -49,11 +49,18 @@ export function createAudioBackupHandler({ env, createClient, fetchImpl = global
       if (assistGateStopped(env, 'audio-backup')) return json(req, 423, { error: 'P0_PRE_EGRESS_GATE_C_NO_GO' });
       if (req.headers.get('Origin') !== allowed) return json(req, 403, { error: 'ORIGIN_FORBIDDEN' });
       if (env('NEXA_AUDIO_BACKUP') !== 'enabled') return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });                      // default OFF
-      // V5.37 test window (all optional; unset = production behaviour unchanged). EXPIRES_AT: after this instant the function behaves as OFF, even if nobody turns the switch off (an unparsable value is treated as expired = fail closed).
-      // ALLOWED_USERS: comma-separated Supabase user ids; when set, ONLY those users pass (decided on the server from the verified JWT subject, never from a client flag). A malformed list is a configuration error (503), never 'allow everyone'.
-      const until = env('NEXA_AUDIO_BACKUP_EXPIRES_AT'); if (until !== undefined && until !== '' && !(Date.parse(until) > Date.now())) return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });
-      const allowRaw = env('NEXA_AUDIO_BACKUP_ALLOWED_USERS'), allowList = allowRaw === undefined || allowRaw === '' ? null : allowRaw.split(',').map((x) => x.trim().toLowerCase());
-      if (allowList && (!allowList.length || allowList.length > 20 || !allowList.every((x) => UUID.test(x)))) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
+      // V5.38 K1-B TEST WINDOW — three secrets that only make sense TOGETHER: NEXA_AUDIO_BACKUP_WINDOW='k1b-synthetic', NEXA_AUDIO_BACKUP_EXPIRES_AT (ISO instant, in the future, at most 4 h ahead) and NEXA_AUDIO_BACKUP_ALLOWED_USERS (1..5 user ids).
+      // If ANY of the three is present (even empty), the window is in force and EVERY one must be present, non-empty and valid; otherwise the function stays closed (503). All three absent = ordinary production behaviour (the switch alone decides).
+      // So no partial state (during opening, closing, a failed update or an abrupt shutdown) can open the function to everyone; the only way to leave the restricted state is to turn the switch OFF first and then remove the three.
+      const win = [env('NEXA_AUDIO_BACKUP_WINDOW'), env('NEXA_AUDIO_BACKUP_EXPIRES_AT'), env('NEXA_AUDIO_BACKUP_ALLOWED_USERS')];
+      let allowList = null;
+      if (win.some((v) => v !== undefined)) {
+        const [marker, until, allowRaw] = win; const t = Date.parse(until ?? ''), now = Date.now();
+        if (marker !== 'k1b-synthetic' || !Number.isFinite(t) || t > now + 4 * 3600e3 || typeof allowRaw !== 'string') return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
+        allowList = allowRaw.split(',').map((x) => x.trim().toLowerCase());
+        if (allowList.length < 1 || allowList.length > 5 || !allowList.every((x) => UUID.test(x))) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
+        if (t <= now) return json(req, 503, { error: 'AUDIO_BACKUP_DISABLED' });   // the window closed by itself
+      }
       const [url0, anon, service, kms, kmsToken] = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXA_KMS_ENDPOINT', 'NEXA_KMS_TOKEN'].map(env);
       const kmsReady = env('NEXA_KMS_PROVIDER') === 'aws' ? ['NEXA_AWS_REGION', 'NEXA_AWS_KMS_KEY_ARN', 'NEXA_AWS_ACCESS_KEY_ID', 'NEXA_AWS_SECRET_ACCESS_KEY'].every((n) => Boolean(env(n))) : Boolean(kms && kmsToken);
       if (![url0, anon, service].every(Boolean) || !kmsReady) return json(req, 503, { error: 'AUDIO_BACKUP_UNCONFIGURED' });
