@@ -1,5 +1,6 @@
 // Existing production transport v4, versioned for staging parity; no changes deployed to production.
 import { createClient } from "@supabase/supabase-js";
+import { assistGateStopped, assistanceGate } from "../_shared/nexa-assist-gate.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
 import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 import { emitRealtimeUpstreamStatus } from "../_shared/nexa-realtime-upstream-status.mjs";
@@ -29,7 +30,7 @@ const ORIGIN =
 const cors = {
   "Access-Control-Allow-Origin": ORIGIN,
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-nexa-encounter-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -513,6 +514,16 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // P0 review-only: both WebRTC SDP and multipart audio chunks are blocked
+  // at the REAL server ingress, before any OpenAI/API dispatch. The #167
+  // candidate lacks a deployed owner-bound pre-egress consent receipt.
+  // The ONLY way past this STOP is the V5.15 assistance gate: explicitly enabled by the operator (default OFF) AND a live server grant
+  // verified below under the caller's JWT. No request field, header or client flag can substitute for either.
+  if (assistGateStopped((n: string) => Deno.env.get(n), "realtime-call")) {
+    return json({ error: "P0_PRE_EGRESS_GATE_C_NO_GO",
+      external_ai_authorized: false }, 423);
+  }
+
   try {
     const authResult =
       await getAuthenticatedUser(
@@ -524,6 +535,11 @@ Deno.serve(async (req: Request) => {
     ) {
       return authResult.error;
     }
+
+    const assistGate = await assistanceGate({
+      req, createClient, env: (n: string) => Deno.env.get(n), provider: REALTIME_PROVIDER, fn: "realtime-call",
+    });
+    if (!assistGate.allow) return json(assistGate.body, assistGate.status);
 
     const contentType =
       req.headers.get(

@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.8";
 import { validateSpeakerSegments } from "../_shared/nexa-speaker-contract.mjs";
+import { assistGateStopped, assistanceGate } from "../_shared/nexa-assist-gate.mjs";
 
 // Optional, isolated first stage. Never persists consultation audio or speaker transcripts.
 // The UI only calls this before the existing medical documentation pipeline.
@@ -13,7 +14,7 @@ function headers(req: Request) {
   const origin = req.headers.get("Origin") || "";
   return {
     "Access-Control-Allow-Origin": origin === allowed ? origin : "",
-    "Access-Control-Allow-Headers": "authorization,apikey,content-type",
+    "Access-Control-Allow-Headers": "authorization,apikey,content-type,x-nexa-encounter-id",
     "Access-Control-Allow-Methods": "POST,OPTIONS",
     "Cache-Control": "no-store",
     Vary: "Origin",
@@ -27,6 +28,9 @@ function response(req: Request, data: unknown, status = 200) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, {status:204, headers:headers(req)});
   if (req.method !== "POST") return response(req,{error:"METHOD_NOT_ALLOWED"},405);
+  // P0: no diarization upstream unless the V5.15 assistance gate is explicitly enabled (default OFF) and, below, a live server grant is verified.
+  if (assistGateStopped((n: string) => Deno.env.get(n), "consultation-speakers"))
+    return response(req,{error:"P0_PRE_EGRESS_GATE_C_NO_GO",external_ai_authorized:false},423);
   if (req.headers.get("Origin") !== allowed) return response(req,{error:"ORIGIN_FORBIDDEN"},403);
   const token = req.headers.get("Authorization") || "";
   if (!token.startsWith("Bearer ")) return response(req,{error:"UNAUTHORIZED"},401);
@@ -38,6 +42,8 @@ Deno.serve(async (req: Request) => {
   if (capError || !cap || cap.access_status !== "active" || !cap.clinical_access) {
     return response(req,{error:"CLINICAL_ACCESS_REQUIRED"},403);
   }
+  const gate = await assistanceGate({req,createClient,env:(n: string) => Deno.env.get(n),provider:"openai", fn: "consultation-speakers"});
+  if (!gate.allow) return response(req,gate.body,gate.status);
   if (!apiKey) return response(req,{error:"DIARIZATION_NOT_CONFIGURED"},503);
   try {
     const form = await req.formData();

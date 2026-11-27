@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { assistGateStopped, assistanceGate } from "../_shared/nexa-assist-gate.mjs";
 import { buildAutomaticSpeakerTranscript, buildVerifiedSpeakerTranscript } from "../_shared/nexa-speaker-contract.mjs";
 import { normalizeHdaSource } from "../_shared/nexa-hda-source-guard.mjs";
 import { capabilityProviderFromEnv, executeCapability, withTechnicalExecutionHeaders } from "../_shared/nexa-ai-capability.mjs";
@@ -7,6 +8,14 @@ import { emitUsage } from "../_shared/nexa-ai-usage.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+/* V5.17: the FINAL transcript is returned only on explicit opt-in (header x-nexa-capture-transcript: 1) so the physician's client can keep it in the versioned
+   assistance record. It is the same clinical text the physician already receives structured; it is never a training label and never leaves this response. */
+function shapeResult(req: Request, result: any, source: "server_transcription" | "physician_confirmed_segments") {
+  const { final_transcript, ...rest } = result || {};
+  if (req.headers.get("x-nexa-capture-transcript") !== "1" || typeof final_transcript !== "string" || !final_transcript) return rest;
+  return { ...rest, transcript: final_transcript.slice(0, 150000), transcript_source: source, transcript_is_training_label: false };
+}
 
 function adminSecretKey() {
   try {
@@ -88,7 +97,7 @@ function cors(req: Request) {
     "Access-Control-Allow-Origin": allow,
     "Vary": "Origin",
     "Access-Control-Allow-Headers":
-      "authorization, apikey, content-type",
+      "authorization, apikey, content-type, x-nexa-encounter-id, x-nexa-capture-transcript",
     "Access-Control-Allow-Methods":
       "POST, OPTIONS",
     "Content-Type":
@@ -1338,6 +1347,7 @@ async function processOpenAI(
       ...assist
     },
     medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
+    final_transcript: transcript,   // internal: removed by shapeResult() unless the caller opted in
 
     provider:
       "openai",
@@ -1694,6 +1704,7 @@ async function processGemini(
       ...assist
     },
     medication_review: reviewMedicationVolume(transcript, docs.medicacoes),
+    final_transcript: transcript,
 
     provider:
       "gemini",
@@ -1763,6 +1774,14 @@ Deno.serve(
     }
 
 
+    // P0 fail-closed at the actual handler. Blocks FormData audio, JSON/verified segments and ALL OpenAI/Gemini paths
+    // unless the V5.15 assistance gate is explicitly enabled (default OFF); then a live server grant is verified after authentication (below).
+    // Auth, a checkbox or an autosaved timestamp can never authorize provider egress on their own.
+    if (assistGateStopped((n: string) => Deno.env.get(n), "process-consultation")) {
+      return json(req, {error: "P0_PRE_EGRESS_GATE_C_NO_GO",
+        external_ai_authorized: false}, 423);
+    }
+
     /* ORIGIN */
 
     const origin =
@@ -1796,6 +1815,11 @@ Deno.serve(
       await requireUser(
         req
       );
+      const assistGate = await assistanceGate({
+        req, createClient, env: (n: string) => Deno.env.get(n),
+        providers: AI_PROVIDER === "gemini" ? ["openai", "gemini"] : ["openai"], fn: "process-consultation"
+      });
+      if (!assistGate.allow) return json(req, assistGate.body, assistGate.status);
       // Separate authenticated review stage: speaker roles were confirmed in the UI.
       // No raw audio or transcript is persisted here; the generated clinical fields
       // remain subject to the physician's normal review.
@@ -1822,7 +1846,7 @@ Deno.serve(
           validate: (value) => Boolean(value && typeof value === "object" && value.fields)
         });
         return withTechnicalExecutionHeaders(json(req,{
-          ...result,
+          ...shapeResult(req, result, "physician_confirmed_segments"),
           speaker_attribution:verified.speakerAttribution,
           stages:[verified.speakerAttribution.confirmed_by_physician ? "diarization_verified" : "diarization_auto","documentation","clinical_assistance"]
         }),metadata);
@@ -1988,7 +2012,7 @@ Deno.serve(
         json(
           req,
           {
-            ...result,
+            ...shapeResult(req, result, "server_transcription"),
             style_source: styleSource,
             style_example_count: examples.length
           },
