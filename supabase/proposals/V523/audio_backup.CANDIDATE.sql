@@ -4,7 +4,7 @@
 -- ('clinical_backup', encounter) under the CALLER's JWT, and then passes owner = the verified auth.uid(). No policy exists for anon/authenticated: RLS is FORCED, so a direct
 -- PostgREST call by any signed-in user sees nothing and writes nothing. Chunks are stored only as AES-256-GCM envelopes (key wrapped by the managed KMS), never as audio.
 -- Adapted from the lab-validated labs/nexa-audio-backup/postgres.lab.sql: per-user DB roles and the `sources` table are replaced by the server-side grant check.
--- Rollback: NON-DESTRUCTIVE (keeps every stored byte): supabase/proposals/V525/rollback.NON-DESTRUCTIVE.sql (revokes execution, disables writes). A destructive DROP is deliberately NOT the documented rollback.
+-- Rollback: NON-DESTRUCTIVE (keeps every stored byte): supabase/proposals/V533/rollback.M3.NON-DESTRUCTIVE.sql (revokes execution and schema usage). No DROP of any table or schema is ever part of a rollback.
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS nexa_audio_backup;
 REVOKE ALL ON SCHEMA nexa_audio_backup FROM PUBLIC;

@@ -1,0 +1,14 @@
+{
+  "BudgetName": "nexa-kms-monthly",
+  "BudgetType": "COST",
+  "TimeUnit": "MONTHLY",
+  "BudgetLimit": {
+    "Amount": "10",
+    "Unit": "USD"
+  },
+  "CostFilters": {
+    "Service": [
+      "AWS Key Management Service"
+    ]
+  }
+}

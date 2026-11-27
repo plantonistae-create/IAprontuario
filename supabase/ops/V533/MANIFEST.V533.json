@@ -1,0 +1,89 @@
+{
+ "version": "V5.34",
+ "supersedes": "V5.33 manifest",
+ "base_main": "c4caef5b56e9b442673975acac69779beae2f953",
+ "applied": false,
+ "note": "M1-M4 differ from the V5.33 adjudicated files in COMMENTS ONLY (rollback wording). code_sha256 = sha256 of the file with every full-line \"--\" comment removed; it equals the V5.33 value.",
+ "files": {
+  "M1": {
+   "path": "supabase/proposals/V515/assist_authority.CANDIDATE.sql",
+   "sha256": "03f5700d1c0f2c873f0589ff3ed697ff8e030b262720fea3d408f95d973641e7",
+   "code_sha256": "c3ad39cb9d8e766de5dbaa42810a30f1702a2a26cad8e4acb332657d5556290a",
+   "previous_sha256": "9404f31418f233e3b34d188627fa0fd8faffa7969205cbc278ce4b7ecc5a55a3"
+  },
+  "M2": {
+   "path": "supabase/proposals/V523/capture.CANDIDATE.sql",
+   "sha256": "7fb1fd8994831c237ae5d8c1df5f72f19b9de2ca1cdf4c6d76ee4012e42cb60d",
+   "code_sha256": "c64b30275bd3fdb069bf01ace4c1ce764cb9d3165e08461205806109c19f0078",
+   "previous_sha256": "e56d25af023a17871f7a70b263aff19e19e939c1a38155e37b7de54eac90a4c6"
+  },
+  "M3": {
+   "path": "supabase/proposals/V523/audio_backup.CANDIDATE.sql",
+   "sha256": "6fb4d478a929947147346f3beb9caca84684dd6cc3401f490b0c99ea08ceb5f2",
+   "code_sha256": "4bf8ef095b305c5e0b65d2566627ea3af58dfb84054fda6b35867b23ad5659f9",
+   "previous_sha256": "850c85dcbd4ec158737267bf2b3999ef154b8b91e7b7372aece10e307073ff41"
+  },
+  "M4": {
+   "path": "supabase/proposals/V525/admin_preservation.CANDIDATE.sql",
+   "sha256": "7aeb3758591b18cc411d8f326da56576a7e9820011d3a4f78a64fd9555142e02",
+   "code_sha256": "ee433d990fcd7f46e98e7aad0a8eede6254ac2100f17709b8179fa02af0981c6",
+   "previous_sha256": "e9a610fd75e51a5ba47a694017835ee603dba322c4fa6685734148baedc32843"
+  },
+  "rollback.M1": {
+   "path": "supabase/proposals/V533/rollback.M1.NON-DESTRUCTIVE.sql",
+   "sha256": "5ff6eaa52e9e473d2ade24b7dd2708476023defad38010fc6b93834b5a362911"
+  },
+  "reenable.M1": {
+   "path": "supabase/proposals/V533/reenable.M1.sql",
+   "sha256": "1cb2dce9910bf49e2cfd37b579ad82955ce0e0fbafc9be3bb98d52205a1235b7"
+  },
+  "rollback.M2": {
+   "path": "supabase/proposals/V533/rollback.M2.NON-DESTRUCTIVE.sql",
+   "sha256": "c8ca364105402d3e3b9a55593fd274a399ca7033da0ffd0830d9010dd1a1ac74"
+  },
+  "reenable.M2": {
+   "path": "supabase/proposals/V533/reenable.M2.sql",
+   "sha256": "8a08dbd16168126a3b8f350ff68623856c2715a511d74f54f54208af6f6b1ef1"
+  },
+  "rollback.M3": {
+   "path": "supabase/proposals/V533/rollback.M3.NON-DESTRUCTIVE.sql",
+   "sha256": "542306a9e7cb3369bc1e4995f458f079c51e3be28e7ce38df6dffae0fc67635e"
+  },
+  "reenable.M3": {
+   "path": "supabase/proposals/V533/reenable.M3.sql",
+   "sha256": "c13f1e63f2c8ec879fa07b299c4535d827f3723bf4cf3604f4c1dc5640f127e7"
+  },
+  "rollback.M4": {
+   "path": "supabase/proposals/V533/rollback.M4.NON-DESTRUCTIVE.sql",
+   "sha256": "5936505e4116fe83cdb2547a3217918ce770ce4879b88a65b238c74952e4218f"
+  },
+  "reenable.M4": {
+   "path": "supabase/proposals/V533/reenable.M4.sql",
+   "sha256": "e42a1d3c189120c05ebeb88c0c59ee48ef93746b6b8f653cc90c658d8f86db79"
+  },
+  "verify": {
+   "path": "supabase/ops/V533/sql/post-apply-verify.V533.READ-ONLY.sql",
+   "sha256": "f879ebe9fec51c2e5883e63767af505e989a9fbb20555a9c66aa54eec1bb6f4c"
+  },
+  "rpc_inspection_ref": {
+   "path": "supabase/ops/V533/sql/anon-rpc-definitions.V531.READ-ONLY.sql",
+   "sha256": "32d7724fc798e4bb0849fdf6daf8e7c1272695ae269a83d6ab210b51060669e5"
+  },
+  "aws_key_policy": {
+   "path": "supabase/ops/V533/aws/kms-key-policy.json",
+   "sha256": "0ce21ad40885f5cb5f306cd4e6e571e779fa3bc1ce50d40e7f958ef1b26ff6f4"
+  },
+  "aws_identity_policy": {
+   "path": "supabase/ops/V533/aws/iam-policy.nexa-edge-kms.json",
+   "sha256": "7079dfcf384698cf251449363cde0f4a7eabc49541ca34738a38c74acb27058c"
+  },
+  "aws_boundary": {
+   "path": "supabase/ops/V533/aws/iam-permissions-boundary.nexa-edge-kms.json",
+   "sha256": "0d724572ab9f264b4825560c0e6833c29ddfd29b35d6daa45eefbd2c6e6c89fd"
+  },
+  "aws_budget": {
+   "path": "supabase/ops/V533/aws/budget.json",
+   "sha256": "326e689e9f4843a47fa58365c8f11fd279b23abccb3890fd9bcc1345a3d57ec0"
+  }
+ }
+}

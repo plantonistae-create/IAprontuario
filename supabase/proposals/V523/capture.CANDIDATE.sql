@@ -2,7 +2,7 @@
 -- provenance). Ported from the lab-validated labs/nexa-v515/capture.lab.sql to the Supabase identity model: owner = auth.uid() via nexa_assist.me(); a LIVE server grant for purpose
 -- 'assistance' (assist_authority.CANDIDATE.sql, must be applied FIRST) is required for every append. Reachable ONLY through the four public wrappers below, granted to `authenticated` only.
 -- PRESERVATION, not export: training_authorized is constant false; nothing here can make a record exportable or an audit/training label.
--- Rollback: DROP FUNCTION public.nexa_capture_append, public.nexa_capture_read_chain, public.nexa_capture_verify_chain, public.nexa_capture_core_eligibility; DROP SCHEMA nexa_capture CASCADE.
+-- Rollback (NON-DESTRUCTIVE only): supabase/proposals/V533/rollback.M2.NON-DESTRUCTIVE.sql (REVOKE; keeps every captured record). Never DROP this schema: it holds clinical capture records.
 BEGIN;
 CREATE SCHEMA nexa_capture;
 REVOKE ALL ON SCHEMA nexa_capture FROM PUBLIC;

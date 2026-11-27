@@ -1,7 +1,7 @@
 -- V5.25 CANDIDATE — NOT APPLIED. Read-only administrative summary of the preservation system. Apply AFTER audio_backup.CANDIDATE.sql and capture.CANDIDATE.sql.
 -- ONE function, public.nexa_admin_preservation_summary(): SECURITY DEFINER, fixed search_path, executable by `authenticated` ONLY, and it returns {"error":"ADMIN_REQUIRED"} unless the CALLER is an administrator
 -- (is_admin from public.get_my_capabilities(), the same source the application already uses). It returns AGGREGATE NUMBERS ONLY: no owner id, no encounter id, no session id, no content, no digest.
--- It writes nothing. Rollback (non-destructive): REVOKE EXECUTE … ; or DROP FUNCTION public.nexa_admin_preservation_summary(); no data is touched either way.
+-- It writes nothing. Rollback (non-destructive): supabase/proposals/V533/rollback.M4.NON-DESTRUCTIVE.sql (REVOKE EXECUTE only); no data is touched.
 BEGIN;
 CREATE FUNCTION public.nexa_admin_preservation_summary() RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path TO pg_catalog AS $$
 DECLARE cap record; a jsonb; c jsonb; k jsonb;

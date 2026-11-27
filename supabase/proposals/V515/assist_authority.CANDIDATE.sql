@@ -162,4 +162,4 @@ BEGIN
   IF bad <> '' THEN RAISE EXCEPTION 'NEXA_ASSIST_ACL_VERIFICATION_FAILED:%', bad; END IF;
 END $v$;
 COMMIT;
--- ROLLBACK (candidate): DROP the four public.nexa_assist_* functions, then DROP SCHEMA nexa_assist CASCADE. No clinical table is touched.
+-- ROLLBACK (NON-DESTRUCTIVE only): supabase/proposals/V533/rollback.M1.NON-DESTRUCTIVE.sql (REVOKE; keeps every attestation, grant and event). Never DROP this schema: its records are authorization evidence.
