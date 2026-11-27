@@ -1,10 +1,14 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { planEncounterExport, buildManifest, buildTaskExports, validateRights, piiFindings } from '../experimental/nexa-core-capture-eligibility.V523.mjs';
+import { signSyntheticChain, syntheticAttestation } from './helpers/core-export-chain.mjs';
 const SALT = 'synthetic-salt-0123456789', OWNER = '11111111-1111-4111-8111-111111111111', ENC = '33333333-3333-4333-8333-333333333333', NOW = new Date('2026-11-26T12:00:00Z');
 const rights = (o = {}) => ({ core_export: { authorized_by: 'Comitê Core (sintético)', authorized_at: '2026-11-20T00:00:00Z', scope: ['asr', 'documentation', 'radar'], purposes: ['evaluation', 'training'], deidentification: { verified: true, verified_by: 'Revisor Humano (sintético)' }, expires_at: '2027-11-20T00:00:00Z', revoked_at: null, ...o } });
 const mkChain = (over = {}) => { const kinds = [['transcript_final', { text: 'cefaleia desde hoje', source: 'server_transcription', training_label: false }], ['clinical_fields', { fields: { hda: 'Cefaleia' }, fields_digest: 'a'.repeat(64) }], ['provenance', { provider: 'openai', model: 'gpt-x', model_version: '2026-01', pipeline_version: 'p1' }], ['radar', { ledger: {} }], ['physician_edit', { before_digest: 'a'.repeat(64), after_digest: 'b'.repeat(64), fields: { hda: 'Cefaleia intensa' }, fields_digest: 'b'.repeat(64) }]];
-  const c = kinds.map(([kind, payload], i) => ({ seq: i + 1, kind, payload, parent_digest: i ? 'r' + i : '0'.repeat(64), record_digest: 'r' + (i + 1) })); return over.mut ? over.mut(c) : c; };
-const att = (c) => ({ valid: true, records: c.length, head: c[c.length - 1].record_digest });
+  const original = kinds.map(([kind, payload], i) => ({ seq: i + 1, kind, payload }));
+  const rows = over.mut ? over.mut(original) : original;
+  return signSyntheticChain(rows.map(({ seq, kind, payload }) => [kind, payload, undefined, seq]),
+    { ownerId: OWNER, encounterId: ENC }); };
+const att = c => syntheticAttestation(c, { ownerId: OWNER, encounterId: ENC });
 const plan = (o = {}) => { const chain = o.chain || mkChain(); return planEncounterExport({ ownerId: OWNER, encounterId: ENC, chain, serverAttestation: o.att === undefined ? att(chain) : o.att, rights: o.rights === undefined ? rights() : o.rights, coreReview: o.coreReview, salt: SALT, now: NOW }); };
 test('eligible only with valid rights, attested chain, no PII; identity is pseudonymized', () => {
   const p = plan(); assert.equal(p.eligible, true); assert.equal(p.records.length, 5 - 1 + 0 + 0 - 0, 'provenance is not a data stream'); 
@@ -15,10 +19,10 @@ test('NOTHING from a provider is a training label; promotion needs an explicit n
   const p = plan(); for (const r of p.records) { assert.equal(r.training_label, false); assert.equal(r.training_ready, false, r.kind + ' is not training-ready by default'); }
   assert.ok(p.records.filter(r => r.kind === 'transcript_final' || r.kind === 'clinical_fields' || r.kind === 'radar').every(r => r.machine_generated === true && r.label_status === 'machine_generated'));
   const edit = p.records.find(r => r.kind === 'physician_edit'); assert.equal(edit.label_status, 'physician_corrected'); assert.equal(edit.training_ready, false, 'a physician correction alone is not a Core review');
-  const reviewed = plan({ coreReview: [{ record_digest: 'r2', reviewer: 'Revisor Core (sintético)', decision: 'approved_for_training' }, { record_digest: 'r1', reviewer: 'x', decision: 'approved_for_training' }, { record_digest: 'r3', reviewer: 'Revisor Core', decision: 'rejected' }] });
-  assert.deepEqual(reviewed.records.filter(r => r.training_ready).map(r => r.record_digest), ['r2'], 'only the exact reviewed digest with a named reviewer and an approving decision');
+  const reviewed = plan({ coreReview: [{ record_digest: mkChain()[1].record_digest, reviewer: 'Revisor Core (sintético)', decision: 'approved_for_training' }, { record_digest: mkChain()[0].record_digest, reviewer: 'x', decision: 'approved_for_training' }, { record_digest: mkChain()[2].record_digest, reviewer: 'Revisor Core', decision: 'rejected' }] });
+  assert.deepEqual(reviewed.records.filter(r => r.training_ready).map(r => r.record_digest), [mkChain()[1].record_digest], 'only the exact reviewed digest with a named reviewer and an approving decision');
   assert.ok(reviewed.records.every(r => r.training_label === false), 'the planner never creates labels');
-  const noProv = plan({ chain: mkChain({ mut: c => c.map(r => r.kind === 'provenance' ? { ...r, payload: { ...r.payload, model_version: 'unreported' } } : r) }), coreReview: [{ record_digest: 'r2', reviewer: 'Revisor Core', decision: 'approved_for_training' }] });
+  const noProv = plan({ chain: mkChain({ mut: c => c.map(r => r.kind === 'provenance' ? { ...r, payload: { ...r.payload, model_version: 'unreported' } } : r) }), coreReview: [{ record_digest: mkChain()[1].record_digest, reviewer: 'Revisor Core', decision: 'approved_for_training' }] });
   assert.equal(noProv.summary.provenance_complete, false); assert.equal(noProv.records.filter(r => r.training_ready).length, 0, 'incomplete provenance blocks training readiness even after review');
 });
 test('refusals export nothing: rights, scope, expiry, revocation, de-identification, chain attestation, gaps, unknown kinds, PII', () => {
