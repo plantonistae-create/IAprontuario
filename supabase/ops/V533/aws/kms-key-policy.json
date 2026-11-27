@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Id": "nexa-audio-backup-key-policy",
+  "Statement": [
+    {
+      "Sid": "AccountRootAdmin",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<ACCOUNT_ID>:root"
+      },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EdgeUserWrapUnwrapOnly",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<ACCOUNT_ID>:user/nexa-edge-kms"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
