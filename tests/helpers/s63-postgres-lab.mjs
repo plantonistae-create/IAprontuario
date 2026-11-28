@@ -11,14 +11,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 const exec = promisify(execFile);
 export const q = value => "'" + String(value).replaceAll("'", "''") + "'";
 const env = { PATH:'/usr/bin:/bin', LANG:'C', LC_ALL:'C', TZ:'UTC' };
-const roles = {
+const baseRoles = {
   s63_a:'s63_workers', s63_b:'s63_workers', s63_issuer:'s63_issuers', s63_reviewer:'s63_reviewers',
   anon:null, authenticated:null, service_role:null,
 };
 const db = 'nexa_s63_lab';
 const port = '55463';
 
-export async function startPostgresLab() {
+export async function startPostgresLab({s64=false}={}) {
+  const roles={...baseRoles,...(s64?{s64_va:'s64_verifiers',s64_vb:'s64_verifiers'}:{})};
   const bin = await realpath('/opt/homebrew/opt/postgresql@16/bin');
   const version = (await exec(join(bin,'postgres'),['--version'],{env,timeout:5000})).stdout.trim();
   assert.match(version, /\b16\./);
@@ -132,6 +133,7 @@ export async function startPostgresLab() {
     assert.doesNotMatch(fds,/^tIPv[46]$/m);
     await sql('CREATE DATABASE ' + db + ';','postgres','postgres');
     await sql(await readFile(new URL('../../labs/nexa-s63/schema.LAB-ONLY.sql',import.meta.url),'utf8'));
+    if(s64) await sql(await readFile(new URL('../../labs/nexa-s64/release-family.LAB-ONLY.sql',import.meta.url),'utf8'));
     for (const [role,group] of Object.entries(roles)) {
       await sql('CREATE ROLE '+role+' LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD '+
         q(passwords.get(role))+';'+(group?' GRANT '+group+' TO '+role+';':''));
