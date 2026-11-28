@@ -7,7 +7,9 @@ const KEY='nexa-s71-ack-ledger-v1';
 const owner=()=>sessionStorage.getItem('nexa-s71-owner')==='B'?B:A;
 const read=()=>JSON.parse(localStorage.getItem(KEY)||'{}');
 const hash=async buffer=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buffer)),b=>b.toString(16).padStart(2,'0')).join('');
-const evidence=[];let busy=false;
+const LOG='nexa-s71-aggregate-evidence-v1';
+const evidence=JSON.parse(localStorage.getItem(LOG)||'[]');let busy=false;
+const addEvidence=value=>{evidence.push(value);localStorage.setItem(LOG,JSON.stringify(evidence))};
 window.__s71RecordAck=async(args,result)=>{
  if(![A,B].includes(args.ownerId)||!result?.readback)throw Error('S71_ACK_SCOPE');
  const digest=await hash(await args.blob.arrayBuffer());
@@ -47,12 +49,20 @@ button('Verificar cofre',async()=>{
  const snapshot={utc:new Date().toISOString(),owner:who===A?'A':'B',secureContext:isSecureContext,
   realMicrophoneAPI:!!navigator.mediaDevices?.getUserMedia,evidenceFailed:!!window.__s71EvidenceFailed,
   recording:recordState(),sessions:results};
- evidence.push(snapshot);output.textContent=JSON.stringify(snapshot,null,2);
+ addEvidence(snapshot);output.textContent=JSON.stringify(snapshot,null,2);
 });
 button('Trocar A/B e recarregar',async()=>{
  if(recordState())throw Error('Pare a gravação antes de trocar usuário');
  sessionStorage.setItem('nexa-s71-owner',owner()===A?'B':'A');
  location.reload();
+});
+button('Trocar A/B sem recarregar',async()=>{
+ if(recordState())throw Error('Pare a gravação antes de trocar usuário');
+ if(typeof window.__qa?.switchUser!=='function')throw Error('S71_FIXTURE_SWITCH_UNAVAILABLE');
+ const next=owner()===A?'B':'A';sessionStorage.setItem('nexa-s71-owner',next);
+ window.__qa.switchUser(next==='A'?A:B);
+ summary.textContent='S7.1 LAB — SOMENTE FALA FICTÍCIA · '+next;
+ output.textContent='Aguarde a interface atualizar e execute Verificar cofre / Isolamento.';
 });
 button('Isolamento negativo (B)',async()=>{
  checkOwner();if(owner()!==B)throw Error('Troque para B primeiro');
@@ -64,11 +74,11 @@ button('Isolamento negativo (B)',async()=>{
  const rows=await V.listOwned(B);
  const result={B_recovery_denied:denied,A_session_in_B_list:rows.some(x=>x.sessionId===sessionId),restoreOfferVisible:visible,
   note:'Restore offer may belong to B if B already recorded; run this negative before any B recording.'};
- evidence.push(result);output.textContent=JSON.stringify(result,null,2);
+ addEvidence(result);output.textContent=JSON.stringify(result,null,2);
 });
-button('Copiar evidência desta página',async()=>{
+button('Selecionar evidência acumulada',async()=>{
  // The existing fixture replaces navigator.clipboard: use selectable text instead of claiming OS clipboard success.
- output.textContent=JSON.stringify(evidence,null,2);
+ output.textContent=JSON.stringify({userAgent:navigator.userAgent,evidence},null,2);
  const range=document.createRange();range.selectNodeContents(output);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
 });
 document.body.append(details);
