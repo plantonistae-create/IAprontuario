@@ -7,7 +7,8 @@ export function assessClinicalAudio(input) {
     && Number.isSafeInteger(scope.sourceVersion) && scope.sourceVersion > 0;
   const matches = item => valid && item && ['ownerId','encounterId','sessionId','sourceVersion'].every(k => item[k] === scope[k]);
   const local = matches(input?.local) && input.local.encrypted === true && input.local.integrityVerified === true;
-  const complete = local && input.local.finalized === true && input.local.partial === false;
+  const complete = local && input.local.finalized === true && input.local.partial === false
+    && hash(input.local.manifestDigest);
   const remote = complete && matches(input?.remote) && input.remote.readbackVerified === true
     && hash(input.remote.manifestDigest) && input.remote.manifestDigest === input.local.manifestDigest;
   const status = !valid ? 'invalid_scope' : remote ? 'remote_verified' : complete ? 'local_verified' :

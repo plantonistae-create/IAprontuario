@@ -348,3 +348,14 @@ const cases=[
   ]
 ];
 for(const [name,input,want] of cases)test(name,()=>{const r=assessClinicalAudio(input);assert.equal(r.status,want);assert.equal(r.trainingAuthorized,false);assert.equal(r.exportAuthorized,false);assert.equal(r.purgeAuthorized,false)});
+
+test('a finalized local recording without a valid manifest remains recoverable but partial', () => {
+  const complete = cases[0][1];
+  for (const manifestDigest of [undefined,'invalid']) {
+    const result = assessClinicalAudio({ ...complete, local:{ ...complete.local,manifestDigest } });
+    assert.equal(result.status,'local_partial');
+    assert.equal(result.clinicalRecoveryCandidate,true);
+    assert.equal(result.remotePreserved,false);
+    assert.equal(result.purgeAuthorized,false);
+  }
+});

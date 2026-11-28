@@ -51,7 +51,7 @@ BEGIN
   SELECT * INTO r FROM s63.requests WHERE id=request;
   SELECT * INTO m FROM s63.materials WHERE (owner_id,encounter_id)=(r.owner_id,r.encounter_id)
     AND EXISTS (SELECT 1 FROM s63.release_routes rr WHERE rr.worker=s63.materials.worker AND rr.verifier=session_user) FOR UPDATE;
-  IF NOT FOUND OR m.head<>r.head OR r.head<>expected_head OR proof_expires IS NULL OR NOT isfinite(proof_expires) OR proof_expires<=clock_timestamp() OR proof_expires>clock_timestamp()+interval '15 seconds' THEN RETURN false; END IF;
+  IF NOT FOUND OR m.head<>r.head OR r.head IS DISTINCT FROM expected_head OR proof_expires IS NULL OR NOT isfinite(proof_expires) OR proof_expires<=clock_timestamp() OR proof_expires>clock_timestamp()+interval '15 seconds' THEN RETURN false; END IF;
   IF NOT ((r.task='asr' AND r.modality='text') OR (r.task<>'asr' AND r.modality='structured')) THEN RETURN false; END IF;
   SELECT * INTO g FROM s63.live_grant(r,clock_timestamp());
   IF (g.id,g.revision) IS DISTINCT FROM (gid,revision) THEN RETURN false; END IF;

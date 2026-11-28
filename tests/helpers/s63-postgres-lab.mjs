@@ -5,6 +5,7 @@ import { once } from 'node:events';
 import { createInterface } from 'node:readline';
 import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -34,13 +35,16 @@ export async function startPostgresLab({s64=false}={}) {
   let server;
   const clients = new Set();
 
+  const credentialEnv = role => ({...env,HOME:root,PGPASSWORD:passwords.get(role),
+    PGREQUIREAUTH:'scram-sha-256',PGCONNECT_TIMEOUT:'4',
+    PGOPTIONS:'-c statement_timeout=9000 -c lock_timeout=6000 -c standard_conforming_strings=on'});
   function launch(role, database) {
     if (!passwords.has(role) || !['postgres',db].includes(database)) throw Error('S63_LAB_LOGIN_REQUIRED');
-    const client = spawn(join(bin,'psql'),['-X','-w','-qAt','-v','ON_ERROR_STOP=1','-h',socket,'-p',port,'-d',database,'-U',role],{
-      env:{...env,HOME:root,PGPASSWORD:passwords.get(role),PGREQUIREAUTH:'scram-sha-256',PGCONNECT_TIMEOUT:'4',
-        PGOPTIONS:'-c statement_timeout=9000 -c lock_timeout=6000 -c standard_conforming_strings=on'},
-      stdio:['pipe','pipe','pipe'],
-    });
+    return track(spawn(join(bin,'psql'),['-X','-w','-qAt','-v','ON_ERROR_STOP=1','-h',socket,'-p',port,'-d',database,'-U',role],{
+      env:credentialEnv(role),stdio:['pipe','pipe','pipe'],
+    }));
+  }
+  function track(client) {
     clients.add(client);
     client.once('close',()=>clients.delete(client));
     client.stdin.on('error',()=>{});
@@ -78,6 +82,20 @@ export async function startPostgresLab({s64=false}={}) {
       client.stdin.end(commit ? 'COMMIT;\n' : 'ROLLBACK;\n');
       await exited;
     };
+  }
+
+  async function runS64Process(role, input) {
+    if (!s64 || !['s63_a','s63_b','s64_va','s64_vb'].includes(role)) throw Error('S64_LAB_LOGIN_REQUIRED');
+    const worker = fileURLToPath(new URL('./s64-release-process.mjs',import.meta.url));
+    const {client,exited} = track(spawn(process.execPath,[worker],{
+      env:{...credentialEnv(role),PGHOST:socket,PGPORT:port,PGDATABASE:db,PGUSER:role,NEXA_S64_PSQL:join(bin,'psql')},
+      stdio:['pipe','pipe','pipe'],
+    }));
+    const output = [];
+    client.stdout.on('data',bytes=>output.push(bytes));
+    client.stdin.end(JSON.stringify(input));
+    await exited;
+    return JSON.parse(Buffer.concat(output).toString('utf8'));
   }
 
   async function dispose() {
@@ -138,7 +156,7 @@ export async function startPostgresLab({s64=false}={}) {
       await sql('CREATE ROLE '+role+' LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD '+
         q(passwords.get(role))+';'+(group?' GRANT '+group+' TO '+role+';':''));
     }
-    return {sql,holdTransaction,dispose,version,pid:server.pid};
+    return {sql,holdTransaction,runS64Process,dispose,version,pid:server.pid};
   } catch (error) {
     await dispose();
     throw error;
